@@ -43,6 +43,7 @@ mixin _AlarmTaskCandidatesOps on _AlarmRepositoryBase {
             preset: AlarmPreset.notification.id,
             kind: 'reminder',
             title: title,
+            allDay: mins == null,
           ),
         );
       }
@@ -56,6 +57,7 @@ mixin _AlarmTaskCandidatesOps on _AlarmRepositoryBase {
             preset: preset.id,
             kind: 'alarm',
             title: title,
+            allDay: mins == null,
           ),
         );
       }
@@ -99,6 +101,7 @@ mixin _AlarmTaskCandidatesOps on _AlarmRepositoryBase {
           preset: AlarmPreset.notification.id,
           kind: 'reminder',
           title: 'Due tomorrow: $title',
+          allDay: mins == null,
         ),
       );
     }

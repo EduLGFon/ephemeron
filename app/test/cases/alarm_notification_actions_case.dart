@@ -67,7 +67,7 @@ void main() {
     final schedule = calls.where((c) => c.method == 'schedule').last;
     expect(schedule.arguments['sourceType'], 'habit_reminder');
     expect(schedule.arguments['sourceId'], 'h1@2026-01-02');
-    expect(schedule.arguments['title'], 'Drink water');
+    expect(schedule.arguments['title'], startsWith('Drink water'));
   });
 
   test('completing a task cancels pending task alarms', () async {

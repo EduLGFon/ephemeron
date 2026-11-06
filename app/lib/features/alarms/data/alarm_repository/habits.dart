@@ -29,6 +29,7 @@ mixin _AlarmHabitCandidatesOps on _AlarmRepositoryBase {
             preset: AlarmPreset.notification.id,
             kind: 'reminder',
             title: title,
+            allDay: false,
           ),
         );
         final preset = parseAlarmPreset(h.alarmPreset);
@@ -41,6 +42,7 @@ mixin _AlarmHabitCandidatesOps on _AlarmRepositoryBase {
               preset: preset.id,
               kind: 'alarm',
               title: title,
+              allDay: false,
             ),
           );
         }

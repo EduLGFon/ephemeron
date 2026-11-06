@@ -28,6 +28,23 @@ mixin _AlarmRebuildOps
     await _db.transaction(() async {
       await _db.delete(_db.alarmsIndex).go();
       for (final p in planned) {
+        final base = p.title.isEmpty ? p.sourceId : p.title;
+        final decorated = (p.sourceType == 'task_due_tomorrow')
+            ? (p.allDay
+                  ? base
+                  : decorateAlarmTitle(
+                      base,
+                      p.fireAtUtcMs,
+                      nowUtcMs: now,
+                      allDay: false,
+                      includeDayLabel: false,
+                    ))
+            : decorateAlarmTitle(
+                base,
+                p.fireAtUtcMs,
+                nowUtcMs: now,
+                allDay: p.allDay,
+              );
         await _db
             .into(_db.alarmsIndex)
             .insert(
@@ -40,7 +57,7 @@ mixin _AlarmRebuildOps
                 requestCode: Value(p.requestCode),
                 state: const Value('scheduled'),
                 kind: Value(p.kind),
-                title: Value(p.title.isEmpty ? p.sourceId : p.title),
+                title: Value(decorated),
                 preset: Value(p.preset),
               ),
             );
@@ -49,7 +66,7 @@ mixin _AlarmRebuildOps
           await AlarmScheduler.scheduleReminder(
             requestCode: p.requestCode,
             fireAtUtcMs: p.fireAtUtcMs,
-            title: p.title.isEmpty ? p.sourceId : p.title,
+            title: decorated,
             sourceType: p.sourceType,
             sourceId: p.sourceId,
           );
@@ -58,7 +75,7 @@ mixin _AlarmRebuildOps
             requestCode: p.requestCode,
             fireAtUtcMs: p.fireAtUtcMs,
             preset: preset,
-            title: p.title.isEmpty ? p.sourceId : p.title,
+            title: decorated,
             sourceType: p.sourceType,
             sourceId: p.sourceId,
           );
