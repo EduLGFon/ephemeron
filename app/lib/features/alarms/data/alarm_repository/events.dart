@@ -37,6 +37,7 @@ mixin _AlarmEventCandidatesOps on _AlarmRepositoryBase {
             preset: AlarmPreset.notification.id,
             kind: 'reminder',
             title: title,
+            allDay: e.isAllDay,
           ),
         );
       }
@@ -50,6 +51,7 @@ mixin _AlarmEventCandidatesOps on _AlarmRepositoryBase {
             preset: preset.id,
             kind: 'alarm',
             title: title,
+            allDay: e.isAllDay,
           ),
         );
       }

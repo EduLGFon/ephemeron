@@ -77,7 +77,12 @@ mixin _AlarmManagementOps on _AlarmRepositoryBase {
       requestCode: requestCode,
       fireAtUtcMs: fireAt,
       useAlarmClock: false,
-      title: row?.title ?? 'Snoozed alarm',
+      title: decorateAlarmTitle(
+        stripAlarmTitleSuffix(row?.title ?? 'Snoozed alarm'),
+        fireAt,
+        nowUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+        allDay: false,
+      ),
       body: '',
       preset: row?.preset ?? AlarmPreset.notification.id,
       sourceType: row?.sourceType,

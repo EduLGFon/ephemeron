@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'cases/alarm_migration_v4v5_case.dart' as alarm_migration_v4v5;
 import 'cases/alarm_notification_actions_case.dart' as alarm_notification_actions;
 import 'cases/alarm_repository_case.dart' as alarm_repository;
+import 'cases/alarm_title_case.dart' as alarm_title;
 import 'cases/alarm_window_case.dart' as alarm_window;
 import 'cases/app_lock_case.dart' as app_lock;
 import 'cases/auth_screen_case.dart' as auth_screen;
@@ -95,6 +96,7 @@ const _included = <String>{
   'alarm_migration_v4v5_case.dart',
   'alarm_notification_actions_case.dart',
   'alarm_repository_case.dart',
+  'alarm_title_case.dart',
   'alarm_window_case.dart',
   'app_lock_case.dart',
   'auth_screen_case.dart',
@@ -187,6 +189,7 @@ void main() {
   group('alarm_migration_v4v5', alarm_migration_v4v5.main);
   group('alarm_notification_actions', alarm_notification_actions.main);
   group('alarm_repository', alarm_repository.main);
+  group('alarm_title', alarm_title.main);
   group('alarm_window', alarm_window.main);
   group('app_lock', app_lock.main);
   group('auth_screen', auth_screen.main);

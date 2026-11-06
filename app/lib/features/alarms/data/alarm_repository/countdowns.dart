@@ -44,6 +44,7 @@ mixin _AlarmCountdownCandidatesOps on _AlarmRepositoryBase {
             preset: AlarmPreset.notification.id,
             kind: 'reminder',
             title: title,
+            allDay: false,
           ),
         );
       }
@@ -57,6 +58,7 @@ mixin _AlarmCountdownCandidatesOps on _AlarmRepositoryBase {
             preset: preset.id,
             kind: 'alarm',
             title: title,
+            allDay: false,
           ),
         );
       } else if (preset == AlarmPreset.notification) {
