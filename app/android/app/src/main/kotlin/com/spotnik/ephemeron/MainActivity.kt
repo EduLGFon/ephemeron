@@ -144,6 +144,7 @@ class MainActivity : FlutterFragmentActivity() {
                     val title = call.argument<String>("title") ?: "Focus session"
                     val startUtc = call.argument<Number>("startUtcMs")?.toLong()
                         ?: System.currentTimeMillis()
+                    val targetUtc = call.argument<Number>("targetUtcMs")?.toLong()
                     AlarmPlugin.notifyChannels(this)
                     val nm = getSystemService(Context.NOTIFICATION_SERVICE)
                         as NotificationManager
@@ -153,17 +154,22 @@ class MainActivity : FlutterFragmentActivity() {
                         android.app.PendingIntent.FLAG_UPDATE_CURRENT or
                             android.app.PendingIntent.FLAG_IMMUTABLE,
                     )
-                    val notification = NotificationCompat.Builder(this, "focus_ongoing")
+                    val builder = NotificationCompat.Builder(this, "focus_ongoing")
                         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                         .setContentTitle(title)
                         .setContentText("Focusing")
                         .setOngoing(true)
                         .setShowWhen(true)
                         .setUsesChronometer(true)
-                        .setWhen(startUtc)
                         .setContentIntent(contentIntent)
-                        .build()
-                    nm.notify(900001, notification)
+                    if (targetUtc != null && Build.VERSION.SDK_INT >= 24) {
+                        // OS-rendered countdown to target; no per-second wakeups.
+                        builder.setWhen(targetUtc)
+                        builder.setChronometerCountDown(true)
+                    } else {
+                        builder.setWhen(startUtc)
+                    }
+                    nm.notify(900001, builder.build())
                     result.success(null)
                 }
                 "stopFocusChronometer" -> {

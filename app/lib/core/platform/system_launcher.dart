@@ -92,15 +92,20 @@ class SystemLauncher {
 
   /// Shows an OS-rendered chronometer notification while focus runs.
   /// No per-second Dart wakeups; the OS renders the ticking clock.
+  /// [targetUtcMs], when provided, makes the OS render a countdown to that
+  /// timestamp (native chronometer, no per-second Dart wakeups). When null,
+  /// the chronometer counts up from [startUtcMs].
   static Future<void> startFocusChronometer(
     String title,
-    int startUtcMs,
-  ) async {
+    int startUtcMs, {
+    int? targetUtcMs,
+  }) async {
     if (defaultTargetPlatform != TargetPlatform.android) return;
     try {
       await _channel.invokeMethod<void>('startFocusChronometer', {
         'title': title,
         'startUtcMs': startUtcMs,
+        'targetUtcMs': ?targetUtcMs,
       });
     } catch (_) {}
   }
