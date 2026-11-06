@@ -88,41 +88,51 @@ class _GuardedDialogRoute<T> extends DialogRoute<T> {
   final Future<bool> Function()? onSave;
   final void Function()? onDiscard;
 
-  bool _confirmed = false;
   bool _prompting = false;
+  bool _confirmed = false;
+
+  BuildContext? promptContext;
+
+  Future<void> _attemptClose(T? result) async {
+    if (_confirmed || !isDirty()) return;
+    if (_prompting) return;
+    _prompting = true;
+    final ctx = promptContext;
+    final nav = navigator;
+    if (ctx == null || !ctx.mounted || nav == null) {
+      _prompting = false;
+      return;
+    }
+    // A prompt dismissed via system-back returns null -> treated as Cancel.
+    final choice = await showDirtyChoiceDialog(ctx, canSave: onSave != null);
+    if (!ctx.mounted) {
+      _prompting = false;
+      return;
+    }
+    if (choice == DirtyChoice.discard) {
+      onDiscard?.call();
+      _confirmed = true;
+      nav.pop(result);
+    } else if (choice == DirtyChoice.save && onSave != null) {
+      final ok = await onSave!();
+      if (ok && ctx.mounted) {
+        _confirmed = true;
+        nav.pop(result);
+      }
+    }
+    _prompting = false;
+  }
 
   @override
   bool didPop(T? result) {
     if (_confirmed || !isDirty()) {
       return super.didPop(result);
     }
-    if (_prompting) return false;
-    _prompting = true;
-    final nav = navigator;
-    final ctx = nav?.context;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (ctx == null || !ctx.mounted) {
-        _prompting = false;
-        return;
-      }
-      final choice = await showDirtyChoiceDialog(ctx, canSave: onSave != null);
-      if (!ctx.mounted) {
-        _prompting = false;
-        return;
-      }
-      if (choice == DirtyChoice.discard) {
-        onDiscard?.call();
-        _confirmed = true;
-        nav?.pop(result);
-      } else if (choice == DirtyChoice.save && onSave != null) {
-        final ok = await onSave!();
-        if (ok && ctx.mounted) {
-          _confirmed = true;
-          nav?.pop(result);
-        }
-      }
-      _prompting = false;
-    });
+    if (!_prompting) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _attemptClose(result),
+      );
+    }
     return false;
   }
 }
@@ -166,36 +176,28 @@ Future<T?> showGuardedDialog<T>(
   );
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
 
-  final route = _GuardedDialogRoute<T>(
+  late final _GuardedDialogRoute<T> route;
+  route = _GuardedDialogRoute<T>(
     context: context,
-    builder: (dialogContext) => AnimatedBuilder(
-      animation: controller,
-      builder: (_, child) => PopScope(
-        canPop: !controller.dirty,
-        onPopInvokedWithResult: (didPop, _) async {
-          if (didPop) return;
-          final choice = await showDirtyChoiceDialog(
-            dialogContext,
-            canSave: controller.onSave != null,
-          );
-          if (!dialogContext.mounted) return;
-          if (choice == DirtyChoice.discard) {
-            controller.markClean();
-            Navigator.of(dialogContext).pop();
-          } else if (choice == DirtyChoice.save) {
-            final ok = await controller.save();
-            if (ok && dialogContext.mounted) {
-              controller.markClean();
-              Navigator.of(dialogContext).pop();
-            }
-          }
-        },
-        child: DirtyGuard(
-          controller: controller,
-          child: builder(dialogContext),
+    builder: (dialogContext) {
+      route.promptContext = dialogContext;
+      return AnimatedBuilder(
+        animation: controller,
+        builder: (_, child) => PopScope(
+          canPop: !controller.dirty,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (route._prompting || route._confirmed) return;
+            // ignore: discarded_futures
+            route._attemptClose(null);
+          },
+          child: DirtyGuard(
+            controller: controller,
+            child: builder(dialogContext),
+          ),
         ),
-      ),
-    ),
+      );
+    },
     barrierColor:
         barrierColor ??
         DialogTheme.of(context).barrierColor ??

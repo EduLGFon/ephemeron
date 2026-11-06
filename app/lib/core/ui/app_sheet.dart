@@ -41,41 +41,54 @@ class _GuardedModalBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
   final Future<bool> Function()? onSave;
   final void Function()? onDiscard;
 
-  bool _confirmed = false;
+  // Shared escape state for BOTH didPop and PopScope paths so only one prompt
+  // can be shown at a time and a confirmed discard/save force-pops cleanly.
   bool _prompting = false;
+  bool _confirmed = false;
+
+  BuildContext? promptContext;
+
+  Future<void> _attemptClose(T? result) async {
+    if (_confirmed || !isDirty()) return;
+    if (_prompting) return;
+    _prompting = true;
+    final ctx = promptContext;
+    final nav = navigator;
+    if (ctx == null || !ctx.mounted || nav == null) {
+      _prompting = false;
+      return;
+    }
+    // A prompt dismissed via system-back returns null -> treated as Cancel.
+    final choice = await showDirtyChoiceDialog(ctx, canSave: onSave != null);
+    if (!ctx.mounted) {
+      _prompting = false;
+      return;
+    }
+    if (choice == DirtyChoice.discard) {
+      onDiscard?.call();
+      _confirmed = true;
+      nav.pop(result);
+    } else if (choice == DirtyChoice.save && onSave != null) {
+      final ok = await onSave!();
+      if (ok && ctx.mounted) {
+        _confirmed = true;
+        nav.pop(result);
+      }
+    }
+    // cancel or null: do nothing, sheet stays open.
+    _prompting = false;
+  }
 
   @override
   bool didPop(T? result) {
     if (_confirmed || !isDirty()) {
       return super.didPop(result);
     }
-    if (_prompting) return false;
-    _prompting = true;
-    final nav = navigator;
-    final ctx = nav?.context;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (ctx == null || !ctx.mounted) {
-        _prompting = false;
-        return;
-      }
-      final choice = await showDirtyChoiceDialog(ctx, canSave: onSave != null);
-      if (!ctx.mounted) {
-        _prompting = false;
-        return;
-      }
-      if (choice == DirtyChoice.discard) {
-        onDiscard?.call();
-        _confirmed = true;
-        nav?.pop(result);
-      } else if (choice == DirtyChoice.save && onSave != null) {
-        final ok = await onSave!();
-        if (ok && ctx.mounted) {
-          _confirmed = true;
-          nav?.pop(result);
-        }
-      }
-      _prompting = false;
-    });
+    if (!_prompting) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _attemptClose(result),
+      );
+    }
     return false;
   }
 }
@@ -99,7 +112,7 @@ Future<T?> showGuardedAppSheet<T>(
   bool useRootNavigator = false,
   bool isDismissible = true,
   bool enableDrag = true,
-  bool? showDragHandle,
+  bool showDragHandle = true,
   bool useSafeArea = true,
   RouteSettings? routeSettings,
   AnimationController? transitionAnimationController,
@@ -132,29 +145,19 @@ Future<T?> showGuardedAppSheet<T>(
     to: navigator.context,
   );
 
-  return navigator.push<T>(
-    _GuardedModalBottomSheetRoute<T>(
-      builder: (sheetContext) => AnimatedBuilder(
+  late final _GuardedModalBottomSheetRoute<T> route;
+  route = _GuardedModalBottomSheetRoute<T>(
+    builder: (sheetContext) {
+      route.promptContext = sheetContext;
+      return AnimatedBuilder(
         animation: controller,
         builder: (_, child) => PopScope(
           canPop: !controller.dirty,
-          onPopInvokedWithResult: (didPop, _) async {
+          onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
-            final choice = await showDirtyChoiceDialog(
-              sheetContext,
-              canSave: controller.onSave != null,
-            );
-            if (!sheetContext.mounted) return;
-            if (choice == DirtyChoice.discard) {
-              controller.markClean();
-              Navigator.of(sheetContext).pop();
-            } else if (choice == DirtyChoice.save) {
-              final ok = await controller.save();
-              if (ok && sheetContext.mounted) {
-                controller.markClean();
-                Navigator.of(sheetContext).pop();
-              }
-            }
+            if (route._prompting || route._confirmed) return;
+            // ignore: discarded_futures
+            route._attemptClose(null);
           },
           child: child!,
         ),
@@ -170,39 +173,41 @@ Future<T?> showGuardedAppSheet<T>(
             ),
           ),
         ),
-      ),
-      capturedThemes: capturedThemes,
-      isScrollControlled: isScrollControlled,
-      scrollControlDisabledMaxHeightRatio: scrollControlDisabledMaxHeightRatio,
-      barrierLabel: barrierLabel ?? localizations.scrimLabel,
-      barrierOnTapHint: localizations.scrimOnTapHint(
-        localizations.bottomSheetLabel,
-      ),
-      backgroundColor: backgroundColor,
-      elevation: elevation,
-      shape:
-          shape ??
-          const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-      clipBehavior: clipBehavior ?? Clip.antiAlias,
-      constraints: constraints ?? const BoxConstraints(maxWidth: 640),
-      isDismissible: isDismissible,
-      modalBarrierColor:
-          barrierColor ?? Theme.of(context).bottomSheetTheme.modalBarrierColor,
-      enableDrag: enableDrag,
-      showDragHandle: showDragHandle,
-      settings: routeSettings,
-      transitionAnimationController: transitionAnimationController,
-      anchorPoint: anchorPoint,
-      useSafeArea: useSafeArea,
-      sheetAnimationStyle: sheetAnimationStyle,
-      requestFocus: requestFocus,
-      isDirty: dirtyFn,
-      onSave: controller.onSave == null ? null : saveFn,
-      onDiscard: discardFn,
+      );
+    },
+    capturedThemes: capturedThemes,
+    isScrollControlled: isScrollControlled,
+    scrollControlDisabledMaxHeightRatio: scrollControlDisabledMaxHeightRatio,
+    barrierLabel: barrierLabel ?? localizations.scrimLabel,
+    barrierOnTapHint: localizations.scrimOnTapHint(
+      localizations.bottomSheetLabel,
     ),
+    backgroundColor: backgroundColor,
+    elevation: elevation,
+    shape:
+        shape ??
+        const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+    clipBehavior: clipBehavior ?? Clip.antiAlias,
+    constraints: constraints ?? const BoxConstraints(maxWidth: 640),
+    isDismissible: isDismissible,
+    modalBarrierColor:
+        barrierColor ?? Theme.of(context).bottomSheetTheme.modalBarrierColor,
+    enableDrag: enableDrag,
+    showDragHandle: showDragHandle,
+    settings: routeSettings,
+    transitionAnimationController: transitionAnimationController,
+    anchorPoint: anchorPoint,
+    useSafeArea: useSafeArea,
+    sheetAnimationStyle: sheetAnimationStyle,
+    requestFocus: requestFocus,
+    isDirty: dirtyFn,
+    onSave: controller.onSave == null ? null : saveFn,
+    onDiscard: discardFn,
   );
+
+  return navigator.push<T>(route);
 }
 
 Future<T?> showAppSheet<T>(

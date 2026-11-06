@@ -78,19 +78,3 @@ Future<DirtyChoice?> showDirtyChoiceDialog(
     ),
   );
 }
-
-class DirtyGuardRegion extends StatelessWidget {
-  const DirtyGuardRegion({
-    super.key,
-    required this.controller,
-    required this.child,
-  });
-
-  final DirtyGuardController controller;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DirtyGuard(controller: controller, child: child);
-  }
-}
