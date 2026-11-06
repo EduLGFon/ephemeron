@@ -23,6 +23,7 @@ import 'cases/calendar_swipe_case.dart' as calendar_swipe;
 import 'cases/calendar_week_nav_case.dart' as calendar_week_nav;
 import 'cases/countdowns_screen_case.dart' as countdowns_screen;
 import 'cases/db_case.dart' as db;
+import 'cases/dirty_guard_case.dart' as dirty_guard;
 import 'cases/event_rsvp_case.dart' as event_rsvp;
 import 'cases/event_scope_case.dart' as event_scope;
 import 'cases/event_source_case.dart' as event_source;
@@ -108,6 +109,7 @@ const _included = <String>{
   'calendar_week_nav_case.dart',
   'countdowns_screen_case.dart',
   'db_case.dart',
+  'dirty_guard_case.dart',
   'event_rsvp_case.dart',
   'event_scope_case.dart',
   'event_source_case.dart',
@@ -200,6 +202,7 @@ void main() {
   group('calendar_week_nav', calendar_week_nav.main);
   group('countdowns_screen', countdowns_screen.main);
   group('db', db.main);
+  group('dirty_guard', dirty_guard.main);
   group('event_rsvp', event_rsvp.main);
   group('event_scope', event_scope.main);
   group('event_source', event_source.main);
