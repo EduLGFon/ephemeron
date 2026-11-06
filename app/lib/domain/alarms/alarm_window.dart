@@ -12,6 +12,7 @@ class AlarmCandidate {
     required this.preset,
     this.kind = 'alarm',
     this.title = '',
+    this.allDay = false,
   });
 
   final String sourceType;
@@ -20,6 +21,7 @@ class AlarmCandidate {
   final String preset;
   final String kind;
   final String title;
+  final bool allDay;
 }
 
 class PlannedAlarm {
@@ -31,6 +33,7 @@ class PlannedAlarm {
     required this.requestCode,
     this.kind = 'alarm',
     this.title = '',
+    this.allDay = false,
   });
 
   final String sourceType;
@@ -40,6 +43,7 @@ class PlannedAlarm {
   final int requestCode;
   final String kind;
   final String title;
+  final bool allDay;
 }
 
 /// Returns registrations ordered by fire time, capped at [maxFuture].
@@ -68,6 +72,7 @@ List<PlannedAlarm> planAlarmWindow(
         requestCode: 100000 + i,
         kind: picked[i].kind,
         title: picked[i].title,
+        allDay: picked[i].allDay,
       ),
   ];
 }

@@ -36,7 +36,7 @@ void main() {
     await tester.tap(find.text('Finish'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.text('Skip'));
+    await tester.tap(find.text('Stop'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(await repo.currentSession(), isNull);

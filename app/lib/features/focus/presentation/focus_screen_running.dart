@@ -11,15 +11,19 @@ class _RunningView extends ConsumerStatefulWidget {
 
 class _RunningViewState extends ConsumerState<_RunningView> {
   Timer? _ticker;
+  Timer? _noteDebounce;
   final ValueNotifier<int> _now = ValueNotifier<int>(
     DateTime.now().toUtc().millisecondsSinceEpoch,
   );
+  final TextEditingController _noteController = TextEditingController();
   bool _completionNotified = false;
   bool _handlingPendingNext = false;
 
   @override
   void initState() {
     super.initState();
+    _noteController.text = widget.session.note ?? '';
+    _noteController.addListener(_onNoteChanged);
     WakelockPlus.enable();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) _now.value = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -28,10 +32,33 @@ class _RunningViewState extends ConsumerState<_RunningView> {
 
   @override
   void dispose() {
+    _noteDebounce?.cancel();
+    _flushNote();
+    _noteController.removeListener(_onNoteChanged);
+    _noteController.dispose();
     _ticker?.cancel();
     _now.dispose();
     WakelockPlus.disable();
     super.dispose();
+  }
+
+  void _onNoteChanged() {
+    _noteDebounce?.cancel();
+    _noteDebounce = Timer(const Duration(milliseconds: 400), _flushNote);
+  }
+
+  Future<void> _flushNote() async {
+    _noteDebounce?.cancel();
+    try {
+      await ref
+          .read(focusRepositoryProvider)
+          .updateNote(
+            widget.session.id,
+            _noteController.text.trim().isEmpty
+                ? null
+                : _noteController.text.trim(),
+          );
+    } catch (_) {}
   }
 
   @override
@@ -73,10 +100,9 @@ class _RunningViewState extends ConsumerState<_RunningView> {
           });
         }
         final elapsed = _formatElapsed(elapsedMs);
-        final remaining = finished
-            ? '00:00'
-            : '${(remainingMs ~/ msPerMinute).toString().padLeft(2, '0')}:${((remainingMs % msPerMinute) ~/ 1000).toString().padLeft(2, '0')}';
-        final display = isStopwatch ? elapsed : remaining;
+        final display = isStopwatch
+            ? elapsed
+            : formatFocusCountdown(remainingMs);
         final isBreak = widget.session.phase == 'break';
         final nextLabel = isBreak ? 'Start focus' : 'Start break';
         return Padding(
@@ -132,6 +158,16 @@ class _RunningViewState extends ConsumerState<_RunningView> {
                 child: Text(
                   '${widget.session.phase ?? 'focus'} - $elapsedMin min elapsed',
                 ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  border: OutlineInputBorder(),
+                ),
+                minLines: 1,
+                maxLines: 4,
               ),
               const SizedBox(height: 24),
               FilledButton.icon(

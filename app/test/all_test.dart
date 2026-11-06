@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'cases/alarm_migration_v4v5_case.dart' as alarm_migration_v4v5;
 import 'cases/alarm_notification_actions_case.dart' as alarm_notification_actions;
 import 'cases/alarm_repository_case.dart' as alarm_repository;
+import 'cases/alarm_title_case.dart' as alarm_title;
 import 'cases/alarm_window_case.dart' as alarm_window;
 import 'cases/app_lock_case.dart' as app_lock;
 import 'cases/auth_screen_case.dart' as auth_screen;
@@ -28,6 +29,7 @@ import 'cases/event_rsvp_case.dart' as event_rsvp;
 import 'cases/event_scope_case.dart' as event_scope;
 import 'cases/event_source_case.dart' as event_source;
 import 'cases/focus_breaks_metrics_case.dart' as focus_breaks_metrics;
+import 'cases/focus_overtime_case.dart' as focus_overtime;
 import 'cases/focus_screen_case.dart' as focus_screen;
 import 'cases/focus_stopwatch_case.dart' as focus_stopwatch;
 import 'cases/habit_calendar_repository_case.dart' as habit_calendar_repository;
@@ -96,6 +98,7 @@ const _included = <String>{
   'alarm_migration_v4v5_case.dart',
   'alarm_notification_actions_case.dart',
   'alarm_repository_case.dart',
+  'alarm_title_case.dart',
   'alarm_window_case.dart',
   'app_lock_case.dart',
   'auth_screen_case.dart',
@@ -114,6 +117,7 @@ const _included = <String>{
   'event_scope_case.dart',
   'event_source_case.dart',
   'focus_breaks_metrics_case.dart',
+  'focus_overtime_case.dart',
   'focus_screen_case.dart',
   'focus_stopwatch_case.dart',
   'habit_calendar_repository_case.dart',
@@ -189,6 +193,7 @@ void main() {
   group('alarm_migration_v4v5', alarm_migration_v4v5.main);
   group('alarm_notification_actions', alarm_notification_actions.main);
   group('alarm_repository', alarm_repository.main);
+  group('alarm_title', alarm_title.main);
   group('alarm_window', alarm_window.main);
   group('app_lock', app_lock.main);
   group('auth_screen', auth_screen.main);
@@ -207,6 +212,7 @@ void main() {
   group('event_scope', event_scope.main);
   group('event_source', event_source.main);
   group('focus_breaks_metrics', focus_breaks_metrics.main);
+  group('focus_overtime', focus_overtime.main);
   group('focus_screen', focus_screen.main);
   group('focus_stopwatch', focus_stopwatch.main);
   group('habit_calendar_repository', habit_calendar_repository.main);
