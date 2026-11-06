@@ -102,6 +102,17 @@ class FocusRepository {
     return ((end - s.startUtc) / msPerMinute).floor().clamp(0, 1 << 30);
   }
 
+  /// Updates the note for a session (autosave while running). No-op on
+  /// missing rows. Does not change endUtc.
+  Future<void> updateNote(String id, String? note) async {
+    await (_db.update(_db.focusSessions)..where((f) => f.id.equals(id))).write(
+      FocusSessionsCompanion(
+        note: note == null ? const Value.absent() : Value(note),
+        updatedAt: Value(_now()),
+      ),
+    );
+  }
+
   /// Deletes a session without credit (discard).
   Future<void> deleteSession(String id) async {
     await (_db.delete(_db.focusSessions)..where((f) => f.id.equals(id))).go();

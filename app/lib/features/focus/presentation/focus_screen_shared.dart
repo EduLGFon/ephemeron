@@ -27,31 +27,17 @@ Future<void> _creditHabit(
   );
 }
 
-Future<String?> _askNote(BuildContext context) async {
-  // Not disposed: disposal would race the dialog pop transition, which
-  // rebuilds the text field for a few frames after pop.
-  final controller = TextEditingController();
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Session note (optional)'),
-      content: TextField(
-        controller: controller,
-        decoration: const InputDecoration(labelText: 'Note'),
-        autofocus: true,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Skip'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-          child: const Text('Save'),
-        ),
-      ],
-    ),
-  );
+String formatFocusCountdown(int ms) {
+  final negative = ms < 0;
+  final absMs = negative ? -ms : ms;
+  final totalSec = absMs ~/ 1000;
+  final h = totalSec ~/ 3600;
+  final m = (totalSec % 3600) ~/ 60;
+  final sec = totalSec % 60;
+  final mm = m.toString().padLeft(2, '0');
+  final ss = sec.toString().padLeft(2, '0');
+  final body = h > 0 ? '${h.toString().padLeft(2, '0')}:$mm:$ss' : '$mm:$ss';
+  return negative ? '-$body' : body;
 }
 
 String _formatElapsed(int elapsedMs) {

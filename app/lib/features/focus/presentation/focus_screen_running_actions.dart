@@ -34,10 +34,15 @@ extension _RunningViewActions on _RunningViewState {
   }
 
   Future<int?> _completeSession(WidgetRef ref) async {
-    final repo = ref.read(focusRepositoryProvider);
-    final note = await _askNote(context);
+    await _flushNote();
     if (!mounted) return null;
-    final kept = await repo.finishSession(widget.session.id, note: note);
+    final repo = ref.read(focusRepositoryProvider);
+    final kept = await repo.finishSession(
+      widget.session.id,
+      note: _noteController.text.trim().isEmpty
+          ? null
+          : _noteController.text.trim(),
+    );
     await AlarmScheduler.cancel(_requestCode(widget.session.id));
     await SystemLauncher.stopFocusChronometer();
     try {
@@ -56,6 +61,24 @@ extension _RunningViewActions on _RunningViewState {
     WidgetRef ref,
     int elapsedMin,
   ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Stop session?'),
+        content: const Text('Are you alright to stop?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Stop'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
     await _completeSession(ref);
     _refresh(ref);
   }
@@ -120,6 +143,7 @@ extension _RunningViewActions on _RunningViewState {
       await SystemLauncher.startFocusChronometer(
         '$phase session',
         session.startUtc,
+        targetUtcMs: session.targetEndUtc,
       );
       try {
         final settings = await ref.read(settingsRepositoryProvider.future);
