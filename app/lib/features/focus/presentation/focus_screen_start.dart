@@ -258,6 +258,7 @@ class _StartViewState extends ConsumerState<_StartView> {
       await SystemLauncher.startFocusChronometer(
         '${session.phase ?? 'focus'} session',
         session.startUtc,
+        targetUtcMs: session.targetEndUtc,
       );
       try {
         final settings = await ref.read(settingsRepositoryProvider.future);

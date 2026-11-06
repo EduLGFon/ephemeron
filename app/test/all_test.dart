@@ -8,7 +8,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'cases/alarm_migration_v4v5_case.dart' as alarm_migration_v4v5;
-import 'cases/alarm_notification_actions_case.dart' as alarm_notification_actions;
+import 'cases/alarm_notification_actions_case.dart'
+    as alarm_notification_actions;
 import 'cases/alarm_repository_case.dart' as alarm_repository;
 import 'cases/alarm_title_case.dart' as alarm_title;
 import 'cases/alarm_window_case.dart' as alarm_window;
@@ -28,6 +29,7 @@ import 'cases/event_rsvp_case.dart' as event_rsvp;
 import 'cases/event_scope_case.dart' as event_scope;
 import 'cases/event_source_case.dart' as event_source;
 import 'cases/focus_breaks_metrics_case.dart' as focus_breaks_metrics;
+import 'cases/focus_overtime_case.dart' as focus_overtime;
 import 'cases/focus_screen_case.dart' as focus_screen;
 import 'cases/focus_stopwatch_case.dart' as focus_stopwatch;
 import 'cases/habit_calendar_repository_case.dart' as habit_calendar_repository;
@@ -43,14 +45,16 @@ import 'cases/home_widget_binder_case.dart' as home_widget_binder;
 import 'cases/home_widget_callback_case.dart' as home_widget_callback;
 import 'cases/home_widget_case.dart' as home_widget;
 import 'cases/l10n_case.dart' as l10n;
-import 'cases/markdown_editing_controller_case.dart' as markdown_editing_controller;
+import 'cases/markdown_editing_controller_case.dart'
+    as markdown_editing_controller;
 import 'cases/matrix_case.dart' as matrix;
 import 'cases/matrix_planned_case.dart' as matrix_planned;
 import 'cases/microsoft_auth_case.dart' as microsoft_auth;
 import 'cases/microsoft_graph_case.dart' as microsoft_graph;
 import 'cases/microsoft_sync_engine_case.dart' as microsoft_sync_engine;
 import 'cases/migration_v4_v5_case.dart' as migration_v4_v5;
-import 'cases/migration_v7_v11_regression_case.dart' as migration_v7_v11_regression;
+import 'cases/migration_v7_v11_regression_case.dart'
+    as migration_v7_v11_regression;
 import 'cases/month_view_case.dart' as month_view;
 import 'cases/note_editor_case.dart' as note_editor;
 import 'cases/note_repository_case.dart' as note_repository;
@@ -78,10 +82,13 @@ import 'cases/task_editor_extra_case.dart' as task_editor_extra;
 import 'cases/task_repository_crud_case.dart' as task_repository_crud;
 import 'cases/task_repository_lifecycle_case.dart' as task_repository_lifecycle;
 import 'cases/task_repository_lists_case.dart' as task_repository_lists;
-import 'cases/task_repository_recurrence_case.dart' as task_repository_recurrence;
-import 'cases/task_repository_smart_filter_case.dart' as task_repository_smart_filter;
+import 'cases/task_repository_recurrence_case.dart'
+    as task_repository_recurrence;
+import 'cases/task_repository_smart_filter_case.dart'
+    as task_repository_smart_filter;
 import 'cases/timeline_layout_case.dart' as timeline_layout;
-import 'cases/timeline_multiday_overflow_case.dart' as timeline_multiday_overflow;
+import 'cases/timeline_multiday_overflow_case.dart'
+    as timeline_multiday_overflow;
 import 'cases/timeline_now_controller_case.dart' as timeline_now_controller;
 import 'cases/timeline_persist_case.dart' as timeline_persist;
 import 'cases/timeline_view_case.dart' as timeline_view;
@@ -114,6 +121,7 @@ const _included = <String>{
   'event_scope_case.dart',
   'event_source_case.dart',
   'focus_breaks_metrics_case.dart',
+  'focus_overtime_case.dart',
   'focus_screen_case.dart',
   'focus_stopwatch_case.dart',
   'habit_calendar_repository_case.dart',
@@ -181,9 +189,13 @@ const _included = <String>{
 
 void main() {
   test('test runner includes every case file', () {
-    expect(_caseFilesOnDisk(), _included,
-        reason: 'test/all_test.dart is stale. Run: '
-            'dart run tools/gen_test_runner.dart');
+    expect(
+      _caseFilesOnDisk(),
+      _included,
+      reason:
+          'test/all_test.dart is stale. Run: '
+          'dart run tools/gen_test_runner.dart',
+    );
   });
 
   group('alarm_migration_v4v5', alarm_migration_v4v5.main);
@@ -207,6 +219,7 @@ void main() {
   group('event_scope', event_scope.main);
   group('event_source', event_source.main);
   group('focus_breaks_metrics', focus_breaks_metrics.main);
+  group('focus_overtime', focus_overtime.main);
   group('focus_screen', focus_screen.main);
   group('focus_stopwatch', focus_stopwatch.main);
   group('habit_calendar_repository', habit_calendar_repository.main);
@@ -286,8 +299,12 @@ Set<String> _caseFilesOnDisk() {
       .where((path) => path.endsWith('_test.dart'))
       .where((path) => !path.endsWith('/all_test.dart'))
       .toSet();
-  expect(stray, isEmpty,
-      reason: 'Move top-level test files under test/cases/ as '
-          '*_case.dart and regenerate this runner.');
+  expect(
+    stray,
+    isEmpty,
+    reason:
+        'Move top-level test files under test/cases/ as '
+        '*_case.dart and regenerate this runner.',
+  );
   return cases;
 }
