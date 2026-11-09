@@ -90,6 +90,7 @@ counterpart:
 
 - Does nothing when no log exists, so a decrement never creates a zero or
   negative row.
+- Ignores zero and negative amounts.
 - Subtracts `amount`, clamping the result at 0.
 - Clears done when a positive goal is no longer reached and sets done when the
   remaining amount still reaches it.
@@ -107,10 +108,13 @@ skipped, and does not cancel scheduled alarms.
 - The app bar in selection mode shows a close button, `<n> selected`, and bulk
   archive/unarchive and delete actions.
 - Bulk archive archives every selected habit, or unarchives all when every
-  selected habit is already archived.
+  selected habit is already archived. Rows already in the target state are
+  skipped.
 - Bulk delete asks for confirmation with the selected count before scheduling.
 - Both actions use the durable 6 s undo buffer: one SnackBar per action with
   Undo cancelling every scheduled operation, then the selection clears.
+- Selection is pruned when rows leave the active archived/unarchived list, and
+  bulk actions resolve the live selected rows at action time.
 - Back navigation while selecting clears the selection instead of leaving the
   screen. Nothing is hard deleted.
 
@@ -148,7 +152,8 @@ skipped, and does not cancel scheduled alarms.
   goal completion, done/skip preservation, decrement clamping/no-op, unmark
   reset, skip/backfill outbox updates, archive exclusion, and toggle behavior.
 - Habits screen cases: minus control decrement, long-press selection mode,
-  bulk archive scheduling, and confirmed bulk delete scheduling.
+  stale-selection pruning, live-row bulk archive, and confirmed bulk delete
+  scheduling.
 - Timeline cases: timed habits render in the hour grid at the reminder time;
   untimed habits stay in the all-day strip; overlap layout keeps habit and event
   keys distinct.

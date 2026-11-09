@@ -255,6 +255,94 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('selection prunes rows that leave the active list', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = HabitRepository(db);
+    final pendingOps = _RecordingPendingOperations(db);
+    final id = await repo.createHabit(name: 'Read', startDate: '2026-01-01');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          pendingOperationsProvider.overrideWithValue(pendingOps),
+        ],
+        child: const MaterialApp(home: HabitsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.longPress(find.text('Read'));
+    await tester.pump();
+    expect(find.text('1 selected'), findsOneWidget);
+
+    // Read leaves the active (unarchived) list while selected.
+    await repo.archiveHabit(id, true);
+    await tester.pump();
+    await tester.pump();
+    expect(find.textContaining('selected'), findsNothing);
+    expect(find.text('Habits'), findsOneWidget);
+    expect(pendingOps.archiveCalls, isEmpty);
+    // Unmount first so the per-habit providers dispose, then let Drift's
+    // stream-close work settle before closing the in-memory database.
+    await tester.pumpWidget(Container());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    await db.close();
+    await tester.pump();
+  });
+
+  testWidgets('bulk archive resolves the live selected rows', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = HabitRepository(db);
+    final pendingOps = _RecordingPendingOperations(db);
+    final readId = await repo.createHabit(
+      name: 'Read',
+      startDate: '2026-01-01',
+    );
+    final runId = await repo.createHabit(name: 'Run', startDate: '2026-01-01');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          pendingOperationsProvider.overrideWithValue(pendingOps),
+        ],
+        child: const MaterialApp(home: HabitsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.longPress(find.text('Read'));
+    await tester.pump();
+    await tester.tap(find.text('Run'));
+    await tester.pump();
+    expect(find.text('2 selected'), findsOneWidget);
+
+    // Run leaves the active list while both rows are selected.
+    await repo.archiveHabit(runId, true);
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Archive'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(pendingOps.archiveCalls, {readId: true});
+    expect(pendingOps.archiveCalls.containsKey(runId), isFalse);
+    expect(find.textContaining('selected'), findsNothing);
+    // Unmount first so the per-habit providers dispose, then let Drift's
+    // stream-close work settle before closing the in-memory database.
+    await tester.pumpWidget(Container());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    await db.close();
+    await tester.pump();
+  });
+
   testWidgets('delete action requires confirmation and schedules deletes', (
     WidgetTester tester,
   ) async {

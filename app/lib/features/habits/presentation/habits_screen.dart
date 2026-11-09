@@ -58,21 +58,54 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     });
   }
 
-  Future<void> _archiveSelected(WidgetRef ref, List<Habit> habits) async {
-    if (habits.isEmpty) return;
-    final unifiedArchive = !habits.every((h) => h.archived);
+  /// Current selected rows from the latest active-list snapshot. Bulk actions
+  /// resolve this at action time so a stale build snapshot can never be
+  /// scheduled.
+  List<Habit> _liveSelectedHabits(WidgetRef ref) {
+    final archived = ref.read(showArchivedHabitsProvider);
+    final habits = ref
+        .read(habitsProvider(archived))
+        .maybeWhen(data: (value) => value, orElse: () => const <Habit>[]);
+    return habits.where((h) => _selected.contains(h.id)).toList();
+  }
+
+  void _pruneSelection() {
+    final archived = ref.read(showArchivedHabitsProvider);
+    final habits = ref
+        .read(habitsProvider(archived))
+        .maybeWhen(data: (value) => value, orElse: () => null);
+    if (habits == null) return;
+    final liveIds = habits.map((h) => h.id).toSet();
+    final stale = _selected.where((id) => !liveIds.contains(id)).toList();
+    if (stale.isEmpty) return;
+    setState(() => _selected.removeAll(stale));
+  }
+
+  Future<void> _archiveSelected(WidgetRef ref) async {
+    final selected = _liveSelectedHabits(ref);
+    if (selected.isEmpty) {
+      _clearSelection();
+      return;
+    }
+    final unifyArchive = !selected.every((h) => h.archived);
+    // Mixed selections skip rows that already match the target state.
+    final targets = selected.where((h) => h.archived != unifyArchive).toList();
+    if (targets.isEmpty) {
+      _clearSelection();
+      return;
+    }
     final pending = ref.read(pendingOperationsProvider);
     final opIds = <String>[];
-    for (final habit in habits) {
-      opIds.add(await pending.scheduleHabitArchive(habit.id, unifiedArchive));
+    for (final habit in targets) {
+      opIds.add(await pending.scheduleHabitArchive(habit.id, unifyArchive));
     }
     if (!mounted) return;
     _clearSelection();
-    final action = unifiedArchive ? 'archived' : 'unarchived';
+    final action = unifyArchive ? 'archived' : 'unarchived';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          habits.length == 1 ? 'Habit $action.' : 'Habits $action.',
+          targets.length == 1 ? 'Habit $action.' : 'Habits $action.',
         ),
         duration: const Duration(seconds: 6),
         persist: false,
@@ -84,9 +117,13 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     );
   }
 
-  Future<void> _deleteSelected(WidgetRef ref, List<Habit> habits) async {
-    if (habits.isEmpty) return;
-    final count = habits.length;
+  Future<void> _deleteSelected(WidgetRef ref) async {
+    final selected = _liveSelectedHabits(ref);
+    if (selected.isEmpty) {
+      _clearSelection();
+      return;
+    }
+    final count = selected.length;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -109,16 +146,25 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    // Re-resolve after the dialog: the active list may have changed while it
+    // was open.
+    final targets = _liveSelectedHabits(ref);
+    if (targets.isEmpty) {
+      _clearSelection();
+      return;
+    }
     final pending = ref.read(pendingOperationsProvider);
     final opIds = <String>[];
-    for (final habit in habits) {
+    for (final habit in targets) {
       opIds.add(await pending.scheduleHabitDelete(habit.id));
     }
     if (!mounted) return;
     _clearSelection();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(count == 1 ? 'Habit deleted.' : 'Habits deleted.'),
+        content: Text(
+          targets.length == 1 ? 'Habit deleted.' : 'Habits deleted.',
+        ),
         duration: const Duration(seconds: 6),
         persist: false,
         action: SnackBarAction(
@@ -135,6 +181,18 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     final habitsAsync = ref.watch(habitsProvider(archived));
     final sectionsAsync = ref.watch(habitSectionsProvider);
     final selectedDay = ref.watch(selectedHabitDayProvider);
+    // Selection must never outlive the rows it points at. The listener prunes
+    // after the frame so setState never runs during build.
+    ref.listen<AsyncValue<List<Habit>>>(habitsProvider(archived), (_, next) {
+      final ids = next.maybeWhen(
+        data: (habits) => habits.map((h) => h.id).toSet(),
+        orElse: () => null,
+      );
+      if (ids == null || _selected.every(ids.contains)) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pruneSelection();
+      });
+    });
     final habits = habitsAsync.maybeWhen(
       data: (value) => value,
       orElse: () => const <Habit>[],
@@ -238,7 +296,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
         tooltip: 'Clear selection',
         onPressed: _clearSelection,
       ),
-      title: Text('${_selected.length} selected'),
+      title: Text('${selectedHabits.length} selected'),
       actions: [
         IconButton(
           icon: Icon(
@@ -247,14 +305,12 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
           tooltip: allArchived ? 'Unarchive' : 'Archive',
           onPressed: selectedHabits.isEmpty
               ? null
-              : () => _archiveSelected(ref, selectedHabits),
+              : () => _archiveSelected(ref),
         ),
         IconButton(
           icon: const Icon(Icons.delete_outline),
           tooltip: 'Delete',
-          onPressed: selectedHabits.isEmpty
-              ? null
-              : () => _deleteSelected(ref, selectedHabits),
+          onPressed: selectedHabits.isEmpty ? null : () => _deleteSelected(ref),
         ),
       ],
     );

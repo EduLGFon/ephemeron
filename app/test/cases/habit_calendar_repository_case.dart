@@ -136,6 +136,30 @@ void main() {
     },
   );
 
+  test('subtractAmount ignores zero and negative amounts', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Run',
+      frequency: 'daily',
+      startDate: '2026-03-01',
+      goalAmount: 10,
+      unit: 'min',
+    );
+
+    await repo.addAmount(id, '2026-03-01', 5);
+    await repo.subtractAmount(id, '2026-03-01', -5);
+    var log = await repo.logFor(id, '2026-03-01');
+    expect(log?.amount, 5);
+    expect(log?.done, isFalse);
+
+    await repo.subtractAmount(id, '2026-03-01', 0);
+    log = await repo.logFor(id, '2026-03-01');
+    expect(log?.amount, 5);
+    expect(log?.done, isFalse);
+  });
+
   test('skip and backfill enqueue habit log updates', () async {
     final db = _db();
     addTearDown(db.close);

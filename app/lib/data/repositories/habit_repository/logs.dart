@@ -179,6 +179,7 @@ mixin _HabitLogOps on _HabitRepositoryBase {
     String dayKey,
     double amount,
   ) async {
+    if (amount <= 0) return;
     final existing = await logFor(habitId, dayKey);
     if (existing == null) return;
     final goal = await _habitGoal(habitId);
