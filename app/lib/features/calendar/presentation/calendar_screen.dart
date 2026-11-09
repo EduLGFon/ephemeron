@@ -166,7 +166,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 value: CalendarViewKind.month,
                 child: Text('Month'),
               ),
-              for (final d in [3, 4, 7])
+              for (final d in [3, 4, 5, 7])
                 PopupMenuItem(
                   value: null,
                   onTap: () => ref
