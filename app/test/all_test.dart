@@ -66,6 +66,7 @@ import 'cases/search_case.dart' as search;
 import 'cases/session_restore_case.dart' as session_restore;
 import 'cases/settings_case.dart' as settings;
 import 'cases/settings_screen_case.dart' as settings_screen;
+import 'cases/settings_sync_status_case.dart' as settings_sync_status;
 import 'cases/smart_filter_case.dart' as smart_filter;
 import 'cases/source_label_case.dart' as source_label;
 import 'cases/source_move_case.dart' as source_move;
@@ -74,6 +75,7 @@ import 'cases/sync_engine_case.dart' as sync_engine;
 import 'cases/sync_engine_errors_case.dart' as sync_engine_errors;
 import 'cases/sync_engine_ownership_case.dart' as sync_engine_ownership;
 import 'cases/sync_engine_task_lists_case.dart' as sync_engine_task_lists;
+import 'cases/sync_title_case.dart' as sync_title;
 import 'cases/task_action_sheet_case.dart' as task_action_sheet;
 import 'cases/task_editor_case.dart' as task_editor;
 import 'cases/task_editor_extra_case.dart' as task_editor_extra;
@@ -93,6 +95,7 @@ import 'cases/widget_case.dart' as widget;
 import 'cases/widget_config_case.dart' as widget_config;
 import 'cases/widget_image_case.dart' as widget_image;
 import 'cases/widget_provider_match_case.dart' as widget_provider_match;
+import 'cases/year_view_case.dart' as year_view;
 
 const _included = <String>{
   'alarm_migration_v4v5_case.dart',
@@ -154,6 +157,7 @@ const _included = <String>{
   'session_restore_case.dart',
   'settings_case.dart',
   'settings_screen_case.dart',
+  'settings_sync_status_case.dart',
   'smart_filter_case.dart',
   'source_label_case.dart',
   'source_move_case.dart',
@@ -162,6 +166,7 @@ const _included = <String>{
   'sync_engine_errors_case.dart',
   'sync_engine_ownership_case.dart',
   'sync_engine_task_lists_case.dart',
+  'sync_title_case.dart',
   'task_action_sheet_case.dart',
   'task_editor_case.dart',
   'task_editor_extra_case.dart',
@@ -181,6 +186,7 @@ const _included = <String>{
   'widget_config_case.dart',
   'widget_image_case.dart',
   'widget_provider_match_case.dart',
+  'year_view_case.dart',
 };
 
 void main() {
@@ -249,6 +255,7 @@ void main() {
   group('session_restore', session_restore.main);
   group('settings', settings.main);
   group('settings_screen', settings_screen.main);
+  group('settings_sync_status', settings_sync_status.main);
   group('smart_filter', smart_filter.main);
   group('source_label', source_label.main);
   group('source_move', source_move.main);
@@ -257,6 +264,7 @@ void main() {
   group('sync_engine_errors', sync_engine_errors.main);
   group('sync_engine_ownership', sync_engine_ownership.main);
   group('sync_engine_task_lists', sync_engine_task_lists.main);
+  group('sync_title', sync_title.main);
   group('task_action_sheet', task_action_sheet.main);
   group('task_editor', task_editor.main);
   group('task_editor_extra', task_editor_extra.main);
@@ -276,6 +284,7 @@ void main() {
   group('widget_config', widget_config.main);
   group('widget_image', widget_image.main);
   group('widget_provider_match', widget_provider_match.main);
+  group('year_view', year_view.main);
 }
 
 Set<String> _caseFilesOnDisk() {
