@@ -2,10 +2,21 @@
 part of '../habits_screen.dart';
 
 class _HabitList extends StatelessWidget {
-  const _HabitList({required this.habits, required this.sections});
+  const _HabitList({
+    required this.habits,
+    required this.sections,
+    required this.selecting,
+    required this.selectedIds,
+    required this.onToggleSelection,
+    required this.onStartSelection,
+  });
 
   final List<Habit> habits;
   final List<HabitSection> sections;
+  final bool selecting;
+  final Set<String> selectedIds;
+  final void Function(String id) onToggleSelection;
+  final void Function(String id) onStartSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +50,17 @@ class _HabitList extends StatelessWidget {
           ),
         ),
       );
-      items.addAll(bySection[key]!.map((h) => _HabitTile(habit: h)));
+      items.addAll(
+        bySection[key]!.map(
+          (h) => _HabitTile(
+            habit: h,
+            selecting: selecting,
+            selected: selectedIds.contains(h.id),
+            onToggleSelection: () => onToggleSelection(h.id),
+            onStartSelection: () => onStartSelection(h.id),
+          ),
+        ),
+      );
     }
     return RepaintBoundary(
       child: ListView.builder(

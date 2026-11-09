@@ -129,11 +129,13 @@ mixin _HabitLogOps on _HabitRepositoryBase {
     await _touchHabit(habitId);
   }
 
+  /// Marks the day done or not done. Unmarking resets the amount to 0 but
+  /// preserves the skipped flag and does not cancel scheduled alarms.
   Future<void> setDone(String habitId, String dayKey, bool done) async {
     final existing = await logFor(habitId, dayKey);
     final nextAmount = done
         ? _fillGoal(existing?.amount ?? 0, await _habitGoal(habitId))
-        : null;
+        : 0.0;
     if (existing == null) {
       await _db
           .into(_db.habitLogs)
@@ -142,7 +144,7 @@ mixin _HabitLogOps on _HabitRepositoryBase {
               id: newId(),
               habitId: habitId,
               dayKey: dayKey,
-              amount: Value(nextAmount ?? 0),
+              amount: Value(nextAmount),
               done: Value(done),
               skipped: Value(false),
               createdAt: nowMs(),
@@ -156,7 +158,7 @@ mixin _HabitLogOps on _HabitRepositoryBase {
         HabitLogsCompanion(
           done: Value(done),
           skipped: done ? const Value(false) : const Value.absent(),
-          amount: nextAmount == null ? const Value.absent() : Value(nextAmount),
+          amount: Value(nextAmount),
           updatedAt: Value(nowMs()),
         ),
       );
@@ -164,6 +166,37 @@ mixin _HabitLogOps on _HabitRepositoryBase {
     await _enqueue('habit_log:$habitId', '$habitId@$dayKey', 'update');
     await _touchHabit(habitId);
     if (done) {
+      await cancelHabitDayAlarms(_db, habitId, dayKey);
+    }
+  }
+
+  /// Subtracts [amount] from the day's progress. Does nothing when no log
+  /// exists so decrementing never creates a negative or zero row. A positive
+  /// goal clears done when no longer reached and sets it when still reached;
+  /// the skipped flag is preserved.
+  Future<void> subtractAmount(
+    String habitId,
+    String dayKey,
+    double amount,
+  ) async {
+    final existing = await logFor(habitId, dayKey);
+    if (existing == null) return;
+    final goal = await _habitGoal(habitId);
+    final raw = existing.amount - amount;
+    final next = raw < 0 ? 0.0 : raw;
+    final reachedDone = goal > 0 ? next >= goal : existing.done;
+    await (_db.update(
+      _db.habitLogs,
+    )..where((l) => l.id.equals(existing.id))).write(
+      HabitLogsCompanion(
+        amount: Value(next),
+        done: Value(reachedDone),
+        updatedAt: Value(nowMs()),
+      ),
+    );
+    await _enqueue('habit_log:$habitId', '$habitId@$dayKey', 'update');
+    await _touchHabit(habitId);
+    if (reachedDone) {
       await cancelHabitDayAlarms(_db, habitId, dayKey);
     }
   }

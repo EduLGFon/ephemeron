@@ -62,9 +62,13 @@ The header shows the habit name, day, reminder time when present, and a goal
 progress bar when the habit has a positive goal. Actions:
 
 - `Mark as concluded`: sets done for the day. When the log is already done the
-  action becomes `Mark as not concluded` and clears done.
+  action becomes `Mark as not concluded` and clears done. Unmarking resets the
+  day's amount to 0 while keeping any skipped flag.
 - `Add <increment> <unit>`: adds `increment ?? 1` to the day's amount through
   `HabitRepository.addAmount`. The unit is included in the label when present.
+- `Subtract <increment> <unit>`: shown when the habit has a positive goal.
+  Removes `increment ?? 1` through `HabitRepository.subtractAmount`, clamping
+  at 0. The unit is included in the label when present.
 - `Skip for today` / `Unskip for today`: toggles the skipped flag.
 - `Open habits`: pops the sheet and navigates to the Habits tab (`/tab3`).
 
@@ -80,6 +84,35 @@ states update in place after each action.
 - Marks the log done when a positive `goalAmount` is reached.
 - Enqueues the habit-log outbox update and touches the habit so sync picks it up.
 - `backfill` and `setSkipped` enqueue the same habit-log update.
+
+`HabitRepository.subtractAmount(habitId, dayKey, amount)` is the decrement
+counterpart:
+
+- Does nothing when no log exists, so a decrement never creates a zero or
+  negative row.
+- Subtracts `amount`, clamping the result at 0.
+- Clears done when a positive goal is no longer reached and sets done when the
+  remaining amount still reaches it.
+- Preserves skipped and enqueues the same habit-log update as `addAmount`.
+
+`setDone(habitId, dayKey, false)` writes amount 0, keeps done false, preserves
+skipped, and does not cancel scheduled alarms.
+
+## Habits list selection and bulk actions
+
+- Long-pressing a habit row enters selection mode and selects that row.
+- While selecting, tapping a row toggles its selection instead of opening the
+  editor, the row's trailing controls are hidden, and the floating add button is
+  hidden.
+- The app bar in selection mode shows a close button, `<n> selected`, and bulk
+  archive/unarchive and delete actions.
+- Bulk archive archives every selected habit, or unarchives all when every
+  selected habit is already archived.
+- Bulk delete asks for confirmation with the selected count before scheduling.
+- Both actions use the durable 6 s undo buffer: one SnackBar per action with
+  Undo cancelling every scheduled operation, then the selection clears.
+- Back navigation while selecting clears the selection instead of leaving the
+  screen. Nothing is hard deleted.
 
 ## Layout and performance
 
@@ -112,8 +145,10 @@ states update in place after each action.
 - Domain scheduling cases: daily, weekdays, interval anchored on the start date,
   future start-date exclusion, weekly availability.
 - Repository cases: range stream shape, timed metadata, amount increments and
-  goal completion, done/skip preservation, skip/backfill outbox updates, archive
-  exclusion, and toggle behavior.
+  goal completion, done/skip preservation, decrement clamping/no-op, unmark
+  reset, skip/backfill outbox updates, archive exclusion, and toggle behavior.
+- Habits screen cases: minus control decrement, long-press selection mode,
+  bulk archive scheduling, and confirmed bulk delete scheduling.
 - Timeline cases: timed habits render in the hour grid at the reminder time;
   untimed habits stay in the all-day strip; overlap layout keeps habit and event
   keys distinct.
