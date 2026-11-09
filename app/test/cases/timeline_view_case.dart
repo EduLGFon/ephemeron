@@ -307,6 +307,27 @@ void main() {
     await _tearDown(tester, db);
   });
 
+  testWidgets('5-day multi-day view shows all five day headers', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    await _seed(db);
+    final anchor = DateTime.now();
+    await _pump(tester, db, anchor, 5);
+
+    for (var i = 0; i < 5; i++) {
+      final d = DateTime(
+        anchor.year,
+        anchor.month,
+        anchor.day,
+      ).add(Duration(days: i));
+      expect(find.text('${d.day}'), findsWidgets);
+    }
+    expect(find.text('Standup'), findsOneWidget);
+
+    await _tearDown(tester, db);
+  });
+
   testWidgets(
     'swipe snaps across several days and keeps the hour gutter fixed',
     (WidgetTester tester) async {
