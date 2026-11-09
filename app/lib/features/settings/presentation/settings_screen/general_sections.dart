@@ -64,6 +64,7 @@ List<Widget> _accountsSection(_SettingsScreenState state) {
         state.context,
       ).push(MaterialPageRoute<void>(builder: (_) => const AuthScreen())),
     ),
+    const _LastSyncTile(),
     SettingsPickerTile<int>(
       title: 'Google auto-sync interval',
       help:
@@ -147,4 +148,42 @@ List<Widget> _navigationSection(_SettingsScreenState state) {
       onTap: state._openNavOrder,
     ),
   ];
+}
+
+class _LastSyncTile extends ConsumerWidget {
+  const _LastSyncTile();
+
+  String _statusLabel(SyncStatus status) {
+    switch (status) {
+      case SyncStatus.synced:
+        return 'Synced';
+      case SyncStatus.syncing:
+        return 'Syncing';
+      case SyncStatus.offline:
+        return 'Offline';
+      case SyncStatus.error:
+        return 'Error';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(syncStatusProvider);
+    final lastSync = ref.watch(lastGoogleSyncAtProvider);
+    final label = _statusLabel(status);
+    final subtitle = lastSync == null
+        ? '$label - has not synced yet'
+        : '$label - ${DeviceDateFormat.dateTime(context, lastSync.toLocal())}';
+    return ListTile(
+      title: const Text('Last sync'),
+      subtitle: Text(subtitle, softWrap: true),
+      trailing: status == SyncStatus.syncing
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
+    );
+  }
 }
