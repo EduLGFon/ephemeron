@@ -73,4 +73,24 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.textContaining('Syncing'), findsWidgets);
   });
+
+  testWidgets('last sync row shows not synced yet when no timestamp', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(500, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(_settingsApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.drag(find.byType(ListView), const Offset(0, -1200));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.textContaining('Not synced yet'), findsOneWidget);
+    expect(find.textContaining('Synced'), findsNothing);
+  });
 }
