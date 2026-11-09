@@ -57,18 +57,86 @@ class MarkdownBody extends StatelessWidget {
   }
 }
 
+/// Normalizes every line ending an editor or clipboard can produce to `\n`.
+///
+/// CRLF, bare CR, and the Unicode line/paragraph separators all render as
+/// newlines to the user, so the renderer treats them the same way.
+String _normalizeLineEndings(String body) => body
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n')
+    .replaceAll('\u2028', '\n')
+    .replaceAll('\u2029', '\n');
+
+final _fencePattern = RegExp(r'^ {0,3}(`{3,}|~{3,})');
+
+/// Render-only preprocessing: turns soft newlines into Markdown hard breaks.
+///
+/// Flutter's Markdown AST represents a soft break as a `"\n"` text run in
+/// paragraphs, but block widgets that read `element.textContent` drop `<br>`
+/// nodes entirely. Users expect Enter to always start a visible new line, so
+/// append the two trailing spaces that Markdown treats as a hard break before
+/// parsing. The parsed `<br>` is then rendered explicitly by [_Blocks._spans]
+/// and [_textWithBreaks].
+///
+/// This never touches the stored note body. Lines that already end in two
+/// spaces or a backslash are hard breaks already, blank lines stay blank, and
+/// fenced code blocks are copied verbatim so their content is not corrupted.
+String _hardBreakSoftNewlines(String markdown) {
+  final lines = markdown.split('\n');
+  final out = <String>[];
+  String? openFence;
+  for (final line in lines) {
+    if (openFence != null) {
+      out.add(line);
+      final trimmed = line.trimLeft();
+      if (trimmed.startsWith(openFence) &&
+          trimmed.substring(openFence.length).trim().isEmpty) {
+        openFence = null;
+      }
+      continue;
+    }
+    final fence = _fencePattern.firstMatch(line);
+    if (fence != null) {
+      openFence = fence.group(1);
+      out.add(line);
+      continue;
+    }
+    if (line.trim().isEmpty || line.endsWith('  ') || line.endsWith('\\')) {
+      out.add(line);
+    } else {
+      out.add('$line  ');
+    }
+  }
+  return out.join('\n');
+}
+
+/// Text of [node] with `<br>` elements rendered as newlines.
+///
+/// `md.Element.textContent` returns an empty string for `<br>`, so block
+/// widgets that use it would collapse the hard breaks added by
+/// [_hardBreakSoftNewlines]. Paragraphs use [_Blocks._spans] instead.
+String _textWithBreaks(md.Node node) {
+  if (node is md.Text) return node.text;
+  if (node is md.Element) {
+    if (node.tag == 'br') return '\n';
+    final children = node.children;
+    if (children == null) return '';
+    return children.map(_textWithBreaks).join();
+  }
+  return node.textContent;
+}
+
 List<Widget> _blockWidgets(
   BuildContext context,
   String body,
   ValueChanged<int>? onToggleTask,
 ) {
-  // Normalize CRLF and bare CR so every user line ending becomes a break.
-  final normalized = body.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  final prepared = _hardBreakSoftNewlines(_normalizeLineEndings(body));
   final doc = md.Document(
     blockSyntaxes: md.ExtensionSet.gitHubFlavored.blockSyntaxes,
     inlineSyntaxes: md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
   );
-  final nodes = doc.parseLines(normalized.split('\n'));
+  final nodes = doc.parseLines(prepared.split('\n'));
   final blocks = _Blocks(context, onToggleTask: onToggleTask);
   for (final n in nodes) {
     n.accept(blocks);
@@ -139,7 +207,7 @@ class _Blocks implements md.NodeVisitor {
       if (isTask) {
         final idx = taskIndex++;
         final checked = checkbox?.attributes.containsKey('checked') ?? false;
-        final label = element.textContent.trim();
+        final label = _textWithBreaks(element).trim();
         widgets.add(
           CheckboxListTile(
             value: checked,
@@ -150,7 +218,7 @@ class _Blocks implements md.NodeVisitor {
           ),
         );
       } else {
-        final text = element.textContent.trim();
+        final text = _textWithBreaks(element).trim();
         widgets.add(
           Padding(
             padding: EdgeInsets.only(left: listDepth * 16.0, bottom: 2),
@@ -188,7 +256,7 @@ class _Blocks implements md.NodeVisitor {
               ),
             ),
           ),
-          child: Text(element.textContent, style: _base),
+          child: Text(_textWithBreaks(element), style: _base),
         ),
       );
       return false;

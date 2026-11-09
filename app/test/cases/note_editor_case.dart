@@ -77,6 +77,8 @@ void main() {
 
     final field = tester.widget<TextField>(body);
     expect(field.controller, isA<MarkdownEditingController>());
+    expect(field.keyboardType, TextInputType.multiline);
+    expect(field.textInputAction, TextInputAction.newline);
     final controller = field.controller! as MarkdownEditingController;
     final span = controller.buildTextSpan(
       context: tester.element(body),
@@ -210,5 +212,130 @@ void main() {
       tester.widget<RichText>(paragraphs).text.toPlainText(),
       'one\ntwo\nthree\nfour',
     );
+  });
+
+  testWidgets('typed single newlines render as line breaks in Read mode', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = NoteRepository(db, attachmentDir: null);
+    final id = await repo.createNote(title: 'Breaks');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWith(
+            (ref) async => SettingsRepository(prefs),
+          ),
+        ],
+        child: MaterialApp(home: NoteEditorScreen(noteId: id)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Edit'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const Key('note-body')),
+      'first line\nsecond line',
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('Read'));
+    await tester.pump();
+
+    final paragraphs = find.descendant(
+      of: find.byType(MarkdownPreview),
+      matching: find.byType(RichText),
+    );
+    expect(paragraphs, findsOneWidget);
+    final text = tester.widget<RichText>(paragraphs).text.toPlainText();
+    expect(text, 'first line\nsecond line');
+    // Two rendered lines, not one collapsed line.
+    expect(tester.getSize(paragraphs).height, greaterThan(24));
+
+    await tester.pump(const Duration(seconds: 1));
+    final saved = await repo.getNote(id);
+    expect(saved!.body, 'first line\nsecond line');
+
+    await tester.pumpWidget(Container());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('preview keeps paragraphs, list items and bold on new lines', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MarkdownPreview(
+            body:
+                'alpha\nbeta\n\n- one\n  continued\n- two\n\n'
+                '**bold one\nbold two**',
+          ),
+        ),
+      ),
+    );
+    final richTexts = tester
+        .widgetList<RichText>(
+          find.descendant(
+            of: find.byType(MarkdownPreview),
+            matching: find.byType(RichText),
+          ),
+        )
+        .map((r) => r.text.toPlainText())
+        .toList();
+    expect(richTexts, contains('alpha\nbeta'));
+    expect(richTexts, contains('bold one\nbold two'));
+    expect(find.text('- one\ncontinued'), findsOneWidget);
+    expect(find.text('- two'), findsOneWidget);
+  });
+
+  testWidgets('preview normalizes Unicode line and paragraph separators', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: MarkdownPreview(body: 'one\u2028two\u2029three')),
+      ),
+    );
+    final paragraph = find.descendant(
+      of: find.byType(MarkdownPreview),
+      matching: find.byType(RichText),
+    );
+    expect(paragraph, findsOneWidget);
+    expect(
+      tester.widget<RichText>(paragraph).text.toPlainText(),
+      'one\ntwo\nthree',
+    );
+  });
+
+  testWidgets('preview leaves fenced code blocks unchanged', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MarkdownPreview(
+            body: 'before\n\n```dart\nline one\nline two\n```\n\nafter',
+          ),
+        ),
+      ),
+    );
+    final code = tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byType(MarkdownPreview),
+            matching: find.byType(Text),
+          ),
+        )
+        .map((t) => t.data)
+        .whereType<String>()
+        .firstWhere((t) => t.contains('line one'));
+    expect(code, contains('line one\nline two'));
+    expect(code, isNot(contains('line one  ')));
+    expect(code, isNot(contains('line two  ')));
   });
 }
