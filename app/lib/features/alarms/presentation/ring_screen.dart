@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/db/db_provider.dart';
+import '../../../data/drift/app_database.dart';
 import '../../../domain/alarms/alarm_preset.dart';
 import '../application/alarm_providers.dart';
 import 'alarm_preset_picker.dart';
@@ -27,13 +28,23 @@ class _RingScreenState extends ConsumerState<RingScreen> {
   @override
   void initState() {
     super.initState();
+    _startAutoSnooze();
+  }
+
+  /// Restarts the 30 s auto-snooze window; a new ring request while the
+  /// screen is open must not inherit the previous alarm's remaining time.
+  void _startAutoSnooze() {
+    _auto?.cancel();
     _auto = Timer(const Duration(seconds: 30), () async {
       final repo = ref.read(alarmRepositoryProvider);
-      final latest = await repo.latestFired();
-      if (latest?.requestCode != null) {
-        await repo.snoozeRequest(latest!.requestCode!);
+      final code =
+          ref.read(activeRingRequestProvider) ??
+          (await repo.latestFired())?.requestCode;
+      try {
+        if (code != null) await repo.snoozeRequest(code);
+      } finally {
+        if (mounted) context.pop();
       }
-      if (mounted) context.pop();
     });
   }
 
@@ -50,6 +61,19 @@ class _RingScreenState extends ConsumerState<RingScreen> {
     return hash >= 0 ? sourceId.substring(0, hash) : sourceId;
   }
 
+  /// Loads the ring row for the active request code, falling back to the
+  /// latest fired alarm when the route was opened without a request.
+  Future<AlarmsIndexData?> _loadAlarm(int? requestCode) {
+    final repo = ref.read(alarmRepositoryProvider);
+    if (requestCode != null) return repo.byRequestCode(requestCode);
+    return repo.latestFired();
+  }
+
+  /// Request code for the actions: the active native ring request wins,
+  /// then the loaded row.
+  int? _requestCode(AlarmsIndexData? alarm) =>
+      ref.read(activeRingRequestProvider) ?? alarm?.requestCode;
+
   Future<bool> _isNumericHabit(String? sourceType, String? sourceId) async {
     if (sourceType == null || sourceId == null) return false;
     if (sourceType != 'habit' && sourceType != 'habit_reminder') return false;
@@ -62,13 +86,17 @@ class _RingScreenState extends ConsumerState<RingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final activeCode = ref.watch(activeRingRequestProvider);
+    ref.listen<int?>(activeRingRequestProvider, (previous, next) {
+      if (previous != next) _startAutoSnooze();
+    });
     return PopScope(
       canPop: false,
       child: Scaffold(
         backgroundColor: Colors.black,
         body: SafeArea(
           child: FutureBuilder(
-            future: ref.read(alarmRepositoryProvider).latestFired(),
+            future: _loadAlarm(activeCode),
             builder: (ctx, snap) {
               final alarm = snap.data;
               final preset = AlarmPreset.tryParse(alarm?.preset);
@@ -119,7 +147,7 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                       const SizedBox(height: 24),
                       SnoozePicker(
                         onPick: (m) async {
-                          final code = alarm?.requestCode;
+                          final code = _requestCode(alarm);
                           if (code != null) {
                             await ref
                                 .read(alarmRepositoryProvider)
@@ -136,7 +164,7 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                         children: [
                           OutlinedButton(
                             onPressed: () async {
-                              final code = alarm?.requestCode;
+                              final code = _requestCode(alarm);
                               if (code != null) {
                                 await ref
                                     .read(alarmRepositoryProvider)
@@ -149,7 +177,7 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                           if (numeric)
                             FilledButton(
                               onPressed: () async {
-                                final code = alarm?.requestCode;
+                                final code = _requestCode(alarm);
                                 if (code != null) {
                                   await ref
                                       .read(alarmRepositoryProvider)
@@ -161,7 +189,7 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                             ),
                           FilledButton(
                             onPressed: () async {
-                              final code = alarm?.requestCode;
+                              final code = _requestCode(alarm);
                               if (code != null) {
                                 await ref
                                     .read(alarmRepositoryProvider)
@@ -173,7 +201,7 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                           ),
                           TextButton(
                             onPressed: () async {
-                              final code = alarm?.requestCode;
+                              final code = _requestCode(alarm);
                               if (code != null) {
                                 await ref
                                     .read(alarmRepositoryProvider)
@@ -190,7 +218,15 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                       ),
                       const SizedBox(height: 8),
                       TextButton(
-                        onPressed: () => context.pop(),
+                        onPressed: () async {
+                          final code = _requestCode(alarm);
+                          if (code != null) {
+                            await ref
+                                .read(alarmRepositoryProvider)
+                                .dismissRequest(code);
+                          }
+                          if (context.mounted) context.pop();
+                        },
                         child: const Text(
                           'Open item',
                           style: TextStyle(color: Colors.white54),

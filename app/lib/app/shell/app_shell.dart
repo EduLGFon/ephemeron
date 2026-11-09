@@ -63,10 +63,12 @@ class _AppShellState extends ConsumerState<AppShell>
   Timer? _widgetRefreshTimer;
   late final Future<void> _restoreFuture;
   StreamSubscription<String>? _widgetActionSub;
+  StreamSubscription<int>? _ringRequestSub;
   late final Future<String?> _startupWidgetActionFuture;
   String? _pendingWidgetAction;
   bool _handlingWidgetAction = false;
   String? _handledWidgetAction;
+  bool _ringPushPending = false;
 
   void _scheduleWidgetRefresh() {
     _widgetRefreshTimer?.cancel();
@@ -93,6 +95,13 @@ class _AppShellState extends ConsumerState<AppShell>
         await _restoreFuture;
         if (!mounted) return;
         await _handleWidgetAction(action);
+      });
+    });
+    _ringRequestSub = SystemLauncher.ringRequests.listen((requestCode) {
+      Future.microtask(() async {
+        await _restoreFuture;
+        if (!mounted) return;
+        _handleRingRequest(requestCode);
       });
     });
     // Everything below is non-critical for the first frame. Defer it until
@@ -128,6 +137,13 @@ class _AppShellState extends ConsumerState<AppShell>
     // Refresh home-screen widgets after startup settles so they do not
     // compete with the first calendar frame.
     _scheduleWidgetRefresh();
+    // An alarm ring request wins over share/shortcut navigation so the
+    // ring controls are visible before anything else.
+    final ringRequest = await SystemLauncher.consumeRingRequest();
+    if (ringRequest != null && mounted) {
+      _handleRingRequest(ringRequest);
+      return;
+    }
     // Handle Android share-target text and launcher shortcuts once the
     // first frame is up (needs a BuildContext for sheets/navigation).
     await _handleIntents();
@@ -137,6 +153,7 @@ class _AppShellState extends ConsumerState<AppShell>
   void dispose() {
     _widgetRefreshTimer?.cancel();
     _widgetActionSub?.cancel();
+    _ringRequestSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_handleGlobalKey);
     super.dispose();

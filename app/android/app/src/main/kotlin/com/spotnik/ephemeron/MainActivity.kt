@@ -21,6 +21,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingWidgetAction: String? = null
     private var pendingNotifResult: MethodChannel.Result? = null
     private var pendingAlarmAction: String? = null
+    private var pendingRingRequest: Int? = null
 
     // Home-widget taps arrive as ephemeron://widget/... intents targeted at
     // this activity. The Flutter engine would otherwise treat the intent
@@ -81,6 +82,11 @@ class MainActivity : FlutterFragmentActivity() {
                     val action = pendingAlarmAction
                     pendingAlarmAction = null
                     result.success(action)
+                }
+                "getRingRequest" -> {
+                    val requestCode = pendingRingRequest
+                    pendingRingRequest = null
+                    result.success(requestCode)
                 }
                 "openUrl" -> {
                     val url = call.argument<String>("url")
@@ -274,6 +280,13 @@ class MainActivity : FlutterFragmentActivity() {
             pendingAlarmAction = null
             systemChannel?.invokeMethod("alarmAction", alarm)
         }
+        // Warm alarm taps push the ring request immediately; cold starts
+        // consume it through getRingRequest once the Flutter engine is up.
+        val ring = pendingRingRequest
+        if (ring != null && systemChannel != null) {
+            pendingRingRequest = null
+            systemChannel?.invokeMethod("alarmRing", ring)
+        }
     }
 
     private fun handleIntent(intent: Intent) {
@@ -293,6 +306,13 @@ class MainActivity : FlutterFragmentActivity() {
                 // calendar/2026-11-03 survive the trip to Dart.
                 pendingWidgetAction = uri.pathSegments.joinToString("/")
             }
+        }
+        if (intent.hasExtra("ring")) {
+            val rc = intent.getIntExtra(
+                AlarmPlugin.EXTRA_REQUEST_CODE,
+                intent.getIntExtra("requestCode", -1),
+            )
+            if (rc >= 0) pendingRingRequest = rc
         }
         val alarmAction = intent.getStringExtra("alarm_action")
         if (!alarmAction.isNullOrEmpty()) {

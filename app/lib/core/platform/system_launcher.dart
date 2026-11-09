@@ -12,6 +12,8 @@ class SystemLauncher {
       StreamController<String>.broadcast();
   static final StreamController<String> _alarmActionController =
       StreamController<String>.broadcast();
+  static final StreamController<int> _ringRequestController =
+      StreamController<int>.broadcast();
   static bool _handlerInstalled = false;
 
   /// Warm widget taps pushed by MainActivity.onNewIntent. Cold-start taps
@@ -22,6 +24,10 @@ class SystemLauncher {
   /// Cold-start actions arrive through [consumeAlarmAction].
   static Stream<String> get alarmActions => _alarmActionController.stream;
 
+  /// Warm ring-screen requests (alarm taps) pushed by MainActivity.
+  /// Cold-start requests arrive through [consumeRingRequest].
+  static Stream<int> get ringRequests => _ringRequestController.stream;
+
   static void ensureActionHandlers() {
     if (_handlerInstalled) return;
     _handlerInstalled = true;
@@ -30,6 +36,8 @@ class SystemLauncher {
         _widgetActionController.add(call.arguments as String);
       } else if (call.method == 'alarmAction' && call.arguments is String) {
         _alarmActionController.add(call.arguments as String);
+      } else if (call.method == 'alarmRing' && call.arguments is int) {
+        _ringRequestController.add(call.arguments as int);
       }
       return null;
     });
@@ -45,6 +53,17 @@ class SystemLauncher {
     if (defaultTargetPlatform != TargetPlatform.android) return null;
     try {
       return await _channel.invokeMethod<String>('getAlarmAction');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Pending ring-screen request code from a cold-start alarm tap.
+  /// Consumed once.
+  static Future<int?> consumeRingRequest() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return null;
+    try {
+      return await _channel.invokeMethod<int>('getRingRequest');
     } catch (_) {
       return null;
     }

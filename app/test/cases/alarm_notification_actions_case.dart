@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
+import 'package:ephemeron/core/platform/system_launcher.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
@@ -68,6 +69,43 @@ void main() {
     expect(schedule.arguments['sourceType'], 'habit_reminder');
     expect(schedule.arguments['sourceId'], 'h1@2026-01-02');
     expect(schedule.arguments['title'], startsWith('Drink water'));
+    // Snooze must stop the still-ringing native service before rescheduling.
+    final cancelAt = calls.indexWhere((c) => c.method == 'cancel');
+    expect(cancelAt, greaterThanOrEqualTo(0));
+    expect(calls[cancelAt].arguments['requestCode'], 1234);
+    expect(
+      cancelAt,
+      lessThan(calls.lastIndexWhere((c) => c.method == 'schedule')),
+    );
+  });
+
+  test('consumeRingRequest returns the pending cold-start code', () async {
+    const system = MethodChannel('ephemeron/system');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(system, (call) async {
+          expect(call.method, 'getRingRequest');
+          return 77;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(system, null);
+    });
+    expect(await SystemLauncher.consumeRingRequest(), 77);
+  });
+
+  test('warm alarmRing pushes the request code stream', () async {
+    final codes = <int>[];
+    SystemLauncher.ensureActionHandlers();
+    final sub = SystemLauncher.ringRequests.listen(codes.add);
+    addTearDown(sub.cancel);
+    const codec = StandardMethodCodec();
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          'ephemeron/system',
+          codec.encodeMethodCall(const MethodCall('alarmRing', 88)),
+          (_) {},
+        );
+    expect(codes, [88]);
   });
 
   test('completing a task cancels pending task alarms', () async {

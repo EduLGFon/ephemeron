@@ -46,6 +46,9 @@ class AlarmRingService : Service() {
             sourceId: String = "",
         ) {
             if (!shouldRing(preset, kind)) return
+            // Without notifications there is no stop affordance on the
+            // looping ring, so do not start it.
+            if (!AlarmPlugin.notificationsEnabled(context)) return
             val intent = Intent(context, AlarmRingService::class.java).apply {
                 putExtra(EXTRA_REQUEST_CODE, requestCode)
                 putExtra(EXTRA_TITLE, title)
@@ -63,24 +66,30 @@ class AlarmRingService : Service() {
         }
 
         fun stop(context: Context, requestCode: Int) {
-            val intent = Intent(context, AlarmRingService::class.java).apply {
-                action = ACTION_STOP
-                putExtra(EXTRA_REQUEST_CODE, requestCode)
-            }
-            try {
-                context.startService(intent)
-            } catch (_: Exception) {
+            if (!sendStop(context, requestCode)) {
+                // Service start can be rejected from the background; kill
+                // the service directly so the player never keeps looping.
+                try {
+                    context.stopService(Intent(context, AlarmRingService::class.java))
+                } catch (_: Exception) {
+                }
             }
         }
 
         fun stopAll(context: Context) {
+            stop(context, -1)
+        }
+
+        private fun sendStop(context: Context, requestCode: Int): Boolean {
             val intent = Intent(context, AlarmRingService::class.java).apply {
                 action = ACTION_STOP
-                putExtra(EXTRA_REQUEST_CODE, -1)
+                putExtra(EXTRA_REQUEST_CODE, requestCode)
             }
-            try {
+            return try {
                 context.startService(intent)
+                true
             } catch (_: Exception) {
+                false
             }
         }
     }
@@ -106,7 +115,7 @@ class AlarmRingService : Service() {
             if (actives.isEmpty()) {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        stopForeground(STOP_FOREGROUND_DETACH)
+                        stopForeground(STOP_FOREGROUND_REMOVE)
                     } else {
                         @Suppress("DEPRECATION")
                         stopForeground(false)
