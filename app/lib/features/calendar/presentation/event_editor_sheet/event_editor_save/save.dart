@@ -36,11 +36,24 @@ extension on _EventEditorState {
     }
     final repo = ref.read(eventRepositoryProvider);
     final existing = widget.event;
+    // Exception editors carry the master id and the occurrence's original
+    // start. Edits, moves and attendee changes target the series.
+    final master = existing?.recurringMasterId == null
+        ? existing
+        : await repo.getEvent(existing!.recurringMasterId!);
+    final seriesId = master?.id ?? existing?.id;
+    final seriesRrule = master?.rrule;
+    final isSeries = seriesRrule != null && seriesRrule.isNotEmpty;
+    // Exception rows carry no rule of their own; recurrence belongs to the
+    // master unless this is a master edit.
+    final effectiveRrule = existing?.recurringMasterId != null
+        ? seriesRrule
+        : _rrule;
     if (existing != null &&
         _calendarId != null &&
         _calendarId != existing.calendarId) {
       try {
-        await repo.moveEventToCalendar(existing.id, _calendarId!);
+        await repo.moveEventToCalendar(seriesId ?? existing.id, _calendarId!);
       } on SourceMoveException catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(
@@ -56,7 +69,7 @@ extension on _EventEditorState {
         calendarId: _calendarId!,
         startUtc: _start.toUtc(),
         endUtc: _end.toUtc(),
-        excludeId: widget.event?.id,
+        excludeId: seriesId,
       );
       if (overlaps.isNotEmpty && mounted) {
         final proceed = await showDialog<bool>(
@@ -88,7 +101,7 @@ extension on _EventEditorState {
     final endDateKey = _allDay
         ? _fmtDate(DateTime(_end.year, _end.month, _end.day + 1))
         : null;
-    if (existing == null || existing.rrule == null) {
+    if (existing == null || !isSeries) {
       if (existing == null) {
         final eventId = await repo.createEvent(
           calendarId: _calendarId!,
@@ -112,7 +125,7 @@ extension on _EventEditorState {
           reminders: encodeReminderOffsets(_reminders),
           alarmPreset: _alarmPreset,
         );
-        await _persistOverflow(eventId, notesPayload.full);
+        await _syncDescription(eventId, notesPayload.full);
         await repo.setAttendees(eventId, _attendees.text.split(','));
       } else {
         final eventId = await repo.editOccurrence(
@@ -134,10 +147,11 @@ extension on _EventEditorState {
           alarmPreset: () => _alarmPreset,
           notes: () => notesPayload.stored,
         );
-        await _persistOverflow(eventId, notesPayload.full);
-      }
-      if (existing != null) {
-        await repo.setAttendees(existing.id, _attendees.text.split(','));
+        await _syncDescription(eventId, notesPayload.full);
+        await repo.setAttendees(
+          seriesId ?? eventId,
+          _attendees.text.split(','),
+        );
       }
       await _clearDraftAfterSave();
       if (mounted) Navigator.of(context).pop();
@@ -146,7 +160,7 @@ extension on _EventEditorState {
     if (!mounted) return;
     final scope = await showScopeSheet(
       context,
-      allowSingle: _rrule == existing.rrule,
+      allowSingle: effectiveRrule == seriesRrule,
     );
     if (scope == null) return;
     if (!mounted) return;
@@ -178,7 +192,7 @@ extension on _EventEditorState {
           true;
       if (!mounted) return;
       final eventId = await repo.editOccurrence(
-        existing.id,
+        seriesId!,
         _originalStartOf(existing),
         scope: EditScope.all,
         title: title,
@@ -186,18 +200,18 @@ extension on _EventEditorState {
         endUtc: _allDay ? null : _end.toUtc(),
         startDate: startDateKey,
         endDate: endDateKey,
-        rrule: () => _rrule,
+        rrule: () => effectiveRrule,
         resetExceptions: !keep,
         notes: () => notesPayload.stored,
       );
-      await _persistOverflow(eventId, notesPayload.full);
-      await repo.setAttendees(existing.id, _attendees.text.split(','));
+      await _syncDescription(eventId, notesPayload.full);
+      await repo.setAttendees(seriesId, _attendees.text.split(','));
       await _clearDraftAfterSave();
       if (mounted) Navigator.of(context).pop();
       return;
     }
     final eventId = await repo.editOccurrence(
-      existing.id,
+      seriesId!,
       _originalStartOf(existing),
       scope: scope,
       title: title,
@@ -205,11 +219,12 @@ extension on _EventEditorState {
       endUtc: _allDay ? null : _end.toUtc(),
       startDate: startDateKey,
       endDate: endDateKey,
-      rrule: scope == EditScope.single ? null : () => _rrule,
+      rrule: scope == EditScope.single ? null : () => effectiveRrule,
       notes: () => notesPayload.stored,
     );
     if (mounted) {
-      await _persistOverflow(eventId, notesPayload.full);
+      await _syncDescription(eventId, notesPayload.full);
+      await repo.setAttendees(seriesId, _attendees.text.split(','));
       try {
         final range = ref.read(calendarCacheRangeProvider);
         await ref

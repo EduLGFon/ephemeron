@@ -26,11 +26,12 @@ extension on _EventEditorState {
     );
   }
 
-  Future<void> _persistOverflow(String eventId, String? fullNotes) async {
-    if (fullNotes == null || fullNotes.length <= 8000) return;
-    final noteId = await ref
+  /// Every description is mirrored to the canonical linked note, not only
+  /// overflow text. An empty description clears the note body, keeping the
+  /// note and its link.
+  Future<void> _syncDescription(String eventId, String? fullNotes) async {
+    await ref
         .read(noteRepositoryProvider)
-        .ensureOverflowNote(eventId, fullNotes);
-    await ref.read(eventRepositoryProvider).setNotesOverflow(eventId, noteId);
+        .ensureDescriptionNote(eventId, fullNotes ?? '');
   }
 }

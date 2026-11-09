@@ -46,16 +46,99 @@ mixin _NoteCrudOps on _NoteRepositoryBase {
     String? Function()? body,
     String? Function()? folderId,
   }) async {
+    final newBody = body?.call();
     await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
       NotesCompanion(
         title: title == null ? const Value.absent() : Value(title),
-        body: body == null ? const Value.absent() : Value(body()),
+        body: body == null ? const Value.absent() : Value(newBody),
         folderId: folderId == null ? const Value.absent() : Value(folderId()),
         updatedAt: Value(nowMs()),
         dirty: const Value(true),
       ),
     );
+    if (body != null) await _syncEventDescription(id, newBody);
     if (body != null || title != null) await refreshLinks(id);
+  }
+
+  /// Keeps Events.notes in step when the canonical description note changes.
+  /// Only the narrow event.notes field is updated; the note is never recreated
+  /// or cascaded, and soft-deleted events are left untouched.
+  Future<void> _syncEventDescription(String noteId, String? body) async {
+    final event =
+        await (_db.select(_db.events)
+              ..where((e) => e.notesOverflowNoteId.equals(noteId))
+              ..limit(1))
+            .getSingleOrNull();
+    if (event == null || event.deletedAt != null) return;
+    await (_db.update(_db.events)..where((e) => e.id.equals(event.id))).write(
+      EventsCompanion(
+        notes: Value(NoteRepository.cappedEventNotes(body)),
+        updatedAt: Value(nowMs()),
+        dirty: const Value(true),
+      ),
+    );
+    await enqueueOutbox(_db, entity: 'event', entityId: event.id, op: 'update');
+  }
+
+  /// Canonical description note for [eventId], created on first non-empty
+  /// description. An empty description clears an existing note body but keeps
+  /// the link and the note.
+  Future<String?> ensureDescriptionNote(String eventId, String fullText) async {
+    final event = await (_db.select(
+      _db.events,
+    )..where((e) => e.id.equals(eventId))).getSingleOrNull();
+    if (event == null) return null;
+    Note? note;
+    final linkedId = event.notesOverflowNoteId;
+    if (linkedId != null) {
+      final candidate = await getNote(linkedId);
+      if (candidate != null && candidate.deletedAt == null) note = candidate;
+    }
+    String? noteId = note?.id;
+    if (note == null) {
+      if (fullText.isEmpty) {
+        if (linkedId != null) {
+          await (_db.update(_db.events)..where((e) => e.id.equals(eventId)))
+              .write(const EventsCompanion(notesOverflowNoteId: Value(null)));
+        }
+        return null;
+      }
+      noteId = await createNote(
+        title: 'Event description',
+        body: fullText,
+        linkedEventId: eventId,
+      );
+    } else if (note.body != fullText) {
+      await updateNote(note.id, body: () => fullText);
+    }
+    if (event.notesOverflowNoteId != noteId) {
+      await (_db.update(_db.events)..where((e) => e.id.equals(eventId))).write(
+        EventsCompanion(
+          notesOverflowNoteId: Value(noteId),
+          updatedAt: Value(nowMs()),
+          dirty: const Value(true),
+        ),
+      );
+    }
+    return noteId;
+  }
+
+  /// Event behind [noteId]: the canonical description link first, then the
+  /// note's linkedEventId. Soft-deleted rows are returned so callers can tell
+  /// a deleted event from a missing one.
+  Future<Event?> eventForNote(String noteId) async {
+    final canonical =
+        await (_db.select(_db.events)
+              ..where((e) => e.notesOverflowNoteId.equals(noteId))
+              ..limit(1))
+            .getSingleOrNull();
+    if (canonical != null) return canonical;
+    final note = await getNote(noteId);
+    final eventId = note?.linkedEventId;
+    if (eventId == null) return null;
+    return (_db.select(
+      _db.events,
+    )..where((e) => e.id.equals(eventId))).getSingleOrNull();
   }
 
   Future<void> setPinned(String id, bool pinned) async {

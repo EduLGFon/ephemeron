@@ -98,14 +98,19 @@ class _Attendees extends ConsumerWidget {
 }
 
 class _LinkedNotes extends ConsumerWidget {
-  const _LinkedNotes({required this.eventId});
+  const _LinkedNotes({required this.eventId, this.excludeNoteId});
 
   final String eventId;
+  final String? excludeNoteId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notes =
+    final linked =
         ref.watch(eventNotesProvider(eventId)).value ?? const <Note>[];
+    // The canonical description note is rendered as the event description.
+    final notes = excludeNoteId == null
+        ? linked
+        : linked.where((n) => n.id != excludeNoteId).toList();
     if (notes.isEmpty) return const SizedBox.shrink();
     return Column(
       children: [

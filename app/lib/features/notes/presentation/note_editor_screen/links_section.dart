@@ -16,7 +16,8 @@ class _LinksSection extends ConsumerWidget {
         if (links == null ||
             (links.outgoing.isEmpty &&
                 links.outgoingMissing.isEmpty &&
-                links.incoming.isEmpty)) {
+                links.incoming.isEmpty &&
+                !links.linkedEventMissing)) {
           return const SizedBox.shrink();
         }
         return Container(
@@ -28,6 +29,15 @@ class _LinksSection extends ConsumerWidget {
               children: [
                 const Icon(Icons.link, size: 16),
                 const SizedBox(width: 6),
+                if (links.linkedEventMissing)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Chip(
+                      key: const Key('linked-event-missing'),
+                      avatar: const Icon(Icons.link_off, size: 16),
+                      label: const Text('Linked event not found'),
+                    ),
+                  ),
                 for (final n in links.outgoing)
                   Padding(
                     padding: const EdgeInsets.only(right: 4),
@@ -71,7 +81,20 @@ class _LinksSection extends ConsumerWidget {
     final have = outgoing.map((n) => n.title).toSet();
     final missing = titles.where((t) => !have.contains(t)).toList();
     final incoming = await repo.backlinks(noteId);
-    return (_Links(outgoing, missing, incoming), null);
+    var linkedEventMissing = false;
+    if (note?.linkedEventId != null) {
+      final event = await repo.eventForNote(noteId);
+      linkedEventMissing = event == null || event.deletedAt != null;
+    }
+    return (
+      _Links(
+        outgoing,
+        missing,
+        incoming,
+        linkedEventMissing: linkedEventMissing,
+      ),
+      null,
+    );
   }
 
   void _open(BuildContext context, String id) {
@@ -91,8 +114,14 @@ class _LinksSection extends ConsumerWidget {
 }
 
 class _Links {
-  const _Links(this.outgoing, this.outgoingMissing, this.incoming);
+  const _Links(
+    this.outgoing,
+    this.outgoingMissing,
+    this.incoming, {
+    this.linkedEventMissing = false,
+  });
   final List<Note> outgoing;
   final List<String> outgoingMissing;
   final List<Note> incoming;
+  final bool linkedEventMissing;
 }

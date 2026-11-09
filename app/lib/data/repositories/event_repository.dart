@@ -142,6 +142,39 @@ class EventRepository extends _EventRepositoryBase
         _EventHelperOps {
   EventRepository(super._db, super._occ);
 
+  Future<Event?> getEvent(String id) {
+    return (dbSelect()..where((e) => e.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Loads [eventId] and resolves the occurrence exception selected at
+  /// [occurrenceStartMs]. A recurring master falls back to itself when no live,
+  /// non-cancelled exception matches originalStart or startUtc.
+  Future<Event?> resolveEventForOccurrence(
+    String eventId, {
+    int? occurrenceStartMs,
+  }) async {
+    final event = await getEvent(eventId);
+    if (event == null || occurrenceStartMs == null) return event;
+    if (event.recurringMasterId != null) return event;
+    final rrule = event.rrule;
+    if (rrule == null || rrule.isEmpty) return event;
+    final rows =
+        await (dbSelect()..where(
+              (e) =>
+                  e.recurringMasterId.equals(event.id) &
+                  e.deletedAt.isNull() &
+                  e.status.isNotValue('cancelled') &
+                  (e.originalStart.equals(occurrenceStartMs) |
+                      e.startUtc.equals(occurrenceStartMs)),
+            ))
+            .get();
+    if (rows.isEmpty) return event;
+    return rows
+            .where((e) => e.originalStart == occurrenceStartMs)
+            .firstOrNull ??
+        rows.first;
+  }
+
   /// Pure self-resolution over already-loaded rows (see [selfAttendeeOf]).
   static EventAttendee? resolveSelf(
     List<EventAttendee> atts,

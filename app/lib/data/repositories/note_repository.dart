@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import 'package:ephemeron/core/ids/ids.dart';
 import 'package:ephemeron/core/search/sanitize.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/outbox_helper.dart';
 import 'package:ephemeron/data/repositories/pending_operations_repository.dart';
 import 'package:ephemeron/core/time/time.dart';
 import 'package:image/image.dart' as img;
@@ -38,6 +39,21 @@ class NoteRepository extends _NoteRepositoryBase
         _NoteLinkOps,
         _NoteAttachmentOps {
   NoteRepository(super._db, {super.attachmentDir});
+
+  /// Event column cap. Full description text always lives in the canonical
+  /// linked note (Events.notesOverflowNoteId).
+  static const int eventDescriptionMaxChars = 8000;
+
+  /// Capped value stored in Events.notes for Google sync. The linked note
+  /// keeps the untruncated body.
+  static String? cappedEventNotes(String? fullText) {
+    final text = fullText?.trim();
+    if (text == null || text.isEmpty) return null;
+    return text.length > eventDescriptionMaxChars
+        ? '${text.substring(0, eventDescriptionMaxChars)}'
+              '\n(continued in Ephemeron)'
+        : text;
+  }
 
   static final _linkPattern = RegExp(r'\[\[([^\[\]]+)\]\]');
 

@@ -35,7 +35,11 @@ part 'event_details_sheet/details_widgets.dart';
 part 'event_details_sheet/event_details_body.dart';
 part 'event_details_sheet/task_details_body.dart';
 
-Future<void> showEventDetails(BuildContext context, String eventId) async {
+Future<void> showEventDetails(
+  BuildContext context,
+  String eventId, {
+  int? occurrenceStartMs,
+}) async {
   // Track the open modal so a kill while viewing restores it.
   // Normal close clears the marker below; process kill skips it.
   try {
@@ -47,7 +51,9 @@ Future<void> showEventDetails(BuildContext context, String eventId) async {
   try {
     await showAppSheet<void>(
       context,
-      builder: (_) => EscapeToClose(child: _Details(eventId: eventId)),
+      builder: (_) => EscapeToClose(
+        child: _Details(eventId: eventId, occurrenceStartMs: occurrenceStartMs),
+      ),
     );
   } finally {
     try {

@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
+import 'package:ephemeron/data/repositories/note_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -363,5 +364,80 @@ void main() {
           e.recurringMasterId == null,
     );
     expect(split.notes, 'following note');
+  });
+
+  test(
+    'resolveEventForOccurrence finds exception by original start or start',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final master = await _setup(db);
+      final repo = EventRepository(db, OccurrenceRepository(db));
+      await repo.editOccurrence(
+        master,
+        DateTime.utc(2026, 3, 3, 9),
+        scope: EditScope.single,
+        title: 'Special',
+        startUtc: DateTime.utc(2026, 3, 3, 10),
+        endUtc: DateTime.utc(2026, 3, 3, 10, 30),
+      );
+      final rows = await db.select(db.events).get();
+      final ex = rows.firstWhere((e) => e.recurringMasterId == master);
+
+      final byOriginal = await repo.resolveEventForOccurrence(
+        master,
+        occurrenceStartMs: DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+      );
+      expect(byOriginal!.id, ex.id);
+      expect(byOriginal.title, 'Special');
+      final byStart = await repo.resolveEventForOccurrence(
+        master,
+        occurrenceStartMs: DateTime.utc(2026, 3, 3, 10).millisecondsSinceEpoch,
+      );
+      expect(byStart!.id, ex.id);
+      final noMatch = await repo.resolveEventForOccurrence(
+        master,
+        occurrenceStartMs: DateTime.utc(2026, 3, 4, 9).millisecondsSinceEpoch,
+      );
+      expect(noMatch!.id, master);
+      final noOccurrence = await repo.resolveEventForOccurrence(master);
+      expect(noOccurrence!.id, master);
+
+      // Cancelled exceptions are not selected.
+      await repo.deleteOccurrence(
+        master,
+        DateTime.utc(2026, 3, 5, 9),
+        scope: EditScope.single,
+      );
+      final cancelled = await repo.resolveEventForOccurrence(
+        master,
+        occurrenceStartMs: DateTime.utc(2026, 3, 5, 9).millisecondsSinceEpoch,
+      );
+      expect(cancelled!.id, master);
+    },
+  );
+
+  test('description note syncs for a single-occurrence exception id', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final master = await _setup(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final notesRepo = NoteRepository(db, attachmentDir: null);
+    final long = 'z' * 9000;
+    final affectedId = await repo.editOccurrence(
+      master,
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      notes: () => NoteRepository.cappedEventNotes(long),
+    );
+    expect(affectedId, isNot(master));
+    final noteId = await notesRepo.ensureDescriptionNote(affectedId, long);
+    expect(noteId, isNotNull);
+    final note = await notesRepo.getNote(noteId!);
+    expect(note!.body, long);
+    expect(note.linkedEventId, affectedId);
+    final ex = await repo.getEvent(affectedId);
+    expect(ex!.notesOverflowNoteId, noteId);
+    expect(ex.notes!.length, lessThan(long.length));
   });
 }

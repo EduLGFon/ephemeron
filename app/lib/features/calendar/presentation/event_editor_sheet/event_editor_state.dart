@@ -108,6 +108,26 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
       _end = _start.add(const Duration(hours: 1));
     }
     _rrule = (d?['rrule'] as String?) ?? e?.rrule;
+    final descriptionNoteId = e?.notesOverflowNoteId;
+    if (d?['notes'] == null && descriptionNoteId != null) {
+      // The event column is capped; the canonical note holds the full text.
+      final fallback = e?.notes ?? '';
+      Future.microtask(() async {
+        try {
+          final note = await ref
+              .read(noteRepositoryProvider)
+              .getNote(descriptionNoteId);
+          if (!mounted || note == null || note.deletedAt != null) return;
+          final body = note.body;
+          if (body == null || body == _notes.text || _notes.text != fallback) {
+            return;
+          }
+          _notes.text = body;
+        } catch (_) {
+          // Keep the capped event text when the note cannot be read.
+        }
+      });
+    }
     for (final c in [_title, _location, _notes, _attendees]) {
       c.addListener(_queueDraft);
     }

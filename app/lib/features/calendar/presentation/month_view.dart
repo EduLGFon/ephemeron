@@ -194,7 +194,11 @@ class _MonthViewState extends ConsumerState<MonthView> {
                           occurrenceDate: o.dayKey,
                         );
                       } else {
-                        showEventDetails(context, o.eventId);
+                        showEventDetails(
+                          context,
+                          o.eventId,
+                          occurrenceStartMs: o.startUtc,
+                        );
                       }
                     },
                   );

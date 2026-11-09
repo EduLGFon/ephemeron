@@ -7,16 +7,21 @@ class _EventDetailsBody extends ConsumerWidget {
     required this.source,
     required this.isMicrosoft,
     required this.onReload,
+    this.descriptionNote,
   });
 
   final Event event;
   final String? source;
   final bool isMicrosoft;
   final VoidCallback onReload;
+  final Note? descriptionNote;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final e = event;
+    final description = descriptionNote?.body ?? e.notes;
+    final descriptionNoteMissing =
+        e.notesOverflowNoteId != null && descriptionNote == null;
     return SafeArea(
       child: SingleChildScrollView(
         child: Column(
@@ -55,7 +60,7 @@ class _EventDetailsBody extends ConsumerWidget {
               ),
             if (e.meetUrl != null && e.meetUrl!.isNotEmpty)
               _MeetTile(url: e.meetUrl!),
-            if (e.notes != null && e.notes!.isNotEmpty)
+            if (description != null && description.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                 child: Row(
@@ -66,12 +71,19 @@ class _EventDetailsBody extends ConsumerWidget {
                       child: Icon(Icons.notes_outlined),
                     ),
                     const SizedBox(width: 16),
-                    Expanded(child: MarkdownBody(body: e.notes!)),
+                    Expanded(child: MarkdownBody(body: description)),
                   ],
                 ),
               ),
+            if (descriptionNoteMissing)
+              const ListTile(
+                key: Key('description-note-missing'),
+                dense: true,
+                leading: Icon(Icons.link_off),
+                title: Text('Linked note not found'),
+              ),
             _Attendees(eventId: e.id),
-            _LinkedNotes(eventId: e.id),
+            _LinkedNotes(eventId: e.id, excludeNoteId: e.notesOverflowNoteId),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(

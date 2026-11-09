@@ -158,7 +158,11 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
                   occurrenceDate: o.dayKey,
                 );
               } else {
-                showEventDetails(context, o.eventId);
+                showEventDetails(
+                  context,
+                  o.eventId,
+                  occurrenceStartMs: o.startUtc,
+                );
               }
             },
           ),
