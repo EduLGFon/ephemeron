@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
@@ -38,6 +39,16 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
 
         fun usesFullScreen(preset: String): Boolean =
             normalizePreset(preset) != "notification"
+
+        /** Android 14+ can deny full-screen intents at the app level. */
+        fun canUseFullScreenIntent(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT < 34) return true
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            return nm.canUseFullScreenIntent()
+        }
+
+        fun notificationsEnabled(context: Context): Boolean =
+            NotificationManagerCompat.from(context).areNotificationsEnabled()
 
         fun registerWith(engine: FlutterEngine, context: Context) {
             val channel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
@@ -242,7 +253,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                     builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Dismiss", dismissIntent)
                 }
             }
-            if (wantFullScreen) {
+            if (wantFullScreen && canUseFullScreenIntent(context)) {
                 builder.setFullScreenIntent(contentIntent, true)
             }
             return builder.build()
@@ -269,8 +280,14 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                     sourceType, sourceId, phase,
                 )
             )
-            AlarmStore.markState(context, requestCode, "fired")
-            AlarmRingService.start(context, requestCode, title, preset, body, kind, fullScreen, sourceType, sourceId)
+            // Notifications disabled means no visible alarm with stop
+            // actions: record it as missed instead of starting a looping
+            // ring that the user cannot dismiss.
+            val enabled = notificationsEnabled(context)
+            AlarmStore.markState(context, requestCode, if (enabled) "fired" else "missed")
+            if (enabled) {
+                AlarmRingService.start(context, requestCode, title, preset, body, kind, fullScreen, sourceType, sourceId)
+            }
         }
     }
 

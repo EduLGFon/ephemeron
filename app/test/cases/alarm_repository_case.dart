@@ -123,6 +123,28 @@ void main() {
     },
   );
 
+  test('byRequestCode returns the matching alarm row', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await db
+        .into(db.alarmsIndex)
+        .insert(
+          AlarmsIndexCompanion.insert(
+            id: 'ring1',
+            sourceType: 'event',
+            sourceId: 'e1',
+            fireAtUtc: DateTime.now().toUtc().millisecondsSinceEpoch,
+            requestCode: const Value(4242),
+            state: const Value('fired'),
+            title: const Value('Ring me'),
+          ),
+        );
+    final repo = AlarmRepository(db);
+    final row = await repo.byRequestCode(4242);
+    expect(row?.title, 'Ring me');
+    expect(await repo.byRequestCode(9999), null);
+  });
+
   test('task occurrence-cache rows do not produce event candidates', () async {
     final db = _db();
     addTearDown(db.close);

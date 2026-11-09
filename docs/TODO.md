@@ -7,6 +7,10 @@
   device verification (app-shell restore race fix applied, unverified).
 - Android alarm `AlarmRingService` (flashlight blink + MediaPlayer on alarm
   stream) implemented; verify on device (reminder/notification presets unchanged).
+- Android alarm ring flow: verify cold/warm notification taps open `/ring`,
+  Snooze/Dismiss/Open item stop native audio, Android 14+ without full-screen
+  intent permission, and notifications-disabled alarms are marked missed
+  instead of ringing without a stop control.
 - Google sign-in + runtime permissions: verify sign-in on Android (debug +
   release), decline path, device-calendar import/settings, first reminder save
   / alarm test prompts, exact-alarm/full-screen prompts for clock/lock-screen

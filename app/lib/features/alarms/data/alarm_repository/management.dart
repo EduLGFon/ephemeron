@@ -58,7 +58,16 @@ mixin _AlarmManagementOps on _AlarmRepositoryBase {
         .getSingleOrNull();
   }
 
+  Future<AlarmsIndexData?> byRequestCode(int requestCode) async {
+    return (_db.select(
+      _db.alarmsIndex,
+    )..where((a) => a.requestCode.equals(requestCode))).getSingleOrNull();
+  }
+
   Future<void> snoozeRequest(int requestCode, {int minutes = 10}) async {
+    // Stop the native ring before rescheduling; snooze reuses this request
+    // code, so a still-running ring service would keep playing.
+    await AlarmScheduler.cancel(requestCode);
     final row = await (_db.select(
       _db.alarmsIndex,
     )..where((a) => a.requestCode.equals(requestCode))).getSingleOrNull();
