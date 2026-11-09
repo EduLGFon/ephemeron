@@ -39,48 +39,42 @@ class _Attendees extends ConsumerWidget {
     final accounts = ref.watch(googleAccountsProvider);
     final active = ref.watch(googleAccountProvider);
     final emails = active == null ? accounts : [active, ...accounts];
-    return FutureBuilder<List<EventAttendee>>(
-      future: ref.read(eventRepositoryProvider).attendeesOf(eventId),
-      builder: (ctx, snap) {
-        final atts = snap.data ?? const [];
-        if (atts.isEmpty) return const SizedBox.shrink();
-        final self = EventRepository.resolveSelf(atts, emails);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final a in atts)
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(a.email),
-                trailing: Text(a.rsvp ?? ''),
-              ),
-            if (self != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                child: Wrap(
-                  spacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text('My response:'),
-                    for (final (value, label) in const [
-                      ('accepted', 'Yes'),
-                      ('tentative', 'Maybe'),
-                      ('declined', 'No'),
-                    ])
-                      ChoiceChip(
-                        label: Text(label),
-                        selected: (self.rsvp ?? '') == value,
-                        onSelected: (_) => _respond(ctx, ref, self, value),
-                      ),
-                  ],
-                ),
-              ),
-          ],
-        );
-      },
+    final atts =
+        ref.watch(attendeesForEventProvider(eventId)).value ??
+        const <EventAttendee>[];
+    if (atts.isEmpty) return const SizedBox.shrink();
+    final self = EventRepository.resolveSelf(atts, emails);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final a in atts)
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: Text(a.email),
+            trailing: Text(a.rsvp ?? ''),
+          ),
+        if (self != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('My response:'),
+                for (final (value, label) in const [
+                  ('accepted', 'Yes'),
+                  ('tentative', 'Maybe'),
+                  ('declined', 'No'),
+                ])
+                  ChoiceChip(
+                    label: Text(label),
+                    selected: (self.rsvp ?? '') == value,
+                    onSelected: (_) => _respond(context, ref, self, value),
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -90,12 +84,16 @@ class _Attendees extends ConsumerWidget {
     EventAttendee self,
     String rsvp,
   ) async {
+    // Capture the container before the await so agenda/timeline styling is
+    // invalidated even if the sheet closes while the write is in flight.
+    final container = ProviderScope.containerOf(context, listen: false);
     await ref.read(eventRepositoryProvider).setRsvp(self.id, rsvp);
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('RSVP: $rsvp')));
-    }
+    // Agenda/timeline styling also depends on the resolved self RSVP.
+    container.invalidate(selfRsvpForEventProvider(eventId));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('RSVP: $rsvp')));
   }
 }
 

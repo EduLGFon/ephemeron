@@ -34,6 +34,12 @@ mixin _EventCalendarOps on _EventRepositoryBase {
     )..where((a) => a.eventId.equals(eventId))).get();
   }
 
+  Stream<List<EventAttendee>> watchAttendees(String eventId) {
+    return (_db.select(
+      _db.eventAttendees,
+    )..where((a) => a.eventId.equals(eventId))).watch();
+  }
+
   Future<EventAttendee?> selfAttendeeOf(
     String eventId,
     List<String> accountEmails,

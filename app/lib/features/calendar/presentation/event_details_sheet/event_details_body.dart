@@ -54,41 +54,21 @@ class _EventDetailsBody extends ConsumerWidget {
                 title: Text(e.location!),
               ),
             if (e.meetUrl != null && e.meetUrl!.isNotEmpty)
-              ListTile(
-                leading: const Icon(Icons.videocam_outlined),
-                title: Text(e.meetUrl!),
-                subtitle: const Text('Google Meet'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.open_in_new),
-                  tooltip: 'Join meeting',
-                  onPressed: () async {
-                    final ok = await SystemLauncher.openUrl(e.meetUrl!);
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          ok
-                              ? 'Opening meeting'
-                              : 'Join not supported here - link copied',
-                        ),
-                      ),
-                    );
-                    if (!ok) {
-                      await Clipboard.setData(ClipboardData(text: e.meetUrl!));
-                    }
-                  },
-                ),
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: e.meetUrl!));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Meet link copied')),
-                  );
-                },
-              ),
+              _MeetTile(url: e.meetUrl!),
             if (e.notes != null && e.notes!.isNotEmpty)
-              ListTile(
-                leading: const Icon(Icons.notes_outlined),
-                title: Text(e.notes!),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(Icons.notes_outlined),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(child: MarkdownBody(body: e.notes!)),
+                  ],
+                ),
               ),
             _Attendees(eventId: e.id),
             _LinkedNotes(eventId: e.id),
@@ -139,6 +119,82 @@ class _EventDetailsBody extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MeetTile extends StatelessWidget {
+  const _MeetTile({required this.url});
+
+  final String url;
+
+  Future<void> _open(BuildContext context) async {
+    final ok = await SystemLauncher.openUrl(url);
+    var copied = true;
+    if (!ok) {
+      try {
+        await Clipboard.setData(ClipboardData(text: url));
+      } catch (_) {
+        copied = false;
+      }
+    }
+    if (!context.mounted) return;
+    final message = ok
+        ? 'Opening meeting'
+        : copied
+        ? 'Join not supported here - link copied'
+        : 'Join not supported here - could not copy link';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _copy(BuildContext context) async {
+    var copied = true;
+    try {
+      await Clipboard.setData(ClipboardData(text: url));
+    } catch (_) {
+      copied = false;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(copied ? 'Meet link copied' : 'Could not copy link'),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.videocam_outlined),
+          title: Text(url),
+          subtitle: const Text('Google Meet'),
+          onTap: () => _copy(context),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(72, 0, 16, 8),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              TextButton.icon(
+                onPressed: () => _open(context),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('Join'),
+              ),
+              TextButton.icon(
+                onPressed: () => _copy(context),
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copy link'),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

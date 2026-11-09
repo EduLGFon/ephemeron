@@ -20,6 +20,7 @@ import '../../notes/application/notes_providers.dart';
 import '../../settings/application/settings_providers.dart';
 import '../../sync/application/pending_operations.dart';
 import '../../tasks/application/tasks_providers.dart';
+import '../../notes/presentation/markdown_preview.dart';
 import '../../notes/presentation/note_editor_screen.dart';
 import '../../tasks/presentation/task_editor_sheet.dart';
 import '../../tasks/presentation/task_source_picker.dart';
