@@ -25,7 +25,15 @@ class BackendSyncStatusNotifier extends Notifier<SyncStatus> {
 
   Future<void> syncNow() async {
     state = SyncStatus.syncing;
-    final auth = ref.read(backendAuthProvider);
+    var auth = ref.read(backendAuthProvider);
+    if (!auth.isSignedIn) {
+      try {
+        await ref.read(backendAccountProvider.notifier).restore();
+      } catch (_) {
+        // Restore failure still resolves to offline below.
+      }
+      auth = ref.read(backendAuthProvider);
+    }
     if (!auth.isSignedIn) {
       state = SyncStatus.offline;
       return;

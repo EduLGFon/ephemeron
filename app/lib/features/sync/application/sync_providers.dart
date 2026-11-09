@@ -45,3 +45,31 @@ final syncEngineProvider = Provider<SyncEngine>((ref) {
 final failedChangesProvider = StreamProvider((ref) {
   return ref.watch(syncEngineProvider).watchFailed();
 });
+
+/// Combined status across Google/Microsoft (`syncStatusProvider`) and backend
+/// (`backendSyncStatusProvider`) syncs. Syncing/error take precedence; a synced
+/// side wins over an offline side so a signed-out backend does not make the
+/// app look offline when Google is fine.
+final combinedSyncStatusProvider = Provider<SyncStatus>((ref) {
+  final google = ref.watch(syncStatusProvider);
+  final backend = ref.watch(backendSyncStatusProvider);
+  if (google == SyncStatus.syncing || backend == SyncStatus.syncing) {
+    return SyncStatus.syncing;
+  }
+  if (google == SyncStatus.error || backend == SyncStatus.error) {
+    return SyncStatus.error;
+  }
+  if (google == SyncStatus.synced || backend == SyncStatus.synced) {
+    return SyncStatus.synced;
+  }
+  return SyncStatus.offline;
+});
+
+/// Manual sync-all action (title tap): starts Google/Microsoft and backend
+/// syncs concurrently, then reschedules both countdowns.
+final syncAllProvider = Provider<Future<void> Function()>((ref) {
+  return () => Future.wait<void>([
+    ref.read(googleAutoSyncServiceProvider).syncNowAndReschedule(),
+    ref.read(backendAutoSyncServiceProvider).syncNowAndReschedule(),
+  ]);
+});

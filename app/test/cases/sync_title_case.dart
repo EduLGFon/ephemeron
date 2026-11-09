@@ -14,6 +14,14 @@ class _FakeSyncStatusNotifier extends SyncStatusNotifier {
   SyncStatus build() => _status;
 }
 
+class _FakeBackendSyncStatusNotifier extends BackendSyncStatusNotifier {
+  _FakeBackendSyncStatusNotifier(this._status);
+  final SyncStatus _status;
+
+  @override
+  SyncStatus build() => _status;
+}
+
 void main() {
   testWidgets('shows spinner only while syncing', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -58,6 +66,61 @@ void main() {
 
     expect(find.text('Calendar'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
+  testWidgets('shows spinner for backend-only syncing state', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          syncStatusProvider.overrideWith(
+            () => _FakeSyncStatusNotifier(SyncStatus.synced),
+          ),
+          backendSyncStatusProvider.overrideWith(
+            () => _FakeBackendSyncStatusNotifier(SyncStatus.syncing),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: SyncTitle(text: 'Calendar')),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
+  testWidgets('tapping invokes sync-all action once', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    var calls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          syncAllProvider.overrideWith(
+            (ref) => () async {
+              calls++;
+            },
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: SyncTitle(text: 'Calendar')),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Calendar'));
+    await tester.pump();
+
+    expect(calls, 1);
 
     await tester.pumpWidget(Container());
     await tester.pump();
