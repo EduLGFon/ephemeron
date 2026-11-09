@@ -37,6 +37,12 @@
 - Migration tests: full step-by-step Drift schema snapshot replay is not set up
   (v4->v5 and v7/v11 regressions are covered).
 
+### Deferred hardening (2026-11-09)
+
+- Markdown preview: indented code blocks are not excluded from the soft-newline hard-break preprocessing, so their rendered lines gain two trailing spaces (content otherwise preserved); unusual nested/longer fenced code blocks can escape the render-only fence tracker. Add tests and tighten the tracker if needed.
+- Event descriptions: after a recurring series split, the old master can keep a stale notesOverflowNoteId pointing at the same canonical note; reverse sync uses limit(1) and may update only one event. Clean the split path or document the shared-link behavior.
+- Event descriptions: saving a description can write Events.notes and enqueue an event update twice (editOccurrence then reverse sync), and ensureOverflowNote/setNotesOverflow are now unused in lib/. Consider removing the redundant write and dead helpers.
+
 ## UX / behavior gaps
 
 - Task-list and smart-list chip long-press management has no widget test.
