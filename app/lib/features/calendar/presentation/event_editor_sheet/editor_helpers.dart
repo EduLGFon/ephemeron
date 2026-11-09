@@ -45,6 +45,10 @@ const _repeatPresets = {
 
 // The series start the repository expects when editing an occurrence.
 DateTime _originalStartOf(Event event) {
+  final originalStart = event.originalStart;
+  if (originalStart != null) {
+    return DateTime.fromMillisecondsSinceEpoch(originalStart, isUtc: true);
+  }
   if (event.startUtc != null) {
     return DateTime.fromMillisecondsSinceEpoch(event.startUtc!, isUtc: true);
   }

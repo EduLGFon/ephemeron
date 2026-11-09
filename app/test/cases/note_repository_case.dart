@@ -1,12 +1,52 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/event_repository.dart';
 import 'package:ephemeron/data/repositories/note_repository.dart';
+import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+
+Future<String> _eventRow(
+  AppDatabase db, {
+  String id = 'ev1',
+  String? notes,
+  String? notesOverflowNoteId,
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.calendars)
+      .insert(
+        CalendarsCompanion.insert(
+          id: 'cal1',
+          name: 'c',
+          createdAt: now,
+          updatedAt: now,
+        ),
+        mode: InsertMode.insertOrIgnore,
+      );
+  await db
+      .into(db.events)
+      .insert(
+        EventsCompanion.insert(
+          id: id,
+          calendarId: 'cal1',
+          notes: Value(notes),
+          notesOverflowNoteId: Value(notesOverflowNoteId),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+  return id;
+}
+
+Future<Event> _event(AppDatabase db, String id) {
+  return (db.select(db.events)..where((e) => e.id.equals(id))).getSingle();
+}
 
 void main() {
   test('nested folders, move, delete reparents to parent', () async {
@@ -70,6 +110,116 @@ void main() {
     expect(note.linkedEventId, 'event1');
     // Idempotent: same note reused.
     expect(await repo.ensureOverflowNote('event1', long), noteId);
+  });
+
+  test(
+    'ensureDescriptionNote creates, updates, and clears the same note',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = NoteRepository(db, attachmentDir: null);
+      await _eventRow(db);
+      final noteId = await repo.ensureDescriptionNote('ev1', 'hello');
+      expect(noteId, isNotNull);
+      var note = await repo.getNote(noteId!);
+      expect(note!.title, 'Event description');
+      expect(note.body, 'hello');
+      expect(note.linkedEventId, 'ev1');
+      var event = await _event(db, 'ev1');
+      expect(event.notesOverflowNoteId, noteId);
+
+      // Idempotent for an unchanged body.
+      expect(await repo.ensureDescriptionNote('ev1', 'hello'), noteId);
+      await repo.ensureDescriptionNote('ev1', 'updated');
+      note = await repo.getNote(noteId);
+      expect(note!.body, 'updated');
+      event = await _event(db, 'ev1');
+      expect(event.notesOverflowNoteId, noteId);
+
+      // Empty text clears the body but keeps the note and link.
+      await repo.ensureDescriptionNote('ev1', '');
+      note = await repo.getNote(noteId);
+      expect(note!.body, '');
+      expect(note.deletedAt, isNull);
+      event = await _event(db, 'ev1');
+      expect(event.notesOverflowNoteId, noteId);
+
+      // No note is created for an empty description on a fresh event.
+      await _eventRow(db, id: 'ev2');
+      expect(await repo.ensureDescriptionNote('ev2', ''), isNull);
+      event = await _event(db, 'ev2');
+      expect(event.notesOverflowNoteId, isNull);
+    },
+  );
+
+  test(
+    'canonical description note updates event notes and enqueues sync',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = NoteRepository(db, attachmentDir: null);
+      await _eventRow(db, notes: 'old');
+      final noteId = (await repo.ensureDescriptionNote('ev1', 'short'))!;
+      final long = 'y' * 9000;
+      await repo.updateNote(noteId, body: () => long);
+
+      final event = await _event(db, 'ev1');
+      expect(event.notes, NoteRepository.cappedEventNotes(long));
+      expect(event.notes!.length, lessThan(long.length));
+      expect(event.dirty, isTrue);
+      final note = await repo.getNote(noteId);
+      expect(note!.body, long);
+
+      final outbox = await db.select(db.outbox).get();
+      expect(
+        outbox.where(
+          (o) => o.entity == 'event' && o.entityId == 'ev1' && o.op == 'update',
+        ),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'trashing a note keeps the event; deleting an event keeps the note',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = NoteRepository(db, attachmentDir: null);
+      await _eventRow(db, notes: 'description');
+      final noteId = (await repo.ensureDescriptionNote('ev1', 'description'))!;
+
+      await repo.trashNote(noteId);
+      var event = await _event(db, 'ev1');
+      expect(event.deletedAt, isNull);
+      expect(event.notes, 'description');
+      expect(event.notesOverflowNoteId, noteId);
+      var note = await repo.getNote(noteId);
+      expect(note!.deletedAt, isNotNull);
+
+      await repo.restoreNote(noteId);
+      final events = EventRepository(db, OccurrenceRepository(db));
+      await events.deleteEvent('ev1');
+      event = await _event(db, 'ev1');
+      expect(event.deletedAt, isNotNull);
+      note = await repo.getNote(noteId);
+      expect(note!.deletedAt, isNull);
+      expect(note.linkedEventId, 'ev1');
+    },
+  );
+
+  test('eventForNote resolves canonical and direct event links', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = NoteRepository(db, attachmentDir: null);
+    await _eventRow(db);
+    final canonical = (await repo.ensureDescriptionNote('ev1', 'desc'))!;
+    expect((await repo.eventForNote(canonical))!.id, 'ev1');
+
+    await _eventRow(db, id: 'ev2');
+    final direct = await repo.createNote(title: 'Prep', linkedEventId: 'ev2');
+    expect((await repo.eventForNote(direct))!.id, 'ev2');
+    expect(await repo.eventForNote('missing'), isNull);
   });
 
   test('event-linked notes listed', () async {

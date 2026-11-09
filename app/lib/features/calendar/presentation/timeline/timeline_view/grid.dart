@@ -121,7 +121,11 @@ extension _TimelineViewGrid on _TimelineViewState {
                                             occurrenceDate: o.dayKey,
                                           );
                                         } else {
-                                          showEventDetails(context, o.eventId);
+                                          showEventDetails(
+                                            context,
+                                            o.eventId,
+                                            occurrenceStartMs: o.startUtc,
+                                          );
                                         }
                                       },
                                       onLongPressStart: o.sourceType == 'task'

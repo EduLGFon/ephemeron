@@ -1,7 +1,9 @@
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/event_repository.dart';
 import 'package:ephemeron/data/repositories/note_repository.dart';
+import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/features/notes/presentation/markdown_editing_controller.dart';
 import 'package:ephemeron/features/notes/presentation/markdown_preview.dart';
 import 'package:ephemeron/features/notes/presentation/note_editor_screen.dart';
@@ -162,6 +164,48 @@ void main() {
     expect(find.byType(NoteEditorScreen), findsNothing);
     final saved = await repo.getNote(id);
     expect(saved!.body, 'Saved on the way out');
+
+    await tester.pumpWidget(Container());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('shows a missing linked event indicator for a deleted event', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = NoteRepository(db, attachmentDir: null);
+    final events = EventRepository(db, OccurrenceRepository(db));
+    final calendar = await events.createCalendar('C');
+    final eventId = await events.createEvent(
+      calendarId: calendar,
+      title: 'Meeting',
+    );
+    final id = await repo.createNote(
+      title: 'Prep',
+      body: 'notes',
+      linkedEventId: eventId,
+    );
+    await events.deleteEvent(eventId);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWith(
+            (ref) async => SettingsRepository(prefs),
+          ),
+        ],
+        child: MaterialApp(home: NoteEditorScreen(noteId: id)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Linked event not found'), findsOneWidget);
+    expect(find.byKey(const Key('linked-event-missing')), findsOneWidget);
 
     await tester.pumpWidget(Container());
     await tester.pump();

@@ -7,18 +7,23 @@ class _LoadedDetails {
     this.task,
     this.source,
     this.isMicrosoft = false,
+    this.descriptionNote,
   });
 
   final Event? event;
   final Task? task;
   final String? source;
   final bool isMicrosoft;
+
+  /// Canonical description note when the event link resolves to a live note.
+  final Note? descriptionNote;
 }
 
 class _Details extends ConsumerStatefulWidget {
-  const _Details({required this.eventId});
+  const _Details({required this.eventId, this.occurrenceStartMs});
 
   final String eventId;
+  final int? occurrenceStartMs;
 
   @override
   ConsumerState<_Details> createState() => _DetailsState();
@@ -30,19 +35,24 @@ class _DetailsState extends ConsumerState<_Details> {
   @override
   void initState() {
     super.initState();
-    _future = _load(ref, widget.eventId);
+    _future = _load(ref, widget.eventId, widget.occurrenceStartMs);
   }
 
   void _reload() {
-    setState(() => _future = _load(ref, widget.eventId));
+    setState(
+      () => _future = _load(ref, widget.eventId, widget.occurrenceStartMs),
+    );
   }
 
-  Future<_LoadedDetails?> _load(WidgetRef ref, String id) async {
+  Future<_LoadedDetails?> _load(
+    WidgetRef ref,
+    String id,
+    int? occurrenceStartMs,
+  ) async {
     final db = ref.read(appDatabaseProvider);
-    final event =
-        await (ref.read(eventRepositoryProvider).dbSelect()
-              ..where((e) => e.id.equals(id)))
-            .getSingleOrNull();
+    final event = await ref
+        .read(eventRepositoryProvider)
+        .resolveEventForOccurrence(id, occurrenceStartMs: occurrenceStartMs);
     if (event != null) {
       final calendar = await (db.select(
         db.calendars,
@@ -52,8 +62,15 @@ class _DetailsState extends ConsumerState<_Details> {
         calendarSource: calendar?.source,
         calendarMicrosoftAccount: calendar?.microsoftAccount,
       );
+      final descriptionNoteId = event.notesOverflowNoteId;
+      final descriptionNote = descriptionNoteId == null
+          ? null
+          : await ref.read(noteRepositoryProvider).getNote(descriptionNoteId);
       return _LoadedDetails(
         event: event,
+        descriptionNote: descriptionNote?.deletedAt == null
+            ? descriptionNote
+            : null,
         isMicrosoft: isMs,
         source: sourceLabel(
           name: calendar?.name,
@@ -111,6 +128,7 @@ class _DetailsState extends ConsumerState<_Details> {
         if (e != null) {
           return _EventDetailsBody(
             event: e,
+            descriptionNote: data?.descriptionNote,
             source: data?.source,
             isMicrosoft: data?.isMicrosoft == true,
             onReload: _reload,

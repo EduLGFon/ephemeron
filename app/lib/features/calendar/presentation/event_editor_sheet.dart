@@ -19,6 +19,7 @@ import '../../../core/platform/app_permissions.dart';
 import '../../../core/time/picker_memory.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../data/repositories/event_repository.dart';
+import '../../../data/repositories/note_repository.dart';
 import '../../../domain/alarms/alarm_preset.dart';
 import '../../../domain/alarms/reminder.dart';
 import '../../../domain/recurrence/recurrence_rule.dart';

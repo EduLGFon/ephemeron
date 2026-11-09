@@ -13,24 +13,20 @@ extension on _EventEditorState {
     } catch (_) {}
   }
 
-  /// Trims the description and caps the event column at 8000 chars so the
-  /// full text can live in a linked overflow note.
+  /// Trims the description and caps the event column so the full text can
+  /// live in the linked description note.
   ({String? full, String? stored}) _notesPayload() {
     final full = _notes.text.trim();
     if (full.isEmpty) return (full: null, stored: null);
-    return (
-      full: full,
-      stored: full.length > 8000
-          ? '${full.substring(0, 8000)}\n(continued in Ephemeron)'
-          : full,
-    );
+    return (full: full, stored: NoteRepository.cappedEventNotes(full));
   }
 
-  Future<void> _persistOverflow(String eventId, String? fullNotes) async {
-    if (fullNotes == null || fullNotes.length <= 8000) return;
-    final noteId = await ref
+  /// Every description is mirrored to the canonical linked note, not only
+  /// overflow text. An empty description clears the note body, keeping the
+  /// note and its link.
+  Future<void> _syncDescription(String eventId, String? fullNotes) async {
+    await ref
         .read(noteRepositoryProvider)
-        .ensureOverflowNote(eventId, fullNotes);
-    await ref.read(eventRepositoryProvider).setNotesOverflow(eventId, noteId);
+        .ensureDescriptionNote(eventId, fullNotes ?? '');
   }
 }
