@@ -29,6 +29,82 @@ void main() {
     expect(built.covers(outside), isFalse);
   });
 
+  test(
+    'agenda visible range starts at the anchor with a past cache buffer',
+    () {
+      final window = CalendarWindow(
+        anchor: DateTime(2026, 11, 9),
+        view: CalendarViewKind.agenda,
+      );
+
+      expect(window.visibleRange.fromUtc, DateTime.utc(2026, 11, 9));
+      expect(window.visibleRange.toUtc, DateTime.utc(2027, 2, 7));
+      expect(window.cacheRange.fromUtc, DateTime.utc(2026, 10, 10));
+      expect(window.cacheRange.toUtc, DateTime.utc(2027, 2, 7));
+    },
+  );
+
+  test('restored windows clamp their anchor only when today is hidden', () {
+    final now = DateTime(2026, 11, 9, 15, 30);
+    DateTime clamp(CalendarViewKind view, DateTime anchor, {int dayCount = 1}) {
+      return calendarAnchorShowingToday(
+        CalendarWindow(anchor: anchor, view: view, dayCount: dayCount),
+        now,
+      );
+    }
+
+    expect(
+      clamp(CalendarViewKind.month, DateTime(2026, 3, 10)),
+      DateTime(2026, 11, 9),
+    );
+    expect(
+      clamp(CalendarViewKind.month, DateTime(2026, 11, 2)),
+      DateTime(2026, 11, 2),
+    );
+    expect(
+      clamp(CalendarViewKind.year, DateTime(2025, 1, 1)),
+      DateTime(2026, 11, 9),
+    );
+    expect(
+      clamp(CalendarViewKind.year, DateTime(2026, 1, 1)),
+      DateTime(2026, 1, 1),
+    );
+    expect(
+      clamp(CalendarViewKind.day, DateTime(2026, 11, 8)),
+      DateTime(2026, 11, 9),
+    );
+    expect(
+      clamp(CalendarViewKind.day, DateTime(2026, 11, 10)),
+      DateTime(2026, 11, 9),
+    );
+    expect(
+      clamp(CalendarViewKind.multiDay, DateTime(2026, 11, 6), dayCount: 7),
+      DateTime(2026, 11, 6),
+    );
+    expect(
+      clamp(CalendarViewKind.multiDay, DateTime(2026, 11, 10), dayCount: 7),
+      DateTime(2026, 11, 9),
+    );
+    // Agenda starts at today: a past anchor moves forward even though today
+    // is inside its forward window, and a future anchor also moves back.
+    expect(
+      clamp(CalendarViewKind.agenda, DateTime(2026, 10, 1)),
+      DateTime(2026, 11, 9),
+    );
+    expect(
+      clamp(CalendarViewKind.agenda, DateTime(2026, 2, 1)),
+      DateTime(2026, 11, 9),
+    );
+    expect(
+      clamp(CalendarViewKind.agenda, DateTime(2026, 11, 9)),
+      DateTime(2026, 11, 9),
+    );
+    expect(
+      clamp(CalendarViewKind.agenda, DateTime(2026, 11, 10)),
+      DateTime(2026, 11, 9),
+    );
+  });
+
   test('selecting another day in the month view keeps the cache range', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);

@@ -101,13 +101,20 @@ class CalendarWindow {
   CalendarRange get cacheRange => CalendarRange(fromUtc: fromUtc, toUtc: toUtc);
 
   /// Range actually visible to the user, without swipe buffer days.
+  ///
+  /// The agenda keeps 30 past days in the cache so the backward chevron can
+  /// reveal them without a rebuild, but the list starts at the anchor day.
   CalendarRange get visibleRange {
     final a = DateTime.utc(anchor.year, anchor.month, anchor.day);
     switch (view) {
       case CalendarViewKind.month:
-      case CalendarViewKind.agenda:
       case CalendarViewKind.year:
         return cacheRange;
+      case CalendarViewKind.agenda:
+        return CalendarRange(
+          fromUtc: a,
+          toUtc: a.add(const Duration(days: 90)),
+        );
       case CalendarViewKind.multiDay:
       case CalendarViewKind.day:
         return CalendarRange(
@@ -115,6 +122,43 @@ class CalendarWindow {
           toUtc: a.add(Duration(days: dayCount)),
         );
     }
+  }
+}
+
+/// Anchor that guarantees [now] is shown by [window]'s view.
+///
+/// Keeps the restored anchor when it already covers today and otherwise
+/// returns today, preserving the window's view and day count. The agenda also
+/// moves forward when its anchor is before today, so opening it always starts
+/// at today instead of at past days.
+DateTime calendarAnchorShowingToday(CalendarWindow window, DateTime now) {
+  final today = DateTime(now.year, now.month, now.day);
+  final anchor = window.anchor;
+  switch (window.view) {
+    case CalendarViewKind.month:
+      if (anchor.year == today.year && anchor.month == today.month) {
+        return anchor;
+      }
+      return today;
+    case CalendarViewKind.day:
+    case CalendarViewKind.multiDay:
+      final from = DateTime(anchor.year, anchor.month, anchor.day);
+      final to = from.add(Duration(days: window.dayCount));
+      if (today.isBefore(from) || !today.isBefore(to)) return today;
+      return anchor;
+    case CalendarViewKind.agenda:
+      final anchorDay = DateTime(anchor.year, anchor.month, anchor.day);
+      final visible = window.visibleRange;
+      final todayStartUtc = DateTime.utc(today.year, today.month, today.day);
+      if (anchorDay.isBefore(today) ||
+          todayStartUtc.isBefore(visible.fromUtc) ||
+          !todayStartUtc.isBefore(visible.toUtc)) {
+        return today;
+      }
+      return anchor;
+    case CalendarViewKind.year:
+      if (anchor.year == today.year) return anchor;
+      return today;
   }
 }
 

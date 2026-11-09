@@ -41,9 +41,18 @@ extension _AppShellSessionRestore on _AppShellState {
                   anchorMs,
                   isUtc: true,
                 ).toLocal();
+          final window = CalendarWindow(
+            anchor: anchor,
+            view: view,
+            dayCount: repo.calendarDayCount,
+          );
           ref
               .read(calendarStateProvider.notifier)
-              .restore(view, anchor, dayCount: repo.calendarDayCount);
+              .restore(
+                view,
+                calendarAnchorShowingToday(window, DateTime.now()),
+                dayCount: repo.calendarDayCount,
+              );
         } catch (_) {}
       }
       ref.read(initialRestoreDoneProvider.notifier).markDone();
