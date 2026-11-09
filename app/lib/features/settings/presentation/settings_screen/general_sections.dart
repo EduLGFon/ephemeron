@@ -171,9 +171,15 @@ class _LastSyncTile extends ConsumerWidget {
     final status = ref.watch(syncStatusProvider);
     final lastSync = ref.watch(lastGoogleSyncAtProvider);
     final label = _statusLabel(status);
-    final subtitle = lastSync == null
-        ? '$label - has not synced yet'
-        : '$label - ${DeviceDateFormat.dateTime(context, lastSync.toLocal())}';
+    final String subtitle;
+    if (lastSync == null) {
+      subtitle = status == SyncStatus.synced
+          ? 'Not synced yet'
+          : '$label - has not synced yet';
+    } else {
+      subtitle =
+          '$label - ${DeviceDateFormat.dateTime(context, lastSync.toLocal())}';
+    }
     return ListTile(
       title: const Text('Last sync'),
       subtitle: Text(subtitle, softWrap: true),
