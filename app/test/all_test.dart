@@ -71,6 +71,7 @@ import 'cases/smart_filter_case.dart' as smart_filter;
 import 'cases/source_label_case.dart' as source_label;
 import 'cases/source_move_case.dart' as source_move;
 import 'cases/source_picker_case.dart' as source_picker;
+import 'cases/sync_all_case.dart' as sync_all;
 import 'cases/sync_engine_case.dart' as sync_engine;
 import 'cases/sync_engine_errors_case.dart' as sync_engine_errors;
 import 'cases/sync_engine_ownership_case.dart' as sync_engine_ownership;
@@ -162,6 +163,7 @@ const _included = <String>{
   'source_label_case.dart',
   'source_move_case.dart',
   'source_picker_case.dart',
+  'sync_all_case.dart',
   'sync_engine_case.dart',
   'sync_engine_errors_case.dart',
   'sync_engine_ownership_case.dart',
@@ -260,6 +262,7 @@ void main() {
   group('source_label', source_label.main);
   group('source_move', source_move.main);
   group('source_picker', source_picker.main);
+  group('sync_all', sync_all.main);
   group('sync_engine', sync_engine.main);
   group('sync_engine_errors', sync_engine_errors.main);
   group('sync_engine_ownership', sync_engine_ownership.main);
