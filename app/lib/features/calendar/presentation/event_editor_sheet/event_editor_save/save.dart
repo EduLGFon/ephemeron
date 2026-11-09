@@ -63,14 +63,19 @@ extension on _EventEditorState {
         return;
       }
     }
-    // Conflict hint: warn if overlapping a busy event.
+    // Conflict hint: warn if overlapping a busy event. Exclude both the
+    // selected row and its master so an exception does not conflict with
+    // itself.
     if (!_allDay) {
-      final overlaps = await repo.overlappingEvents(
-        calendarId: _calendarId!,
-        startUtc: _start.toUtc(),
-        endUtc: _end.toUtc(),
-        excludeId: seriesId,
-      );
+      final overlaps = [
+        for (final e in await repo.overlappingEvents(
+          calendarId: _calendarId!,
+          startUtc: _start.toUtc(),
+          endUtc: _end.toUtc(),
+          excludeId: seriesId,
+        ))
+          if (e.id != existing?.id) e,
+      ];
       if (overlaps.isNotEmpty && mounted) {
         final proceed = await showDialog<bool>(
           context: context,
@@ -224,7 +229,13 @@ extension on _EventEditorState {
     );
     if (mounted) {
       await _syncDescription(eventId, notesPayload.full);
-      await repo.setAttendees(seriesId, _attendees.text.split(','));
+      // A single-occurrence exception has nowhere to store attendees of its
+      // own; keep the master untouched instead of silently editing the series.
+      final updateSeriesAttendees =
+          scope != EditScope.single || existing.recurringMasterId == null;
+      if (updateSeriesAttendees) {
+        await repo.setAttendees(seriesId, _attendees.text.split(','));
+      }
       try {
         final range = ref.read(calendarCacheRangeProvider);
         await ref

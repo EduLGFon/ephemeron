@@ -1,9 +1,17 @@
 import 'package:drift/native.dart';
+import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
 import 'package:ephemeron/data/repositories/note_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
+import 'package:ephemeron/features/calendar/presentation/event_editor_sheet.dart';
+import 'package:ephemeron/features/settings/application/settings_providers.dart';
+import 'package:ephemeron/features/settings/data/settings_repository.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
@@ -35,6 +43,68 @@ Future<String> _setup(
 
 Future<int> _count(AppDatabase db) async {
   return (await db.select(db.events).get()).length;
+}
+
+Future<void> _openEventEditor(
+  WidgetTester tester,
+  AppDatabase db,
+  SharedPreferences prefs,
+  Event event,
+) async {
+  const systemChannel = MethodChannel('ephemeron/system');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(
+    systemChannel,
+    (call) async => call.method == 'canPostNotifications' ? true : null,
+  );
+  addTearDown(() => messenger.setMockMethodCallHandler(systemChannel, null));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        settingsRepositoryProvider.overrideWith(
+          (ref) async => SettingsRepository(prefs),
+        ),
+      ],
+      child: MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: ElevatedButton(
+                onPressed: () => showEventEditor(context, event: event),
+                child: const Text('Open event'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('Open event'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _disposeTree(WidgetTester tester) async {
+  await tester.pumpWidget(Container());
+  await tester.pump();
+  await tester.pump(const Duration(seconds: 1));
+}
+
+Future<void> _pumpUntil(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 40; i++) {
+    if (finder.evaluate().isNotEmpty) return;
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+Future<void> _saveEvent(WidgetTester tester) async {
+  final save = find.widgetWithText(FilledButton, 'Save');
+  await tester.ensureVisible(save);
+  await tester.tap(save);
+  await tester.pump();
+  await _pumpUntil(tester, find.text('Which events?'));
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -439,5 +509,62 @@ void main() {
     final ex = await repo.getEvent(affectedId);
     expect(ex!.notesOverflowNoteId, noteId);
     expect(ex.notes!.length, lessThan(long.length));
+  });
+
+  testWidgets('exception edit does not conflict with itself', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final master = await _setup(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final exId = await repo.editOccurrence(
+      master,
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      title: 'Special',
+    );
+    final ex = await repo.getEvent(exId);
+    await _openEventEditor(tester, db, prefs, ex!);
+
+    await _saveEvent(tester);
+
+    expect(find.text('Scheduling conflict'), findsNothing);
+    expect(find.text('Which events?'), findsOneWidget);
+    await _disposeTree(tester);
+  });
+
+  testWidgets('single exception edit does not change series attendees', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final master = await _setup(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await repo.setAttendees(master, ['master@example.com']);
+    final exId = await repo.editOccurrence(
+      master,
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      title: 'Special',
+    );
+    final ex = await repo.getEvent(exId);
+    await _openEventEditor(tester, db, prefs, ex!);
+    final invitees = find.byType(TextField).at(1);
+    await tester.ensureVisible(invitees);
+    await tester.enterText(invitees, 'exception@example.com');
+
+    await _saveEvent(tester);
+    expect(find.text('Which events?'), findsOneWidget);
+    await tester.tap(find.text('This event'));
+    await tester.pumpAndSettle();
+
+    expect((await repo.attendeesOf(master)).map((a) => a.email), [
+      'master@example.com',
+    ]);
+    expect(await repo.attendeesOf(exId), isEmpty);
+    await _disposeTree(tester);
   });
 }

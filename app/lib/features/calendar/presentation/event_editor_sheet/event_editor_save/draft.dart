@@ -13,17 +13,12 @@ extension on _EventEditorState {
     } catch (_) {}
   }
 
-  /// Trims the description and caps the event column at 8000 chars so the
-  /// full text can live in a linked overflow note.
+  /// Trims the description and caps the event column so the full text can
+  /// live in the linked description note.
   ({String? full, String? stored}) _notesPayload() {
     final full = _notes.text.trim();
     if (full.isEmpty) return (full: null, stored: null);
-    return (
-      full: full,
-      stored: full.length > 8000
-          ? '${full.substring(0, 8000)}\n(continued in Ephemeron)'
-          : full,
-    );
+    return (full: full, stored: NoteRepository.cappedEventNotes(full));
   }
 
   /// Every description is mirrored to the canonical linked note, not only
