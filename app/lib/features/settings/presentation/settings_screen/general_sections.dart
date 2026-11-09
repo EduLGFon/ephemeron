@@ -69,7 +69,8 @@ List<Widget> _accountsSection(_SettingsScreenState state) {
       title: 'Google auto-sync interval',
       help:
           'Sync starts right after sign-in. Tapping the Calendar, '
-          'Tasks or Matrix title syncs now and restarts the countdown.',
+          'Tasks or Matrix title syncs all connected accounts now and '
+          'restarts the countdown.',
       value: state._syncIntervalMin,
       items: const [
         DropdownMenuItem(value: 0, child: Text('Off')),

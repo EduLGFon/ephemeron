@@ -1,6 +1,6 @@
-// Tappable AppBar title that forces a Google sync. Primary color when a
-// sync ran in the last 30 minutes, gray otherwise. Manual taps restart
-// the auto-sync countdown.
+// Tappable AppBar title that forces a sync of all connected accounts.
+// Primary color when a sync ran in the last 30 minutes, gray otherwise.
+// Manual taps restart the auto-sync countdown.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -44,7 +44,7 @@ class _SyncTitleState extends ConsumerState<SyncTitle> {
       valueListenable: _tick,
       builder: (context, _, child) {
         final lastSync = ref.watch(lastGoogleSyncAtProvider);
-        final status = ref.watch(syncStatusProvider);
+        final status = ref.watch(combinedSyncStatusProvider);
         final fresh =
             lastSync != null &&
             DateTime.now().toUtc().difference(lastSync) <
@@ -53,8 +53,7 @@ class _SyncTitleState extends ConsumerState<SyncTitle> {
             ? Theme.of(context).colorScheme.primary
             : Theme.of(context).colorScheme.outline;
         return InkWell(
-          onTap: () =>
-              ref.read(googleAutoSyncServiceProvider).syncNowAndReschedule(),
+          onTap: () => ref.read(syncAllProvider)(),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
