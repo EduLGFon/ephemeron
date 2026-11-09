@@ -55,11 +55,27 @@ class _SyncTitleState extends ConsumerState<SyncTitle> {
         return InkWell(
           onTap: () =>
               ref.read(googleAutoSyncServiceProvider).syncNowAndReschedule(),
-          child: Text(
-            widget.text,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(color: color),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.text,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(color: color),
+              ),
+              if (status == SyncStatus.syncing) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: color,
+                  ),
+                ),
+              ],
+            ],
           ),
         );
       },
