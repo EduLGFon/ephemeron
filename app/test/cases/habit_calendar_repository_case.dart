@@ -136,6 +136,30 @@ void main() {
     },
   );
 
+  test('subtractAmount ignores zero and negative amounts', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Run',
+      frequency: 'daily',
+      startDate: '2026-03-01',
+      goalAmount: 10,
+      unit: 'min',
+    );
+
+    await repo.addAmount(id, '2026-03-01', 5);
+    await repo.subtractAmount(id, '2026-03-01', -5);
+    var log = await repo.logFor(id, '2026-03-01');
+    expect(log?.amount, 5);
+    expect(log?.done, isFalse);
+
+    await repo.subtractAmount(id, '2026-03-01', 0);
+    log = await repo.logFor(id, '2026-03-01');
+    expect(log?.amount, 5);
+    expect(log?.done, isFalse);
+  });
+
   test('skip and backfill enqueue habit log updates', () async {
     final db = _db();
     addTearDown(db.close);
@@ -212,7 +236,7 @@ void main() {
     },
   );
 
-  test('setDone fills the goal and unchecking preserves progress', () async {
+  test('setDone fills the goal and unmarking resets progress', () async {
     final db = _db();
     addTearDown(db.close);
     final repo = HabitRepository(db);
@@ -232,14 +256,69 @@ void main() {
     await repo.setDone(id, '2026-03-01', true);
     expect((await repo.logFor(id, '2026-03-01'))?.amount, 10);
 
+    await repo.setSkipped(id, '2026-03-01', true);
     await repo.setDone(id, '2026-03-01', false);
     log = await repo.logFor(id, '2026-03-01');
-    expect(log?.amount, 10);
+    expect(log?.amount, 0);
     expect(log?.done, isFalse);
+    expect(log?.skipped, isTrue);
 
     await repo.setDone(id, '2026-03-01', true);
-    expect((await repo.logFor(id, '2026-03-01'))?.amount, 10);
+    log = await repo.logFor(id, '2026-03-01');
+    expect(log?.amount, 10);
+    expect(log?.done, isTrue);
+    expect(log?.skipped, isFalse);
   });
+
+  test(
+    'subtractAmount clamps, clears done, preserves skip, no-ops without log',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = HabitRepository(db);
+      final id = await repo.createHabit(
+        name: 'Run',
+        frequency: 'daily',
+        startDate: '2026-03-01',
+        goalAmount: 10,
+        unit: 'min',
+      );
+
+      await repo.subtractAmount(id, '2026-03-05', 1);
+      expect(await repo.logFor(id, '2026-03-05'), isNull);
+      final noLogOutbox = await db.select(db.outbox).get();
+      expect(noLogOutbox.any((o) => o.entityId == '$id@2026-03-05'), isFalse);
+
+      await repo.addAmount(id, '2026-03-01', 10);
+      await repo.setSkipped(id, '2026-03-01', true);
+      var log = await repo.logFor(id, '2026-03-01');
+      expect(log?.done, isTrue);
+      expect(log?.skipped, isTrue);
+
+      await repo.subtractAmount(id, '2026-03-01', 3);
+      log = await repo.logFor(id, '2026-03-01');
+      expect(log?.amount, 7);
+      expect(log?.done, isFalse);
+      expect(log?.skipped, isTrue);
+
+      await repo.subtractAmount(id, '2026-03-01', 50);
+      log = await repo.logFor(id, '2026-03-01');
+      expect(log?.amount, 0);
+      expect(log?.done, isFalse);
+      expect(log?.skipped, isTrue);
+
+      final outbox = await db.select(db.outbox).get();
+      expect(
+        outbox.any(
+          (o) =>
+              o.entity == 'habit_log:$id' &&
+              o.entityId == '$id@2026-03-01' &&
+              o.op == 'update',
+        ),
+        isTrue,
+      );
+    },
+  );
 
   test('no-goal habits keep their amount when marked done', () async {
     final db = _db();

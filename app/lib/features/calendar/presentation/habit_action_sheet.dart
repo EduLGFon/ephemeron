@@ -98,6 +98,16 @@ class HabitActionSheet extends ConsumerWidget {
                 : Text(habitProgressText(amount, goal, unit: entry.unit)),
             onTap: () => repo.addAmount(entry.habitId, entry.dayKey, step),
           ),
+          if (goal != null)
+            ListTile(
+              leading: const Icon(Icons.remove_rounded),
+              title: Text(
+                'Subtract ${formatHabitAmount(step)}'
+                '${habitUnitSuffix(entry.unit)}',
+              ),
+              onTap: () =>
+                  repo.subtractAmount(entry.habitId, entry.dayKey, step),
+            ),
           ListTile(
             leading: Icon(
               skipped ? Icons.play_arrow_rounded : Icons.pause_rounded,
