@@ -8,8 +8,10 @@ import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
+import 'package:ephemeron/app/session/session_restore.dart';
 import 'package:ephemeron/features/calendar/application/calendar_providers.dart';
 import 'package:ephemeron/features/calendar/application/calendar_state.dart';
+import 'package:ephemeron/features/calendar/presentation/calendar_screen.dart';
 import 'package:ephemeron/features/calendar/presentation/month_view.dart';
 import 'package:ephemeron/domain/habits/date_key.dart';
 import 'package:flutter/material.dart';
@@ -260,6 +262,56 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Edit'), findsOneWidget);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('agenda renders events and habits on first open', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    final repo = HabitRepository(db);
+    final today = DateTime.now();
+    final day = DateTime(today.year, today.month, today.day);
+    // A long-running daily habit must not push today below a wall of past
+    // rows: the agenda list starts at the anchor day.
+    final habitId = await repo.createHabit(
+      name: 'Read',
+      frequency: 'daily',
+      startDate: '2020-01-01',
+    );
+    await _seed(db, [(id: 'e1', title: 'Standup', day: day, hour: 10)]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: CalendarScreen()),
+      ),
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CalendarScreen)),
+    );
+    final notifier = container.read(calendarStateProvider.notifier);
+    notifier.restore(CalendarViewKind.agenda, today);
+    container.read(initialRestoreDoneProvider.notifier).markDone();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(tester.takeException(), null);
+    expect(find.text(dateKey(day)), findsOneWidget);
+    expect(find.text('Standup'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('agenda-habit-$habitId-${dateKey(day)}')),
+      findsOneWidget,
+    );
+
+    // Switching away and back keeps today's rows visible.
+    notifier.setView(CalendarViewKind.month);
+    await tester.pump();
+    notifier.setView(CalendarViewKind.agenda);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.takeException(), null);
+    expect(find.text('Standup'), findsOneWidget);
     await _tearDown(tester, db);
   });
 
