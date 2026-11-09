@@ -214,7 +214,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           dayCount: 1,
         ),
         CalendarViewKind.agenda => const AgendaView(),
-        CalendarViewKind.year => const YearView(),
+        CalendarViewKind.year => CalendarSwipe(
+          enabled: true,
+          onShift: (direction) => ref
+              .read(calendarStateProvider.notifier)
+              .shiftMonths(direction * 12),
+          child: const YearView(),
+        ),
       },
       floatingActionButton: FloatingActionButton(
         heroTag: 'calendarFab',

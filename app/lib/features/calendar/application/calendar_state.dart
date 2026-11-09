@@ -217,4 +217,12 @@ class CalendarState extends Notifier<CalendarWindow> {
       dayCount: state.dayCount,
     );
   }
+
+  void openMonth(int year, int month) {
+    state = CalendarWindow(
+      anchor: DateTime(year, month, 1),
+      view: CalendarViewKind.month,
+      dayCount: 1,
+    );
+  }
 }
