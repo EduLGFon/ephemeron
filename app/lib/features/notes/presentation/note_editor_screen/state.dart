@@ -271,6 +271,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                               controller: _bodyCtl,
                               maxLines: null,
                               expands: true,
+                              // Enter must insert a newline on every keyboard
+                              // (Gboard included) instead of submitting.
+                              keyboardType: TextInputType.multiline,
+                              textInputAction: TextInputAction.newline,
                               textAlignVertical: TextAlignVertical.top,
                               decoration: const InputDecoration(
                                 hintText:
