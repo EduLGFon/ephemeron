@@ -20,6 +20,7 @@ class _HabitTile extends ConsumerWidget {
     final logsAsync = ref.watch(habitLogsProvider(habit.id));
     final streakAsync = ref.watch(habitStreakProvider(habit.id));
     final storeAsync = ref.watch(habitTimerStoreProvider);
+    final currentSession = ref.watch(currentFocusSessionProvider).value;
     return logsAsync.maybeWhen(
       data: (logs) {
         final log = _logFor(logs, day);
@@ -30,6 +31,19 @@ class _HabitTile extends ConsumerWidget {
         final hasGoal = goal > 0;
         final step = habit.increment ?? 1.0;
         final repo = ref.read(habitRepositoryProvider);
+        final liveSession =
+            currentSession != null &&
+                hasGoal &&
+                isLiveHabitProgress(
+                  habitId: habit.id,
+                  selectedDayKey: day,
+                  todayKey: habitTodayKey(),
+                  unit: habit.unit,
+                  sessionHabitId: currentSession.habitId,
+                  sessionPhase: currentSession.phase,
+                )
+            ? currentSession
+            : null;
         return ListTile(
           leading: Checkbox(
             value: done,
@@ -43,6 +57,18 @@ class _HabitTile extends ConsumerWidget {
           ),
           subtitle: streakAsync.maybeWhen(
             data: (st) {
+              final streakText = skipped
+                  ? 'Skipped - streak ${st.current} - best ${st.best}'
+                  : 'Streak ${st.current} - best ${st.best}';
+              if (liveSession != null) {
+                return _HabitLiveProgress(
+                  habit: habit,
+                  day: day,
+                  session: liveSession,
+                  loggedAmount: amount,
+                  streakText: streakText,
+                );
+              }
               final progress = hasGoal
                   ? formatHabitProgress(
                       unit: habit.unit,
@@ -50,9 +76,6 @@ class _HabitTile extends ConsumerWidget {
                       goal: goal,
                     )
                   : null;
-              final streakText = skipped
-                  ? 'Skipped - streak ${st.current} - best ${st.best}'
-                  : 'Streak ${st.current} - best ${st.best}';
               if (progress == null) return Text(streakText);
               return Tooltip(
                 message: formatHabitExact(
@@ -155,7 +178,7 @@ class _HabitTile extends ConsumerWidget {
     if (done) {
       await repo.logDone(habit.id, day);
     } else {
-      await repo.backfill(habit.id, day, 0, false);
+      await repo.setDone(habit.id, day, false);
     }
     ref.invalidate(habitStreakProvider(habit.id));
   }
@@ -224,6 +247,93 @@ class _HabitTile extends ConsumerWidget {
           onPressed: () => pending.cancel(opId),
         ),
       ),
+    );
+  }
+}
+
+/// Live goal percentage for a habit linked to a running focus/stopwatch
+/// session. The one-second ticker only exists while this widget is mounted, so
+/// idle habit rows never rebuild on a clock.
+class _HabitLiveProgress extends StatefulWidget {
+  const _HabitLiveProgress({
+    required this.habit,
+    required this.day,
+    required this.session,
+    required this.loggedAmount,
+    required this.streakText,
+  });
+
+  final Habit habit;
+  final String day;
+  final FocusSession session;
+  final double loggedAmount;
+  final String streakText;
+
+  @override
+  State<_HabitLiveProgress> createState() => _HabitLiveProgressState();
+}
+
+class _HabitLiveProgressState extends State<_HabitLiveProgress> {
+  final ValueNotifier<int> _now = ValueNotifier<int>(
+    DateTime.now().toUtc().millisecondsSinceEpoch,
+  );
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      _now.value = DateTime.now().toUtc().millisecondsSinceEpoch;
+      if (!isLiveHabitProgress(
+        habitId: widget.habit.id,
+        selectedDayKey: widget.day,
+        todayKey: habitTodayKey(),
+        unit: widget.habit.unit,
+        sessionHabitId: widget.session.habitId,
+        sessionPhase: widget.session.phase,
+      )) {
+        _ticker?.cancel();
+        _ticker = null;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _now.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final goal = widget.habit.goalAmount ?? 0;
+    return ValueListenableBuilder<int>(
+      valueListenable: _now,
+      builder: (context, now, _) {
+        final amount = liveHabitAmount(
+          habitId: widget.habit.id,
+          selectedDayKey: widget.day,
+          todayKey: habitTodayKey(),
+          unit: widget.habit.unit,
+          loggedAmount: widget.loggedAmount,
+          sessionHabitId: widget.session.habitId,
+          sessionPhase: widget.session.phase,
+          sessionStartUtcMs: widget.session.startUtc,
+          nowMs: now,
+        );
+        return Tooltip(
+          message: formatHabitExact(
+            unit: widget.habit.unit,
+            amount: amount,
+            goal: goal,
+          ),
+          child: Text(
+            '${formatHabitPercent(amount: amount, goal: goal)}  '
+            '${widget.streakText}',
+          ),
+        );
+      },
     );
   }
 }

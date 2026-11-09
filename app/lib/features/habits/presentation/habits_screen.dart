@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/habits/date_key.dart';
 import '../../../domain/habits/habit_timer.dart';
+import '../../focus/application/focus_providers.dart';
 import '../../sync/application/pending_operations.dart';
 import '../application/habits_providers.dart';
 import '../../../data/repositories/habit_repository.dart';

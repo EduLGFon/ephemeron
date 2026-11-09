@@ -33,6 +33,10 @@ final habitLogsProvider = StreamProvider.family<List<HabitLog>, String>((
   return ref.watch(habitRepositoryProvider).watchLogs(habitId);
 });
 
+final habitByIdProvider = FutureProvider.family<Habit?, String>((ref, id) {
+  return ref.watch(habitRepositoryProvider).habitById(id);
+});
+
 final habitStreakProvider =
     FutureProvider.family<({int current, int best}), String>((ref, habitId) {
       return ref

@@ -14,8 +14,21 @@ mixin _HabitLogOps on _HabitRepositoryBase {
         .getSingleOrNull();
   }
 
+  Future<double> _habitGoal(String habitId) async {
+    final habit = await (_db.select(
+      _db.habits,
+    )..where((h) => h.id.equals(habitId))).getSingleOrNull();
+    return habit?.goalAmount ?? 0;
+  }
+
+  /// Done logs fill a positive goal without capping overfill.
+  double _fillGoal(double amount, double goal) =>
+      goal > 0 && amount < goal ? goal : amount;
+
   Future<void> logDone(String habitId, String dayKey, {double? amount}) async {
+    final goal = await _habitGoal(habitId);
     final existing = await logFor(habitId, dayKey);
+    final nextAmount = _fillGoal((existing?.amount ?? 0) + (amount ?? 0), goal);
     if (existing == null) {
       await _db
           .into(_db.habitLogs)
@@ -24,7 +37,7 @@ mixin _HabitLogOps on _HabitRepositoryBase {
               id: newId(),
               habitId: habitId,
               dayKey: dayKey,
-              amount: Value(amount ?? 0),
+              amount: Value(nextAmount),
               done: const Value(true),
               createdAt: nowMs(),
               updatedAt: nowMs(),
@@ -37,9 +50,7 @@ mixin _HabitLogOps on _HabitRepositoryBase {
         HabitLogsCompanion(
           done: const Value(true),
           skipped: const Value(false),
-          amount: amount == null
-              ? const Value.absent()
-              : Value(existing.amount + amount),
+          amount: Value(nextAmount),
           updatedAt: Value(nowMs()),
         ),
       );
@@ -120,6 +131,9 @@ mixin _HabitLogOps on _HabitRepositoryBase {
 
   Future<void> setDone(String habitId, String dayKey, bool done) async {
     final existing = await logFor(habitId, dayKey);
+    final nextAmount = done
+        ? _fillGoal(existing?.amount ?? 0, await _habitGoal(habitId))
+        : null;
     if (existing == null) {
       await _db
           .into(_db.habitLogs)
@@ -128,6 +142,7 @@ mixin _HabitLogOps on _HabitRepositoryBase {
               id: newId(),
               habitId: habitId,
               dayKey: dayKey,
+              amount: Value(nextAmount ?? 0),
               done: Value(done),
               skipped: Value(false),
               createdAt: nowMs(),
@@ -141,6 +156,7 @@ mixin _HabitLogOps on _HabitRepositoryBase {
         HabitLogsCompanion(
           done: Value(done),
           skipped: done ? const Value(false) : const Value.absent(),
+          amount: nextAmount == null ? const Value.absent() : Value(nextAmount),
           updatedAt: Value(nowMs()),
         ),
       );
