@@ -103,7 +103,14 @@ Future<void> _saveEvent(WidgetTester tester) async {
   await tester.ensureVisible(save);
   await tester.tap(save);
   await tester.pump();
-  await _pumpUntil(tester, find.text('Which events?'));
+  await _pumpUntil(
+    tester,
+    find.byWidgetPredicate(
+      (w) =>
+          w is Text &&
+          (w.data == 'Which events?' || w.data == 'Scheduling conflict'),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -534,6 +541,37 @@ void main() {
     await _disposeTree(tester);
   });
 
+  testWidgets('exception edit still detects a genuine overlap', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final master = await _setup(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final exId = await repo.editOccurrence(
+      master,
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      title: 'Special',
+    );
+    await repo.createEvent(
+      calendarId: 'cal1',
+      title: 'Overlap',
+      startUtc: DateTime.utc(2026, 3, 3, 9, 15),
+      endUtc: DateTime.utc(2026, 3, 3, 9, 45),
+      tzId: 'UTC',
+    );
+    final ex = await repo.getEvent(exId);
+    await _openEventEditor(tester, db, prefs, ex!);
+
+    await _saveEvent(tester);
+
+    expect(find.text('Scheduling conflict'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await _disposeTree(tester);
+  });
+
   testWidgets('single exception edit does not change series attendees', (
     tester,
   ) async {
@@ -552,7 +590,12 @@ void main() {
     );
     final ex = await repo.getEvent(exId);
     await _openEventEditor(tester, db, prefs, ex!);
-    final invitees = find.byType(TextField).at(1);
+    final invitees = find.byWidgetPredicate(
+      (w) =>
+          w is TextField &&
+          (w.decoration?.labelText?.startsWith('Invitees') ?? false),
+    );
+    expect(invitees, findsOneWidget);
     await tester.ensureVisible(invitees);
     await tester.enterText(invitees, 'exception@example.com');
 
