@@ -16,25 +16,64 @@ class MarkdownPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final doc = md.Document(
-      blockSyntaxes: md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-      inlineSyntaxes: md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
-    );
-    final nodes = doc.parseLines(body.split('\n'));
-    final blocks = _Blocks(context, onToggleTask: onToggleTask);
-    for (final n in nodes) {
-      n.accept(blocks);
-    }
-    if (blocks.widgets.isEmpty) {
+    final widgets = _blockWidgets(context, body, onToggleTask);
+    if (widgets.isEmpty) {
       return const Text('Nothing to preview');
     }
     return RepaintBoundary(
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: blocks.widgets,
+      child: ListView(padding: const EdgeInsets.all(16), children: widgets),
+    );
+  }
+}
+
+/// Non-scrollable Markdown body for embedding inside an existing scroll view
+/// (for example event details). Uses the same blocks as [MarkdownPreview].
+class MarkdownBody extends StatelessWidget {
+  const MarkdownBody({
+    super.key,
+    required this.body,
+    this.onToggleTask,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final String body;
+  final ValueChanged<int>? onToggleTask;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final widgets = _blockWidgets(context, body, onToggleTask);
+    if (widgets.isEmpty) {
+      return const Text('Nothing to preview');
+    }
+    return Padding(
+      padding: padding,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: widgets,
       ),
     );
   }
+}
+
+List<Widget> _blockWidgets(
+  BuildContext context,
+  String body,
+  ValueChanged<int>? onToggleTask,
+) {
+  // Normalize CRLF and bare CR so every user line ending becomes a break.
+  final normalized = body.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  final doc = md.Document(
+    blockSyntaxes: md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+    inlineSyntaxes: md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+  );
+  final nodes = doc.parseLines(normalized.split('\n'));
+  final blocks = _Blocks(context, onToggleTask: onToggleTask);
+  for (final n in nodes) {
+    n.accept(blocks);
+  }
+  return blocks.widgets;
 }
 
 class _Blocks implements md.NodeVisitor {
@@ -169,8 +208,24 @@ class _Blocks implements md.NodeVisitor {
     final spans = <InlineSpan>[];
     for (final child in element.children ?? const <md.Node>[]) {
       if (child is md.Text) {
+        // Markdown soft breaks stay as "\n" in the AST; Flutter lays them out
+        // as line breaks, so plain single newlines stay visible.
         spans.add(TextSpan(text: child.text, style: base));
       } else if (child is md.Element) {
+        if (child.tag == 'br') {
+          // Hard breaks (`  \n` or `\\\n`) parse to <br>; keep the break.
+          spans.add(TextSpan(text: '\n', style: base));
+          continue;
+        }
+        final href = child.tag == 'a' ? child.attributes['href'] : null;
+        TapGestureRecognizer? linkTap;
+        if (href != null) {
+          final url = href;
+          linkTap = TapGestureRecognizer()
+            ..onTap = () {
+              SystemLauncher.openUrl(url);
+            };
+        }
         final inner = _spans(child, base).children ?? [];
         final style = switch (child.tag) {
           'strong' || 'b' => base.copyWith(fontWeight: FontWeight.bold),
@@ -189,31 +244,37 @@ class _Blocks implements md.NodeVisitor {
           _ => base,
         };
         if (inner.isEmpty) {
-          spans.add(TextSpan(text: child.textContent, style: style));
+          spans.add(
+            TextSpan(
+              text: child.textContent,
+              style: style,
+              recognizer: linkTap,
+            ),
+          );
         } else {
           for (final s in inner) {
             if (s is TextSpan) {
               spans.add(
-                TextSpan(text: s.text, style: (s.style ?? base).merge(style)),
+                TextSpan(
+                  text: s.text,
+                  style: (s.style ?? base).merge(style),
+                  recognizer: s.recognizer ?? linkTap,
+                ),
               );
             } else {
               spans.add(s);
             }
           }
         }
-        if (child.tag == 'a' && child.attributes['href'] != null) {
-          final url = child.attributes['href']!;
+        if (href != null) {
           spans.add(
             TextSpan(
-              text: ' ($url)',
+              text: ' ($href)',
               style: base.copyWith(
                 fontSize: 12,
                 color: Theme.of(context).colorScheme.outline,
               ),
-              recognizer: TapGestureRecognizer()
-                ..onTap = () {
-                  SystemLauncher.openUrl(url);
-                },
+              recognizer: linkTap,
             ),
           );
         }

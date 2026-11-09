@@ -165,4 +165,50 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
   });
+
+  testWidgets('preview keeps single and hard line breaks', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MarkdownPreview(body: 'alpha\nbeta\n\ngamma  \ndelta'),
+        ),
+      ),
+    );
+    final paragraphs = find.descendant(
+      of: find.byType(MarkdownPreview),
+      matching: find.byType(RichText),
+    );
+    expect(paragraphs, findsNWidgets(2));
+    expect(
+      tester
+          .widgetList<RichText>(paragraphs)
+          .map((r) => r.text.toPlainText())
+          .toList(),
+      ['alpha\nbeta', 'gamma\ndelta'],
+    );
+    // Two rendered lines per paragraph, not one collapsed line.
+    expect(tester.getSize(paragraphs.at(0)).height, greaterThan(24));
+    expect(tester.getSize(paragraphs.at(1)).height, greaterThan(24));
+  });
+
+  testWidgets('preview normalizes CRLF/CR and keeps backslash breaks', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MarkdownPreview(body: 'one\r\ntwo\rthree\\\nfour'),
+        ),
+      ),
+    );
+    final paragraphs = find.descendant(
+      of: find.byType(MarkdownPreview),
+      matching: find.byType(RichText),
+    );
+    expect(paragraphs, findsOneWidget);
+    expect(
+      tester.widget<RichText>(paragraphs).text.toPlainText(),
+      'one\ntwo\nthree\nfour',
+    );
+  });
 }

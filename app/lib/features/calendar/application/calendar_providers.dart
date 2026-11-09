@@ -169,3 +169,11 @@ final selfRsvpForEventProvider = FutureProvider.family<String?, String>((
   }
   return null;
 });
+
+/// Reactive attendees for the event details sheet. A Drift stream keeps the
+/// RSVP chips in sync with setRsvp without reopening the sheet. Auto-dispose
+/// stops the Drift subscription when the sheet closes.
+final attendeesForEventProvider = StreamProvider.autoDispose
+    .family<List<EventAttendee>, String>((ref, eventId) {
+      return ref.watch(eventRepositoryProvider).watchAttendees(eventId);
+    });
