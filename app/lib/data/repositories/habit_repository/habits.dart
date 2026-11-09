@@ -47,6 +47,12 @@ mixin _HabitCrudOps on _HabitRepositoryBase {
     return id;
   }
 
+  Future<Habit?> habitById(String id) {
+    return (_db.select(
+      _db.habits,
+    )..where((h) => h.id.equals(id) & h.deletedAt.isNull())).getSingleOrNull();
+  }
+
   Stream<List<Habit>> watchHabits({bool archived = false}) {
     final q = _db.select(_db.habits)
       ..where(

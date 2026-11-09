@@ -17,6 +17,7 @@ import '../../alarms/data/alarm_scheduler.dart';
 import '../../alarms/presentation/alarm_preset_picker.dart';
 import '../../sync/application/pending_operations.dart';
 import '../../../domain/habits/date_key.dart';
+import '../../../domain/habits/habit_timer.dart';
 import '../../habits/application/habits_providers.dart';
 import '../../settings/application/settings_providers.dart';
 import '../application/focus_providers.dart';

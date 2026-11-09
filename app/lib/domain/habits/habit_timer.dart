@@ -32,6 +32,13 @@ String _fmtNumber(double v) {
   return v.toString();
 }
 
+/// Goal percentage with one decimal. Not clamped: overfill is meaningful
+/// (for example 12/10 shows 120.0%).
+String formatHabitPercent({required double amount, required double goal}) {
+  final pct = goal > 0 ? amount / goal * 100 : 0.0;
+  return '${pct.toStringAsFixed(1)}%';
+}
+
 String formatHabitProgress({
   required String? unit,
   required double amount,
@@ -39,12 +46,55 @@ String formatHabitProgress({
 }) {
   final u = unit ?? '';
   if (isMinuteUnit(unit) && amount != amount.roundToDouble()) {
-    var pct = goal > 0 ? (amount / goal * 100).round() : 0;
-    if (pct < 0) pct = 0;
-    if (pct > 100) pct = 100;
-    return '$pct% of ${_fmtNumber(goal)} $u'.trim();
+    return '${formatHabitPercent(amount: amount, goal: goal)} '
+            'of ${_fmtNumber(goal)} $u'
+        .trim();
   }
   return '${_fmtNumber(amount)}/${_fmtNumber(goal)} $u'.trim();
+}
+
+/// Whether a running focus session adds live progress to [habitId] on the
+/// selected day. Only focus and stopwatch phases count; breaks and other
+/// habits never do. Live minutes only make sense for minute-unit habits.
+bool isLiveHabitProgress({
+  required String habitId,
+  required String selectedDayKey,
+  required String todayKey,
+  required String? unit,
+  required String? sessionHabitId,
+  required String? sessionPhase,
+}) {
+  if (!isMinuteUnit(unit)) return false;
+  if (selectedDayKey != todayKey) return false;
+  if (sessionHabitId != habitId) return false;
+  return sessionPhase == 'focus' || sessionPhase == 'stopwatch';
+}
+
+/// Live habit amount in the habit's unit: [loggedAmount] plus the running
+/// session's elapsed minutes when [isLiveHabitProgress] is true.
+double liveHabitAmount({
+  required String habitId,
+  required String selectedDayKey,
+  required String todayKey,
+  required String? unit,
+  required double loggedAmount,
+  required String? sessionHabitId,
+  required String? sessionPhase,
+  required int? sessionStartUtcMs,
+  required int nowMs,
+}) {
+  final live = isLiveHabitProgress(
+    habitId: habitId,
+    selectedDayKey: selectedDayKey,
+    todayKey: todayKey,
+    unit: unit,
+    sessionHabitId: sessionHabitId,
+    sessionPhase: sessionPhase,
+  );
+  if (!live || sessionStartUtcMs == null) return loggedAmount;
+  final elapsedMs = nowMs - sessionStartUtcMs;
+  if (elapsedMs <= 0) return loggedAmount;
+  return loggedAmount + elapsedMs / 60000.0;
 }
 
 String formatHabitExact({

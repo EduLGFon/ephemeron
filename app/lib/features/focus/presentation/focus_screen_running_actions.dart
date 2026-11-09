@@ -50,7 +50,8 @@ extension _RunningViewActions on _RunningViewState {
       if (settings.focusDnd) await SystemLauncher.setDnd(false);
     } catch (_) {}
     final habitId = widget.session.habitId;
-    if (habitId != null && kept > 0 && mounted) {
+    final isBreak = widget.session.phase == 'break';
+    if (habitId != null && kept > 0 && !isBreak && mounted) {
       await _creditHabit(context, ref, habitId, kept);
     }
     return kept;

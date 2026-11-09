@@ -63,6 +63,13 @@ class _RunningViewState extends ConsumerState<_RunningView> {
 
   @override
   Widget build(BuildContext context) {
+    final habitId = widget.session.habitId;
+    final habitAsync = habitId == null
+        ? null
+        : ref.watch(habitByIdProvider(habitId));
+    final logsAsync = habitId == null
+        ? null
+        : ref.watch(habitLogsProvider(habitId));
     ref.listen<String?>(pendingFocusNextProvider, (prev, next) {
       if (next == null || _handlingPendingNext || !mounted) return;
       final target = widget.session.targetEndUtc;
@@ -105,6 +112,31 @@ class _RunningViewState extends ConsumerState<_RunningView> {
             : formatFocusCountdown(remainingMs);
         final isBreak = widget.session.phase == 'break';
         final nextLabel = isBreak ? 'Start focus' : 'Start break';
+        final todayKey = habitDateKey(DateTime.now());
+        final linkedHabit = habitAsync?.value;
+        final goal = linkedHabit?.goalAmount ?? 0;
+        final showHabitProgress =
+            linkedHabit != null && isMinuteUnit(linkedHabit.unit) && goal > 0;
+        var loggedAmount = 0.0;
+        for (final log in logsAsync?.value ?? const <HabitLog>[]) {
+          if (log.dayKey == todayKey) {
+            loggedAmount = log.amount;
+            break;
+          }
+        }
+        final liveAmount = showHabitProgress
+            ? liveHabitAmount(
+                habitId: linkedHabit.id,
+                selectedDayKey: todayKey,
+                todayKey: todayKey,
+                unit: linkedHabit.unit,
+                loggedAmount: loggedAmount,
+                sessionHabitId: widget.session.habitId,
+                sessionPhase: widget.session.phase,
+                sessionStartUtcMs: widget.session.startUtc,
+                nowMs: now,
+              )
+            : loggedAmount;
         return Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -159,6 +191,35 @@ class _RunningViewState extends ConsumerState<_RunningView> {
                   '${widget.session.phase ?? 'focus'} - $elapsedMin min elapsed',
                 ),
               ),
+              if (linkedHabit != null && showHabitProgress) ...[
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          linkedHabit.name,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 6),
+                        LinearProgressIndicator(
+                          value: (liveAmount / goal).clamp(0.0, 1.0),
+                          minHeight: 6,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${formatHabitPercent(amount: liveAmount, goal: goal)}'
+                          ' - '
+                          '${formatHabitExact(unit: linkedHabit.unit, amount: liveAmount, goal: goal)}',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               TextField(
                 controller: _noteController,

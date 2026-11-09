@@ -7,8 +7,17 @@ Future<void> _creditHabit(
   int kept,
 ) async {
   final repo = ref.read(habitRepositoryProvider);
+  final container = ProviderScope.containerOf(context, listen: false);
   final today = habitDateKey(DateTime.now());
-  await repo.logDone(habitId, today);
+  final habit = await repo.habitById(habitId);
+  final goal = habit?.goalAmount ?? 0;
+  final previous = await repo.logFor(habitId, today);
+  final minuteGoal = habit != null && isMinuteUnit(habit.unit) && goal > 0;
+  if (minuteGoal) {
+    await repo.addAmount(habitId, today, kept.toDouble());
+  } else {
+    await repo.logDone(habitId, today);
+  }
   ref.invalidate(habitStreakProvider(habitId));
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
@@ -18,9 +27,19 @@ Future<void> _creditHabit(
       persist: false,
       action: SnackBarAction(
         label: 'Undo',
-        onPressed: () {
-          repo.backfill(habitId, today, 0, false);
-          ref.invalidate(habitStreakProvider(habitId));
+        onPressed: () async {
+          await repo.backfill(
+            habitId,
+            today,
+            previous?.amount ?? 0,
+            previous?.done ?? false,
+          );
+          if (previous?.skipped == true) {
+            await repo.setSkipped(habitId, today, true);
+          }
+          // Undo can run after the running view unmounted, so use the
+          // long-lived container captured while the context was valid.
+          container.invalidate(habitStreakProvider(habitId));
         },
       ),
     ),

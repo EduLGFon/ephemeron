@@ -179,4 +179,85 @@ void main() {
     await repo.toggleHabitDone(id, '2026-03-02');
     expect((await repo.logFor(id, '2026-03-02'))?.done, isFalse);
   });
+
+  test(
+    'logDone fills a positive goal, preserves overfill and is idempotent',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = HabitRepository(db);
+      final id = await repo.createHabit(
+        name: 'Run',
+        frequency: 'daily',
+        startDate: '2026-03-01',
+        goalAmount: 10,
+        unit: 'min',
+      );
+
+      await repo.logDone(id, '2026-03-01');
+      var log = await repo.logFor(id, '2026-03-01');
+      expect(log?.amount, 10);
+      expect(log?.done, isTrue);
+
+      await repo.logDone(id, '2026-03-01');
+      log = await repo.logFor(id, '2026-03-01');
+      expect(log?.amount, 10);
+      expect(log?.done, isTrue);
+
+      await repo.backfill(id, '2026-03-02', 12, true);
+      await repo.logDone(id, '2026-03-02');
+      log = await repo.logFor(id, '2026-03-02');
+      expect(log?.amount, 12);
+      expect(log?.done, isTrue);
+    },
+  );
+
+  test('setDone fills the goal and unchecking preserves progress', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Run',
+      frequency: 'daily',
+      startDate: '2026-03-01',
+      goalAmount: 10,
+      unit: 'min',
+    );
+
+    await repo.setDone(id, '2026-03-01', true);
+    var log = await repo.logFor(id, '2026-03-01');
+    expect(log?.amount, 10);
+    expect(log?.done, isTrue);
+
+    await repo.setDone(id, '2026-03-01', true);
+    expect((await repo.logFor(id, '2026-03-01'))?.amount, 10);
+
+    await repo.setDone(id, '2026-03-01', false);
+    log = await repo.logFor(id, '2026-03-01');
+    expect(log?.amount, 10);
+    expect(log?.done, isFalse);
+
+    await repo.setDone(id, '2026-03-01', true);
+    expect((await repo.logFor(id, '2026-03-01'))?.amount, 10);
+  });
+
+  test('no-goal habits keep their amount when marked done', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Read',
+      frequency: 'daily',
+      startDate: '2026-03-01',
+    );
+
+    await repo.backfill(id, '2026-03-01', 3, false);
+    await repo.logDone(id, '2026-03-01');
+    final log = await repo.logFor(id, '2026-03-01');
+    expect(log?.amount, 3);
+    expect(log?.done, isTrue);
+
+    await repo.logDone(id, '2026-03-01');
+    expect((await repo.logFor(id, '2026-03-01'))?.amount, 3);
+  });
 }
