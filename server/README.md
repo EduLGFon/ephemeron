@@ -14,6 +14,20 @@ cp .env.example .env
 deno run --allow-all main.ts
 ```
 
+## Production
+
+Production (`APP_ENV=production`) requires `DATABASE_URL` and a 32+ char
+`JWT_SECRET`; the process exits otherwise. The argon2 native lib needs
+unscoped `--allow-ffi` (path-scoped ffi breaks `UnsafePointerView` at hash
+time). Deployed systemd unit on this host:
+
+```
+deno run --allow-net=127.0.0.1:5434,127.0.0.1:8091 --allow-env --allow-ffi --allow-read=/home/io/p/ephemeron-app/server,/home/io/.cache/deno main.ts
+```
+
+with `HOST=127.0.0.1 PORT=8091`; postgres on 127.0.0.1:5434 (own cluster;
+port 5433 belongs to the system postgres).
+
 ## Tests
 
 ```
