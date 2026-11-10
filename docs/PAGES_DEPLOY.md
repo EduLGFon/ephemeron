@@ -64,3 +64,4 @@ or wrappers that would break the Pages deploy (Pages cannot set COOP/COEP).
 - After first successful deploy, open `https://ephemeron.spotnik.space` and
   confirm Google sign-in works and data persists across reloads (IndexedDB
   fallback).
+Note: `app/web` is gitignored, so any future `app/web/*` static file (like `CNAME`) must be added with `git add -f`.
