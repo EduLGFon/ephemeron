@@ -79,6 +79,7 @@ export interface Storage {
   habitLogsSince(userId: string, since: number): Promise<HabitLogRow[]>;
   upsertFocus(row: FocusRow): Promise<void>;
   focusSince(userId: string, since: number): Promise<FocusRow[]>;
+  clearAll(): Promise<void>;
 }
 
 export class InMemoryStorage implements Storage {
@@ -88,6 +89,15 @@ export class InMemoryStorage implements Storage {
   habits = new Map<string, HabitRow>(); // key userId:id
   habitLogs = new Map<string, HabitLogRow>(); // key userId:habitId:dayKey
   focus = new Map<string, FocusRow>(); // key userId:id
+
+  async clearAll() {
+    this.users.clear();
+    this.usersByEmail.clear();
+    this.refreshTokens.clear();
+    this.habits.clear();
+    this.habitLogs.clear();
+    this.focus.clear();
+  }
 
   async createUser(email: string, passwordHash: string) {
     const ne = email.toLowerCase().trim();

@@ -22,7 +22,7 @@ Deno.test("health", async () => {
 });
 
 Deno.test("register/login/refresh/logout", async () => {
-  reset();
+  await reset();
   const r = await reg();
   assertEquals(r.res.status, 200);
   assert(r.json.accessToken && r.json.refreshToken);
@@ -84,7 +84,7 @@ Deno.test("register/login/refresh/logout", async () => {
 });
 
 Deno.test("account deletion", async () => {
-  reset();
+  await reset();
   const r = await reg("c@d.com", "password123");
   const del = await app.fetch(
     new Request("http://x/account", {
@@ -96,7 +96,7 @@ Deno.test("account deletion", async () => {
 });
 
 Deno.test("sync push/pull shapes", async () => {
-  reset();
+  await reset();
   const r = await reg();
   const token = r.json.accessToken;
   const habit = {
@@ -221,7 +221,7 @@ Deno.test("sync push/pull shapes", async () => {
 });
 
 Deno.test("413 beyond 200", async () => {
-  reset();
+  await reset();
   const r = await reg();
   const big = Array.from(
     { length: 201 },
@@ -246,7 +246,7 @@ Deno.test("401 unauthorized pull", async () => {
 });
 
 Deno.test("expired refresh keeps family", async () => {
-  reset();
+  await reset();
   await reg("e@f.com", "password123");
   // access via main module storage not exported; manipulate through app? Instead use refresh with bogus expiry impossible.
   // We at least assert login still works after a 401 from a garbage token.
@@ -269,7 +269,7 @@ Deno.test("expired refresh keeps family", async () => {
 });
 
 Deno.test("case-insensitive email", async () => {
-  reset();
+  await reset();
   const r1 = await reg("User@x.com", "password123");
   assertEquals(r1.res.status, 200);
   const r2 = await reg("user@x.com", "password123");
@@ -277,7 +277,7 @@ Deno.test("case-insensitive email", async () => {
 });
 
 Deno.test("cross-user isolation", async () => {
-  reset();
+  await reset();
   const a = await reg("a@b.com", "password123");
   const b = await reg("c@d.com", "password123");
   // A pushes habit
@@ -333,7 +333,7 @@ Deno.test("cross-user isolation", async () => {
 });
 
 Deno.test("429 rate limit auth", async () => {
-  reset();
+  await reset();
   // spam register/login
   let last = 0;
   for (let i = 0; i < 12; i++) {

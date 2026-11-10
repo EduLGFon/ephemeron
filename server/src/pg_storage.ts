@@ -265,4 +265,10 @@ export class PostgresStorage implements Storage {
       updatedAt: Number(row.updated_at),
     }));
   }
+
+  async clearAll() {
+    await getPool().query(
+      "TRUNCATE users, refresh_tokens, habits, habit_logs, focus_sessions;",
+    );
+  }
 }

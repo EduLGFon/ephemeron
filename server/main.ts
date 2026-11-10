@@ -429,13 +429,11 @@ app.get("/sync/pull", async (c: any) => {
 });
 
 export { app, storage };
-export function resetAll() {
-  (storage as any).users?.clear?.();
-  (storage as any).usersByEmail?.clear?.();
-  (storage as any).refreshTokens?.clear?.();
-  (storage as any).habits?.clear?.();
-  (storage as any).habitLogs?.clear?.();
-  (storage as any).focus?.clear?.();
+export async function resetAll() {
+  if (config.appEnv === "production") {
+    throw new Error("resetAll disabled in production");
+  }
+  await storage.clearAll();
   buckets.clear();
 }
 
