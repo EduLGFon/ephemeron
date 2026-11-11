@@ -13,8 +13,7 @@ import '../../../data/repositories/task_repository.dart';
 
 enum SearchScope { all, tasks, events, notes, habits, countdowns, tags }
 
-/// One run of a note search snippet. [bold] marks text that was wrapped in
-/// `<b>` markers by the search backend.
+/// One run of a note search snippet. [bold] marks a query match.
 class SearchSnippetSpan {
   const SearchSnippetSpan(this.text, {this.bold = false});
 
@@ -22,26 +21,29 @@ class SearchSnippetSpan {
   final bool bold;
 }
 
-/// Converts `<b>...</b>` markers into styled runs. Stray markers are dropped
-/// so they can never leak into the UI.
-List<SearchSnippetSpan> highlightSnippet(String snippet) {
-  final marker = RegExp(r'</?b>', caseSensitive: false);
+/// Splits [snippet] into runs, bolding every case-insensitive occurrence of
+/// [query]. All other text, including literal `<b>` markers, is preserved.
+List<SearchSnippetSpan> highlightSnippet(String snippet, String query) {
+  if (query.isEmpty) return [SearchSnippetSpan(snippet)];
+
+  final lowerSnippet = snippet.toLowerCase();
+  final lowerQuery = query.toLowerCase();
   final spans = <SearchSnippetSpan>[];
-  var bold = false;
   var start = 0;
-  for (final match in marker.allMatches(snippet)) {
-    if (match.start > start) {
-      spans.add(
-        SearchSnippetSpan(snippet.substring(start, match.start), bold: bold),
-      );
+  while (true) {
+    final index = lowerSnippet.indexOf(lowerQuery, start);
+    if (index < 0) break;
+    if (index > start) {
+      spans.add(SearchSnippetSpan(snippet.substring(start, index)));
     }
-    bold = !match.group(0)!.startsWith('</');
-    start = match.end;
+    final end = index + query.length;
+    spans.add(SearchSnippetSpan(snippet.substring(index, end), bold: true));
+    start = end;
   }
   if (start < snippet.length) {
-    spans.add(SearchSnippetSpan(snippet.substring(start), bold: bold));
+    spans.add(SearchSnippetSpan(snippet.substring(start)));
   }
-  return spans;
+  return spans.isEmpty ? [SearchSnippetSpan(snippet)] : spans;
 }
 
 final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(

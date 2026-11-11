@@ -175,7 +175,7 @@ class _Results extends ConsumerWidget {
           tile: (h) => ListTile(
             leading: const Icon(Icons.note_outlined),
             title: Text(h.note.title.isEmpty ? '(no title)' : h.note.title),
-            subtitle: _SnippetLine(snippet: h.snippet),
+            subtitle: _SnippetLine(snippet: h.snippet, query: query),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => NoteEditorScreen(noteId: h.note.id),
@@ -241,16 +241,17 @@ class _Results extends ConsumerWidget {
 }
 
 class _SnippetLine extends StatelessWidget {
-  const _SnippetLine({required this.snippet});
+  const _SnippetLine({required this.snippet, required this.query});
 
   final String snippet;
+  final String query;
 
   @override
   Widget build(BuildContext context) {
     return Text.rich(
       TextSpan(
         children: [
-          for (final span in highlightSnippet(snippet))
+          for (final span in highlightSnippet(snippet, query))
             TextSpan(
               text: span.text,
               style: span.bold

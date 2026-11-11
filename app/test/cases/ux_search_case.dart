@@ -37,18 +37,29 @@ Future<SettingsRepository> _settings() async {
 }
 
 void main() {
-  test('highlightSnippet turns b markers into bold runs', () {
-    final spans = highlightSnippet('before <b>match</b> after');
-    expect(spans.map((s) => s.text).join(), 'before match after');
-    expect(spans.firstWhere((s) => s.text == 'match').bold, isTrue);
-    expect(spans.firstWhere((s) => s.text == 'before ').bold, isFalse);
-    expect(spans.firstWhere((s) => s.text == ' after').bold, isFalse);
+  test('highlightSnippet bolds every case-insensitive query match', () {
+    final spans = highlightSnippet('milk and MILK and Milk', 'mIlK');
+    expect(spans.map((s) => s.text).join(), 'milk and MILK and Milk');
+    expect(spans.where((s) => s.bold).map((s) => s.text), [
+      'milk',
+      'MILK',
+      'Milk',
+    ]);
   });
 
-  test('highlightSnippet drops stray markers', () {
-    final spans = highlightSnippet('<b>oops');
-    expect(spans.map((s) => s.text).join(), 'oops');
-    expect(spans.single.bold, isTrue);
+  test('highlightSnippet preserves literal b markers', () {
+    final spans = highlightSnippet('<b> match </b>', 'match');
+    expect(spans.map((s) => s.text).join(), '<b> match </b>');
+    expect(spans.firstWhere((s) => s.text == '<b> ').bold, isFalse);
+    expect(spans.firstWhere((s) => s.text == 'match').bold, isTrue);
+    expect(spans.firstWhere((s) => s.text == ' </b>').bold, isFalse);
+  });
+
+  test('highlightSnippet returns one span for an empty query', () {
+    final spans = highlightSnippet('literal <b>text</b>', '');
+    expect(spans, hasLength(1));
+    expect(spans.single.text, 'literal <b>text</b>');
+    expect(spans.single.bold, isFalse);
   });
 
   test('searchTasksForTag returns only tagged open tasks', () async {
