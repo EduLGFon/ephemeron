@@ -3,7 +3,6 @@ import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
-import 'package:ephemeron/domain/habits/date_key.dart';
 import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -177,7 +176,8 @@ void main() {
       name: 'Walk',
       reminderTime: _localTimeAhead(const Duration(hours: 2)),
     );
-    final todayKey = habitDateKey(DateTime.now());
+    final now = DateTime.now();
+    final todayKey = '${now.year}-${now.month}-${now.day}';
     const firedId = 'habit-fired-today';
     await db
         .into(db.alarmsIndex)
@@ -251,6 +251,43 @@ void main() {
       db.alarmsIndex,
     )..where((a) => a.state.equals('scheduled'))).get();
     expect(scheduled.map((r) => r.requestCode), [100001]);
+  });
+
+  test('stale fired rows are removed and release their request code', () async {
+    final db = _db();
+    addTearDown(db.close);
+    const firedId = 'stale-ring';
+    await db
+        .into(db.alarmsIndex)
+        .insert(
+          AlarmsIndexCompanion.insert(
+            id: firedId,
+            sourceType: 'task_reminder',
+            sourceId: 'old#r0',
+            fireAtUtc:
+                DateTime.now().toUtc().millisecondsSinceEpoch -
+                25 * 60 * 60 * 1000,
+            requestCode: const Value(100000),
+            state: const Value('fired'),
+            kind: const Value('reminder'),
+            preset: const Value('notification'),
+          ),
+        );
+    await TaskRepository(
+      db,
+    ).createTask(title: 'Tomorrow', dueDate: _tomorrowKey(), dueTime: 23 * 60);
+    final planned = await AlarmRepository(
+      db,
+    ).rebuildWindow(dueTomorrowEnabled: false);
+    expect(planned, 1);
+    final stale = await (db.select(
+      db.alarmsIndex,
+    )..where((a) => a.id.equals(firedId))).getSingleOrNull();
+    expect(stale, null);
+    final scheduled = await (db.select(
+      db.alarmsIndex,
+    )..where((a) => a.state.equals('scheduled'))).get();
+    expect(scheduled.map((r) => r.requestCode), [100000]);
   });
 
   test('byRequestCode returns the matching alarm row', () async {
