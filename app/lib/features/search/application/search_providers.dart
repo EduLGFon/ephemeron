@@ -13,6 +13,39 @@ import '../../../data/repositories/task_repository.dart';
 
 enum SearchScope { all, tasks, events, notes, habits, countdowns, tags }
 
+/// One run of a note search snippet. [bold] marks a query match.
+class SearchSnippetSpan {
+  const SearchSnippetSpan(this.text, {this.bold = false});
+
+  final String text;
+  final bool bold;
+}
+
+/// Splits [snippet] into runs, bolding every case-insensitive occurrence of
+/// [query]. All other text, including literal `<b>` markers, is preserved.
+List<SearchSnippetSpan> highlightSnippet(String snippet, String query) {
+  if (query.isEmpty) return [SearchSnippetSpan(snippet)];
+
+  final lowerSnippet = snippet.toLowerCase();
+  final lowerQuery = query.toLowerCase();
+  final spans = <SearchSnippetSpan>[];
+  var start = 0;
+  while (true) {
+    final index = lowerSnippet.indexOf(lowerQuery, start);
+    if (index < 0) break;
+    if (index > start) {
+      spans.add(SearchSnippetSpan(snippet.substring(start, index)));
+    }
+    final end = index + query.length;
+    spans.add(SearchSnippetSpan(snippet.substring(index, end), bold: true));
+    start = end;
+  }
+  if (start < snippet.length) {
+    spans.add(SearchSnippetSpan(snippet.substring(start)));
+  }
+  return spans.isEmpty ? [SearchSnippetSpan(snippet)] : spans;
+}
+
 final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(
   SearchQueryNotifier.new,
 );
@@ -94,3 +127,9 @@ final searchTagsProvider = FutureProvider<List<Tag>>((ref) async {
   if (q.isEmpty) return [];
   return ref.watch(_taskRepositoryProvider).searchTags(q);
 });
+
+/// Open tasks carrying [tagId], used by the tag result sheet.
+final searchTasksForTagProvider = FutureProvider.autoDispose
+    .family<List<Task>, String>((ref, tagId) {
+      return ref.watch(_taskRepositoryProvider).searchTasksForTag(tagId);
+    });
