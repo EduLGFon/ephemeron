@@ -9,7 +9,7 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final repo = SettingsRepository(prefs);
     expect(repo.brightness, 'light');
-    expect(repo.navOrder, [0, 1, 2, 3, 4, 5, 6]);
+    expect(repo.navOrder, [0, 1, 6, 3, 5, 4, 2]);
     await repo.setBrightness('dark');
     await repo.setNavOrder([6, 5, 4, 3, 2, 1, 0]);
     expect(repo.brightness, 'dark');

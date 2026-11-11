@@ -25,6 +25,7 @@
   "onboardingSkip": "Pular",
   "onboardingNext": "Avançar",
   "onboardingDone": "Começar",
+  "onboardingStep": "Passo {current} de {total}",
   "onboardingP1Title": "Seu tempo, offline primeiro",
   "onboardingP1Body": "Calendário, tarefas, hábitos, contagens, foco, notas e listas em um app rápido. Tudo funciona sem nenhuma conta.",
   "onboardingP2Title": "Alarmes que tocam",

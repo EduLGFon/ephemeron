@@ -6,6 +6,10 @@ class SettingsRepository {
   SettingsRepository(this._prefs);
   final SharedPreferences _prefs;
 
+  /// Default section order: Calendar, Tasks, Notes, Habits, Focus,
+  /// Countdowns, Matrix.
+  static const List<int> defaultNavOrder = <int>[0, 1, 6, 3, 5, 4, 2];
+
   static const _kPrimary = 'settings.primaryColor';
   static const _kBackground = 'settings.backgroundColor';
   static const _kBrightness = 'settings.brightness';
@@ -28,7 +32,7 @@ class SettingsRepository {
 
   List<int> get navOrder {
     final raw = _prefs.getStringList(_kNavOrder);
-    if (raw == null) return List<int>.generate(7, (i) => i);
+    if (raw == null) return defaultNavOrder;
     return raw.map(int.parse).toList();
   }
 

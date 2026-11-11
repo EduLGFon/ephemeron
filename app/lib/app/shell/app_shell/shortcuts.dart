@@ -13,11 +13,18 @@ const List<LogicalKeyboardKey> _digitKeys = <LogicalKeyboardKey>[
 extension _AppShellShortcuts on _AppShellState {
   /// Keyboard shortcuts active on every route. Rebuilt with [build] so the
   /// callbacks always see the current widget/riverpod state.
-  Map<ShortcutActivator, VoidCallback> _buildShortcuts() {
+  Map<ShortcutActivator, VoidCallback> _buildShortcuts(
+    List<int> more,
+    List<int> order,
+  ) {
     return <ShortcutActivator, VoidCallback>{
       SingleActivator(LogicalKeyboardKey.keyN): () {
         if (!mounted) return;
         showQuickAdd(context);
+      },
+      SingleActivator(LogicalKeyboardKey.keyC): () {
+        if (!mounted) return;
+        _showMore(context, more, order);
       },
       SingleActivator(LogicalKeyboardKey.keyT): () {
         if (!mounted) return;

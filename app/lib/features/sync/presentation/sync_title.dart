@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/ui/app_feedback.dart';
 import '../application/sync_providers.dart';
 import '../data/sync_engine.dart';
 
@@ -52,29 +53,36 @@ class _SyncTitleState extends ConsumerState<SyncTitle> {
         final color = (fresh || status == SyncStatus.syncing)
             ? Theme.of(context).colorScheme.primary
             : Theme.of(context).colorScheme.outline;
-        return InkWell(
-          onTap: () => ref.read(syncAllProvider)(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                widget.text,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(color: color),
-              ),
-              if (status == SyncStatus.syncing) ...[
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: color,
-                  ),
+        return Tooltip(
+          message: 'Sync now',
+          child: InkWell(
+            onTap: () {
+              AppFeedback.tap();
+              ref.read(syncAllProvider)();
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.text,
+                  style: Theme.of(context).textTheme.titleLarge
+                      ?.copyWith(color: color),
                 ),
+                const SizedBox(width: 6),
+                Icon(Icons.sync, size: 18, color: color),
+                if (status == SyncStatus.syncing) ...[
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: color,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         );
       },

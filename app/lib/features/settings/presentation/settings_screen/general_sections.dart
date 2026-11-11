@@ -184,13 +184,49 @@ class _LastSyncTile extends ConsumerWidget {
     return ListTile(
       title: const Text('Last sync'),
       subtitle: Text(subtitle, softWrap: true),
-      trailing: status == SyncStatus.syncing
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : null,
+      trailing: IconButton(
+        tooltip: 'Sync now',
+        onPressed: status == SyncStatus.syncing
+            ? null
+            : () => _syncNow(context, ref),
+        icon: status == SyncStatus.syncing
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.refresh),
+      ),
     );
+  }
+
+  Future<void> _syncNow(BuildContext context, WidgetRef ref) async {
+    AppFeedback.tap();
+    try {
+      await ref.read(syncAllProvider)();
+      if (!context.mounted) return;
+      // syncAllProvider reports failures through status, not by throwing.
+      final status = ref.read(combinedSyncStatusProvider);
+      if (status == SyncStatus.synced) {
+        AppFeedback.success();
+        showAppSnackBar(context, 'Sync complete', icon: Icons.sync);
+      } else if (status == SyncStatus.offline) {
+        AppFeedback.warning();
+        showAppSnackBar(
+          context,
+          'Offline. Changes are queued and will sync when you reconnect.',
+          icon: Icons.cloud_off,
+        );
+      } else if (status == SyncStatus.error) {
+        AppFeedback.error();
+        showErrorSnackBar(context, 'Could not sync. Check your connection.');
+      } else {
+        showAppSnackBar(context, 'Sync is still running', icon: Icons.sync);
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      AppFeedback.error();
+      showErrorSnackBar(context, 'Could not sync. Check your connection.');
+    }
   }
 }
