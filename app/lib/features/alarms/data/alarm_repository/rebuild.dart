@@ -18,15 +18,37 @@ mixin _AlarmRebuildOps
       ...await _countdownCandidates(now),
       ...await _habitCandidates(now),
     ];
-    final planned = planAlarmWindow(candidates, nowUtcMs: now);
     final existing = await _db.select(_db.alarmsIndex).get();
+    // Keep a fired row alive while it may still be ringing, so the rebuild
+    // neither cancels its native registration nor reuses its request code.
+    final preserved = existing
+        .where(
+          (r) =>
+              r.state == 'fired' &&
+              r.requestCode != null &&
+              r.fireAtUtc >= now - 24 * msPerHour,
+        )
+        .toList();
+    final preservedIds = {for (final r in preserved) r.id};
+    final preservedCodes = {for (final r in preserved) r.requestCode!};
+    final planned = planAlarmWindow(
+      candidates,
+      nowUtcMs: now,
+      reservedRequestCodes: preservedCodes,
+    );
     final existingCodes = {
       for (final r in existing)
         if (r.requestCode != null) r.requestCode!,
     };
     final plannedCodes = {for (final p in planned) p.requestCode};
     await _db.transaction(() async {
-      await _db.delete(_db.alarmsIndex).go();
+      if (preserved.isEmpty) {
+        await _db.delete(_db.alarmsIndex).go();
+      } else {
+        await (_db.delete(
+          _db.alarmsIndex,
+        )..where((a) => a.id.isNotIn(preservedIds))).go();
+      }
       for (final p in planned) {
         final base = p.title.isEmpty ? p.sourceId : p.title;
         final decorated = (p.sourceType == 'task_due_tomorrow')
@@ -82,7 +104,8 @@ mixin _AlarmRebuildOps
         }
       }
     });
-    for (final code in existingCodes.difference(plannedCodes)) {
+    for (final code
+        in existingCodes.difference(preservedCodes).difference(plannedCodes)) {
       await AlarmScheduler.cancel(code);
     }
     return planned.length;

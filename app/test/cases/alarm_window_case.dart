@@ -34,6 +34,27 @@ void main() {
     );
   });
 
+  test('reserved request codes are skipped', () {
+    final now = DateTime.utc(2026, 3, 2, 12).millisecondsSinceEpoch;
+    final cands = [
+      for (var h = 1; h <= 3; h++)
+        AlarmCandidate(
+          sourceType: 'event',
+          sourceId: 'e$h',
+          fireAtUtcMs: now + h * 3600000,
+          preset: 'notification',
+        ),
+    ];
+    final plain = planAlarmWindow(cands, nowUtcMs: now);
+    expect(plain.map((p) => p.requestCode), [100000, 100001, 100002]);
+    final reserved = planAlarmWindow(
+      cands,
+      nowUtcMs: now,
+      reservedRequestCodes: {100000, 100002},
+    );
+    expect(reserved.map((p) => p.requestCode), [100001, 100003, 100004]);
+  });
+
   test('drops past alarms', () {
     final now = DateTime.utc(2026, 3, 2, 12).millisecondsSinceEpoch;
     final planned = planAlarmWindow([

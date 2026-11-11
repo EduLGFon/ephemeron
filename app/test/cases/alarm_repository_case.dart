@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,13 @@ String _tomorrowKey() {
   return '${t.year.toString().padLeft(4, '0')}-'
       '${t.month.toString().padLeft(2, '0')}-'
       '${t.day.toString().padLeft(2, '0')}';
+}
+
+/// Local "HH:mm" that is [ahead] from now, matching habit reminderTime.
+String _localTimeAhead(Duration ahead) {
+  final t = DateTime.now().add(ahead);
+  return '${t.hour.toString().padLeft(2, '0')}:'
+      '${t.minute.toString().padLeft(2, '0')}';
 }
 
 void main() {
@@ -122,6 +130,165 @@ void main() {
       expect(rows, isEmpty);
     },
   );
+
+  test('habit with alarm preset schedules one alarm row', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final id = await HabitRepository(db).createHabit(
+      name: 'Stretch',
+      reminderTime: _localTimeAhead(const Duration(hours: 2)),
+      alarmPreset: 'full_long',
+    );
+    await AlarmRepository(db).rebuildWindow(dueTomorrowEnabled: false);
+    final rows = await (db.select(
+      db.alarmsIndex,
+    )..where((a) => a.sourceId.like('$id@%'))).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.sourceType, 'habit');
+    expect(rows.single.kind, 'alarm');
+    expect(rows.single.preset, 'full_long');
+  });
+
+  for (final preset in <String?>['notification', null]) {
+    test('habit with ${preset ?? 'no'} preset uses one reminder row', () async {
+      final db = _db();
+      addTearDown(db.close);
+      final id = await HabitRepository(db).createHabit(
+        name: 'Read',
+        reminderTime: _localTimeAhead(const Duration(hours: 2)),
+        alarmPreset: preset,
+      );
+      await AlarmRepository(db).rebuildWindow(dueTomorrowEnabled: false);
+      final rows = await (db.select(
+        db.alarmsIndex,
+      )..where((a) => a.sourceId.like('$id@%'))).get();
+      expect(rows, hasLength(1));
+      expect(rows.single.sourceType, 'habit_reminder');
+      expect(rows.single.kind, 'reminder');
+      expect(rows.single.preset, 'notification');
+    });
+  }
+
+  test('firing habit row blocks the next occurrence until dismissed', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final id = await HabitRepository(db).createHabit(
+      name: 'Walk',
+      reminderTime: _localTimeAhead(const Duration(hours: 2)),
+    );
+    final now = DateTime.now();
+    final todayKey = '${now.year}-${now.month}-${now.day}';
+    const firedId = 'habit-fired-today';
+    await db
+        .into(db.alarmsIndex)
+        .insert(
+          AlarmsIndexCompanion.insert(
+            id: firedId,
+            sourceType: 'habit_reminder',
+            sourceId: '$id@$todayKey',
+            fireAtUtc:
+                DateTime.now().toUtc().millisecondsSinceEpoch - 60 * 1000,
+            requestCode: const Value(9000),
+            state: const Value('fired'),
+            kind: const Value('reminder'),
+            preset: const Value('notification'),
+          ),
+        );
+    Future<List<AlarmsIndexData>> futureRows() {
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      return (db.select(db.alarmsIndex)..where(
+            (a) =>
+                a.sourceId.like('$id@%') & a.fireAtUtc.isBiggerThanValue(now),
+          ))
+          .get();
+    }
+
+    await AlarmRepository(db).rebuildWindow(dueTomorrowEnabled: false);
+    expect(await futureRows(), isEmpty);
+
+    await (db.update(db.alarmsIndex)..where((a) => a.id.equals(firedId))).write(
+      const AlarmsIndexCompanion(state: Value('dismissed')),
+    );
+    await AlarmRepository(db).rebuildWindow(dueTomorrowEnabled: false);
+    final rows = await futureRows();
+    expect(rows, hasLength(1));
+    expect(rows.single.sourceType, 'habit_reminder');
+  });
+
+  test('preserves a ringing request code and plans around it', () async {
+    final db = _db();
+    addTearDown(db.close);
+    const firedId = 'ringing';
+    await db
+        .into(db.alarmsIndex)
+        .insert(
+          AlarmsIndexCompanion.insert(
+            id: firedId,
+            sourceType: 'task_reminder',
+            sourceId: 'old#r0',
+            fireAtUtc:
+                DateTime.now().toUtc().millisecondsSinceEpoch - 60 * 1000,
+            requestCode: const Value(100000),
+            state: const Value('fired'),
+            kind: const Value('reminder'),
+            preset: const Value('notification'),
+          ),
+        );
+    await TaskRepository(
+      db,
+    ).createTask(title: 'Tomorrow', dueDate: _tomorrowKey(), dueTime: 23 * 60);
+    final planned = await AlarmRepository(
+      db,
+    ).rebuildWindow(dueTomorrowEnabled: false);
+    expect(planned, 1);
+    final preserved = await (db.select(
+      db.alarmsIndex,
+    )..where((a) => a.id.equals(firedId))).getSingleOrNull();
+    expect(preserved, isNot(null));
+    expect(preserved!.state, 'fired');
+    expect(preserved.requestCode, 100000);
+    final scheduled = await (db.select(
+      db.alarmsIndex,
+    )..where((a) => a.state.equals('scheduled'))).get();
+    expect(scheduled.map((r) => r.requestCode), [100001]);
+  });
+
+  test('stale fired rows are removed and release their request code', () async {
+    final db = _db();
+    addTearDown(db.close);
+    const firedId = 'stale-ring';
+    await db
+        .into(db.alarmsIndex)
+        .insert(
+          AlarmsIndexCompanion.insert(
+            id: firedId,
+            sourceType: 'task_reminder',
+            sourceId: 'old#r0',
+            fireAtUtc:
+                DateTime.now().toUtc().millisecondsSinceEpoch -
+                25 * 60 * 60 * 1000,
+            requestCode: const Value(100000),
+            state: const Value('fired'),
+            kind: const Value('reminder'),
+            preset: const Value('notification'),
+          ),
+        );
+    await TaskRepository(
+      db,
+    ).createTask(title: 'Tomorrow', dueDate: _tomorrowKey(), dueTime: 23 * 60);
+    final planned = await AlarmRepository(
+      db,
+    ).rebuildWindow(dueTomorrowEnabled: false);
+    expect(planned, 1);
+    final stale = await (db.select(
+      db.alarmsIndex,
+    )..where((a) => a.id.equals(firedId))).getSingleOrNull();
+    expect(stale, null);
+    final scheduled = await (db.select(
+      db.alarmsIndex,
+    )..where((a) => a.state.equals('scheduled'))).get();
+    expect(scheduled.map((r) => r.requestCode), [100000]);
+  });
 
   test('byRequestCode returns the matching alarm row', () async {
     final db = _db();
