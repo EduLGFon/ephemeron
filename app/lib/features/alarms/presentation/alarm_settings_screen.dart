@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/alarms/alarm_preset.dart';
 import '../../../core/platform/app_permissions.dart';
+import '../../../core/platform/system_launcher.dart';
 import '../../settings/application/settings_providers.dart';
 import '../application/alarm_providers.dart';
 import '../data/alarm_scheduler.dart';
@@ -133,16 +134,27 @@ class AlarmSettingsScreen extends ConsumerWidget {
               );
             },
           ),
-          ListTile(
-            title: const Text('Full-screen alarms'),
-            subtitle: const Text(
-              'Needed on Android 14+ for alarms over the lock screen.',
-            ),
-            trailing: FilledButton(
-              onPressed: () =>
-                  AppPermissions.ensureFullScreenIntent(context, needed: true),
-              child: const Text('Check'),
-            ),
+          FutureBuilder<bool>(
+            future: SystemLauncher.canUseFullScreenIntent(),
+            builder: (ctx, snap) {
+              final ok = snap.data ?? false;
+              return ListTile(
+                title: const Text('Full-screen alarms'),
+                subtitle: Text(
+                  ok
+                      ? 'Granted'
+                      : 'Not granted. Needed on Android 14+ for alarms over '
+                            'the lock screen.',
+                ),
+                trailing: FilledButton(
+                  onPressed: () => AppPermissions.ensureFullScreenIntent(
+                    context,
+                    needed: true,
+                  ),
+                  child: Text(ok ? 'Check' : 'Grant'),
+                ),
+              );
+            },
           ),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 8, 16, 4),

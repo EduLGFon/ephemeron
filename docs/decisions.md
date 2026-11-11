@@ -30,3 +30,16 @@ Decisions not covered by PLAN.md (lighter-weight option chosen by default).
   `tasks` gain `googleAccount` (schema v9, backfilled from parent
   calendar/list) so push/pull/discovery are scoped per account and one
   account's loop can no longer 404-drop another's rows.
+- Full-screen alarms keep the existing Flutter RingScreen (no native alarm
+  UI). A dedicated native activity may replace it later.
+- Biometric exemption: the ring screen is shown without `_LockGate` only when
+  `activeRingRequestProvider` was set from a verified alarms_index row in
+  state `fired`. Native intents alone never bypass the gate; an unknown,
+  scheduled, missed, or dismissed row is rejected silently.
+- Alarm fire marks the row `fired` (or `missed` when notifications are off)
+  before posting, so a full-screen tap always reads a settled state.
+  Notifications use `setOnlyAlertOnce` so foreground-service updates and
+  minute repeats cannot re-alert or flash.
+- full_long minute repeats restart `AlarmRingService` without posting a new
+  notification; only the first fire notifies. The `phase` extra is carried
+  through service re-posts so focus next-phase actions survive.

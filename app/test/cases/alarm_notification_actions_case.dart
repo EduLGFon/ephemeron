@@ -5,6 +5,7 @@ import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/domain/habits/date_key.dart';
+import 'package:ephemeron/features/alarms/application/alarm_providers.dart';
 import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,6 +78,20 @@ void main() {
       cancelAt,
       lessThan(calls.lastIndexWhere((c) => c.method == 'schedule')),
     );
+  });
+
+  test('only a fired row may open the ring screen', () {
+    expect(canOpenRingScreen('fired'), isTrue);
+    for (final state in [
+      'scheduled',
+      'missed',
+      'dismissed',
+      'done',
+      'cancelled',
+      null,
+    ]) {
+      expect(canOpenRingScreen(state), isFalse, reason: '$state');
+    }
   });
 
   test('consumeRingRequest returns the pending cold-start code', () async {

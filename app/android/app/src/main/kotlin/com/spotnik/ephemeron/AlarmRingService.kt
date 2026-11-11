@@ -26,6 +26,7 @@ class AlarmRingService : Service() {
         const val EXTRA_FULL_SCREEN = "fullScreen"
         const val EXTRA_SOURCE_TYPE = "sourceType"
         const val EXTRA_SOURCE_ID = "sourceId"
+        const val EXTRA_PHASE = "phase"
 
         const val ACTION_STOP = "com.spotnik.ephemeron.ALARM_RING_STOP"
 
@@ -44,6 +45,7 @@ class AlarmRingService : Service() {
             fullScreen: Boolean,
             sourceType: String = "",
             sourceId: String = "",
+            phase: String? = null,
         ) {
             if (!shouldRing(preset, kind)) return
             // Without notifications there is no stop affordance on the
@@ -58,6 +60,7 @@ class AlarmRingService : Service() {
                 putExtra(EXTRA_FULL_SCREEN, fullScreen)
                 putExtra(EXTRA_SOURCE_TYPE, sourceType)
                 putExtra(EXTRA_SOURCE_ID, sourceId)
+                if (phase != null) putExtra(EXTRA_PHASE, phase)
             }
             try {
                 ContextCompat.startForegroundService(context, intent)
@@ -136,6 +139,7 @@ class AlarmRingService : Service() {
         val fullScreen = intent?.getBooleanExtra(EXTRA_FULL_SCREEN, true) ?: true
         val sourceType = intent?.getStringExtra(EXTRA_SOURCE_TYPE) ?: ""
         val sourceId = intent?.getStringExtra(EXTRA_SOURCE_ID) ?: ""
+        val phase = intent?.getStringExtra(EXTRA_PHASE)
 
         if (!shouldRing(preset, kind)) return START_NOT_STICKY
 
@@ -143,6 +147,7 @@ class AlarmRingService : Service() {
 
         val notification = AlarmPlugin.buildNotification(
             this, rc, title, preset, body, kind, fullScreen, sourceType, sourceId,
+            phase,
         )
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

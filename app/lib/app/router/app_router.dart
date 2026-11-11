@@ -8,6 +8,7 @@ import '../../features/focus/presentation/focus_screen.dart';
 import '../../features/habits/presentation/habits_screen.dart';
 import '../../features/tasks/presentation/matrix_screen.dart';
 import '../../features/tasks/presentation/tasks_screen.dart';
+import '../../features/alarms/application/alarm_providers.dart';
 import '../../features/alarms/presentation/alarm_settings_screen.dart';
 import '../../features/alarms/presentation/ring_screen.dart';
 import '../../features/notes/presentation/notes_screen.dart';
@@ -15,8 +16,11 @@ import '../../features/search/presentation/search_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // A verified cold-start ring request must be the very first route; AppShell
+  // (and its alarm action handler) is not built above /ring.
+  final startAtRing = ref.read(activeRingRequestProvider) != null;
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: startAtRing ? '/ring' : '/',
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

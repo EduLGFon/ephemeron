@@ -17,6 +17,10 @@ final upcomingAlarmsProvider = StreamProvider<List<AlarmsIndexData>>((ref) {
   return ref.watch(alarmRepositoryProvider).watchUpcoming();
 });
 
+/// Only a row that is actually firing may open the ring screen or bypass the
+/// biometric gate. A native intent alone is never trusted.
+bool canOpenRingScreen(String? rowState) => rowState == 'fired';
+
 /// Ring request code currently shown by the ring screen, or null when the
 /// screen should fall back to the latest fired alarm.
 class ActiveRingRequestNotifier extends Notifier<int?> {

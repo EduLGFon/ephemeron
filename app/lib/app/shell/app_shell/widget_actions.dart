@@ -1,27 +1,40 @@
 part of '../app_shell.dart';
 
 extension _AppShellWidgetActions on _AppShellState {
-  /// Shows the alarm ring screen for [requestCode]. Sets the active request
-  /// first so the screen loads the right row, and pushes /ring at most once
-  /// even when the cold-start consume and warm event race.
-  void _handleRingRequest(int requestCode) {
-    if (!mounted) return;
-    ref.read(activeRingRequestProvider.notifier).set(requestCode);
-    if (_ringPushPending) return;
-    if (GoRouter.of(context).state.uri.path == '/ring') return;
+  /// Shows the alarm ring screen for [requestCode] only when its
+  /// alarms_index row is actually firing. Sets the active request so the
+  /// screen loads the right row, and pushes /ring at most once even when the
+  /// cold-start consume and warm event race.
+  Future<void> _handleRingRequest(int requestCode) async {
+    if (!mounted || _ringPushPending) return;
     _ringPushPending = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _ringPushPending = false;
-      if (!mounted) return;
-      final router = GoRouter.of(context);
-      if (router.state.uri.path == '/ring') return;
-      try {
-        router.push('/ring');
-      } catch (_) {}
-    });
-    // addPostFrameCallback alone does not schedule a frame; make sure the
-    // ring screen is pushed even when startup settles after the first frame.
-    WidgetsBinding.instance.scheduleFrame();
+    var pushScheduled = false;
+    try {
+      final row = await ref
+          .read(alarmRepositoryProvider)
+          .byRequestCode(requestCode);
+      if (!mounted || !canOpenRingScreen(row?.state)) return;
+      ref.read(activeRingRequestProvider.notifier).set(requestCode);
+      if (GoRouter.of(context).state.uri.path == '/ring') return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _ringPushPending = false;
+        if (!mounted) return;
+        final router = GoRouter.of(context);
+        if (router.state.uri.path == '/ring') return;
+        try {
+          router.push('/ring');
+        } catch (_) {}
+      });
+      pushScheduled = true;
+      // addPostFrameCallback alone does not schedule a frame; make sure the
+      // ring screen is pushed even when startup settles after the first frame.
+      WidgetsBinding.instance.scheduleFrame();
+    } catch (_) {
+      // Reject unknown or unverifiable requests silently. The lock gate and
+      // routing stay untouched.
+    } finally {
+      if (!pushScheduled) _ringPushPending = false;
+    }
   }
 
   /// Opens quick add prefilled with shared text, jumps to the tab
