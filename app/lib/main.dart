@@ -94,7 +94,11 @@ class EphemeronApp extends ConsumerWidget {
     // intent can never bypass the gate.
     final ringActive = ref.watch(activeRingRequestProvider) != null;
 
-    AppFeedback.configure(hapticsEnabled: repo?.haptics ?? true);
+    ref.listen(settingsRepositoryProvider, (previous, next) {
+      next.whenData(
+        (repo) => AppFeedback.configure(hapticsEnabled: repo.haptics),
+      );
+    });
 
     final app = MaterialApp.router(
       title: 'Ephemeron',

@@ -59,7 +59,6 @@ ThemeData buildTheme({
       color: scheme.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
