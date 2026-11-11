@@ -38,28 +38,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!mounted) return;
       setState(() {
         _repo = repo;
-        _primaryHex = _normalizedHex(
-          repo.primaryColorHex,
-          colorToHex(primaryPresets.first),
-        );
-        _backgroundHex = _normalizedHex(
-          repo.backgroundColorHex,
-          colorToHex(backgroundPresets.first),
-        );
-        _brightness = AppBrightness.values.firstWhere(
-          (b) => b.name == repo.brightness,
-          orElse: () => AppBrightness.light,
-        );
-        _localeCode = repo.localeCode;
-        _powerSavingMode = repo.powerSavingMode;
-        _reduceAnimations = repo.reduceAnimations;
-        _haptics = repo.haptics;
-        _taskDueTomorrowReminder = repo.taskDueTomorrowReminder;
-        _biometricLock = repo.biometricLock;
-        _syncIntervalMin = repo.syncIntervalMin;
-        _backendSyncIntervalMin = repo.backendSyncIntervalMin;
         _loading = false;
       });
+      _applyRepoState(repo);
       // The lock switch is optional; resolve platform support in the
       // background so a slow platform channel never blocks the screen.
       _loadBiometricSupport();
@@ -71,6 +52,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _failed = true;
       });
     }
+  }
+
+  /// Mirrors the repository into the local values so a failed save can put
+  /// the screen back on the value that is actually persisted.
+  void _applyRepoState(SettingsRepository repo) {
+    if (!mounted) return;
+    setState(() {
+      _primaryHex = _normalizedHex(
+        repo.primaryColorHex,
+        colorToHex(primaryPresets.first),
+      );
+      _backgroundHex = _normalizedHex(
+        repo.backgroundColorHex,
+        colorToHex(backgroundPresets.first),
+      );
+      _brightness = AppBrightness.values.firstWhere(
+        (b) => b.name == repo.brightness,
+        orElse: () => AppBrightness.light,
+      );
+      _localeCode = repo.localeCode;
+      _powerSavingMode = repo.powerSavingMode;
+      _reduceAnimations = repo.reduceAnimations;
+      _haptics = repo.haptics;
+      _taskDueTomorrowReminder = repo.taskDueTomorrowReminder;
+      _biometricLock = repo.biometricLock;
+      _syncIntervalMin = repo.syncIntervalMin;
+      _backendSyncIntervalMin = repo.backendSyncIntervalMin;
+    });
   }
 
   Future<void> _loadBiometricSupport() async {
@@ -95,11 +104,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       await action(repo);
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save this setting.')),
-        );
+      if (!mounted) return;
+      // Re-read the persisted value so the UI never shows a save that did
+      // not happen.
+      try {
+        final fresh = await ref.read(settingsRepositoryProvider.future);
+        if (!mounted) return;
+        _repo = fresh;
+        _applyRepoState(fresh);
+      } catch (_) {
+        if (mounted) _applyRepoState(repo);
       }
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Could not save this setting.');
       return;
     }
     if (mounted) ref.invalidate(settingsRepositoryProvider);

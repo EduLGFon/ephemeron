@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:ephemeron/core/ui/app_feedback.dart';
 import 'package:ephemeron/core/ui/app_sheet.dart';
 import 'package:ephemeron/core/ui/escape_to_close.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +26,7 @@ import '../../features/habits/presentation/habit_editor_sheet.dart';
 import '../../features/notes/presentation/note_editor_screen.dart';
 import '../../features/search/application/search_providers.dart';
 import '../../features/settings/application/settings_providers.dart';
+import '../../features/settings/data/settings_repository.dart';
 import '../../features/settings/presentation/onboarding_screen.dart';
 import '../../features/sync/application/pending_operations.dart';
 import '../../features/sync/application/sync_providers.dart';
@@ -71,6 +73,8 @@ class _AppShellState extends ConsumerState<AppShell>
   bool _handlingWidgetAction = false;
   String? _handledWidgetAction;
   bool _ringPushPending = false;
+  int? _lastTabTapIndex;
+  DateTime? _lastTabTapAt;
 
   void _scheduleWidgetRefresh() {
     _widgetRefreshTimer?.cancel();
@@ -214,12 +218,12 @@ class _AppShellState extends ConsumerState<AppShell>
     if (!onboarded) return const OnboardingScreen();
     final order = orderAsync.maybeWhen(
       data: (r) => r.navOrder,
-      orElse: () => List<int>.generate(7, (i) => i),
+      orElse: () => SettingsRepository.defaultNavOrder,
     );
     final pinned = order.take(5).toList();
     final more = order.skip(5).toList();
 
-    final shortcuts = _buildShortcuts();
+    final shortcuts = _buildShortcuts(more, order);
     _shortcuts = shortcuts;
     return Focus(
       autofocus: true,
@@ -246,13 +250,8 @@ class _AppShellState extends ConsumerState<AppShell>
                     pinned.contains(widget.navigationShell.currentIndex)
                     ? pinned.indexOf(widget.navigationShell.currentIndex)
                     : 5,
-                onDestinationSelected: (i) {
-                  if (i < 5) {
-                    _onTabSelected(pinned[i]);
-                  } else {
-                    _showMore(context, more, order);
-                  }
-                },
+                onDestinationSelected: (i) =>
+                    _onDestinationSelected(i, pinned, more, order),
                 destinations: [
                   for (final idx in pinned)
                     NavigationDestination(

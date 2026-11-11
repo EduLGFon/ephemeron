@@ -60,9 +60,8 @@ List<Widget> _accountsSection(_SettingsScreenState state) {
       title: const Text('Account and sync'),
       subtitle: const Text('Sign in to sync your custom data.'),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => Navigator.of(
-        state.context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const AuthScreen())),
+      onTap: () => Navigator.of(state.context)
+          .push(MaterialPageRoute<void>(builder: (_) => const AuthScreen())),
     ),
     const _LastSyncTile(),
     SettingsPickerTile<int>(
@@ -184,13 +183,33 @@ class _LastSyncTile extends ConsumerWidget {
     return ListTile(
       title: const Text('Last sync'),
       subtitle: Text(subtitle, softWrap: true),
-      trailing: status == SyncStatus.syncing
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : null,
+      trailing: IconButton(
+        tooltip: 'Sync now',
+        onPressed: status == SyncStatus.syncing
+            ? null
+            : () => _syncNow(context, ref),
+        icon: status == SyncStatus.syncing
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.refresh),
+      ),
     );
+  }
+
+  Future<void> _syncNow(BuildContext context, WidgetRef ref) async {
+    AppFeedback.tap();
+    try {
+      await ref.read(syncAllProvider)();
+      if (!context.mounted) return;
+      AppFeedback.success();
+      showAppSnackBar(context, 'Sync complete', icon: Icons.sync);
+    } catch (_) {
+      if (!context.mounted) return;
+      AppFeedback.error();
+      showErrorSnackBar(context, 'Could not sync. Check your connection.');
+    }
   }
 }

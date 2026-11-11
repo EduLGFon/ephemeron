@@ -3,6 +3,7 @@
 import 'package:ephemeron/core/security/app_lock.dart';
 import 'package:ephemeron/core/theme/theme_tokens.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
+import 'package:ephemeron/core/ui/app_feedback.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
