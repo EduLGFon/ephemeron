@@ -24,6 +24,30 @@ void main() {
     final done = {'2026-03-06', '2026-03-09'};
     expect(currentStreak(spec, '2026-03-09', done.contains, (_) => false), 2);
   });
+  test('today in progress keeps streak ending yesterday', () {
+    final spec = HabitSpec(frequency: 'daily');
+    final done = {'2026-03-08', '2026-03-09'};
+    expect(currentStreak(spec, '2026-03-10', done.contains, (_) => false), 2);
+  });
+  test('earlier missed day still breaks streak with today in progress', () {
+    final spec = HabitSpec(frequency: 'daily');
+    final done = {'2026-03-08'};
+    expect(currentStreak(spec, '2026-03-10', done.contains, (_) => false), 0);
+  });
+  test('today in progress counts weekdays run across the weekend gap', () {
+    final spec = HabitSpec(frequency: 'weekdays', weekdaysMask: 31);
+    final done = {'2026-03-05', '2026-03-06'};
+    expect(currentStreak(spec, '2026-03-09', done.contains, (_) => false), 2);
+  });
+  test('unscheduled today does not hide the last scheduled done day', () {
+    final spec = HabitSpec(frequency: 'weekdays', weekdaysMask: 31);
+    final done = {'2026-03-06'};
+    expect(currentStreak(spec, '2026-03-08', done.contains, (_) => false), 1);
+  });
+  test('today-only start date with no log has no streak', () {
+    final spec = HabitSpec(frequency: 'daily', startDate: '2026-03-10');
+    expect(currentStreak(spec, '2026-03-10', (_) => false, (_) => false), 0);
+  });
   test('weekly target counts completed weeks', () {
     final spec = HabitSpec(frequency: 'weekly', weeklyTarget: 2);
     bool isDone(String d) =>
