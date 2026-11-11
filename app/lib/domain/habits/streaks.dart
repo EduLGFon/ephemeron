@@ -63,6 +63,12 @@ int currentStreak(
       cur = cur.subtract(const Duration(days: 1));
       continue;
     }
+    // Today is still in progress: keep the run ending yesterday until the
+    // day is completed or ends without a log. Only today gets this grace.
+    if (key == todayKey) {
+      cur = cur.subtract(const Duration(days: 1));
+      continue;
+    }
     break;
   }
   return streak;

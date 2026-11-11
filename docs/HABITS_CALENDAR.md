@@ -23,6 +23,16 @@ timeline, month grid, and agenda, and makes logging a single tap.
 Streaks use the same predicate, so the calendar and streak engine cannot drift
 apart.
 
+## Streak grace for today
+
+`currentStreak` keeps the run that ended yesterday when today is scheduled and
+has no done or skipped log yet. Today only counts as missed after it has passed
+without a log; until then the streak is not zeroed, so opening the app in the
+morning does not show a broken streak. Any scheduled day before today that is
+neither done nor skipped still breaks the streak. Skipped days remain neutral
+and done days extend the run. Weekly-target habits keep their own in-progress
+week grace.
+
 ## Timed and all-day placement
 
 A habit with a reminder time appears as a timed block; a habit without one stays
