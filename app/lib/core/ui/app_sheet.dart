@@ -6,6 +6,7 @@
 // dirty state via DirtyGuard.of(context), dismissing prompts Discard/Save/Cancel.
 import 'package:flutter/material.dart';
 
+import '../theme/theme_tokens.dart';
 import 'dirty_guard.dart';
 
 class _GuardedModalBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
@@ -187,7 +188,9 @@ Future<T?> showGuardedAppSheet<T>(
     shape:
         shape ??
         const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.xl),
+          ),
         ),
     clipBehavior: clipBehavior ?? Clip.antiAlias,
     constraints: constraints ?? const BoxConstraints(maxWidth: 640),
