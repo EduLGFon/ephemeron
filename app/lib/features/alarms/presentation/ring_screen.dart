@@ -12,11 +12,14 @@ import 'package:go_router/go_router.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../core/db/db_provider.dart';
+import '../../../core/theme/theme_tokens.dart';
+import '../../../core/ui/app_feedback.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/alarms/alarm_preset.dart';
 import '../application/alarm_providers.dart';
 import '../data/alarm_repository.dart';
 import 'alarm_preset_picker.dart';
+import 'alarm_source_route.dart';
 
 class RingScreen extends ConsumerStatefulWidget {
   const RingScreen({super.key});
@@ -128,12 +131,15 @@ class _RingScreenState extends ConsumerState<RingScreen> {
   /// Runs one ring action, then clears the verified ring request and leaves.
   /// Done/Dismiss rebuild the alarm window so the next occurrence is
   /// scheduled; Snooze must not rebuild because that would cancel the snooze.
+  /// [destination] replaces the ring route with a section tab (Open item);
+  /// null keeps the existing pop-or-calendar behavior.
   /// The rebuild is fire-and-forget so the route change lands before the
   /// biometric gate replaces the app subtree.
   Future<void> _act(
     int? code,
     Future<void> Function(int requestCode) action, {
     required bool rebuild,
+    String? destination,
   }) async {
     if (_busy) return;
     _busy = true;
@@ -151,7 +157,7 @@ class _RingScreenState extends ConsumerState<RingScreen> {
           final repo = ref.read(alarmRepositoryProvider);
           unawaited(_rebuildWindow(repo));
         }
-        if (mounted) _leaveRing();
+        _leaveRing(destination: destination);
       }
     }
   }
@@ -162,16 +168,20 @@ class _RingScreenState extends ConsumerState<RingScreen> {
     } catch (_) {}
   }
 
-  void _leaveRing() {
+  void _leaveRing({String? destination}) {
     if (!mounted) return;
     try {
-      if (context.canPop()) {
+      if (destination != null) {
+        // Replace the ring route instead of popping so a section tab always
+        // wins, even when the ring was opened as the first route.
+        context.go(destination);
+      } else if (context.canPop()) {
         context.pop();
       } else {
         context.go('/tab0');
       }
     } catch (_) {
-      if (mounted) context.go('/tab0');
+      if (mounted) context.go(destination ?? '/tab0');
     }
   }
 
@@ -192,6 +202,7 @@ class _RingScreenState extends ConsumerState<RingScreen> {
               final alarm = snap.data;
               final preset = AlarmPreset.tryParse(alarm?.preset);
               final long = preset == AlarmPreset.fullScreenLong;
+              final sourceLabel = alarmSourceLabel(alarm?.sourceType);
               final isHabit =
                   alarm?.sourceType == 'habit' ||
                   alarm?.sourceType == 'habit_reminder';
@@ -219,7 +230,35 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                               size: 96,
                               color: long ? Colors.redAccent : Colors.white,
                             ),
-                            const SizedBox(height: 12),
+                            if (sourceLabel != null) ...[
+                              const SizedBox(height: AppSpace.md),
+                              Semantics(
+                                label: '$sourceLabel alarm',
+                                excludeSemantics: true,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpace.md,
+                                    vertical: AppSpace.xs,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white10,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.pill,
+                                    ),
+                                    border: Border.all(color: Colors.white24),
+                                  ),
+                                  child: Text(
+                                    sourceLabel,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: AppSpace.md),
                             Text(
                               preset?.title ?? 'Alarm',
                               style: const TextStyle(
@@ -227,14 +266,25 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                                 fontSize: 14,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              alarm?.title ?? 'Alarm',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
+                            const SizedBox(height: AppSpace.sm),
+                            Semantics(
+                              header: true,
+                              child: Text(
+                                alarm?.title ?? 'Alarm',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
-                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: AppSpace.sm),
+                            const Text(
+                              'Auto-snoozes in 30 s if untouched',
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 12,
+                              ),
                             ),
                             if (long)
                               const Padding(
@@ -249,10 +299,10 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                               ),
                             const SizedBox(height: 24),
                             SnoozePicker(
-                              onPick: (m) => _snooze(
-                                minutes: m,
-                                code: _requestCode(alarm),
-                              ),
+                              onPick: (m) {
+                                AppFeedback.tap();
+                                _snooze(minutes: m, code: _requestCode(alarm));
+                              },
                             ),
                             const SizedBox(height: 24),
                             SizedBox(
@@ -265,13 +315,16 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                onPressed: () => _act(
-                                  _requestCode(alarm),
-                                  (code) => ref
-                                      .read(alarmRepositoryProvider)
-                                      .markDone(code),
-                                  rebuild: true,
-                                ),
+                                onPressed: () {
+                                  AppFeedback.success();
+                                  _act(
+                                    _requestCode(alarm),
+                                    (code) => ref
+                                        .read(alarmRepositoryProvider)
+                                        .markDone(code),
+                                    rebuild: true,
+                                  );
+                                },
                                 child: const Text('Done'),
                               ),
                             ),
@@ -282,29 +335,37 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                               runSpacing: 8,
                               children: [
                                 OutlinedButton(
-                                  onPressed: () =>
-                                      _snooze(code: _requestCode(alarm)),
+                                  onPressed: () {
+                                    AppFeedback.tap();
+                                    _snooze(code: _requestCode(alarm));
+                                  },
                                   child: const Text('Snooze'),
                                 ),
                                 if (numeric)
                                   OutlinedButton(
-                                    onPressed: () => _act(
-                                      _requestCode(alarm),
-                                      (code) => ref
-                                          .read(alarmRepositoryProvider)
-                                          .completeHabitPlusOne(code),
-                                      rebuild: true,
-                                    ),
+                                    onPressed: () {
+                                      AppFeedback.success();
+                                      _act(
+                                        _requestCode(alarm),
+                                        (code) => ref
+                                            .read(alarmRepositoryProvider)
+                                            .completeHabitPlusOne(code),
+                                        rebuild: true,
+                                      );
+                                    },
                                     child: const Text('+1'),
                                   ),
                                 TextButton(
-                                  onPressed: () => _act(
-                                    _requestCode(alarm),
-                                    (code) => ref
-                                        .read(alarmRepositoryProvider)
-                                        .dismissRequest(code),
-                                    rebuild: true,
-                                  ),
+                                  onPressed: () {
+                                    AppFeedback.tap();
+                                    _act(
+                                      _requestCode(alarm),
+                                      (code) => ref
+                                          .read(alarmRepositoryProvider)
+                                          .dismissRequest(code),
+                                      rebuild: true,
+                                    );
+                                  },
                                   child: const Text(
                                     'Dismiss',
                                     style: TextStyle(color: Colors.white70),
@@ -314,13 +375,19 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                             ),
                             const SizedBox(height: 8),
                             TextButton(
-                              onPressed: () => _act(
-                                _requestCode(alarm),
-                                (code) => ref
-                                    .read(alarmRepositoryProvider)
-                                    .dismissRequest(code),
-                                rebuild: true,
-                              ),
+                              onPressed: () {
+                                AppFeedback.tap();
+                                _act(
+                                  _requestCode(alarm),
+                                  (code) => ref
+                                      .read(alarmRepositoryProvider)
+                                      .dismissRequest(code),
+                                  rebuild: true,
+                                  destination: alarmSourceRoute(
+                                    alarm?.sourceType,
+                                  ),
+                                );
+                              },
                               child: const Text(
                                 'Open item',
                                 style: TextStyle(color: Colors.white54),
