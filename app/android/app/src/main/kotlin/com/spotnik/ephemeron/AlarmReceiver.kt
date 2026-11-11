@@ -123,6 +123,9 @@ class AlarmActionReceiver : BroadcastReceiver() {
                 )
                 am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, fire)
                 AlarmStore.upsert(context, rc, fireAt)
+                // upsert writes 'scheduled'; snoozed must be written after it
+                // so a native snooze survives the next window rebuild.
+                AlarmStore.markState(context, rc, "snoozed")
             }
             ACTION_DISMISS, ACTION_DONE -> {
                 AlarmStore.markState(context, rc, if (intent.action == ACTION_DISMISS) "dismissed" else "done")

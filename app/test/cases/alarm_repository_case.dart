@@ -253,6 +253,73 @@ void main() {
     expect(scheduled.map((r) => r.requestCode), [100001]);
   });
 
+  test(
+    'snoozed rows survive rebuildWindow and keep their request code',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      const snoozedId = 'snoozed-ring';
+      await db
+          .into(db.alarmsIndex)
+          .insert(
+            AlarmsIndexCompanion.insert(
+              id: snoozedId,
+              sourceType: 'task_reminder',
+              sourceId: 'old#r0',
+              fireAtUtc:
+                  DateTime.now().toUtc().millisecondsSinceEpoch +
+                  10 * 60 * 1000,
+              requestCode: const Value(100000),
+              state: const Value('snoozed'),
+              kind: const Value('reminder'),
+              preset: const Value('notification'),
+            ),
+          );
+      await TaskRepository(db).createTask(
+        title: 'Tomorrow',
+        dueDate: _tomorrowKey(),
+        dueTime: 23 * 60,
+      );
+      final planned = await AlarmRepository(
+        db,
+      ).rebuildWindow(dueTomorrowEnabled: false);
+      expect(planned, 1);
+      final preserved = await (db.select(
+        db.alarmsIndex,
+      )..where((a) => a.id.equals(snoozedId))).getSingleOrNull();
+      expect(preserved, isNot(null));
+      expect(preserved!.state, 'snoozed');
+      expect(preserved.requestCode, 100000);
+      final scheduled = await (db.select(
+        db.alarmsIndex,
+      )..where((a) => a.state.equals('scheduled'))).get();
+      expect(scheduled.map((r) => r.requestCode), [100001]);
+    },
+  );
+
+  test('cancelForHabitDay removes a snoozed habit row', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await db
+        .into(db.alarmsIndex)
+        .insert(
+          AlarmsIndexCompanion.insert(
+            id: 'snoozed-habit',
+            sourceType: 'habit_reminder',
+            sourceId: 'h9@2026-01-02',
+            fireAtUtc:
+                DateTime.now().toUtc().millisecondsSinceEpoch + 10 * 60 * 1000,
+            requestCode: const Value(3),
+            state: const Value('snoozed'),
+          ),
+        );
+    await AlarmRepository(db).cancelForHabitDay('h9', '2026-01-02');
+    final gone = await (db.select(
+      db.alarmsIndex,
+    )..where((r) => r.id.equals('snoozed-habit'))).getSingleOrNull();
+    expect(gone, null);
+  });
+
   test('stale fired rows are removed and release their request code', () async {
     final db = _db();
     addTearDown(db.close);

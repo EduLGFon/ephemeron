@@ -10,7 +10,7 @@ Future<void> cancelAlarmsForEntity(AppDatabase db, String id) async {
     final rows =
         await (db.select(db.alarmsIndex)..where(
               (a) =>
-                  a.state.equals('scheduled') &
+                  a.state.isIn(const ['scheduled', 'snoozed']) &
                   (a.sourceId.equals(id) |
                       a.sourceId.like('$id#%') |
                       a.sourceId.like('$id@%')),
@@ -45,7 +45,7 @@ Future<void> cancelHabitDayAlarms(
       final rows =
           await (db.select(db.alarmsIndex)..where(
                 (a) =>
-                    a.state.equals('scheduled') &
+                    a.state.isIn(const ['scheduled', 'snoozed']) &
                     a.sourceType.equals(type) &
                     a.sourceId.equals(sourceId),
               ))

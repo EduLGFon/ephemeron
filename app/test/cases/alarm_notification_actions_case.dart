@@ -59,13 +59,16 @@ void main() {
     final row = await (db.select(
       db.alarmsIndex,
     )..where((a) => a.requestCode.equals(1234))).getSingle();
-    expect(row.state, 'scheduled');
+    expect(row.state, 'snoozed');
     expect(row.sourceType, 'habit_reminder');
     expect(row.sourceId, 'h1@2026-01-02');
     expect(row.title, 'Drink water');
     expect(row.kind, 'reminder');
     expect(row.preset, 'notification');
     expect(row.fireAtUtc, greaterThan(now));
+    // Snoozed alarms stay pending and appear as upcoming.
+    final upcoming = await AlarmRepository(db).watchUpcoming().first;
+    expect(upcoming.map((r) => r.requestCode), contains(1234));
     final schedule = calls.where((c) => c.method == 'schedule').last;
     expect(schedule.arguments['sourceType'], 'habit_reminder');
     expect(schedule.arguments['sourceId'], 'h1@2026-01-02');
