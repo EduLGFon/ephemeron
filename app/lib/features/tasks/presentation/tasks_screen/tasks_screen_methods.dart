@@ -85,9 +85,7 @@ extension on TasksScreen {
     }
     if (count == 0) return;
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Rescheduled $count tasks')));
+      showAppSnackBar(context, 'Rescheduled $count tasks');
     }
   }
 

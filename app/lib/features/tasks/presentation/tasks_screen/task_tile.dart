@@ -26,6 +26,7 @@ class _TaskTile extends ConsumerWidget {
       taskMicrosoftAccount: task.microsoftAccount,
       listMicrosoftAccount: list?.microsoftAccount,
     );
+    final isComplete = task.completedAt != null;
     return Dismissible(
       direction: isMs ? DismissDirection.none : DismissDirection.horizontal,
       key: ValueKey(task.id),
@@ -43,20 +44,15 @@ class _TaskTile extends ConsumerWidget {
       ),
       confirmDismiss: (dir) async {
         if (isMs) return false;
-        final repo = ref.read(taskRepositoryProvider);
         if (dir == DismissDirection.startToEnd) {
+          final repo = ref.read(taskRepositoryProvider);
+          AppFeedback.success();
           await repo.completeTask(task.id);
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Completed "${task.title}"'),
-                duration: const Duration(seconds: 6),
-                persist: false,
-                action: SnackBarAction(
-                  label: 'Undo',
-                  onPressed: () => repo.uncompleteTask(task.id),
-                ),
-              ),
+            showUndoSnackBar(
+              context,
+              'Completed "${task.title}"',
+              onUndo: () => repo.uncompleteTask(task.id),
             );
           }
           return false;
@@ -66,49 +62,46 @@ class _TaskTile extends ConsumerWidget {
       onDismissed: (_) async {
         final pending = ref.read(pendingOperationsProvider);
         final opId = await pending.scheduleTaskDelete(task.id);
+        AppFeedback.warning();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Deleted "${task.title}"'),
-              duration: const Duration(seconds: 6),
-              persist: false,
-              action: SnackBarAction(
-                label: 'Undo',
-                onPressed: () => pending.cancel(opId),
-              ),
-            ),
+          showUndoSnackBar(
+            context,
+            'Deleted "${task.title}"',
+            onUndo: () => pending.cancel(opId),
           );
         }
       },
       child: ListTile(
-        leading: Checkbox(
-          value: false,
-          onChanged: isMs
-              ? null
-              : (_) async {
-                  final repo = ref.read(taskRepositoryProvider);
-                  await repo.completeTask(task.id);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Completed "${task.title}"'),
-                        duration: const Duration(seconds: 6),
-                        persist: false,
-                        action: SnackBarAction(
-                          label: 'Undo',
-                          onPressed: () => repo.uncompleteTask(task.id),
-                        ),
-                      ),
-                    );
-                  }
-                },
+        leading: Semantics(
+          label: isComplete
+              ? 'Mark ${task.title} not complete'
+              : 'Mark ${task.title} complete',
+          child: Checkbox(
+            value: isComplete,
+            onChanged: isMs
+                ? null
+                : (_) async {
+                    final repo = ref.read(taskRepositoryProvider);
+                    AppFeedback.success();
+                    await repo.completeTask(task.id);
+                    if (context.mounted) {
+                      showUndoSnackBar(
+                        context,
+                        'Completed "${task.title}"',
+                        onUndo: () => repo.uncompleteTask(task.id),
+                      );
+                    }
+                  },
+          ),
         ),
         title: Text(
           task.title,
-          style: overdue ? const TextStyle(color: Colors.red) : null,
+          style: overdue
+              ? TextStyle(color: Theme.of(context).colorScheme.error)
+              : null,
         ),
         subtitle: _subtitle(context, ref, source),
-        trailing: _MoveButtons(task: task),
+        trailing: _TaskActionsMenu(task: task),
         onTap: isMs ? null : () => showTaskEditor(context, task: task),
       ),
     );

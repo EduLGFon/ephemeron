@@ -171,8 +171,15 @@ class TasksScreen extends ConsumerWidget {
                   return EmptyState(
                     icon: Icons.checklist_outlined,
                     title: 'No tasks here',
+                    subtitle: 'Add a task with details like #tag, ~list, or tomorrow 9h.',
                     actionLabel: 'Add a task',
                     onAction: () => showQuickAdd(context),
+                    secondaryActionLabel: 'Manage lists',
+                    onSecondaryAction: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const TaskListsScreen(),
+                      ),
+                    ),
                   );
                 }
                 // Smart lists keep the sort saved in their filter JSON.

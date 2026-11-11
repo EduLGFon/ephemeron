@@ -1,8 +1,10 @@
 // Quick-add bottom sheet: one field with shorthand and NLP parsing,
-// live preview chips, save and save-and-add-another.
+// live icon-led preview, save and save-and-add-another.
 // Unsaved text autosaves (debounced) and restores after restart.
 import 'package:flutter/material.dart';
+import 'package:ephemeron/core/theme/theme_tokens.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
+import 'package:ephemeron/core/ui/app_feedback.dart';
 import 'package:ephemeron/core/ui/app_sheet.dart';
 import 'package:ephemeron/core/ui/sheet_padding.dart';
 import 'package:ephemeron/core/ui/escape_to_close.dart';
@@ -10,9 +12,87 @@ import 'package:ephemeron/core/ui/escape_to_close.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/session/session_restore.dart';
+import '../../../data/drift/app_database.dart';
 import '../../../domain/parsing/quick_add_parser.dart';
 import '../../settings/application/settings_providers.dart';
 import '../application/tasks_providers.dart';
+
+/// Date shortcut exposed under the quick-add field. The token is plain text
+/// understood by [parseQuickAdd], so editing the input stays the only source
+/// of truth.
+class QuickAddDateChoice {
+  const QuickAddDateChoice(this.label, this.token);
+
+  final String label;
+  final String token;
+}
+
+const quickAddDateChoices = <QuickAddDateChoice>[
+  QuickAddDateChoice('Today', 'today'),
+  QuickAddDateChoice('Tomorrow', 'tomorrow'),
+  QuickAddDateChoice('Next week', 'in 7 days'),
+];
+
+final _tokenBoundary = RegExp(r'\s+');
+
+bool _hasToken(String text, String token) {
+  final pattern = RegExp(
+    r'(^|\s)' + RegExp.escape(token) + r'(?=\s|$)',
+    caseSensitive: false,
+  );
+  return pattern.hasMatch(text);
+}
+
+/// Appends [token] once, separated by a single space.
+String appendQuickAddShorthand(String text, String token) {
+  final trimmed = text.trimRight();
+  if (_hasToken(trimmed, token)) return trimmed;
+  return trimmed.isEmpty ? token : '$trimmed $token';
+}
+
+/// Adds [token] when absent or removes it when already present.
+String toggleQuickAddShorthand(String text, String token) {
+  final pattern = RegExp(
+    r'(^|\s)' + RegExp.escape(token) + r'(?=\s|$)',
+    caseSensitive: false,
+  );
+  if (!pattern.hasMatch(text)) return appendQuickAddShorthand(text, token);
+  return text.replaceAll(pattern, ' ').replaceAll(_tokenBoundary, ' ').trim();
+}
+
+/// User-facing repeat label. RRULEs are never shown raw in the preview.
+String quickAddRepeatLabel(String rrule) {
+  final freq = RegExp(r'FREQ=([A-Z]+)').firstMatch(rrule)?.group(1);
+  if (freq == null) return 'Repeats';
+  switch (freq) {
+    case 'DAILY':
+      return 'Daily';
+    case 'WEEKLY':
+      final byDay = RegExp(r'BYDAY=([A-Z,]+)').firstMatch(rrule)?.group(1);
+      if (byDay == null) return 'Weekly';
+      return 'Weekly on ${_weekdayNames(byDay)}';
+    case 'MONTHLY':
+      return 'Monthly';
+    case 'YEARLY':
+      return 'Yearly';
+    default:
+      return 'Custom repeat';
+  }
+}
+
+String _weekdayNames(String codes) {
+  const names = {
+    'MO': 'Mon',
+    'TU': 'Tue',
+    'WE': 'Wed',
+    'TH': 'Thu',
+    'FR': 'Fri',
+    'SA': 'Sat',
+    'SU': 'Sun',
+  };
+  final labels = [for (final code in codes.split(',')) names[code] ?? code];
+  return labels.join(', ');
+}
 
 Future<void> showQuickAdd(
   BuildContext context, {
@@ -42,9 +122,11 @@ class _QuickAddSheet extends ConsumerStatefulWidget {
 
 class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   QuickAddParsed? _parsed;
   DraftAutosaver? _saver;
   bool _saved = false;
+  bool _justAdded = false;
   dynamic _settings;
 
   @override
@@ -116,6 +198,7 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
         } catch (_) {}
       });
     }
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -123,13 +206,28 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
   void _onChanged(String v) {
     setState(() {
       _parsed = v.trim().isEmpty ? null : parseQuickAdd(v);
+      _justAdded = false;
     });
     _saver?.changed(() => {'text': v});
+  }
+
+  void _applyToken(String token, {bool toggle = false}) {
+    final next = toggle
+        ? toggleQuickAddShorthand(_controller.text, token)
+        : appendQuickAddShorthand(_controller.text, token);
+    if (next == _controller.text) return;
+    _controller.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
+    _onChanged(next);
   }
 
   Future<void> _save({required bool another}) async {
     final p = _parsed;
     if (p == null || p.title.isEmpty) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final navigator = Navigator.of(context);
     final repo = ref.read(taskRepositoryProvider);
     String? listId;
     if (p.list != null) {
@@ -140,7 +238,7 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
           .firstOrNull;
       listId ??= await repo.createList(p.list!);
     }
-    await repo.createTask(
+    final createdId = await repo.createTask(
       title: p.title,
       listId: listId,
       priority: p.priority,
@@ -166,28 +264,61 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
       if (srepo.openSheet == 'quick_add') await srepo.setOpenSheet(null);
     } catch (_) {}
     if (!mounted) return;
+    AppFeedback.success();
     if (another) {
+      _justAdded = true;
       _saved = false;
       _controller.clear();
       setState(() => _parsed = null);
-    } else {
-      final nav = Navigator.of(context);
-      if (nav.canPop()) nav.pop();
+      _focusNode.requestFocus();
+      return;
+    }
+    if (!mounted) return;
+    if (navigator.canPop()) navigator.pop();
+    if (messenger != null && navigator.mounted) {
+      showUndoSnackBar(
+        navigator.context,
+        'Task added',
+        onUndo: () => repo.softDeleteTasks([createdId]),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final p = _parsed;
+    final lists = ref.watch(taskListsProvider).value ?? const <TaskList>[];
+    final tags = ref.watch(tagsProvider).value ?? const <Tag>[];
+    final theme = Theme.of(context);
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: sheetPadding(context),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.bolt_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 22,
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Text('Quick add', style: theme.textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: AppSpace.xs),
+            Text(
+              'Use #tag, ~list, -p1 to -p4, and phrases like tomorrow 9h.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
             TextField(
               controller: _controller,
+              focusNode: _focusNode,
               autofocus: true,
               decoration: const InputDecoration(
                 hintText: 'Buy milk #groceries ~home -p1 tomorrow 9h',
@@ -196,26 +327,81 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
               onChanged: _onChanged,
               onSubmitted: (_) => _save(another: false),
             ),
+            const SizedBox(height: AppSpace.sm),
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.xs,
+              children: [
+                for (final choice in quickAddDateChoices)
+                  ActionChip(
+                    label: Text(choice.label),
+                    avatar: const Icon(Icons.event_outlined, size: 16),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onPressed: () => _applyToken(choice.token),
+                  ),
+              ],
+            ),
             if (p != null) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
+              const SizedBox(height: AppSpace.sm),
+              _PreviewWrap(parsed: p),
+            ],
+            if (_justAdded) ...[
+              const SizedBox(height: AppSpace.sm),
+              Row(
                 children: [
-                  Chip(label: Text(p.title)),
-                  for (final t in p.tags) Chip(label: Text('#$t')),
-                  if (p.list != null) Chip(label: Text('~${p.list}')),
-                  if (p.priority > 0) Chip(label: Text('P${5 - p.priority}')),
-                  if (p.due != null)
-                    Chip(
-                      label: Text(
-                        DeviceDateFormat.yMMMd(context).add_Hm().format(p.due!),
-                      ),
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: AppSpace.xs),
+                  Text(
+                    'Added',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.primary,
                     ),
-                  if (p.rrule != null) Chip(label: Text(p.rrule!)),
+                  ),
                 ],
               ),
             ],
-            const SizedBox(height: 12),
+            if (lists.isNotEmpty) ...[
+              const SizedBox(height: AppSpace.sm),
+              _SuggestionRow(
+                label: 'Lists',
+                children: [
+                  for (final list in lists.take(4))
+                    FilterChip(
+                      label: Text('~${list.name}'),
+                      selected:
+                          p?.list?.toLowerCase() == list.name.toLowerCase(),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onSelected: (_) =>
+                          _applyToken('~${list.name}', toggle: true),
+                    ),
+                ],
+              ),
+            ],
+            if (tags.isNotEmpty) ...[
+              const SizedBox(height: AppSpace.sm),
+              _SuggestionRow(
+                label: 'Tags',
+                children: [
+                  for (final tag in tags.take(4))
+                    FilterChip(
+                      label: Text('#${tag.name}'),
+                      selected:
+                          p?.tags.contains(tag.name.toLowerCase()) ?? false,
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onSelected: (_) =>
+                          _applyToken('#${tag.name}', toggle: true),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: AppSpace.md),
             Row(
               children: [
                 Expanded(
@@ -224,7 +410,7 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
                     child: const Text('Save'),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpace.sm),
                 OutlinedButton(
                   onPressed: p == null ? null : () => _save(another: true),
                   child: const Text('Save + another'),
@@ -234,6 +420,131 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PreviewWrap extends StatelessWidget {
+  const _PreviewWrap({required this.parsed});
+
+  final QuickAddParsed parsed;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = parsed.title;
+    final tags = parsed.tags.map((tag) => '#$tag').join(' ');
+    return Wrap(
+      spacing: AppSpace.sm,
+      runSpacing: AppSpace.xs,
+      children: [
+        _PreviewChip(
+          icon: title.isEmpty ? Icons.error_outline : Icons.title,
+          label: title.isEmpty ? 'Add a title' : title,
+          muted: title.isEmpty,
+        ),
+        if (parsed.due != null)
+          _PreviewChip(
+            icon: Icons.event,
+            label: DeviceDateFormat.dateTime(context, parsed.due!),
+          ),
+        if (parsed.list != null)
+          _PreviewChip(icon: Icons.list_alt, label: parsed.list!),
+        if (parsed.priority > 0)
+          _PreviewChip(icon: Icons.flag, label: 'P${5 - parsed.priority}'),
+        if (tags.isNotEmpty)
+          _PreviewChip(icon: Icons.sell_outlined, label: tags),
+        if (parsed.rrule != null)
+          _PreviewChip(
+            icon: Icons.repeat,
+            label: quickAddRepeatLabel(parsed.rrule!),
+          ),
+      ],
+    );
+  }
+}
+
+class _PreviewChip extends StatelessWidget {
+  const _PreviewChip({
+    required this.icon,
+    required this.label,
+    this.muted = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.sm,
+        vertical: AppSpace.xs,
+      ),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 220),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: muted ? scheme.error : scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: AppSpace.xs),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: muted ? scheme.error : scheme.onSurface,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SuggestionRow extends StatelessWidget {
+  const _SuggestionRow({required this.label, required this.children});
+
+  final String label;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpace.sm),
+        Expanded(
+          child: Wrap(
+            spacing: AppSpace.sm,
+            runSpacing: AppSpace.xs,
+            children: children,
+          ),
+        ),
+      ],
     );
   }
 }

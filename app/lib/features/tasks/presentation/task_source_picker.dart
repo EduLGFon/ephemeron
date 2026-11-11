@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/ui/app_feedback.dart';
 import '../../../core/ui/source_picker_sheet.dart';
 import '../../../domain/sources/source_label.dart';
 import '../../../data/drift/app_database.dart';
@@ -63,17 +64,18 @@ Future<bool> pickAndMoveTask(
     await ref.read(taskRepositoryProvider).moveTasks([taskId], target);
     ref.read(occurrenceDirtyProvider.notifier).markDirty();
     ref.invalidate(occurrenceSourceMapProvider);
+    AppFeedback.success();
     if (context.mounted) {
-      ScaffoldMessenger.of(
+      showAppSnackBar(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Task moved.')));
+        'Task moved.',
+        icon: Icons.drive_file_move_outlined,
+      );
     }
     return true;
   } on SourceMoveException catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      showErrorSnackBar(context, e.message);
     }
     return false;
   }
