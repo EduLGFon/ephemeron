@@ -2,6 +2,36 @@ part of '../notes_screen.dart';
 
 // Search results screen.
 
+/// Turns repository snippet markup into spans. `<b>...` matches are rendered
+/// as bold primary text instead of being stripped, and plain text keeps the
+/// [baseStyle]. Snippets without markup come back as a single span.
+List<TextSpan> highlightSnippetSpans(
+  String snippet, {
+  TextStyle? baseStyle,
+  required Color highlightColor,
+}) {
+  final boldStyle = (baseStyle ?? const TextStyle()).copyWith(
+    fontWeight: FontWeight.bold,
+    color: highlightColor,
+  );
+  final pattern = RegExp(r'<b>(.*?)</b>', dotAll: true);
+  final spans = <TextSpan>[];
+  var index = 0;
+  for (final match in pattern.allMatches(snippet)) {
+    if (match.start > index) {
+      spans.add(
+        TextSpan(text: snippet.substring(index, match.start), style: baseStyle),
+      );
+    }
+    spans.add(TextSpan(text: match.group(1) ?? '', style: boldStyle));
+    index = match.end;
+  }
+  if (index < snippet.length) {
+    spans.add(TextSpan(text: snippet.substring(index), style: baseStyle));
+  }
+  return spans;
+}
+
 class _SearchResults extends StatelessWidget {
   const _SearchResults({
     required this.query,
@@ -10,29 +40,50 @@ class _SearchResults extends StatelessWidget {
   });
 
   final String query;
-  final List<dynamic> hits;
+  final List<NoteSearchHit> hits;
   final ValueChanged<String> onOpen;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final subtitleStyle = Theme.of(context).textTheme.bodyMedium
+        ?.copyWith(color: scheme.onSurfaceVariant);
     return Scaffold(
       appBar: AppBar(title: Text('Results for "$query"')),
       body: hits.isEmpty
-          ? const Center(child: Text('No matches'))
+          ? EmptyState(
+              icon: Icons.search_off,
+              title: 'No matches',
+              subtitle: 'Nothing matched "$query".',
+            )
           : RepaintBoundary(
-              child: ListView(
-                children: [
-                  for (final h in hits)
-                    ListTile(
-                      title: Text((h.note as Note).title),
-                      subtitle: Text(
-                        (h.snippet as String)
-                            .replaceAll('<b>', '')
-                            .replaceAll('</b>', ''),
+              child: ListView.builder(
+                itemCount: hits.length,
+                itemBuilder: (context, i) {
+                  final hit = hits[i];
+                  final note = hit.note;
+                  return ListTile(
+                    title: Text(note.title.isEmpty ? '(untitled)' : note.title),
+                    subtitle: Text.rich(
+                      TextSpan(
+                        style: subtitleStyle,
+                        children: highlightSnippetSpans(
+                          hit.snippet,
+                          baseStyle: subtitleStyle,
+                          highlightColor: scheme.primary,
+                        ),
                       ),
-                      onTap: () => onOpen((h.note as Note).id),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                ],
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      size: 20,
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                    onTap: () => onOpen(note.id),
+                  );
+                },
               ),
             ),
     );

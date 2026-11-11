@@ -13,6 +13,8 @@ class _BackendSectionState extends ConsumerState<_BackendSection> {
   String? _emailError;
   String? _passwordError;
   bool _busy = false;
+  bool _busyLogin = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -61,8 +63,23 @@ class _BackendSectionState extends ConsumerState<_BackendSection> {
             decoration: InputDecoration(
               labelText: 'Password (8+ characters)',
               errorText: _passwordError,
+              suffixIcon: Semantics(
+                button: true,
+                label: _obscurePassword ? 'Show password' : 'Hide password',
+                child: IconButton(
+                  key: const Key('password-visibility-toggle'),
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
             ),
-            obscureText: true,
+            obscureText: _obscurePassword,
             onChanged: (_) {
               if (_passwordError != null) setState(() => _passwordError = null);
             },
@@ -80,14 +97,18 @@ class _BackendSectionState extends ConsumerState<_BackendSection> {
               Expanded(
                 child: FilledButton(
                   onPressed: _busy ? null : () => _submit(login: true),
-                  child: const Text('Sign in'),
+                  child: _busy && _busyLogin
+                      ? const _BusyLabel('Sign in')
+                      : const Text('Sign in'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton(
                   onPressed: _busy ? null : () => _submit(login: false),
-                  child: const Text('Create account'),
+                  child: _busy && !_busyLogin
+                      ? const _BusyLabel('Create account')
+                      : const Text('Create account'),
                 ),
               ),
             ],
@@ -148,6 +169,7 @@ class _BackendSectionState extends ConsumerState<_BackendSection> {
     }
     setState(() {
       _busy = true;
+      _busyLogin = login;
       _error = null;
       _emailError = null;
       _passwordError = null;
@@ -164,7 +186,12 @@ class _BackendSectionState extends ConsumerState<_BackendSection> {
     } on BackendApiException catch (e) {
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _busyLogin = false;
+        });
+      }
     }
   }
 
@@ -194,27 +221,26 @@ class _BackendSectionState extends ConsumerState<_BackendSection> {
     try {
       backupPath = await _exportBackup(ref);
     } catch (e) {
-      debugPrint('pre-delete backup failed: $e');
+      // Export-first is best effort; the server delete still proceeds.
+      if (context.mounted) {
+        showErrorSnackBar(context, 'Backup before delete failed: $e');
+      }
     }
     try {
       await ref.read(backendAuthProvider).deleteAccount();
       await ref.read(backendAccountProvider.notifier).signOut();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              backupPath == null
-                  ? 'Remote data deleted.'
-                  : 'Remote data deleted. Backup saved to $backupPath',
-            ),
-          ),
+        showAppSnackBar(
+          context,
+          backupPath == null
+              ? 'Remote data deleted.'
+              : 'Remote data deleted. Backup saved to $backupPath',
+          icon: Icons.delete_outline,
         );
       }
     } on BackendApiException catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      showErrorSnackBar(context, e.message);
     }
   }
 
@@ -233,5 +259,27 @@ class _BackendSectionState extends ConsumerState<_BackendSection> {
     final file = File('${dir.path}/ephemeron-backup-$stamp.json');
     await file.writeAsString(service.encode(backup), flush: true);
     return file.path;
+  }
+}
+
+class _BusyLabel extends StatelessWidget {
+  const _BusyLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        const SizedBox(width: 8),
+        Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+      ],
+    );
   }
 }
