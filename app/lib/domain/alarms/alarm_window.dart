@@ -1,4 +1,5 @@
 import 'package:ephemeron/core/time/time.dart';
+
 import 'alarm_preset.dart';
 
 // Rolling alarm window (PLAN 7.1): keep the next 48 h plus the next N
@@ -47,11 +48,14 @@ class PlannedAlarm {
 }
 
 /// Returns registrations ordered by fire time, capped at [maxFuture].
+/// [reservedRequestCodes] keeps live registrations from being reassigned,
+/// for example an alarm row that is currently ringing.
 List<PlannedAlarm> planAlarmWindow(
   List<AlarmCandidate> candidates, {
   required int nowUtcMs,
   int horizonHours = 48,
   int maxFuture = 60,
+  Set<int> reservedRequestCodes = const {},
 }) {
   final horizonMs = nowUtcMs + horizonHours * msPerHour;
   final future = candidates.where((c) => c.fireAtUtcMs > nowUtcMs).toList()
@@ -62,19 +66,27 @@ List<PlannedAlarm> planAlarmWindow(
       .take(maxFuture)
       .toList();
   final picked = [...inHorizon, ...beyond];
-  return [
-    for (var i = 0; i < picked.length; i++)
+  final planned = <PlannedAlarm>[];
+  var code = 100000;
+  for (final c in picked) {
+    while (reservedRequestCodes.contains(code)) {
+      code++;
+    }
+    planned.add(
       PlannedAlarm(
-        sourceType: picked[i].sourceType,
-        sourceId: picked[i].sourceId,
-        fireAtUtcMs: picked[i].fireAtUtcMs,
-        preset: picked[i].preset,
-        requestCode: 100000 + i,
-        kind: picked[i].kind,
-        title: picked[i].title,
-        allDay: picked[i].allDay,
+        sourceType: c.sourceType,
+        sourceId: c.sourceId,
+        fireAtUtcMs: c.fireAtUtcMs,
+        preset: c.preset,
+        requestCode: code,
+        kind: c.kind,
+        title: c.title,
+        allDay: c.allDay,
       ),
-  ];
+    );
+    code++;
+  }
+  return planned;
 }
 
 /// Full-screen presets need setAlarmClock; notification uses exact-idle.
