@@ -25,8 +25,9 @@
 - Microsoft web sign-in: `app/web/auth.html` added; Entra SPA redirect
   registration for `http://localhost:8080/auth.html` still required (owner
   console). Android remains primary verification target.
-- Full `flutter test` suite not run here (timed out in this env); targeted
-  tests pass.
+- Full `flutter test` (test/all_test.dart) ran here on 2026-11-11: 504 tests
+  passed; `flutter build apk --debug` also succeeded after the alarm
+  hardening changes. Device-only alarm behavior still needs owner verification.
 - Device profile run for startup/calendar rebuild timings still useful.
 - Samsung SM A556E widget verification was interrupted by USB disconnect.
 
