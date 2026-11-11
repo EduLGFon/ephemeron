@@ -12,6 +12,7 @@ import 'core/platform/system_launcher.dart';
 import 'core/security/app_lock.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_tokens.dart';
+import 'core/ui/app_feedback.dart';
 import 'data/services/home_widget_callback.dart';
 import 'data/services/home_widget_refresh_service.dart';
 import 'features/alarms/application/alarm_providers.dart';
@@ -93,6 +94,8 @@ class EphemeronApp extends ConsumerWidget {
     // intent can never bypass the gate.
     final ringActive = ref.watch(activeRingRequestProvider) != null;
 
+    AppFeedback.configure(hapticsEnabled: repo?.haptics ?? true);
+
     final app = MaterialApp.router(
       title: 'Ephemeron',
       debugShowCheckedModeBanner: false,
@@ -110,6 +113,16 @@ class EphemeronApp extends ConsumerWidget {
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
+      builder: (context, child) {
+        final data = MediaQuery.of(context);
+        return MediaQuery(
+          data: data.copyWith(
+            disableAnimations:
+                data.disableAnimations || (repo?.reduceAnimations ?? false),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
     if (!locked || ringActive) return app;
     return _LockGate(ref: ref, child: app);
