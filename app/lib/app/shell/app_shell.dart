@@ -14,7 +14,6 @@ import '../../data/drift/app_database.dart';
 import '../../features/alarms/application/alarm_action_handler.dart';
 import '../../features/alarms/application/alarm_providers.dart';
 import '../../features/alarms/data/fallback_alarm_engine.dart';
-import '../../features/alarms/presentation/ring_screen.dart';
 import '../../features/auth/application/auth_providers.dart';
 import '../../features/calendar/application/calendar_providers.dart';
 import '../../features/calendar/application/calendar_state.dart';

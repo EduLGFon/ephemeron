@@ -15,7 +15,6 @@ import 'core/theme/theme_tokens.dart';
 import 'data/services/home_widget_callback.dart';
 import 'data/services/home_widget_refresh_service.dart';
 import 'features/alarms/application/alarm_providers.dart';
-import 'features/alarms/presentation/ring_screen.dart';
 import 'features/settings/application/settings_providers.dart';
 
 Future<void> main() async {
@@ -51,13 +50,13 @@ Future<void> main() async {
 Future<void> _primeColdRingRequest(ProviderContainer container) async {
   try {
     final code = await SystemLauncher.consumeRingRequest().timeout(
-      const Duration(milliseconds: 500),
+      const Duration(milliseconds: 750),
     );
     if (code == null) return;
     final row = await container
         .read(alarmRepositoryProvider)
         .byRequestCode(code)
-        .timeout(const Duration(milliseconds: 500));
+        .timeout(const Duration(milliseconds: 1500));
     if (canOpenRingScreen(row?.state)) {
       container.read(activeRingRequestProvider.notifier).set(code);
     }

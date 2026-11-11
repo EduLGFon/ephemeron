@@ -18,10 +18,6 @@ import '../application/alarm_providers.dart';
 import '../data/alarm_repository.dart';
 import 'alarm_preset_picker.dart';
 
-/// Only a row that is actually firing may open the ring screen or bypass the
-/// biometric gate. A native intent alone is never trusted.
-bool canOpenRingScreen(String? rowState) => rowState == 'fired';
-
 class RingScreen extends ConsumerStatefulWidget {
   const RingScreen({super.key});
 

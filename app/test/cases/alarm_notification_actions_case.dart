@@ -5,8 +5,8 @@ import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/domain/habits/date_key.dart';
+import 'package:ephemeron/features/alarms/application/alarm_providers.dart';
 import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
-import 'package:ephemeron/features/alarms/presentation/ring_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
