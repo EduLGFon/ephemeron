@@ -132,6 +132,10 @@ class _DayStripState extends State<_DayStrip> {
       label: habitDayStripSemanticsLabel(context, day, today),
       selected: selected,
       button: true,
+      onTap: () {
+        AppFeedback.selection();
+        widget.onSelect(key);
+      },
       child: ExcludeSemantics(
         child: ChoiceChip(
           key: chipKey,

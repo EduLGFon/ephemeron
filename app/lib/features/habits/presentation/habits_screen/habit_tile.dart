@@ -200,6 +200,7 @@ class _HabitTile extends ConsumerWidget {
       lines.add(
         Wrap(
           spacing: AppSpace.xs,
+          runSpacing: AppSpace.xxs,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             if (current > 0) _StreakPill(current: current),
