@@ -51,6 +51,33 @@ class _StartViewState extends ConsumerState<_StartView> {
     } catch (_) {}
   }
 
+  String get _customChipLabel {
+    final isBreak = _mode == _FocusMode.breakTime;
+    final current = isBreak ? _breakMin : _focusMin;
+    final presets = isBreak ? _breakPresets : _focusPresets;
+    return presets.contains(current) ? 'Custom' : 'Custom: $current min';
+  }
+
+  Future<void> _editCustomDuration() async {
+    final isBreak = _mode == _FocusMode.breakTime;
+    final current = isBreak ? _breakMin : _focusMin;
+    final minutes = await showDialog<int>(
+      context: context,
+      builder: (_) =>
+          _CustomDurationDialog(isBreak: isBreak, initialMinutes: current),
+    );
+    if (minutes == null || !mounted) return;
+    AppFeedback.success();
+    setState(() {
+      if (isBreak) {
+        _breakMin = minutes;
+      } else {
+        _focusMin = minutes;
+      }
+    });
+    _persistSetup();
+  }
+
   bool _handlingPendingNext = false;
 
   @override
@@ -89,6 +116,7 @@ class _StartViewState extends ConsumerState<_StartView> {
             ],
             selected: {_mode},
             onSelectionChanged: (s) {
+              AppFeedback.selection();
               setState(() => _mode = s.single);
               _persistSetup();
             },
@@ -97,6 +125,7 @@ class _StartViewState extends ConsumerState<_StartView> {
           if (_mode != _FocusMode.stopwatch) ...[
             Wrap(
               spacing: 8,
+              runSpacing: 4,
               children: [
                 for (final m
                     in (_mode == _FocusMode.breakTime
@@ -110,6 +139,7 @@ class _StartViewState extends ConsumerState<_StartView> {
                             : _focusMin) ==
                         m,
                     onSelected: (_) {
+                      AppFeedback.selection();
                       setState(() {
                         if (_mode == _FocusMode.breakTime) {
                           _breakMin = m;
@@ -120,6 +150,11 @@ class _StartViewState extends ConsumerState<_StartView> {
                       _persistSetup();
                     },
                   ),
+                ActionChip(
+                  avatar: const Icon(Icons.tune, size: 16),
+                  label: Text(_customChipLabel),
+                  onPressed: _editCustomDuration,
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -239,6 +274,7 @@ class _StartViewState extends ConsumerState<_StartView> {
       );
       if (!mounted) return;
     }
+    AppFeedback.tap();
     final repo = ref.read(focusRepositoryProvider);
     final id = await repo.startSession(
       taskId: _taskId,
@@ -268,5 +304,80 @@ class _StartViewState extends ConsumerState<_StartView> {
       }
     }
     _refresh(ref);
+  }
+}
+
+/// Owns the controller for its whole route lifetime so it is disposed with
+/// the dialog State, never while the route is still animating out.
+class _CustomDurationDialog extends StatefulWidget {
+  const _CustomDurationDialog({
+    required this.isBreak,
+    required this.initialMinutes,
+  });
+
+  final bool isBreak;
+  final int initialMinutes;
+
+  @override
+  State<_CustomDurationDialog> createState() => _CustomDurationDialogState();
+}
+
+class _CustomDurationDialogState extends State<_CustomDurationDialog> {
+  late final TextEditingController _controller;
+  String? _error;
+
+  int get _max => widget.isBreak ? 60 : 240;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${widget.initialMinutes}');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final validation = validateFocusMinutes(
+      _controller.text,
+      isBreak: widget.isBreak,
+    );
+    if (validation != null) {
+      setState(() => _error = validation);
+      return;
+    }
+    Navigator.of(context).pop(int.parse(_controller.text.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.isBreak ? 'Custom break' : 'Custom focus'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: InputDecoration(
+          labelText: 'Minutes',
+          helperText: '1-$_max minutes',
+          errorText: _error,
+        ),
+        onChanged: (_) {
+          if (_error != null) setState(() => _error = null);
+        },
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Use duration')),
+      ],
+    );
   }
 }

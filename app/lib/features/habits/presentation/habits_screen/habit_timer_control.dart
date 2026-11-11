@@ -76,21 +76,30 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
         startedAtMs: t.startedAtMs,
         nowMs: DateTime.now().millisecondsSinceEpoch,
       );
+      AppFeedback.success();
       await widget.repo.addAmount(
         widget.habit.id,
         t.dayKey,
         elapsedMinutes(elapsed),
       );
       await widget.store.clear();
+      final unit = widget.habit.unit?.trim();
+      widget.onMessage(
+        'Logged ${_fmt(elapsedMinutes(elapsed))} '
+        '${unit == null || unit.isEmpty ? 'min' : unit}',
+      );
     } else {
       if (widget.day != habitTodayKey()) {
+        AppFeedback.warning();
         widget.onMessage('Timer can only start for today.');
         return;
       }
       if (widget.store.active.value != null) {
+        AppFeedback.warning();
         widget.onMessage('Another habit timer is already running.');
         return;
       }
+      AppFeedback.tap();
       await widget.store.start(
         widget.habit.id,
         widget.day,
@@ -111,6 +120,11 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
               Text(formatElapsed(dur)),
               IconButton(
                 visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(34, 36),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 iconSize: 20,
                 icon: const Icon(Icons.stop),
                 tooltip: 'Stop timer',
@@ -121,6 +135,11 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
         }
         return IconButton(
           visualDensity: VisualDensity.compact,
+          style: IconButton.styleFrom(
+            minimumSize: const Size(34, 36),
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           iconSize: 20,
           icon: const Icon(Icons.play_arrow),
           tooltip: 'Start timer',

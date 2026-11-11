@@ -97,6 +97,7 @@ import 'cases/ux_notes_case.dart' as ux_notes;
 import 'cases/ux_search_case.dart' as ux_search;
 import 'cases/ux_shell_case.dart' as ux_shell;
 import 'cases/ux_tasks_case.dart' as ux_tasks;
+import 'cases/ux_wellness_case.dart' as ux_wellness;
 import 'cases/week_calendar_case.dart' as week_calendar;
 import 'cases/week_widget_options_case.dart' as week_widget_options;
 import 'cases/widget_case.dart' as widget;
@@ -196,6 +197,7 @@ const _included = <String>{
   'ux_search_case.dart',
   'ux_shell_case.dart',
   'ux_tasks_case.dart',
+  'ux_wellness_case.dart',
   'week_calendar_case.dart',
   'week_widget_options_case.dart',
   'widget_case.dart',
@@ -302,6 +304,7 @@ void main() {
   group('ux_search', ux_search.main);
   group('ux_shell', ux_shell.main);
   group('ux_tasks', ux_tasks.main);
+  group('ux_wellness', ux_wellness.main);
   group('week_calendar', week_calendar.main);
   group('week_widget_options', week_widget_options.main);
   group('widget', widget.main);

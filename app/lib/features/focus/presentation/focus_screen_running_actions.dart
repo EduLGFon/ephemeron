@@ -5,7 +5,7 @@ extension _RunningViewActions on _RunningViewState {
     BuildContext context,
     int elapsedMin,
   ) async {
-    HapticFeedback.mediumImpact();
+    AppFeedback.success();
     if (!mounted) return;
     final isBreak = widget.session.phase == 'break';
     final nextLabel = isBreak ? 'start a focus session' : 'start a break';
@@ -14,7 +14,8 @@ extension _RunningViewActions on _RunningViewState {
       builder: (ctx) => AlertDialog(
         title: Text(isBreak ? 'Break over' : 'Focus session complete'),
         content: Text(
-          '${isBreak ? 'Break' : 'Focus'} time is up. Would you like to $nextLabel?',
+          'Tracked $elapsedMin min of ${isBreak ? 'break' : 'focus'}. '
+          'Would you like to $nextLabel?',
         ),
         actions: [
           TextButton(
@@ -62,11 +63,28 @@ extension _RunningViewActions on _RunningViewState {
     WidgetRef ref,
     int elapsedMin,
   ) async {
+    final isBreak = widget.session.phase == 'break';
+    final target = widget.session.targetEndUtc;
+    final String copy;
+    if (target == null) {
+      copy =
+          'Keep the $elapsedMin min you tracked. '
+          'A stopwatch has no remainder to schedule.';
+    } else {
+      final totalMin = ((target - widget.session.startUtc) / msPerMinute)
+          .floor();
+      final remainingMin = (totalMin - elapsedMin).clamp(0, totalMin);
+      copy = remainingMin > 0
+          ? 'Keep $elapsedMin min of ${isBreak ? 'break' : 'focus'}. '
+                'The remaining $remainingMin min will not be counted.'
+          : 'Keep $elapsedMin min of ${isBreak ? 'break' : 'focus'}. '
+                'No time is left in this session.';
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Stop session?'),
-        content: const Text('Are you alright to stop?'),
+        content: Text(copy),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -80,7 +98,8 @@ extension _RunningViewActions on _RunningViewState {
       ),
     );
     if (ok != true || !mounted) return;
-    await _completeSession(ref);
+    final kept = await _completeSession(ref);
+    if (kept != null) AppFeedback.success();
     _refresh(ref);
   }
 
@@ -106,6 +125,7 @@ extension _RunningViewActions on _RunningViewState {
   }) async {
     final kept = await _completeSession(ref);
     if (kept == null || !mounted) return;
+    AppFeedback.success();
     await _startNextSession(ref, startBreak: startBreak);
   }
 

@@ -215,8 +215,8 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    // select a past day
-    await tester.tap(find.byType(ChoiceChip).first);
+    // The 14-day strip centers today, so yesterday (index 12) is visible.
+    await tester.tap(find.byType(ChoiceChip).at(12));
     await tester.pump();
     await tester.pump();
     await tester.tap(find.byIcon(Icons.play_arrow).first);
