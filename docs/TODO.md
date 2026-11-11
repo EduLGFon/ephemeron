@@ -98,3 +98,34 @@
 - Do not run a release build while `flutter run` is active (both rewrite
   `GeneratedPluginRegistrant.java`; debug registrant includes `integration_test`
   and release Java compile fails).
+
+## UX overhaul follow-ups (2026-11-11)
+
+- Device/visual verification is pending because the workstation screen was
+  locked during implementation: verify light/dark/AMOLED theme, More command
+  center, onboarding, quick add, search, calendar, tasks, notes/auth,
+  habits/focus/countdowns, and alarm ring navigation on a real device.
+- Localization pass: the UX overhaul added English strings for the More sheet
+  create/search labels, quick-add hints and chips, search empty/no-results/tag
+  sheet, notes search/status retry, countdown labels, focus custom-duration
+  dialog and stats, and alarm ring source/auto-snooze text. Add ARB keys or
+  intentionally document English-only.
+- Accessibility: habit row icon buttons are about 34x36 at 320dp, below the
+  48dp guideline; revisit the dense-row layout with an accessible alternative.
+- Search: tag task limit is duplicated (50) between the UI footer and the
+  repository default; keep a single source of truth. If one group errors while
+  another group has rows, the failed group is not surfaced.
+- Notes: the relative "Saved Xm ago" label refreshes on editor rebuild rather
+  than a live timer; accepted to avoid periodic wakeups.
+- Alarms: permission-tile FutureBuilder futures are recreated on parent
+  rebuild; hoist/cache them if the status flash is observed on device. Ring
+  Done/+1 haptics fire before the action resolves.
+- Security/visual: the biometric app lock screen still uses a default Material
+  theme instead of the app theme. Any styling change there is security-adjacent
+  and needs owner-approved, logic-preserving work.
+- Logging hygiene: pre-existing debugPrint calls remain in
+  features/auth/data/google_auth/*; remove them in a dedicated privacy cleanup
+  after verifying no token or personal data is logged.
+- Full test suite passes (557 tests) and flutter analyze is clean after the UX
+  merges; test/all_test.dart must be regenerated with
+  `dart run tools/gen_test_runner.dart` whenever a case file is added.
