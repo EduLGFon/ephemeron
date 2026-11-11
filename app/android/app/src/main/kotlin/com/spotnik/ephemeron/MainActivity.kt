@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -289,6 +290,23 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun applyRingWindowFlags() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            } else {
+                @Suppress("DEPRECATION")
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+                )
+            }
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } catch (_: Exception) {
+        }
+    }
+
     private fun handleIntent(intent: Intent) {
         if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             val text = intent.getStringExtra(Intent.EXTRA_TEXT)
@@ -308,6 +326,10 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
         if (intent.hasExtra("ring")) {
+            // Full-screen alarm launches must be visible and interactive
+            // over the keyguard. Do not dismiss the keyguard: the activity
+            // is shown on top of it, which keeps the device secure.
+            applyRingWindowFlags()
             val rc = intent.getIntExtra(
                 AlarmPlugin.EXTRA_REQUEST_CODE,
                 intent.getIntExtra("requestCode", -1),

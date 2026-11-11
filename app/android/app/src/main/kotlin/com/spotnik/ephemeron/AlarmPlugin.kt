@@ -204,6 +204,9 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                 .setContentIntent(contentIntent)
                 .setAutoCancel(!wantFullScreen)
                 .setOngoing(wantFullScreen)
+                // Foreground-service updates and full_long minute repeats
+                // refresh the notification; never re-alert or flash.
+                .setOnlyAlertOnce(true)
 
             val st = sourceType
             val isTask = st == "task" || st == "task_reminder" || st == "task_due_tomorrow"
@@ -272,6 +275,12 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
             phase: String? = null,
         ) {
             notifyChannels(context)
+            // Notifications disabled means no visible alarm with stop
+            // actions: record it as missed instead of starting a looping
+            // ring that the user cannot dismiss. Mark before posting so a
+            // tap on the full-screen intent always sees the firing state.
+            val enabled = notificationsEnabled(context)
+            AlarmStore.markState(context, requestCode, if (enabled) "fired" else "missed")
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.notify(
                 requestCode,
@@ -280,13 +289,11 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                     sourceType, sourceId, phase,
                 )
             )
-            // Notifications disabled means no visible alarm with stop
-            // actions: record it as missed instead of starting a looping
-            // ring that the user cannot dismiss.
-            val enabled = notificationsEnabled(context)
-            AlarmStore.markState(context, requestCode, if (enabled) "fired" else "missed")
             if (enabled) {
-                AlarmRingService.start(context, requestCode, title, preset, body, kind, fullScreen, sourceType, sourceId)
+                AlarmRingService.start(
+                    context, requestCode, title, preset, body, kind, fullScreen,
+                    sourceType, sourceId, phase,
+                )
             }
         }
     }

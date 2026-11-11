@@ -14,6 +14,7 @@ import '../../data/drift/app_database.dart';
 import '../../features/alarms/application/alarm_action_handler.dart';
 import '../../features/alarms/application/alarm_providers.dart';
 import '../../features/alarms/data/fallback_alarm_engine.dart';
+import '../../features/alarms/presentation/ring_screen.dart';
 import '../../features/auth/application/auth_providers.dart';
 import '../../features/calendar/application/calendar_providers.dart';
 import '../../features/calendar/application/calendar_state.dart';
@@ -65,6 +66,8 @@ class _AppShellState extends ConsumerState<AppShell>
   StreamSubscription<String>? _widgetActionSub;
   StreamSubscription<int>? _ringRequestSub;
   late final Future<String?> _startupWidgetActionFuture;
+  late final Future<int?> _startupRingRequestFuture;
+  int? _incomingRingCode;
   String? _pendingWidgetAction;
   bool _handlingWidgetAction = false;
   String? _handledWidgetAction;
@@ -88,6 +91,9 @@ class _AppShellState extends ConsumerState<AppShell>
     // Consume before restore applies state so a cold-start widget tap can
     // suppress conflicting tab/calendar restore and then be applied after.
     _startupWidgetActionFuture = SystemLauncher.consumeWidgetAction();
+    // Consume before restore so a cold ring request suppresses reopened
+    // routes/sheets instead of letting them cover the ring screen.
+    _startupRingRequestFuture = SystemLauncher.consumeRingRequest();
     _restoreFuture = _restoreSession();
     SystemLauncher.ensureWidgetActionHandler();
     _widgetActionSub = SystemLauncher.widgetActions.listen((action) {
@@ -98,10 +104,13 @@ class _AppShellState extends ConsumerState<AppShell>
       });
     });
     _ringRequestSub = SystemLauncher.ringRequests.listen((requestCode) {
+      // Mark it now so restore skips route/sheet reopening even before the
+      // post-restore handler verifies the row.
+      _incomingRingCode = requestCode;
       Future.microtask(() async {
         await _restoreFuture;
         if (!mounted) return;
-        _handleRingRequest(requestCode);
+        await _handleRingRequest(requestCode);
       });
     });
     // Everything below is non-critical for the first frame. Defer it until
@@ -139,9 +148,9 @@ class _AppShellState extends ConsumerState<AppShell>
     _scheduleWidgetRefresh();
     // An alarm ring request wins over share/shortcut navigation so the
     // ring controls are visible before anything else.
-    final ringRequest = await SystemLauncher.consumeRingRequest();
+    final ringRequest = await _startupRingRequestFuture;
     if (ringRequest != null && mounted) {
-      _handleRingRequest(ringRequest);
+      await _handleRingRequest(ringRequest);
       return;
     }
     // Handle Android share-target text and launcher shortcuts once the

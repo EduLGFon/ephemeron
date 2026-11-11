@@ -7,6 +7,10 @@ extension _AppShellSessionRestore on _AppShellState {
       try {
         startupWidgetAction = await _startupWidgetActionFuture;
       } catch (_) {}
+      int? startupRingRequest;
+      try {
+        startupRingRequest = await _startupRingRequestFuture;
+      } catch (_) {}
       if (!mounted) return;
       final widgetOverridesRestore = widgetActionOverridesRestore(
         startupWidgetAction,
@@ -86,9 +90,13 @@ extension _AppShellSessionRestore on _AppShellState {
       // Restore a previous Google sign-in so sync works after restart.
       await ref.read(googleAccountProvider.notifier).restore();
       if (!mounted) return;
-      // A widget tap requested explicit navigation; do not push restored
-      // routes or reopen sheets over it.
-      if (!widgetOverridesRestore) {
+      // A widget tap or a pending alarm ring requested explicit navigation;
+      // do not push restored routes or reopen sheets over it.
+      final ringPending =
+          startupRingRequest != null ||
+          _incomingRingCode != null ||
+          ref.read(activeRingRequestProvider) != null;
+      if (!widgetOverridesRestore && !ringPending) {
         // Pushed routes (search/settings) recorded before the kill.
         final route = repo.lastRoute;
         if (route == '/search' ||

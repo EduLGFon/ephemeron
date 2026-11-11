@@ -1,17 +1,21 @@
 import 'dart:async';
 
+import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'data/services/home_widget_callback.dart';
-import 'data/services/home_widget_refresh_service.dart';
 import 'package:home_widget/home_widget.dart';
+
 import 'app/router/app_router.dart';
+import 'core/platform/system_launcher.dart';
 import 'core/security/app_lock.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_tokens.dart';
+import 'data/services/home_widget_callback.dart';
+import 'data/services/home_widget_refresh_service.dart';
+import 'features/alarms/application/alarm_providers.dart';
+import 'features/alarms/presentation/ring_screen.dart';
 import 'features/settings/application/settings_providers.dart';
 
 Future<void> main() async {
@@ -19,6 +23,7 @@ Future<void> main() async {
   // Do not block the first frame on a platform-channel round trip.
   unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
   final container = ProviderContainer();
+  await _primeColdRingRequest(container);
   runApp(
     UncontrolledProviderScope(
       container: container,
@@ -37,6 +42,28 @@ Future<void> main() async {
       container.read(homeWidgetRefreshServiceProvider).refreshDefaults();
     });
   });
+}
+
+/// Cold-start full-screen intent: consume the pending native ring request
+/// before the router is created, but only trust a row that is actually
+/// firing. Best effort and short; a missed request still arrives through the
+/// warm system-channel path. The DB is opened only when a request exists.
+Future<void> _primeColdRingRequest(ProviderContainer container) async {
+  try {
+    final code = await SystemLauncher.consumeRingRequest().timeout(
+      const Duration(milliseconds: 500),
+    );
+    if (code == null) return;
+    final row = await container
+        .read(alarmRepositoryProvider)
+        .byRequestCode(code)
+        .timeout(const Duration(milliseconds: 500));
+    if (canOpenRingScreen(row?.state)) {
+      container.read(activeRingRequestProvider.notifier).set(code);
+    }
+  } catch (_) {
+    // Fail safe: the app opens normally and the lock gate stays in place.
+  }
 }
 
 class EphemeronApp extends ConsumerWidget {
@@ -62,6 +89,10 @@ class EphemeronApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     final localeCode = repo?.localeCode ?? 'system';
     final locked = repo?.biometricLock ?? false;
+    // A verified firing alarm may show its ring screen over the lock screen.
+    // The provider is only set after the fired-row check, so an arbitrary
+    // intent can never bypass the gate.
+    final ringActive = ref.watch(activeRingRequestProvider) != null;
 
     final app = MaterialApp.router(
       title: 'Ephemeron',
@@ -81,7 +112,7 @@ class EphemeronApp extends ConsumerWidget {
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
     );
-    if (!locked) return app;
+    if (!locked || ringActive) return app;
     return _LockGate(ref: ref, child: app);
   }
 }

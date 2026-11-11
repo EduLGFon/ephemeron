@@ -29,13 +29,25 @@ class AlarmReceiver : BroadcastReceiver() {
         val sourceType = intent.getStringExtra(AlarmPlugin.EXTRA_SOURCE_TYPE) ?: intent.getStringExtra("sourceType") ?: ""
         val sourceId = intent.getStringExtra(AlarmPlugin.EXTRA_SOURCE_ID) ?: intent.getStringExtra("sourceId") ?: ""
         val phase = intent.getStringExtra(AlarmPlugin.EXTRA_PHASE) ?: intent.getStringExtra("phase")
-        AlarmPlugin.fire(context, rc, title, preset, body, kind, fullScreen, sourceType, sourceId, phase)
         // Full-screen long preset: constant sound + vibration, repeat every
         // minute until resolved, capped at 30 minutes.
         val norm = AlarmPlugin.normalizePreset(preset)
-        if (kind == "alarm" && norm == "full_long") {
+        val count = intent.getIntExtra("repeatCount", 0)
+        val repeats = kind == "alarm" && norm == "full_long"
+        if (!repeats || count == 0) {
+            // The first fire posts the notification (and marks the row).
+            AlarmPlugin.fire(context, rc, title, preset, body, kind, fullScreen, sourceType, sourceId, phase)
+        } else {
+            // Minute repeats keep the existing foreground ring alive without
+            // posting another notification. AlarmPlugin.fire would re-notify
+            // and could restart sound/flash on every repeat.
+            AlarmRingService.start(
+                context, rc, title, preset, body, kind, fullScreen,
+                sourceType, sourceId, phase,
+            )
+        }
+        if (repeats) {
             val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val count = intent.getIntExtra("repeatCount", 0)
             if (count < 30) {
                 val repeatIntent = Intent(context, AlarmReceiver::class.java).apply {
                     putExtra(AlarmPlugin.EXTRA_REQUEST_CODE, rc)

@@ -11,6 +11,12 @@
   Snooze/Dismiss/Open item stop native audio, Android 14+ without full-screen
   intent permission, and notifications-disabled alarms are marked missed
   instead of ringing without a stop control.
+- Full-screen alarm hardening (2026-11-11): on a locked device verify a firing
+  alarm opens the Flutter ring screen over the keyguard (biometric lock on),
+  minute repeats of full_long do not re-alert/flash, and the Alarms settings
+  tile shows Granted/Not granted with a working Grant button on Android 14+.
+- Native notification Dismiss does not run Dart, so the next habit occurrence
+  is scheduled on the next app open (no headless alarm-window rebuild yet).
 - Google sign-in + runtime permissions: verify sign-in on Android (debug +
   release), decline path, device-calendar import/settings, first reminder save
   / alarm test prompts, exact-alarm/full-screen prompts for clock/lock-screen
