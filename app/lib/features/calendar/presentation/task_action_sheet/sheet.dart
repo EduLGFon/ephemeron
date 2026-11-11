@@ -34,11 +34,6 @@ class TaskActionSheet extends ConsumerWidget {
   }) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final navigator = Navigator.of(context);
-    if (warning) {
-      AppFeedback.warning();
-    } else {
-      AppFeedback.success();
-    }
     navigator.pop();
     try {
       await action();
@@ -47,6 +42,11 @@ class TaskActionSheet extends ConsumerWidget {
         showErrorSnackBar(navigator.context, 'Could not update task.');
       }
       return;
+    }
+    if (warning) {
+      AppFeedback.warning();
+    } else {
+      AppFeedback.success();
     }
     if (messenger == null || !navigator.mounted) return;
     if (onUndo != null) {
@@ -151,6 +151,7 @@ class TaskActionSheet extends ConsumerWidget {
 
         final done = task.completedAt != null;
         final wontDo = task.wontDo;
+        final previousCompletedAt = task.completedAt;
 
         return SingleChildScrollView(
           child: Column(
@@ -248,7 +249,17 @@ class TaskActionSheet extends ConsumerWidget {
                             warning: true,
                             onUndo: () async {
                               await repo.updateTask(taskId, wontDo: false);
-                              await repo.uncompleteTask(taskId);
+                              if (previousCompletedAt != null) {
+                                await repo.completeTask(
+                                  taskId,
+                                  at: DateTime.fromMillisecondsSinceEpoch(
+                                    previousCompletedAt,
+                                    isUtc: true,
+                                  ),
+                                );
+                              } else {
+                                await repo.uncompleteTask(taskId);
+                              }
                             },
                           ),
                   ),

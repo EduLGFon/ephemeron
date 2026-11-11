@@ -171,7 +171,8 @@ class TasksScreen extends ConsumerWidget {
                   return EmptyState(
                     icon: Icons.checklist_outlined,
                     title: 'No tasks here',
-                    subtitle: 'Add a task with details like #tag, ~list, or tomorrow 9h.',
+                    subtitle:
+                        'Add a task with details like #tag, ~list, or tomorrow 9h.',
                     actionLabel: 'Add a task',
                     onAction: () => showQuickAdd(context),
                     secondaryActionLabel: 'Manage lists',

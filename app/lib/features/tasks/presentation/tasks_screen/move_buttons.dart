@@ -134,7 +134,8 @@ class _MoveOption extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? scheme.onSurfaceVariant : scheme.onSurface,
+              color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
         ),

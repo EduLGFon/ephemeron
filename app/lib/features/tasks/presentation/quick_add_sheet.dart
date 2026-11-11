@@ -35,13 +35,22 @@ const quickAddDateChoices = <QuickAddDateChoice>[
 
 final _tokenBoundary = RegExp(r'\s+');
 
-bool _hasToken(String text, String token) {
-  final pattern = RegExp(
-    r'(^|\s)' + RegExp.escape(token) + r'(?=\s|$)',
-    caseSensitive: false,
-  );
-  return pattern.hasMatch(text);
-}
+RegExp _tokenPattern(String token) => RegExp(
+  r'(?<![\p{L}\p{N}_-])' + RegExp.escape(token) + r'(?![\p{L}\p{N}_-])',
+  unicode: true,
+  caseSensitive: false,
+);
+
+bool _hasToken(String text, String token) =>
+    _tokenPattern(token).hasMatch(text);
+
+/// Emits the shorthand form for [name], quoting names that contain spaces.
+String quickAddListToken(String name) =>
+    name.contains(RegExp(r'\s')) ? '~"$name"' : '~$name';
+
+/// Emits the shorthand form for [name], quoting names that contain spaces.
+String quickAddTagToken(String name) =>
+    name.contains(RegExp(r'\s')) ? '#"$name"' : '#$name';
 
 /// Appends [token] once, separated by a single space.
 String appendQuickAddShorthand(String text, String token) {
@@ -52,10 +61,7 @@ String appendQuickAddShorthand(String text, String token) {
 
 /// Adds [token] when absent or removes it when already present.
 String toggleQuickAddShorthand(String text, String token) {
-  final pattern = RegExp(
-    r'(^|\s)' + RegExp.escape(token) + r'(?=\s|$)',
-    caseSensitive: false,
-  );
+  final pattern = _tokenPattern(token);
   if (!pattern.hasMatch(text)) return appendQuickAddShorthand(text, token);
   return text.replaceAll(pattern, ' ').replaceAll(_tokenBoundary, ' ').trim();
 }
@@ -377,8 +383,10 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
                           p?.list?.toLowerCase() == list.name.toLowerCase(),
                       visualDensity: VisualDensity.compact,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onSelected: (_) =>
-                          _applyToken('~${list.name}', toggle: true),
+                      onSelected: (_) => _applyToken(
+                        quickAddListToken(list.name),
+                        toggle: true,
+                      ),
                     ),
                 ],
               ),
@@ -396,7 +404,7 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
                       visualDensity: VisualDensity.compact,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       onSelected: (_) =>
-                          _applyToken('#${tag.name}', toggle: true),
+                          _applyToken(quickAddTagToken(tag.name), toggle: true),
                     ),
                 ],
               ),

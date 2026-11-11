@@ -31,6 +31,37 @@ void main() {
       expect(toggleQuickAddShorthand('Buy  #work  milk', '#work'), 'Buy milk');
     });
 
+    test('tokens glued to punctuation are detected', () {
+      expect(appendQuickAddShorthand('Buy ~home!', '~home'), 'Buy ~home!');
+      expect(toggleQuickAddShorthand('Buy ~home!', '~home'), 'Buy !');
+
+      expect(appendQuickAddShorthand('Buy #work.', '#work'), 'Buy #work.');
+      expect(toggleQuickAddShorthand('Buy #work.', '#work'), 'Buy .');
+    });
+
+    test('names with spaces use quoted shorthand tokens', () {
+      expect(quickAddListToken('My List'), '~"My List"');
+      expect(quickAddTagToken('my tag'), '#"my tag"');
+      expect(quickAddListToken('home'), '~home');
+      expect(quickAddTagToken('work'), '#work');
+
+      final parsed = parseQuickAdd('Buy milk ~"My List" #"my tag"');
+      expect(parsed.title, 'Buy milk');
+      expect(parsed.list, 'My List');
+      expect(parsed.tags, ['my tag']);
+
+      final plain = parseQuickAdd('Buy milk ~home #work');
+      expect(plain.title, 'Buy milk');
+      expect(plain.list, 'home');
+      expect(plain.tags, ['work']);
+
+      final token = quickAddListToken('My List');
+      final appended = appendQuickAddShorthand('Buy milk', token);
+      expect(appended, 'Buy milk ~"My List"');
+      expect(appendQuickAddShorthand(appended, token), appended);
+      expect(toggleQuickAddShorthand(appended, token), 'Buy milk');
+    });
+
     test('date chips append parser tokens once', () {
       final today = quickAddDateChoices.firstWhere((c) => c.label == 'Today');
       final nextWeek = quickAddDateChoices.firstWhere(
@@ -136,13 +167,14 @@ void main() {
     await _openQuickAdd(tester);
     await tester.enterText(
       find.byType(TextField),
-      'Buy milk #tag0 ~List 0 -p1 tomorrow 9h every day',
+      'Buy milk #tag0 ~"List 0" -p1 tomorrow 9h every day',
     );
     await tester.pump();
 
     expect(tester.takeException(), isNull);
     expect(find.text('Quick add'), findsOneWidget);
     expect(find.text('Daily'), findsOneWidget);
+    expect(find.text('List 0'), findsOneWidget);
 
     await _dispose(tester, db);
   });
