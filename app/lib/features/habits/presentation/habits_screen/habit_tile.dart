@@ -58,9 +58,15 @@ class _HabitTile extends ConsumerWidget {
           selected: selected,
           leading: Checkbox(
             value: selecting ? selected : done,
-            onChanged: (_) => selecting
-                ? onToggleSelection()
-                : _toggleDone(context, ref, !done),
+            onChanged: (_) {
+              if (selecting) {
+                AppFeedback.selection();
+                onToggleSelection();
+                return;
+              }
+              AppFeedback.tap();
+              _toggleDone(context, ref, !done);
+            },
           ),
           title: Text(
             habit.name,
@@ -68,53 +74,15 @@ class _HabitTile extends ConsumerWidget {
                 ? const TextStyle(decoration: TextDecoration.lineThrough)
                 : null,
           ),
-          subtitle: streakAsync.maybeWhen(
-            data: (st) {
-              final streakText = skipped
-                  ? 'Skipped - streak ${st.current} - best ${st.best}'
-                  : 'Streak ${st.current} - best ${st.best}';
-              if (liveSession != null) {
-                return _HabitLiveProgress(
-                  habit: habit,
-                  day: day,
-                  session: liveSession,
-                  loggedAmount: amount,
-                  streakText: streakText,
-                );
-              }
-              final progress = hasGoal
-                  ? formatHabitProgress(
-                      unit: habit.unit,
-                      amount: amount,
-                      goal: goal,
-                    )
-                  : null;
-              if (progress == null) return Text(streakText);
-              return Tooltip(
-                message: formatHabitExact(
-                  unit: habit.unit,
-                  amount: amount,
-                  goal: goal,
-                ),
-                child: Text('$progress  $streakText'),
-              );
-            },
-            orElse: () => hasGoal
-                ? Tooltip(
-                    message: formatHabitExact(
-                      unit: habit.unit,
-                      amount: amount,
-                      goal: goal,
-                    ),
-                    child: Text(
-                      formatHabitProgress(
-                        unit: habit.unit,
-                        amount: amount,
-                        goal: goal,
-                      ),
-                    ),
-                  )
-                : null,
+          subtitle: _subtitle(
+            context,
+            day: day,
+            streak: streakAsync.value,
+            skipped: skipped,
+            amount: amount,
+            goal: goal,
+            hasGoal: hasGoal,
+            liveSession: liveSession,
           ),
           trailing: selecting
               ? null
@@ -128,6 +96,7 @@ class _HabitTile extends ConsumerWidget {
                         icon: const Icon(Icons.remove),
                         tooltip: 'Subtract ${_fmt(step)}',
                         onPressed: () async {
+                          AppFeedback.tap();
                           await repo.subtractAmount(habit.id, day, step);
                           ref.invalidate(habitStreakProvider(habit.id));
                         },
@@ -139,6 +108,7 @@ class _HabitTile extends ConsumerWidget {
                         icon: const Icon(Icons.add),
                         tooltip: 'Add ${_fmt(step)}',
                         onPressed: () async {
+                          AppFeedback.tap();
                           await repo.addAmount(habit.id, day, step);
                           ref.invalidate(habitStreakProvider(habit.id));
                         },
@@ -151,9 +121,7 @@ class _HabitTile extends ConsumerWidget {
                         repo: repo,
                         onMessage: (m) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(
-                              context,
-                            ).showSnackBar(SnackBar(content: Text(m)));
+                            showAppSnackBar(context, m);
                           }
                         },
                       ),
@@ -169,7 +137,10 @@ class _HabitTile extends ConsumerWidget {
                       color: skipped
                           ? Theme.of(context).colorScheme.primary
                           : null,
-                      onPressed: () => _toggleSkip(context, ref, !skipped),
+                      onPressed: () {
+                        AppFeedback.selection();
+                        _toggleSkip(context, ref, !skipped);
+                      },
                     ),
                   ],
                 ),
@@ -180,6 +151,107 @@ class _HabitTile extends ConsumerWidget {
         );
       },
       orElse: () => ListTile(title: Text(habit.name)),
+    );
+  }
+
+  Widget? _subtitle(
+    BuildContext context, {
+    required String day,
+    required ({int current, int best})? streak,
+    required bool skipped,
+    required double amount,
+    required double goal,
+    required bool hasGoal,
+    required FocusSession? liveSession,
+  }) {
+    if (liveSession != null) {
+      final streakText = skipped
+          ? 'Skipped - streak ${streak?.current ?? 0} - best ${streak?.best ?? 0}'
+          : 'Streak ${streak?.current ?? 0} - best ${streak?.best ?? 0}';
+      return _HabitLiveProgress(
+        habit: habit,
+        day: day,
+        session: liveSession,
+        loggedAmount: amount,
+        streakText: streakText,
+      );
+    }
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final lines = <Widget>[];
+    final current = streak?.current ?? 0;
+    final best = streak?.best ?? 0;
+    if (current > 0 || best > 0 || skipped) {
+      lines.add(
+        Row(
+          children: [
+            if (current > 0) ...[
+              _StreakPill(current: current),
+              const SizedBox(width: AppSpace.xs),
+            ],
+            if (skipped)
+              Text(
+                'Skipped',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            if (skipped && best > 0) const Text(' - '),
+            if (best > 0)
+              Flexible(
+                child: Text(
+                  'Best $best',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    if (hasGoal) {
+      final progressText = formatHabitProgress(
+        unit: habit.unit,
+        amount: amount,
+        goal: goal,
+      );
+      if (lines.isNotEmpty) lines.add(const SizedBox(height: AppSpace.xs));
+      lines.add(
+        Semantics(
+          label: 'Progress $progressText',
+          child: ExcludeSemantics(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+              child: LinearProgressIndicator(
+                value: (amount / goal).clamp(0.0, 1.0),
+                minHeight: 4,
+                color: scheme.primary,
+                backgroundColor: scheme.surfaceContainerHighest,
+              ),
+            ),
+          ),
+        ),
+      );
+      lines.add(const SizedBox(height: AppSpace.xxs));
+      lines.add(
+        Tooltip(
+          message: formatHabitExact(
+            unit: habit.unit,
+            amount: amount,
+            goal: goal,
+          ),
+          child: Text(progressText),
+        ),
+      );
+    }
+    if (lines.isEmpty) return null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: lines,
     );
   }
 
@@ -296,6 +368,52 @@ class _HabitLiveProgressState extends State<_HabitLiveProgress> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Compact streak badge. The flame only appears for a live streak.
+class _StreakPill extends StatelessWidget {
+  const _StreakPill({required this.current});
+
+  final int current;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Semantics(
+      label: 'Current streak $current ${current == 1 ? 'day' : 'days'}',
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.sm,
+            vertical: AppSpace.xxs,
+          ),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.local_fire_department,
+                size: 12,
+                color: scheme.onPrimaryContainer,
+              ),
+              const SizedBox(width: AppSpace.xxs),
+              Text(
+                '$current',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onPrimaryContainer,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

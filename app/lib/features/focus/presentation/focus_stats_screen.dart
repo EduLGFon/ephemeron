@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/platform/system_launcher.dart';
+import '../../../core/ui/empty_state.dart';
 import '../../settings/application/settings_providers.dart';
 import '../application/focus_providers.dart';
 
@@ -162,7 +163,13 @@ class _Breakdown extends ConsumerWidget {
       loading: () => const LinearProgressIndicator(),
       error: (_, _) => const Text('Could not load.'),
       data: (rows) {
-        if (rows.isEmpty) return const Text('No sessions yet.');
+        if (rows.isEmpty) {
+          return const EmptyState(
+            compact: true,
+            icon: Icons.insights_outlined,
+            title: 'No sessions yet.',
+          );
+        }
         final max = rows.fold<int>(1, (a, r) => r.$2 > a ? r.$2 : a);
         return Column(
           children: [
@@ -171,11 +178,13 @@ class _Breakdown extends ConsumerWidget {
                 children: [
                   Expanded(
                     flex: 3,
-                    child: Text(
-                      label.length > 18
-                          ? '${label.substring(0, 18)}...'
-                          : label,
-                      overflow: TextOverflow.ellipsis,
+                    child: Tooltip(
+                      message: label,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                   Expanded(

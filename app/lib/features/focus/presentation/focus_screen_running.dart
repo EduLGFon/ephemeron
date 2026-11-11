@@ -9,7 +9,8 @@ class _RunningView extends ConsumerStatefulWidget {
   ConsumerState<_RunningView> createState() => _RunningViewState();
 }
 
-class _RunningViewState extends ConsumerState<_RunningView> {
+class _RunningViewState extends ConsumerState<_RunningView>
+    with WidgetsBindingObserver {
   Timer? _ticker;
   Timer? _noteDebounce;
   final ValueNotifier<int> _now = ValueNotifier<int>(
@@ -22,6 +23,7 @@ class _RunningViewState extends ConsumerState<_RunningView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _noteController.text = widget.session.note ?? '';
     _noteController.addListener(_onNoteChanged);
     WakelockPlus.enable();
@@ -32,6 +34,7 @@ class _RunningViewState extends ConsumerState<_RunningView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _noteDebounce?.cancel();
     _flushNote();
     _noteController.removeListener(_onNoteChanged);
@@ -40,6 +43,15 @@ class _RunningViewState extends ConsumerState<_RunningView> {
     _now.dispose();
     WakelockPlus.disable();
     super.dispose();
+  }
+
+  /// A suspended app can miss several ticks. Refresh once on resume so the
+  /// timestamp-based countdown never looks frozen.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _now.value = DateTime.now().toUtc().millisecondsSinceEpoch;
+    }
   }
 
   void _onNoteChanged() {
@@ -110,6 +122,12 @@ class _RunningViewState extends ConsumerState<_RunningView> {
         final display = isStopwatch
             ? elapsed
             : formatFocusCountdown(remainingMs);
+        final totalMs = isStopwatch ? 0 : target - widget.session.startUtc;
+        final ringProgress = isStopwatch
+            ? null
+            : (totalMs <= 0
+                  ? 1.0
+                  : (elapsedMs / totalMs).clamp(0.0, 1.0).toDouble());
         final isBreak = widget.session.phase == 'break';
         final nextLabel = isBreak ? 'Start focus' : 'Start break';
         final todayKey = habitDateKey(DateTime.now());
@@ -174,16 +192,17 @@ class _RunningViewState extends ConsumerState<_RunningView> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpace.xl),
               Center(
-                child: Semantics(
-                  label: isStopwatch
+                child: _CountdownFace(
+                  display: display,
+                  semanticsLabel: isStopwatch
                       ? 'Focus elapsed time: $display'
                       : 'Focus time remaining: $display',
-                  child: Text(
-                    display,
-                    style: Theme.of(context).textTheme.displayLarge,
-                  ),
+                  progress: ringProgress,
+                  isBreak: isBreak,
+                  // Shorter screens keep the action buttons visible.
+                  diameter: MediaQuery.sizeOf(context).height < 700 ? 160 : 240,
                 ),
               ),
               Center(
@@ -258,4 +277,57 @@ class _RunningViewState extends ConsumerState<_RunningView> {
   }
 
   bool _isAbandoned(int now) => now - widget.session.startUtc > 12 * msPerHour;
+}
+
+/// Timed focus and breaks get a calm ring; stopwatch keeps plain elapsed text.
+/// [progress] is null for stopwatch and is already clamped by the caller.
+class _CountdownFace extends StatelessWidget {
+  const _CountdownFace({
+    required this.display,
+    required this.semanticsLabel,
+    required this.progress,
+    required this.isBreak,
+    required this.diameter,
+  });
+
+  final String display;
+  final String semanticsLabel;
+  final double? progress;
+  final bool isBreak;
+  final double diameter;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Semantics(
+      label: semanticsLabel,
+      child: Text(display, style: Theme.of(context).textTheme.displayLarge),
+    );
+    final value = progress;
+    if (value == null) return text;
+    final scheme = Theme.of(context).colorScheme;
+    final compact = diameter < 200;
+    return SizedBox(
+      width: diameter,
+      height: diameter,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: CircularProgressIndicator(
+              value: value,
+              strokeWidth: compact ? 6 : 8,
+              color: isBreak ? scheme.tertiary : scheme.primary,
+              backgroundColor: scheme.surfaceContainerHighest,
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(compact ? AppSpace.lg : AppSpace.xxl),
+            child: Center(
+              child: FittedBox(fit: BoxFit.scaleDown, child: text),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

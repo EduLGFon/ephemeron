@@ -76,21 +76,30 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
         startedAtMs: t.startedAtMs,
         nowMs: DateTime.now().millisecondsSinceEpoch,
       );
+      AppFeedback.success();
       await widget.repo.addAmount(
         widget.habit.id,
         t.dayKey,
         elapsedMinutes(elapsed),
       );
       await widget.store.clear();
+      widget.onMessage(
+        'Logged ${_fmt(elapsedMinutes(elapsed))} '
+                '${isMinuteUnit(widget.habit.unit) ? 'min' : ''}'
+            .trim(),
+      );
     } else {
       if (widget.day != habitTodayKey()) {
+        AppFeedback.warning();
         widget.onMessage('Timer can only start for today.');
         return;
       }
       if (widget.store.active.value != null) {
+        AppFeedback.warning();
         widget.onMessage('Another habit timer is already running.');
         return;
       }
+      AppFeedback.tap();
       await widget.store.start(
         widget.habit.id,
         widget.day,

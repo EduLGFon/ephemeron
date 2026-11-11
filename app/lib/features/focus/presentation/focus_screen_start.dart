@@ -51,6 +51,79 @@ class _StartViewState extends ConsumerState<_StartView> {
     } catch (_) {}
   }
 
+  String get _customChipLabel {
+    final isBreak = _mode == _FocusMode.breakTime;
+    final current = isBreak ? _breakMin : _focusMin;
+    final presets = isBreak ? _breakPresets : _focusPresets;
+    return presets.contains(current) ? 'Custom' : 'Custom: $current min';
+  }
+
+  Future<void> _editCustomDuration() async {
+    final isBreak = _mode == _FocusMode.breakTime;
+    final current = isBreak ? _breakMin : _focusMin;
+    final max = isBreak ? 60 : 240;
+    final controller = TextEditingController(text: '$current');
+    String? error;
+    final minutes = await showDialog<int>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          void submit() {
+            final validation = validateFocusMinutes(
+              controller.text,
+              isBreak: isBreak,
+            );
+            if (validation != null) {
+              setDialogState(() => error = validation);
+              return;
+            }
+            Navigator.of(ctx).pop(int.parse(controller.text.trim()));
+          }
+
+          return AlertDialog(
+            title: Text(isBreak ? 'Custom break' : 'Custom focus'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: 'Minutes',
+                helperText: '1-$max minutes',
+                errorText: error,
+              ),
+              onChanged: (_) {
+                if (error != null) setDialogState(() => error = null);
+              },
+              onSubmitted: (_) => submit(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: submit,
+                child: const Text('Use duration'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    controller.dispose();
+    if (minutes == null || !mounted) return;
+    AppFeedback.success();
+    setState(() {
+      if (isBreak) {
+        _breakMin = minutes;
+      } else {
+        _focusMin = minutes;
+      }
+    });
+    _persistSetup();
+  }
+
   bool _handlingPendingNext = false;
 
   @override
@@ -89,6 +162,7 @@ class _StartViewState extends ConsumerState<_StartView> {
             ],
             selected: {_mode},
             onSelectionChanged: (s) {
+              AppFeedback.selection();
               setState(() => _mode = s.single);
               _persistSetup();
             },
@@ -97,6 +171,7 @@ class _StartViewState extends ConsumerState<_StartView> {
           if (_mode != _FocusMode.stopwatch) ...[
             Wrap(
               spacing: 8,
+              runSpacing: 4,
               children: [
                 for (final m
                     in (_mode == _FocusMode.breakTime
@@ -110,6 +185,7 @@ class _StartViewState extends ConsumerState<_StartView> {
                             : _focusMin) ==
                         m,
                     onSelected: (_) {
+                      AppFeedback.selection();
                       setState(() {
                         if (_mode == _FocusMode.breakTime) {
                           _breakMin = m;
@@ -120,6 +196,11 @@ class _StartViewState extends ConsumerState<_StartView> {
                       _persistSetup();
                     },
                   ),
+                ActionChip(
+                  avatar: const Icon(Icons.tune, size: 16),
+                  label: Text(_customChipLabel),
+                  onPressed: _editCustomDuration,
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -239,6 +320,7 @@ class _StartViewState extends ConsumerState<_StartView> {
       );
       if (!mounted) return;
     }
+    AppFeedback.tap();
     final repo = ref.read(focusRepositoryProvider);
     final id = await repo.startSession(
       taskId: _taskId,

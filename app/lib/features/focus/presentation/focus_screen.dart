@@ -11,6 +11,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../core/platform/app_permissions.dart';
 import '../../../core/platform/system_launcher.dart';
+import '../../../core/theme/theme_tokens.dart';
+import '../../../core/ui/app_feedback.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/alarms/alarm_preset.dart';
 import '../../alarms/data/alarm_scheduler.dart';
@@ -30,6 +32,18 @@ part 'focus_screen_shared.dart';
 
 const _focusPresets = [15, 25, 50];
 const _breakPresets = [5, 10, 15];
+
+/// Returns an error message when [raw] is not a whole number inside the
+/// allowed focus/break range. Pure so the custom duration path stays testable.
+String? validateFocusMinutes(String raw, {required bool isBreak}) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return 'Enter minutes.';
+  final value = int.tryParse(trimmed);
+  if (value == null) return 'Enter a whole number.';
+  final max = isBreak ? 60 : 240;
+  if (value < 1 || value > max) return 'Enter 1-$max minutes.';
+  return null;
+}
 
 enum _FocusMode { focus, breakTime, stopwatch }
 
