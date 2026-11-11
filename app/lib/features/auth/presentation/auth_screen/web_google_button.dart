@@ -35,15 +35,15 @@ class _WebGoogleButtonState extends ConsumerState<_WebGoogleButton> {
   }
 
   Future<void> _handle(GoogleSignInAccount account) async {
-    debugPrint('WebGoogleButton handle account (redacted)');
     try {
       await ref.read(googleAuthProvider).handleWebAccount(account);
       ref.read(googleAccountProvider.notifier).setSignedInEmail(account.email);
       await ref.read(syncStatusProvider.notifier).syncNow();
       await ref.read(googleAutoSyncServiceProvider).start();
-      debugPrint('WebGoogleButton done');
-    } catch (e, st) {
-      debugPrint('WebGoogleButton error: $e\n$st');
+      AppFeedback.success();
+    } catch (e) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Google sign-in failed: $e');
     }
   }
 

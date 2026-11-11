@@ -46,14 +46,10 @@ class _ReconnectBanner extends ConsumerWidget {
       await ref.read(googleAutoSyncServiceProvider).start();
     } on GoogleAuthException catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      showErrorSnackBar(context, e.message);
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Google sign-in failed: $e')));
+      showErrorSnackBar(context, 'Google sign-in failed: $e');
     }
   }
 }

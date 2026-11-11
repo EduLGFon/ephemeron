@@ -54,24 +54,31 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
+            tooltip: 'Search',
             onPressed: () => _search(context),
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Trash',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const _TrashScreen()),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.archive_outlined),
-            tooltip: 'Export ZIP',
-            onPressed: _exportZip,
-          ),
-          IconButton(
-            icon: const Icon(Icons.upload_file_outlined),
-            tooltip: 'Import .md / .txt',
-            onPressed: _importFiles,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'More',
+            onSelected: (value) {
+              switch (value) {
+                case 'trash':
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const _TrashScreen(),
+                    ),
+                  );
+                case 'export':
+                  _exportZip();
+                case 'import':
+                  _importFiles();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'trash', child: Text('Trash')),
+              PopupMenuItem(value: 'export', child: Text('Export ZIP')),
+              PopupMenuItem(value: 'import', child: Text('Import .md / .txt')),
+            ],
           ),
         ],
       ),
@@ -200,15 +207,15 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         }
       }
       if (mounted) {
-        ScaffoldMessenger.of(
+        showAppSnackBar(
           context,
-        ).showSnackBar(SnackBar(content: Text('Imported $count file(s)')));
+          count == 0 ? 'No files imported' : 'Imported $count file(s)',
+          icon: Icons.upload_file_outlined,
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+        showErrorSnackBar(context, 'Import failed: $e');
       }
     }
   }
@@ -230,15 +237,15 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       final file = File('${dir.path}/notes-export.zip');
       await file.writeAsBytes(data);
       if (mounted) {
-        ScaffoldMessenger.of(
+        showAppSnackBar(
           context,
-        ).showSnackBar(SnackBar(content: Text('Exported to ${file.path}')));
+          'Exported to ${file.path}',
+          icon: Icons.archive_outlined,
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+        showErrorSnackBar(context, 'Export failed: $e');
       }
     }
   }
@@ -259,26 +266,9 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   Future<void> _search(BuildContext context) async {
     final query = await showDialog<String>(
       context: context,
-      builder: (ctx) {
-        final ctl = TextEditingController(text: _query);
-        return AlertDialog(
-          title: const Text('Search notes'),
-          content: TextField(
-            controller: ctl,
-            autofocus: true,
-            onSubmitted: (v) => Navigator.of(ctx).pop(v),
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(ctl.text),
-              child: const Text('Search'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _SearchDialog(initialQuery: _query),
     );
-    if (query == null || query.trim().isEmpty) return;
-    if (!mounted) return;
+    if (query == null || query.isEmpty || !mounted) return;
     setState(() => _query = query);
     final hits = await ref.read(noteRepositoryProvider).searchNotes(query);
     if (!context.mounted) return;
@@ -288,6 +278,87 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         builder: (_) =>
             _SearchResults(query: query, hits: hits, onOpen: _openById),
       ),
+    );
+  }
+}
+
+/// Owns the search field controller so it outlives the dialog route's exit
+/// animation and is disposed with the route state.
+class _SearchDialog extends StatefulWidget {
+  const _SearchDialog({required this.initialQuery});
+
+  final String initialQuery;
+
+  @override
+  State<_SearchDialog> createState() => _SearchDialogState();
+}
+
+class _SearchDialogState extends State<_SearchDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialQuery);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Search notes'),
+      content: TextField(
+        key: const Key('notes-search-field'),
+        controller: _controller,
+        autofocus: true,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Search notes',
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.clear),
+            tooltip: 'Clear',
+            onPressed: () {
+              AppFeedback.tap();
+              _controller.clear();
+            },
+          ),
+        ),
+        onSubmitted: (value) {
+          final query = value.trim();
+          if (query.isEmpty) return;
+          AppFeedback.selection();
+          Navigator.of(context).pop(query);
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            AppFeedback.tap();
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancel'),
+        ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _controller,
+          builder: (context, value, _) {
+            final query = value.text.trim();
+            return FilledButton(
+              onPressed: query.isEmpty
+                  ? null
+                  : () {
+                      AppFeedback.selection();
+                      Navigator.of(context).pop(query);
+                    },
+              child: const Text('Search'),
+            );
+          },
+        ),
+      ],
     );
   }
 }

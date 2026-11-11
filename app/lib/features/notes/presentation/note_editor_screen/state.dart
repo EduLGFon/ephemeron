@@ -11,6 +11,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
   Future<void>? _activeSave;
   _NoteMode _mode = _NoteMode.read;
   _SaveStatus _saveStatus = _SaveStatus.idle;
+  DateTime? _lastSavedAt;
   bool _allowPop = false;
   bool _loaded = false;
   NoteRepository? _repo;
@@ -101,7 +102,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
         title: _titleCtl.text,
         body: () => _bodyCtl.text,
       );
-      _setSaveStatus(_SaveStatus.saved);
+      if (!mounted) return;
+      setState(() {
+        _lastSavedAt = DateTime.now();
+        _saveStatus = _SaveStatus.saved;
+      });
     } catch (_) {
       _setSaveStatus(_SaveStatus.failed);
     }
@@ -288,7 +293,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen>
                             onToggleTask: _toggleTask,
                           ),
                   ),
-                  _StatusLine(controller: _bodyCtl, status: _saveStatus),
+                  _StatusLine(
+                    controller: _bodyCtl,
+                    status: _saveStatus,
+                    lastSavedAt: _lastSavedAt,
+                    onRetry: _flush,
+                  ),
                   _LinksSection(noteId: widget.noteId),
                 ],
               ), // Column

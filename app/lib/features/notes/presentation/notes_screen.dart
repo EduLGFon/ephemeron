@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:ephemeron/core/ui/app_feedback.dart';
 import 'package:ephemeron/core/ui/dialogs.dart';
 
 import 'package:ephemeron/core/ui/empty_state.dart';
@@ -19,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../data/drift/app_database.dart';
+import '../../../data/repositories/note_repository.dart';
 import '../../settings/application/settings_providers.dart';
 import '../../sync/application/pending_operations.dart';
 import '../application/notes_providers.dart';

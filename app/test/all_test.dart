@@ -93,6 +93,7 @@ import 'cases/timeline_view_case.dart' as timeline_view;
 import 'cases/ux_alarms_case.dart' as ux_alarms;
 import 'cases/ux_calendar_case.dart' as ux_calendar;
 import 'cases/ux_foundation_case.dart' as ux_foundation;
+import 'cases/ux_notes_case.dart' as ux_notes;
 import 'cases/ux_shell_case.dart' as ux_shell;
 import 'cases/ux_tasks_case.dart' as ux_tasks;
 import 'cases/week_calendar_case.dart' as week_calendar;
@@ -190,6 +191,7 @@ const _included = <String>{
   'ux_alarms_case.dart',
   'ux_calendar_case.dart',
   'ux_foundation_case.dart',
+  'ux_notes_case.dart',
   'ux_shell_case.dart',
   'ux_tasks_case.dart',
   'week_calendar_case.dart',
@@ -294,6 +296,7 @@ void main() {
   group('ux_alarms', ux_alarms.main);
   group('ux_calendar', ux_calendar.main);
   group('ux_foundation', ux_foundation.main);
+  group('ux_notes', ux_notes.main);
   group('ux_shell', ux_shell.main);
   group('ux_tasks', ux_tasks.main);
   group('week_calendar', week_calendar.main);

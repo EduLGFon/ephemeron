@@ -17,6 +17,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/db/db_provider.dart';
+import '../../../core/ui/app_feedback.dart';
 import '../../../data/remote/backend_api_client.dart';
 import '../../settings/data/backup_service.dart';
 import '../../sync/application/sync_providers.dart';
@@ -34,26 +35,20 @@ class AuthScreen extends ConsumerWidget {
   const AuthScreen({super.key});
 
   Future<void> _googleSignIn(BuildContext context, WidgetRef ref) async {
-    debugPrint('AuthScreen._googleSignIn');
     try {
       await ref.read(googleAccountProvider.notifier).signIn(tasks: true);
-      debugPrint('AuthScreen signIn returned');
       // Sync starts right after sign-in, then auto-sync takes over.
       await ref.read(syncStatusProvider.notifier).syncNow();
       await ref.read(googleAutoSyncServiceProvider).start();
     } on GoogleAuthException catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      showErrorSnackBar(context, e.message);
     } catch (e) {
       // Never mask the real failure behind the offline message: the app
       // works offline, but a failed sign-in deserves its actual cause
       // (for example a missing serverClientId or SHA-1 mismatch).
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Google sign-in failed: $e')));
+      showErrorSnackBar(context, 'Google sign-in failed: $e');
     }
   }
 
