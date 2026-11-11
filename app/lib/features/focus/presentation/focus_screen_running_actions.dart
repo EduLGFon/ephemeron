@@ -14,7 +14,7 @@ extension _RunningViewActions on _RunningViewState {
       builder: (ctx) => AlertDialog(
         title: Text(isBreak ? 'Break over' : 'Focus session complete'),
         content: Text(
-          'Your $elapsedMin min of ${isBreak ? 'break' : 'focus'} is saved. '
+          'Tracked $elapsedMin min of ${isBreak ? 'break' : 'focus'}. '
           'Would you like to $nextLabel?',
         ),
         actions: [

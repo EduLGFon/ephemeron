@@ -132,37 +132,39 @@ class _DayStripState extends State<_DayStrip> {
       label: habitDayStripSemanticsLabel(context, day, today),
       selected: selected,
       button: true,
-      child: ChoiceChip(
-        key: chipKey,
-        visualDensity: VisualDensity.compact,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpace.xs,
-          vertical: AppSpace.xxs,
-        ),
-        label: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              DeviceDateFormat.weekday(context, day),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: selected ? scheme.onSecondaryContainer : null,
+      child: ExcludeSemantics(
+        child: ChoiceChip(
+          key: chipKey,
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.xs,
+            vertical: AppSpace.xxs,
+          ),
+          label: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                DeviceDateFormat.weekday(context, day),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: selected ? scheme.onSecondaryContainer : null,
+                ),
               ),
-            ),
-            Text(
-              '${day.day}',
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
-                color: selected ? scheme.onSecondaryContainer : null,
+              Text(
+                '${day.day}',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+                  color: selected ? scheme.onSecondaryContainer : null,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          selected: selected,
+          onSelected: (_) {
+            AppFeedback.selection();
+            widget.onSelect(key);
+          },
         ),
-        selected: selected,
-        onSelected: (_) {
-          AppFeedback.selection();
-          widget.onSelect(key);
-        },
       ),
     );
   }

@@ -92,6 +92,11 @@ class _HabitTile extends ConsumerWidget {
                     if (hasGoal && amount > 0)
                       IconButton(
                         visualDensity: VisualDensity.compact,
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(34, 36),
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                         iconSize: 20,
                         icon: const Icon(Icons.remove),
                         tooltip: 'Subtract ${_fmt(step)}',
@@ -104,6 +109,11 @@ class _HabitTile extends ConsumerWidget {
                     if (hasGoal)
                       IconButton(
                         visualDensity: VisualDensity.compact,
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(34, 36),
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                         iconSize: 20,
                         icon: const Icon(Icons.add),
                         tooltip: 'Add ${_fmt(step)}',
@@ -127,6 +137,11 @@ class _HabitTile extends ConsumerWidget {
                       ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(34, 36),
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       iconSize: 20,
                       icon: Icon(
                         skipped
@@ -183,12 +198,11 @@ class _HabitTile extends ConsumerWidget {
     final best = streak?.best ?? 0;
     if (current > 0 || best > 0 || skipped) {
       lines.add(
-        Row(
+        Wrap(
+          spacing: AppSpace.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            if (current > 0) ...[
-              _StreakPill(current: current),
-              const SizedBox(width: AppSpace.xs),
-            ],
+            if (current > 0) _StreakPill(current: current),
             if (skipped)
               Text(
                 'Skipped',
@@ -196,16 +210,11 @@ class _HabitTile extends ConsumerWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
-            if (skipped && best > 0) const Text(' - '),
             if (best > 0)
-              Flexible(
-                child: Text(
-                  'Best $best',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              Text(
+                'Best $best',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
           ],

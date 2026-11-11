@@ -83,10 +83,10 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
         elapsedMinutes(elapsed),
       );
       await widget.store.clear();
+      final unit = widget.habit.unit?.trim();
       widget.onMessage(
         'Logged ${_fmt(elapsedMinutes(elapsed))} '
-                '${isMinuteUnit(widget.habit.unit) ? 'min' : ''}'
-            .trim(),
+        '${unit == null || unit.isEmpty ? 'min' : unit}',
       );
     } else {
       if (widget.day != habitTodayKey()) {
@@ -120,6 +120,11 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
               Text(formatElapsed(dur)),
               IconButton(
                 visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(34, 36),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 iconSize: 20,
                 icon: const Icon(Icons.stop),
                 tooltip: 'Stop timer',
@@ -130,6 +135,11 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
         }
         return IconButton(
           visualDensity: VisualDensity.compact,
+          style: IconButton.styleFrom(
+            minimumSize: const Size(34, 36),
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           iconSize: 20,
           icon: const Icon(Icons.play_arrow),
           tooltip: 'Start timer',

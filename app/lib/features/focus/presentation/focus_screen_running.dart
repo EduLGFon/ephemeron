@@ -155,7 +155,7 @@ class _RunningViewState extends ConsumerState<_RunningView>
                 nowMs: now,
               )
             : loggedAmount;
-        return Padding(
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

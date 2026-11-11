@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -8,10 +9,32 @@ import 'package:ephemeron/features/countdowns/presentation/countdowns_screen.dar
 import 'package:ephemeron/features/focus/presentation/focus_screen.dart';
 import 'package:ephemeron/features/habits/presentation/habits_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void _mockPlatformChannels() {
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('ephemeron/alarms'),
+    (call) async => null,
+  );
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('ephemeron/system'),
+    (call) async => null,
+  );
+  messenger.setMockMessageHandler(
+    'dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle',
+    (message) async =>
+        const StandardMessageCodec().encodeMessage(const <Object?>[]),
+  );
+}
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+
   test('habit day strip covers 14 days ending today', () {
     final today = DateTime(2026, 11, 11);
     final days = habitDayStripDays(today);
@@ -76,6 +99,57 @@ void main() {
 
     expect(find.text(title), findsOneWidget);
     expect(find.text('Upcoming'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
+  testWidgets('running focus view scrolls without overflow at 320dp', (
+    WidgetTester tester,
+  ) async {
+    _mockPlatformChannels();
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.focusSessions)
+        .insert(
+          FocusSessionsCompanion.insert(
+            id: 'short-screen',
+            startUtc: now - const Duration(hours: 13).inMilliseconds,
+            targetEndUtc: Value(
+              now + const Duration(minutes: 5).inMilliseconds,
+            ),
+            phase: const Value('focus'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: FocusScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.textContaining('Recovered after app restart'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.dragUntilVisible(
+      find.text('Finish'),
+      find.byType(SingleChildScrollView),
+      const Offset(0, -160),
+    );
+    expect(find.text('Finish'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await db.close();
