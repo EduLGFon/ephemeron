@@ -8,9 +8,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/alarms/alarm_preset.dart';
 import '../../../core/platform/app_permissions.dart';
 import '../../../core/platform/system_launcher.dart';
+import '../../../core/theme/theme_tokens.dart';
+import '../../../core/time/device_date_format.dart';
+import '../../../core/ui/app_section_header.dart';
+import '../../../core/ui/empty_state.dart';
 import '../../settings/application/settings_providers.dart';
 import '../application/alarm_providers.dart';
 import '../data/alarm_scheduler.dart';
+import 'alarm_settings_format.dart';
 
 class AlarmSettingsScreen extends ConsumerWidget {
   const AlarmSettingsScreen({super.key});
@@ -117,51 +122,28 @@ class AlarmSettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Alarms')),
       body: ListView(
         children: [
-          FutureBuilder<bool>(
-            future: AlarmScheduler.canScheduleExact(),
-            builder: (ctx, snap) {
-              final ok = snap.data ?? false;
-              return ListTile(
-                title: const Text('Exact alarm permission'),
-                subtitle: Text(ok ? 'Granted' : 'Not granted'),
-                trailing: ok
-                    ? null
-                    : FilledButton(
-                        onPressed: () =>
-                            AppPermissions.ensureExactAlarm(context),
-                        child: const Text('Grant'),
-                      ),
-              );
-            },
+          _PermissionTile(
+            icon: Icons.alarm,
+            title: 'Exact alarms',
+            description:
+                'Needed to ring at the exact time, including in power saving.',
+            status: AlarmScheduler.canScheduleExact(),
+            onOpenSettings: () => AppPermissions.ensureExactAlarm(context),
           ),
-          FutureBuilder<bool>(
-            future: SystemLauncher.canUseFullScreenIntent(),
-            builder: (ctx, snap) {
-              final ok = snap.data ?? false;
-              return ListTile(
-                title: const Text('Full-screen alarms'),
-                subtitle: Text(
-                  ok
-                      ? 'Granted'
-                      : 'Not granted. Needed on Android 14+ for alarms over '
-                            'the lock screen.',
-                ),
-                trailing: FilledButton(
-                  onPressed: () => AppPermissions.ensureFullScreenIntent(
-                    context,
-                    needed: true,
-                  ),
-                  child: Text(ok ? 'Check' : 'Grant'),
-                ),
-              );
-            },
+          _PermissionTile(
+            icon: Icons.fullscreen,
+            title: 'Full-screen alarms',
+            description:
+                'Needed on Android 14+ to show alarms over the lock screen.',
+            status: SystemLauncher.canUseFullScreenIntent(),
+            onOpenSettings: () =>
+                AppPermissions.ensureFullScreenIntent(context, needed: true),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              'Three alarm styles. Reminders (early/at-time notifications) '
-              'always fire separately and are set per item.',
-            ),
+          const AppSectionHeader(
+            'Alarm styles',
+            description:
+                'Reminders (early or at-time notifications) always fire '
+                'separately and are set per item.',
           ),
           for (final p in AlarmPreset.values)
             ListTile(
@@ -211,6 +193,95 @@ class AlarmSettingsScreen extends ConsumerWidget {
   }
 }
 
+/// Shared permission row: status chip always visible, settings deep link
+/// only while the privilege is missing.
+class _PermissionTile extends StatelessWidget {
+  const _PermissionTile({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.status,
+    required this.onOpenSettings,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final Future<bool> status;
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: status,
+      builder: (context, snap) {
+        final granted = snap.data ?? false;
+        return ListTile(
+          isThreeLine: true,
+          leading: Icon(icon),
+          title: Text(title),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: AppSpace.xs),
+              _PermissionStatusChip(granted: granted),
+              const SizedBox(height: AppSpace.xs),
+              Text(description),
+            ],
+          ),
+          trailing: granted
+              ? null
+              : FilledButton(
+                  onPressed: onOpenSettings,
+                  child: const Text('Open settings'),
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _PermissionStatusChip extends StatelessWidget {
+  const _PermissionStatusChip({required this.granted});
+
+  final bool granted;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = granted ? scheme.primary : scheme.error;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.sm,
+        vertical: AppSpace.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            granted ? Icons.check_circle_outline : Icons.error_outline,
+            size: 14,
+            color: color,
+          ),
+          const SizedBox(width: AppSpace.xs),
+          Text(
+            granted ? 'Granted' : 'Not granted',
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PresetCards extends StatelessWidget {
   const _PresetCards(this.ref);
   final WidgetRef ref;
@@ -238,22 +309,30 @@ class _Upcoming extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef innerRef) {
     final upcoming = ref.watch(upcomingAlarmsProvider);
+    final count = upcoming.value?.length ?? 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(padding: EdgeInsets.all(16), child: Text('Upcoming')),
+        AppSectionHeader('Upcoming', count: count > 0 ? count : null),
         upcoming.maybeWhen(
           data: (list) => Column(
             children: [
-              if (list.isEmpty) const ListTile(title: Text('None scheduled')),
-              for (final a in list.take(20))
-                ListTile(
-                  title: Text(a.title ?? a.sourceId),
-                  subtitle: Text(
-                    '${a.kind} - ${a.preset ?? ''} - '
-                    '${DateTime.fromMillisecondsSinceEpoch(a.fireAtUtc)}',
+              if (list.isEmpty)
+                const EmptyState(
+                  compact: true,
+                  icon: Icons.schedule,
+                  title: 'No upcoming alarms',
+                  subtitle: 'Alarms you set will appear here.',
+                )
+              else
+                for (final a in list.take(20))
+                  ListTile(
+                    title: Text(a.title ?? a.sourceId),
+                    subtitle: Text(
+                      '${a.kind} - ${a.preset ?? ''} - '
+                      '${formatAlarmFireTime(a.fireAtUtc, DeviceDateFormat.yMMMd(context).add_Hm())}',
+                    ),
                   ),
-                ),
             ],
           ),
           orElse: () => const SizedBox.shrink(),
@@ -270,24 +349,32 @@ class _Missed extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef innerRef) {
     final missedAsync = ref.watch(missedAlarmsProvider);
+    final count = missedAsync.value?.length ?? 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('Missed alarms'),
-        ),
+        AppSectionHeader('Missed alarms', count: count > 0 ? count : null),
         missedAsync.maybeWhen(
           data: (missed) => Column(
             children: [
-              if (missed.isEmpty) const ListTile(title: Text('None')),
-              for (final m in missed)
-                ListTile(
-                  title: Text(m.title ?? m.sourceId),
-                  subtitle: Text(
-                    DateTime.fromMillisecondsSinceEpoch(m.fireAtUtc).toString(),
+              if (missed.isEmpty)
+                const EmptyState(
+                  compact: true,
+                  icon: Icons.alarm_off,
+                  title: 'No missed alarms',
+                  subtitle: 'Alarms you miss will appear here.',
+                )
+              else
+                for (final m in missed)
+                  ListTile(
+                    title: Text(m.title ?? m.sourceId),
+                    subtitle: Text(
+                      formatAlarmFireTime(
+                        m.fireAtUtc,
+                        DeviceDateFormat.yMMMd(context).add_Hm(),
+                      ),
+                    ),
                   ),
-                ),
             ],
           ),
           orElse: () => const SizedBox.shrink(),
