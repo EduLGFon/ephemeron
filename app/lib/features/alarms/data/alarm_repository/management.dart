@@ -1,5 +1,8 @@
 part of '../alarm_repository.dart';
 
+/// Alarm states that still represent a pending alarm.
+const _pendingAlarmStates = ['scheduled', 'snoozed'];
+
 mixin _AlarmManagementOps on _AlarmRepositoryBase {
   Future<void> cancelForSource(String sourceType, String sourceId) async {
     final rows =
@@ -28,7 +31,7 @@ mixin _AlarmManagementOps on _AlarmRepositoryBase {
 
   Stream<List<AlarmsIndexData>> watchUpcoming({int limit = 20}) {
     return (_db.select(_db.alarmsIndex)
-          ..where((a) => a.state.equals('scheduled'))
+          ..where((a) => a.state.isIn(_pendingAlarmStates))
           ..orderBy([(a) => OrderingTerm.asc(a.fireAtUtc)])
           ..limit(limit))
         .watch();
@@ -38,7 +41,7 @@ mixin _AlarmManagementOps on _AlarmRepositoryBase {
     final now = _now();
     return (_db.select(_db.alarmsIndex)..where(
           (a) =>
-              a.state.equals('scheduled') &
+              a.state.isIn(_pendingAlarmStates) &
               a.fireAtUtc.isSmallerOrEqualValue(now),
         ))
         .get();
@@ -73,14 +76,6 @@ mixin _AlarmManagementOps on _AlarmRepositoryBase {
     )..where((a) => a.requestCode.equals(requestCode))).getSingleOrNull();
     final fireAt =
         DateTime.now().toUtc().millisecondsSinceEpoch + minutes * msPerMinute;
-    await (_db.update(
-      _db.alarmsIndex,
-    )..where((a) => a.requestCode.equals(requestCode))).write(
-      AlarmsIndexCompanion(
-        fireAtUtc: Value(fireAt),
-        state: const Value('scheduled'),
-      ),
-    );
     final preset = AlarmPreset.tryParse(row?.preset);
     await AlarmScheduler.schedule(
       requestCode: requestCode,
@@ -98,6 +93,16 @@ mixin _AlarmManagementOps on _AlarmRepositoryBase {
       sourceId: row?.sourceId,
       kind: row?.kind ?? 'alarm',
       fullScreen: preset?.usesFullScreen ?? false,
+    );
+    // Schedule's native upsert writes state 'scheduled', so the snoozed state
+    // must be written after it. Rebuilds preserve 'snoozed' rows and codes.
+    await (_db.update(
+      _db.alarmsIndex,
+    )..where((a) => a.requestCode.equals(requestCode))).write(
+      AlarmsIndexCompanion(
+        fireAtUtc: Value(fireAt),
+        state: const Value('snoozed'),
+      ),
     );
   }
 
@@ -198,7 +203,7 @@ mixin _AlarmManagementOps on _AlarmRepositoryBase {
     final rows =
         await (_db.select(_db.alarmsIndex)..where(
               (a) =>
-                  a.state.equals('scheduled') &
+                  a.state.isIn(_pendingAlarmStates) &
                   (a.sourceId.equals(id) |
                       a.sourceId.like('$id#%') |
                       a.sourceId.like('$id@%')),
@@ -217,7 +222,7 @@ mixin _AlarmManagementOps on _AlarmRepositoryBase {
   Future<void> markMissedBefore(int nowMs) async {
     await (_db.update(_db.alarmsIndex)..where(
           (a) =>
-              a.state.equals('scheduled') &
+              a.state.isIn(_pendingAlarmStates) &
               a.fireAtUtc.isSmallerThanValue(nowMs),
         ))
         .write(const AlarmsIndexCompanion(state: Value('missed')));

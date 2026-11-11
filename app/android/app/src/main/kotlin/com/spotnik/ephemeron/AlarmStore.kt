@@ -67,7 +67,7 @@ object AlarmStore {
         val db = openOrNull(context, true) ?: return out
         try {
             val c = db.rawQuery(
-                "SELECT request_code FROM alarms_index WHERE state = 'scheduled' AND request_code IS NOT NULL",
+                "SELECT request_code FROM alarms_index WHERE state IN ('scheduled','snoozed') AND request_code IS NOT NULL",
                 null
             )
             while (c.moveToNext()) out.add(c.getInt(0))
@@ -128,7 +128,7 @@ object AlarmStore {
         val db = openOrNull(context, true) ?: return out
         try {
             val c = db.rawQuery(
-                "SELECT request_code, fire_at_utc, title FROM alarms_index WHERE state = 'scheduled' AND fire_at_utc <= ?",
+                "SELECT request_code, fire_at_utc, title FROM alarms_index WHERE state IN ('scheduled','snoozed') AND fire_at_utc <= ?",
                 arrayOf(nowMs.toString())
             )
             while (c.moveToNext()) {
@@ -147,7 +147,7 @@ object AlarmStore {
         val db = openOrNull(context, true) ?: return out
         try {
             val c = db.rawQuery(
-                "SELECT request_code, fire_at_utc, title, source_type, source_id, kind, preset FROM alarms_index WHERE state = 'scheduled' AND request_code IS NOT NULL",
+                "SELECT request_code, fire_at_utc, title, source_type, source_id, kind, preset FROM alarms_index WHERE state IN ('scheduled','snoozed') AND request_code IS NOT NULL",
                 null
             )
             while (c.moveToNext()) {

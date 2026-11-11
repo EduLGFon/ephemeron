@@ -19,12 +19,13 @@ mixin _AlarmRebuildOps
       ...await _habitCandidates(now),
     ];
     final existing = await _db.select(_db.alarmsIndex).get();
-    // Keep a fired row alive while it may still be ringing, so the rebuild
-    // neither cancels its native registration nor reuses its request code.
+    // Keep fired rows alive while they may still be ringing, and snoozed rows
+    // until they fire or are resolved, so the rebuild neither cancels their
+    // native registrations nor reuses their request codes.
     final preserved = existing
         .where(
           (r) =>
-              r.state == 'fired' &&
+              (r.state == 'fired' || r.state == 'snoozed') &&
               r.requestCode != null &&
               r.fireAtUtc >= now - 24 * msPerHour,
         )
