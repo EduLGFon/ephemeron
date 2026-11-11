@@ -110,7 +110,8 @@ extension _AppShellNavigation on _AppShellState {
               builder: (_) => NoteEditorScreen(noteId: id),
             ),
           );
-        } catch (_) {
+        } catch (e) {
+          debugPrint('[more] note creation failed: $e');
           if (context.mounted) {
             showErrorSnackBar(context, 'Could not create a note.');
           }

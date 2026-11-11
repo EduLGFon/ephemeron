@@ -69,7 +69,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Step ${_index + 1} of $_pageCount',
+                  l10n.onboardingStep(_index + 1, _pageCount),
                   key: const ValueKey('onboarding-step'),
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.primary,

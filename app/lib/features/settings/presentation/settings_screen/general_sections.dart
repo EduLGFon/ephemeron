@@ -60,8 +60,9 @@ List<Widget> _accountsSection(_SettingsScreenState state) {
       title: const Text('Account and sync'),
       subtitle: const Text('Sign in to sync your custom data.'),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => Navigator.of(state.context)
-          .push(MaterialPageRoute<void>(builder: (_) => const AuthScreen())),
+      onTap: () => Navigator.of(
+        state.context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const AuthScreen())),
     ),
     const _LastSyncTile(),
     SettingsPickerTile<int>(
@@ -204,8 +205,24 @@ class _LastSyncTile extends ConsumerWidget {
     try {
       await ref.read(syncAllProvider)();
       if (!context.mounted) return;
-      AppFeedback.success();
-      showAppSnackBar(context, 'Sync complete', icon: Icons.sync);
+      // syncAllProvider reports failures through status, not by throwing.
+      final status = ref.read(combinedSyncStatusProvider);
+      if (status == SyncStatus.synced) {
+        AppFeedback.success();
+        showAppSnackBar(context, 'Sync complete', icon: Icons.sync);
+      } else if (status == SyncStatus.offline) {
+        AppFeedback.warning();
+        showAppSnackBar(
+          context,
+          'Offline. Changes are queued and will sync when you reconnect.',
+          icon: Icons.cloud_off,
+        );
+      } else if (status == SyncStatus.error) {
+        AppFeedback.error();
+        showErrorSnackBar(context, 'Could not sync. Check your connection.');
+      } else {
+        showAppSnackBar(context, 'Sync is still running', icon: Icons.sync);
+      }
     } catch (_) {
       if (!context.mounted) return;
       AppFeedback.error();

@@ -97,11 +97,12 @@ class MoreSheet extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
+                    // Three columns on narrow phones keeps all five actions
+                    // readable instead of wrapping 4 + 1.
+                    final columns = constraints.maxWidth < 420 ? 3 : 5;
                     final tileWidth =
-                        ((constraints.maxWidth - AppSpace.sm * 4) / 5).clamp(
-                          56.0,
-                          120.0,
-                        );
+                        (constraints.maxWidth - AppSpace.sm * (columns - 1)) /
+                        columns;
                     return Wrap(
                       spacing: AppSpace.sm,
                       runSpacing: AppSpace.sm,

@@ -84,6 +84,28 @@ void main() {
     expect(selected, 4);
   });
 
+  testWidgets('more sheet uses three columns on a 320dp screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_sheet());
+
+    expect(tester.takeException(), isNull);
+    final keys = <String>['task', 'event', 'note', 'habit', 'countdown'];
+    final tops = <double>[
+      for (final key in keys)
+        tester.getTopLeft(find.byKey(ValueKey('more-create-$key'))).dy,
+    ];
+    expect(tops[0], tops[1]);
+    expect(tops[1], tops[2]);
+    expect(tops[3], tops[4]);
+    expect(tops[3], greaterThan(tops[2]));
+  });
+
   test(
     'default navigation order leads with Calendar, Tasks and Notes',
     () async {
