@@ -91,9 +91,12 @@ class _Attendees extends ConsumerWidget {
     // Agenda/timeline styling also depends on the resolved self RSVP.
     container.invalidate(selfRsvpForEventProvider(eventId));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
+    AppFeedback.tap();
+    showAppSnackBar(
       context,
-    ).showSnackBar(SnackBar(content: Text('RSVP: $rsvp')));
+      'RSVP: $rsvp',
+      icon: Icons.event_available_outlined,
+    );
   }
 }
 
@@ -135,9 +138,8 @@ String _when(BuildContext context, Event e) {
   if (e.isAllDay) {
     if (e.startDate == null) return '';
     try {
-      return DeviceDateFormat.yMMMd(
-        context,
-      ).format(DateTime.parse(e.startDate!));
+      return DeviceDateFormat.yMMMd(context)
+          .format(DateTime.parse(e.startDate!));
     } catch (_) {
       return e.startDate!;
     }

@@ -90,6 +90,7 @@ import 'cases/timeline_multiday_overflow_case.dart' as timeline_multiday_overflo
 import 'cases/timeline_now_controller_case.dart' as timeline_now_controller;
 import 'cases/timeline_persist_case.dart' as timeline_persist;
 import 'cases/timeline_view_case.dart' as timeline_view;
+import 'cases/ux_calendar_case.dart' as ux_calendar;
 import 'cases/ux_foundation_case.dart' as ux_foundation;
 import 'cases/ux_shell_case.dart' as ux_shell;
 import 'cases/week_calendar_case.dart' as week_calendar;
@@ -184,6 +185,7 @@ const _included = <String>{
   'timeline_now_controller_case.dart',
   'timeline_persist_case.dart',
   'timeline_view_case.dart',
+  'ux_calendar_case.dart',
   'ux_foundation_case.dart',
   'ux_shell_case.dart',
   'week_calendar_case.dart',
@@ -285,6 +287,7 @@ void main() {
   group('timeline_now_controller', timeline_now_controller.main);
   group('timeline_persist', timeline_persist.main);
   group('timeline_view', timeline_view.main);
+  group('ux_calendar', ux_calendar.main);
   group('ux_foundation', ux_foundation.main);
   group('ux_shell', ux_shell.main);
   group('week_calendar', week_calendar.main);

@@ -20,19 +20,13 @@ Future<void> _delete(BuildContext context, WidgetRef ref, Event e) async {
         scope: scope,
       );
       if (context.mounted) {
-        final messenger = ScaffoldMessenger.of(context);
-        Navigator.of(context).pop();
-        messenger.showSnackBar(
-          SnackBar(
-            content: const Text('Event deleted'),
-            duration: const Duration(seconds: 6),
-            persist: false,
-            action: SnackBarAction(
-              label: 'Undo',
-              onPressed: () => pending.cancel(opId),
-            ),
-          ),
+        AppFeedback.warning();
+        showUndoSnackBar(
+          context,
+          'Event deleted',
+          onUndo: () => pending.cancel(opId),
         );
+        Navigator.of(context).pop();
       }
       return;
     }
@@ -60,18 +54,12 @@ Future<void> _delete(BuildContext context, WidgetRef ref, Event e) async {
   final pending = ref.read(pendingOperationsProvider);
   final opId = await pending.scheduleEventDelete(e.id);
   if (context.mounted) {
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.of(context).pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: const Text('Event deleted'),
-        duration: const Duration(seconds: 6),
-        persist: false,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => pending.cancel(opId),
-        ),
-      ),
+    AppFeedback.warning();
+    showUndoSnackBar(
+      context,
+      'Event deleted',
+      onUndo: () => pending.cancel(opId),
     );
+    Navigator.of(context).pop();
   }
 }

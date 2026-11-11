@@ -40,22 +40,22 @@ class _AgendaHeader extends StatelessWidget {
 }
 
 class _EmptyAgenda extends StatelessWidget {
-  const _EmptyAgenda();
+  const _EmptyAgenda({required this.day});
+
+  final DateTime day;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       key: const Key('month-agenda-empty'),
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.event_busy_outlined, size: 48),
-            SizedBox(height: 8),
-            Text('Nothing scheduled'),
-          ],
-        ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: EmptyState(
+        compact: true,
+        icon: Icons.event_available_outlined,
+        title: 'Nothing on this day',
+        actionLabel: 'Add event',
+        onAction: () =>
+            showEventEditor(context, initialDay: day, initialHour: 9),
       ),
     );
   }

@@ -3,13 +3,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/time/device_date_format.dart';
 import '../../../core/time/time.dart';
+import '../../../core/ui/empty_state.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/habits/habit_calendar_entry.dart';
 import '../application/calendar_providers.dart';
 import '../application/calendar_state.dart';
 import 'agenda_event_tile.dart';
 import 'event_details_sheet.dart';
+import 'event_editor_sheet.dart';
 import 'task_action_sheet.dart';
 import 'habit_calendar_marker.dart';
 
@@ -41,7 +44,7 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
             (building || _lastOccurrences.isEmpty)) {
           return const Center(child: CircularProgressIndicator());
         }
-        return _body(context, filtered, visibleHabits);
+        return _body(context, filtered, visibleHabits, window.anchor);
       },
       error: (e, _) => Center(
         child: Column(
@@ -61,7 +64,7 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
         if (filtered.isEmpty && visibleHabits.isEmpty && building) {
           return const Center(child: CircularProgressIndicator());
         }
-        return _body(context, filtered, visibleHabits);
+        return _body(context, filtered, visibleHabits, window.anchor);
       },
     );
   }
@@ -102,17 +105,16 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
     BuildContext context,
     List<OccurrenceCacheData> occs,
     List<HabitCalendarEntry> habits,
+    DateTime anchor,
   ) {
     if (occs.isEmpty && habits.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.event_busy_outlined, size: 48),
-            SizedBox(height: 8),
-            Text('Nothing scheduled'),
-          ],
-        ),
+      return EmptyState(
+        icon: Icons.event_available_outlined,
+        title: 'Nothing scheduled',
+        subtitle: 'Your agenda is clear.',
+        actionLabel: 'Add event',
+        onAction: () =>
+            showEventEditor(context, initialDay: anchor, initialHour: 9),
       );
     }
     final occByDay = <String, List<OccurrenceCacheData>>{};
@@ -124,12 +126,25 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
       habitByDay.putIfAbsent(h.dayKey, () => []).add(h);
     }
     final days = {...occByDay.keys, ...habitByDay.keys}.toList()..sort();
+    final today = DateTime.now();
     final items = <Widget>[];
     for (final d in days) {
+      final day = DateTime.tryParse(d);
+      final label = day == null
+          ? d
+          : agendaDayLabel(
+              day,
+              today: today,
+              weekdayShort: DeviceDateFormat.weekday(context, day),
+              monthShort: DeviceDateFormat.shortMonthName(context, day.month),
+            );
       items.add(
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(d, style: Theme.of(context).textTheme.titleSmall),
+          child: Semantics(
+            header: true,
+            child: Text(label, style: Theme.of(context).textTheme.titleSmall),
+          ),
         ),
       );
       final dayHabits = habitByDay[d] ?? const <HabitCalendarEntry>[];
@@ -179,3 +194,24 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
 }
 
 String agendaDayKey(DateTime d) => dateKey(d);
+
+/// Human-friendly agenda group header.
+///
+/// [weekdayShort] and [monthShort] are passed in so the label stays pure and
+/// unit testable; the widget resolves them with `DeviceDateFormat`.
+String agendaDayLabel(
+  DateTime day, {
+  required DateTime today,
+  required String weekdayShort,
+  required String monthShort,
+}) {
+  final date = DateTime(day.year, day.month, day.day);
+  final now = DateTime(today.year, today.month, today.day);
+  final dateLabel = date.year == now.year
+      ? '$monthShort ${date.day}'
+      : '$monthShort ${date.day}, ${date.year}';
+  final diff = date.difference(now).inDays;
+  if (diff == 0) return 'Today, $dateLabel';
+  if (diff == 1) return 'Tomorrow, $dateLabel';
+  return '$weekdayShort, $dateLabel';
+}
