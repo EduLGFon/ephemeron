@@ -25,6 +25,37 @@ class TaskActionSheet extends ConsumerWidget {
     return occurrenceDate.compareTo(effective) > 0;
   }
 
+  Future<void> _runAndClose(
+    BuildContext context, {
+    required Future<void> Function() action,
+    required String message,
+    VoidCallback? onUndo,
+    bool warning = false,
+  }) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    try {
+      await action();
+    } catch (_) {
+      if (messenger != null && navigator.mounted) {
+        showErrorSnackBar(navigator.context, 'Could not update task.');
+      }
+      return;
+    }
+    if (warning) {
+      AppFeedback.warning();
+    } else {
+      AppFeedback.success();
+    }
+    if (messenger == null || !navigator.mounted) return;
+    if (onUndo != null) {
+      showUndoSnackBar(navigator.context, message, onUndo: onUndo);
+    } else {
+      showAppSnackBar(navigator.context, message);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final db = ref.watch(appDatabaseProvider);
@@ -120,6 +151,7 @@ class TaskActionSheet extends ConsumerWidget {
 
         final done = task.completedAt != null;
         final wontDo = task.wontDo;
+        final previousCompletedAt = task.completedAt;
 
         return SingleChildScrollView(
           child: Column(
@@ -161,18 +193,27 @@ class TaskActionSheet extends ConsumerWidget {
                   ListTile(
                     leading: const Icon(Icons.check_rounded),
                     title: const Text('Mark as concluded'),
-                    onTap: () async {
-                      Navigator.of(context).pop();
-                      await repo.completeTaskOccurrence(task, occurrenceDate);
-                    },
+                    onTap: () => _runAndClose(
+                      context,
+                      action: () =>
+                          repo.completeTaskOccurrence(task, occurrenceDate),
+                      message: 'Occurrence completed',
+                      onUndo: () =>
+                          repo.uncompleteTaskOccurrence(task, occurrenceDate),
+                    ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.block_rounded),
                     title: const Text("Won't do"),
-                    onTap: () async {
-                      Navigator.of(context).pop();
-                      await repo.markWontDoTaskOccurrence(task, occurrenceDate);
-                    },
+                    onTap: () => _runAndClose(
+                      context,
+                      action: () =>
+                          repo.markWontDoTaskOccurrence(task, occurrenceDate),
+                      message: "Marked won't do",
+                      warning: true,
+                      onUndo: () =>
+                          repo.uncompleteTaskOccurrence(task, occurrenceDate),
+                    ),
                   ),
                 ] else ...[
                   ListTile(
@@ -182,14 +223,18 @@ class TaskActionSheet extends ConsumerWidget {
                     title: Text(
                       done ? 'Mark as not concluded' : 'Mark as concluded',
                     ),
-                    onTap: () async {
-                      Navigator.of(context).pop();
-                      if (done) {
-                        await repo.uncompleteTask(taskId);
-                      } else {
-                        await repo.completeTask(taskId);
-                      }
-                    },
+                    onTap: () => _runAndClose(
+                      context,
+                      action: () => done
+                          ? repo.uncompleteTask(taskId)
+                          : repo.completeTask(taskId),
+                      message: done
+                          ? 'Task reopened'
+                          : 'Completed "${task.title}"',
+                      onUndo: done
+                          ? () => repo.completeTask(taskId)
+                          : () => repo.uncompleteTask(taskId),
+                    ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.block_rounded),
@@ -197,11 +242,37 @@ class TaskActionSheet extends ConsumerWidget {
                     enabled: !wontDo,
                     onTap: wontDo
                         ? null
-                        : () async {
-                            Navigator.of(context).pop();
-                            await repo.markWontDo(taskId);
-                          },
+                        : () => _runAndClose(
+                            context,
+                            action: () => repo.markWontDo(taskId),
+                            message: "Marked won't do",
+                            warning: true,
+                            onUndo: () async {
+                              await repo.updateTask(taskId, wontDo: false);
+                              if (previousCompletedAt != null) {
+                                await repo.completeTask(
+                                  taskId,
+                                  at: DateTime.fromMillisecondsSinceEpoch(
+                                    previousCompletedAt,
+                                    isUtc: true,
+                                  ),
+                                );
+                              } else {
+                                await repo.uncompleteTask(taskId);
+                              }
+                            },
+                          ),
                   ),
+                  if (isRecurring)
+                    ListTile(
+                      leading: const Icon(Icons.skip_next),
+                      title: const Text('Skip occurrence'),
+                      onTap: () => _runAndClose(
+                        context,
+                        action: () => repo.skipOccurrence(taskId),
+                        message: 'Skipped occurrence',
+                      ),
+                    ),
                 ],
               ],
               ListTile(
@@ -251,11 +322,26 @@ class TaskActionSheet extends ConsumerWidget {
                                 onPressed: readOnly
                                     ? null
                                     : () async {
-                                        if (s.completedAt != null) {
-                                          await repo.uncompleteTask(s.id);
-                                        } else {
-                                          await repo.completeTask(s.id);
-                                        }
+                                        final completing =
+                                            s.completedAt == null;
+                                        AppFeedback.success();
+                                        await (completing
+                                            ? repo.completeTask(s.id)
+                                            : repo.uncompleteTask(s.id));
+                                        if (!context.mounted) return;
+                                        showUndoSnackBar(
+                                          context,
+                                          completing
+                                              ? 'Subtask completed'
+                                              : 'Subtask reopened',
+                                          onUndo: () {
+                                            if (completing) {
+                                              repo.uncompleteTask(s.id);
+                                            } else {
+                                              repo.completeTask(s.id);
+                                            }
+                                          },
+                                        );
                                       },
                               ),
                               title: Text(s.title),

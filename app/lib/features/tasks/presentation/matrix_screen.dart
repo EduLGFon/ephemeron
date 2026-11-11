@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/ui/empty_state.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/tasks/eisenhower.dart';
 import '../../sync/presentation/sync_title.dart';
@@ -30,7 +31,13 @@ class MatrixScreen extends ConsumerWidget {
       ),
       body: tasksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => const Center(child: Text('Could not load.')),
+        error: (e, _) => EmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: 'Could not load matrix',
+          subtitle: 'Check your connection and try again.',
+          actionLabel: 'Retry',
+          onAction: () => ref.invalidate(openTasksProvider(null)),
+        ),
         data: (tasks) {
           final grouped = _groupTasks(tasks, mode);
           return Column(

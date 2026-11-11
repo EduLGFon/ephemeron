@@ -1,5 +1,6 @@
 // Quick-add shorthand parser. Pure Dart.
-// Shorthands: #tag, ~list, -p1..-p4. Remainder goes through natural parsing.
+// Shorthands: #tag, ~list, -p1..-p4. Quoted names (#"my tag",
+// ~"My List") preserve spaces. Remainder goes through natural parsing.
 import 'natural_date_parser.dart';
 
 class QuickAddParsed {
@@ -23,24 +24,20 @@ class QuickAddParsed {
 QuickAddParsed parseQuickAdd(String input, {DateTime? now}) {
   var working = ' $input ';
   final tags = <String>[];
-  for (final m in RegExp(
-    r'#([\p{L}\p{N}_-]+)',
-    unicode: true,
-  ).allMatches(working)) {
-    tags.add(m.group(1)!.toLowerCase());
+  final tagPattern = RegExp(r'#(?:"([^"]+)"|([\p{L}\p{N}_-]+))', unicode: true);
+  for (final m in tagPattern.allMatches(working)) {
+    tags.add((m.group(1) ?? m.group(2)!).toLowerCase());
   }
-  working = working.replaceAll(
-    RegExp(r'#([\p{L}\p{N}_-]+)', unicode: true),
-    ' ',
-  );
+  working = working.replaceAll(tagPattern, ' ');
 
   String? list;
-  final listM = RegExp(
-    r'~([\p{L}\p{N}_-]+)',
+  final listPattern = RegExp(
+    r'~(?:"([^"]+)"|([\p{L}\p{N}_-]+))',
     unicode: true,
-  ).firstMatch(working);
+  );
+  final listM = listPattern.firstMatch(working);
   if (listM != null) {
-    list = listM.group(1)!;
+    list = listM.group(1) ?? listM.group(2)!;
     working = working.replaceFirst(listM.group(0)!, ' ');
   }
 

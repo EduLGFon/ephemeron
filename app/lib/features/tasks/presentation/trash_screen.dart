@@ -1,7 +1,10 @@
-// Trash: restore, permanent delete, empty old items.
+// Trash: restore, permanent delete, empty old items. Permanent deletion uses
+// the shared 6 s undo snack bar instead of a second confirmation dialog.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/ui/app_feedback.dart';
+import '../../../core/ui/empty_state.dart';
 import '../../sync/application/pending_operations.dart';
 import '../application/tasks_providers.dart';
 
@@ -20,24 +23,17 @@ class TrashScreen extends ConsumerWidget {
               final ids = await ref.read(taskRepositoryProvider).oldTrashIds();
               if (!context.mounted) return;
               if (ids.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Nothing to purge')),
-                );
+                showAppSnackBar(context, 'Nothing to purge');
                 return;
               }
               final pending = ref.read(pendingOperationsProvider);
               final opIds = await pending.scheduleTaskPurgeAll(ids);
+              AppFeedback.warning();
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Purged ${ids.length} old items'),
-                  duration: const Duration(seconds: 6),
-                  persist: false,
-                  action: SnackBarAction(
-                    label: 'Undo',
-                    onPressed: () => pending.cancelAll(opIds),
-                  ),
-                ),
+              showUndoSnackBar(
+                context,
+                'Purged ${ids.length} old items',
+                onUndo: () => pending.cancelAll(opIds),
               );
             },
             child: const Text('Empty old'),
@@ -49,55 +45,35 @@ class TrashScreen extends ConsumerWidget {
         error: (e, _) => const Center(child: Text('Could not load trash.')),
         data: (tasks) {
           if (tasks.isEmpty) {
-            return const Center(child: Text('Trash is empty'));
+            return const EmptyState(
+              icon: Icons.delete_outline,
+              title: 'Trash is empty',
+              subtitle: 'Deleted tasks wait here before they are removed.',
+            );
           }
           return ListView.builder(
             itemCount: tasks.length,
             itemBuilder: (context, i) {
               final t = tasks[i];
+              final scheme = Theme.of(context).colorScheme;
               return Dismissible(
                 key: ValueKey(t.id),
                 direction: DismissDirection.endToStart,
                 background: Container(
-                  color: Colors.red,
+                  color: scheme.error,
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 16),
-                  child: const Icon(Icons.delete_forever, color: Colors.white),
+                  child: Icon(Icons.delete_forever, color: scheme.onError),
                 ),
-                confirmDismiss: (_) async {
-                  return await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Delete forever?'),
-                          content: Text('"${t.title}" cannot be recovered.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(ctx).pop(false),
-                              child: const Text('Cancel'),
-                            ),
-                            FilledButton(
-                              onPressed: () => Navigator.of(ctx).pop(true),
-                              child: const Text('Delete'),
-                            ),
-                          ],
-                        ),
-                      ) ??
-                      false;
-                },
                 onDismissed: (_) async {
                   final pending = ref.read(pendingOperationsProvider);
                   final opId = await pending.scheduleTaskPurge(t.id);
+                  AppFeedback.warning();
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Deleting "${t.title}" forever'),
-                      duration: const Duration(seconds: 6),
-                      persist: false,
-                      action: SnackBarAction(
-                        label: 'Undo',
-                        onPressed: () => pending.cancel(opId),
-                      ),
-                    ),
+                  showUndoSnackBar(
+                    context,
+                    'Deleted "${t.title}" forever',
+                    onUndo: () => pending.cancel(opId),
                   );
                 },
                 child: ListTile(
@@ -105,8 +81,18 @@ class TrashScreen extends ConsumerWidget {
                   trailing: IconButton(
                     icon: const Icon(Icons.restore),
                     tooltip: 'Restore',
-                    onPressed: () =>
-                        ref.read(taskRepositoryProvider).restoreTasks([t.id]),
+                    onPressed: () async {
+                      await ref.read(taskRepositoryProvider).restoreTasks([
+                        t.id,
+                      ]);
+                      AppFeedback.success();
+                      if (!context.mounted) return;
+                      showAppSnackBar(
+                        context,
+                        'Restored "${t.title}"',
+                        icon: Icons.restore,
+                      );
+                    },
                   ),
                 ),
               );

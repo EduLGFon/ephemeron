@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 
+import '../../../core/ui/app_feedback.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/sources/microsoft_source.dart';
 import '../application/tasks_providers.dart';
@@ -114,18 +115,13 @@ class _MatrixTaskRowContent extends ConsumerWidget {
 
   Future<void> _complete(BuildContext context, WidgetRef ref) async {
     final repo = ref.read(taskRepositoryProvider);
+    AppFeedback.success();
     await repo.completeTask(task.id);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Completed "${task.title}"'),
-        duration: const Duration(seconds: 6),
-        persist: false,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => repo.uncompleteTask(task.id),
-        ),
-      ),
+    showUndoSnackBar(
+      context,
+      'Completed "${task.title}"',
+      onUndo: () => repo.uncompleteTask(task.id),
     );
   }
 }

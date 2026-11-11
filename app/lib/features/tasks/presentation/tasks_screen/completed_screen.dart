@@ -86,9 +86,17 @@ class _CompletedScreen extends ConsumerWidget {
                     tooltip: 'Reopen',
                     onPressed: isMs
                         ? null
-                        : () => ref
-                              .read(taskRepositoryProvider)
-                              .uncompleteTask(t.id),
+                        : () async {
+                            final repo = ref.read(taskRepositoryProvider);
+                            AppFeedback.success();
+                            await repo.uncompleteTask(t.id);
+                            if (!context.mounted) return;
+                            showUndoSnackBar(
+                              context,
+                              'Task reopened',
+                              onUndo: () => repo.completeTask(t.id),
+                            );
+                          },
                   ),
                 );
               },
