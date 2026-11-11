@@ -129,9 +129,7 @@ final searchTagsProvider = FutureProvider<List<Tag>>((ref) async {
 });
 
 /// Open tasks carrying [tagId], used by the tag result sheet.
-final searchTasksForTagProvider = FutureProvider.family<List<Task>, String>((
-  ref,
-  tagId,
-) {
-  return ref.watch(_taskRepositoryProvider).searchTasksForTag(tagId);
-});
+final searchTasksForTagProvider = FutureProvider.autoDispose
+    .family<List<Task>, String>((ref, tagId) {
+      return ref.watch(_taskRepositoryProvider).searchTasksForTag(tagId);
+    });

@@ -11,6 +11,7 @@ import 'package:ephemeron/features/search/application/search_providers.dart';
 import 'package:ephemeron/features/search/presentation/search_screen.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
+import 'package:ephemeron/features/sync/application/pending_operations.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -80,6 +81,37 @@ void main() {
 
     await repo.completeTask(tagged);
     expect(await repo.searchTasksForTag(tag.id), isEmpty);
+  });
+
+  test('searchTasksForTag excludes soft and pending deletes', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final container = ProviderContainer(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+    );
+    addTearDown(container.dispose);
+    final repo = TaskRepository(db);
+    final listId = await repo.createList('Inbox');
+    await repo.createTask(title: 'Keep', listId: listId, tags: ['groceries']);
+    final softDeleted = await repo.createTask(
+      title: 'Soft deleted',
+      listId: listId,
+      tags: ['groceries'],
+    );
+    final pendingDeleted = await repo.createTask(
+      title: 'Pending delete',
+      listId: listId,
+      tags: ['groceries'],
+    );
+    final tag = (await repo.searchTags('groc')).single;
+
+    await repo.softDeleteTasks([softDeleted]);
+    await container
+        .read(pendingOperationsProvider)
+        .scheduleTaskDelete(pendingDeleted);
+
+    final results = await repo.searchTasksForTag(tag.id);
+    expect(results.map((t) => t.title), ['Keep']);
   });
 
   testWidgets('empty query shows actionable example searches', (tester) async {
@@ -165,6 +197,39 @@ void main() {
 
     expect(find.text('No results'), findsNothing);
     expect(find.text('Type to search.'), findsOneWidget);
+  });
+
+  testWidgets('group errors show search failed with retry', (tester) async {
+    final db = _db();
+    addTearDown(db.close);
+    var attempts = 0;
+    final settings = await _settings();
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        settingsRepositoryProvider.overrideWith((ref) async => settings),
+        searchTasksProvider.overrideWith((ref) async {
+          attempts++;
+          throw StateError('boom');
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(_app(container));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('search-field')), 'zzzz');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search failed'), findsOneWidget);
+    expect(find.text('No results'), findsNothing);
+    expect(attempts, 1);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(attempts, greaterThan(1));
   });
 
   testWidgets('unresolved groups show the list skeleton, then no results', (

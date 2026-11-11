@@ -3,6 +3,8 @@ part of '../search_screen.dart';
 bool _show(SearchScope scope, SearchScope s) =>
     scope == SearchScope.all || scope == s;
 
+const _tagTaskLimit = 50;
+
 class _Results extends ConsumerWidget {
   const _Results({
     required this.scope,
@@ -15,6 +17,17 @@ class _Results extends ConsumerWidget {
   final AppLocalizations l;
   final String query;
   final Future<void> Function() onClear;
+
+  void _retry(WidgetRef ref) {
+    if (_show(scope, SearchScope.tasks)) ref.invalidate(searchTasksProvider);
+    if (_show(scope, SearchScope.events)) ref.invalidate(searchEventsProvider);
+    if (_show(scope, SearchScope.notes)) ref.invalidate(searchNotesProvider);
+    if (_show(scope, SearchScope.habits)) ref.invalidate(searchHabitsProvider);
+    if (_show(scope, SearchScope.countdowns)) {
+      ref.invalidate(searchCountdownsProvider);
+    }
+    if (_show(scope, SearchScope.tags)) ref.invalidate(searchTagsProvider);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,41 +54,57 @@ class _Results extends ConsumerWidget {
         ? ref.watch(searchTagsProvider)
         : null;
 
-    final states = <({bool loading, bool hasRows})>[
+    final states = <({bool loading, bool hasRows, bool hasError})>[
       if (tasks != null)
         (
           loading: tasks.isLoading,
           hasRows: tasks.hasValue && tasks.requireValue.isNotEmpty,
+          hasError: tasks.hasError,
         ),
       if (events != null)
         (
           loading: events.isLoading,
           hasRows: events.hasValue && events.requireValue.isNotEmpty,
+          hasError: events.hasError,
         ),
       if (notes != null)
         (
           loading: notes.isLoading,
           hasRows: notes.hasValue && notes.requireValue.isNotEmpty,
+          hasError: notes.hasError,
         ),
       if (habits != null)
         (
           loading: habits.isLoading,
           hasRows: habits.hasValue && habits.requireValue.isNotEmpty,
+          hasError: habits.hasError,
         ),
       if (countdowns != null)
         (
           loading: countdowns.isLoading,
           hasRows: countdowns.hasValue && countdowns.requireValue.isNotEmpty,
+          hasError: countdowns.hasError,
         ),
       if (tags != null)
         (
           loading: tags.isLoading,
           hasRows: tags.hasValue && tags.requireValue.isNotEmpty,
+          hasError: tags.hasError,
         ),
     ];
     final hasRows = states.any((state) => state.hasRows);
     final anyLoading = states.any((state) => state.loading);
+    final anyError = states.any((state) => state.hasError);
 
+    if (!hasRows && anyError) {
+      return EmptyState(
+        icon: Icons.error_outline,
+        title: 'Search failed',
+        subtitle: 'Some results could not be loaded.',
+        actionLabel: 'Retry',
+        onAction: () => _retry(ref),
+      );
+    }
     if (!hasRows && anyLoading) return AppSkeleton.list(context);
     if (!hasRows) {
       return EmptyState(
@@ -251,7 +280,7 @@ class _SnippetLine extends StatelessWidget {
     return Text.rich(
       TextSpan(
         children: [
-          for (final span in highlightSnippet(snippet, query))
+          for (final span in highlightSnippet(snippet, sanitizeSearch(query)))
             TextSpan(
               text: span.text,
               style: span.bold
@@ -295,24 +324,40 @@ class _TagTasksSheet extends ConsumerWidget {
           const SizedBox(height: 8),
           Flexible(
             child: tasks.when(
-              data: (items) => items.isEmpty
-                  ? const EmptyState(
-                      icon: Icons.inbox_outlined,
-                      title: 'No open tasks',
-                      compact: true,
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: items.length,
-                      itemBuilder: (_, i) {
-                        final task = items[i];
-                        return ListTile(
-                          leading: const Icon(Icons.checklist_outlined),
-                          title: Text(task.title),
-                          onTap: () => showTaskEditor(context, task: task),
-                        );
-                      },
-                    ),
+              data: (items) {
+                if (items.isEmpty) {
+                  return const EmptyState(
+                    icon: Icons.inbox_outlined,
+                    title: 'No open tasks',
+                    compact: true,
+                  );
+                }
+                final atCap = items.length >= _tagTaskLimit;
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: items.length + (atCap ? 1 : 0),
+                  itemBuilder: (_, i) {
+                    if (atCap && i == items.length) {
+                      final theme = Theme.of(context);
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Text(
+                          'Showing the first $_tagTaskLimit open tasks',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      );
+                    }
+                    final task = items[i];
+                    return ListTile(
+                      leading: const Icon(Icons.checklist_outlined),
+                      title: Text(task.title),
+                      onTap: () => showTaskEditor(context, task: task),
+                    );
+                  },
+                );
+              },
               loading: () => AppSkeleton.list(context, itemCount: 4),
               error: (_, _) => const EmptyState(
                 icon: Icons.error_outline,
