@@ -66,84 +66,81 @@ class YearView extends ConsumerWidget {
     final max = monthCounts.values.fold<int>(1, (a, b) => a > b ? a : b);
     final now = DateTime.now();
     final isCurrentYear = year == now.year;
+    final countsPending = building && occs.isEmpty;
 
     final notifier = ref.read(calendarStateProvider.notifier);
 
-    return Stack(
+    return Column(
       children: [
-        Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  _chip(context, 'Events', totalEvents),
-                  _chip(context, 'Tasks', totalTasks),
-                  _chip(context, 'Active days', activeDays.length),
-                  _chip(
-                    context,
-                    'Busiest',
-                    busiestCount,
-                    label: busiestCount == 0
-                        ? '-'
-                        : '${DeviceDateFormat.shortMonthName(context, busiestMonth)} ($busiestCount)',
-                  ),
-                  _chip(context, 'Longest streak', longestStreak),
-                ],
-              ),
-            ),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: 1.4,
+        if (countsPending)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: LinearProgressIndicator(minHeight: 2),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                _chip(context, 'Events', totalEvents),
+                _chip(context, 'Tasks', totalTasks),
+                _chip(context, 'Active days', activeDays.length),
+                _chip(
+                  context,
+                  'Busiest',
+                  busiestCount,
+                  label: busiestCount == 0
+                      ? '-'
+                      : '${DeviceDateFormat.shortMonthName(context, busiestMonth)} ($busiestCount)',
                 ),
-                itemCount: 12,
-                itemBuilder: (ctx, m) {
-                  final month = m + 1;
-                  final c = monthCounts[month] ?? 0;
-                  final isCurrentMonth = isCurrentYear && month == now.month;
-                  return Semantics(
-                    label:
-                        'Open ${DeviceDateFormat.monthName(context, month)} $year, $c items',
-                    button: true,
-                    child: InkWell(
-                      onTap: () => notifier.openMonth(year, month),
-                      child: Card(
-                        color: Theme.of(context).colorScheme.primary.withValues(
-                          alpha: 0.1 + 0.5 * c / max,
-                        ),
-                        shape: isCurrentMonth
-                            ? RoundedRectangleBorder(
-                                side: BorderSide(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  width: 2,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              )
-                            : null,
-                        child: Center(
-                          child: Text(
-                            '${DeviceDateFormat.shortMonthName(context, month)}\n$c',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
+                _chip(context, 'Longest streak', longestStreak),
+              ],
+            ),
+          ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(12),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 1.4,
+            ),
+            itemCount: 12,
+            itemBuilder: (ctx, m) {
+              final month = m + 1;
+              final c = monthCounts[month] ?? 0;
+              final isCurrentMonth = isCurrentYear && month == now.month;
+              return Semantics(
+                label:
+                    'Open ${DeviceDateFormat.monthName(context, month)} $year, $c items',
+                button: true,
+                child: InkWell(
+                  onTap: () => notifier.openMonth(year, month),
+                  child: Card(
+                    color: Theme.of(context).colorScheme.primary
+                        .withValues(alpha: 0.1 + 0.5 * c / max),
+                    shape: isCurrentMonth
+                        ? RoundedRectangleBorder(
+                            side: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          )
+                        : null,
+                    child: Center(
+                      child: Text(
+                        '${DeviceDateFormat.shortMonthName(context, month)}\n$c',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-        if (monthCounts.isEmpty && building)
-          const Align(
-            alignment: Alignment.topCenter,
-            child: LinearProgressIndicator(minHeight: 2),
+                  ),
+                ),
+              );
+            },
           ),
+        ),
       ],
     );
   }

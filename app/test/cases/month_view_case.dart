@@ -184,7 +184,8 @@ void main() {
     await _revealAgenda(tester);
 
     expect(find.byKey(const Key('month-agenda-empty')), findsOneWidget);
-    expect(find.text('Nothing scheduled'), findsOneWidget);
+    expect(find.text('Nothing on this day'), findsOneWidget);
+    expect(find.text('Add event'), findsOneWidget);
     await _tearDown(tester, db);
   });
 
@@ -297,7 +298,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(tester.takeException(), null);
-    expect(find.text(dateKey(day)), findsOneWidget);
+    expect(find.textContaining('Today, '), findsOneWidget);
     expect(find.text('Standup'), findsOneWidget);
     expect(
       find.byKey(ValueKey('agenda-habit-$habitId-${dateKey(day)}')),

@@ -88,19 +88,13 @@ class _TaskDetailsBody extends ConsumerWidget {
                                     .markDirty();
                               } catch (_) {}
                               if (!context.mounted) return;
-                              final messenger = ScaffoldMessenger.of(context);
-                              Navigator.of(context).pop();
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text('Deleted "${t.title}"'),
-                                  duration: const Duration(seconds: 6),
-                                  persist: false,
-                                  action: SnackBarAction(
-                                    label: 'Undo',
-                                    onPressed: () => pending.cancel(opId),
-                                  ),
-                                ),
+                              AppFeedback.warning();
+                              showUndoSnackBar(
+                                context,
+                                'Deleted "${t.title}"',
+                                onUndo: () => pending.cancel(opId),
                               );
+                              Navigator.of(context).pop();
                             },
                       child: const Text('Delete'),
                     ),

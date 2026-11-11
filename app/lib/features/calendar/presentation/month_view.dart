@@ -4,12 +4,14 @@ import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/time/time.dart';
+import '../../../core/ui/empty_state.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/habits/habit_calendar_entry.dart';
 import '../application/calendar_providers.dart';
 import '../application/calendar_state.dart';
 import 'agenda_event_tile.dart';
 import 'event_details_sheet.dart';
+import 'event_editor_sheet.dart';
 import 'task_action_sheet.dart';
 import 'google_calendar_colors.dart';
 import 'habit_calendar_marker.dart';
@@ -117,9 +119,8 @@ class _MonthViewState extends ConsumerState<MonthView> {
                                       dateKey(days[week * 7 + dow]) ==
                                       selectedKey,
                                   isPastDay:
-                                      dateKey(
-                                        days[week * 7 + dow],
-                                      ).compareTo(todayKey) <
+                                      dateKey(days[week * 7 + dow])
+                                          .compareTo(todayKey) <
                                       0,
                                   occurrences:
                                       byDay[dateKey(days[week * 7 + dow])] ??
@@ -161,7 +162,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
               ),
             ),
             if (selectedOccs.isEmpty && selectedHabits.isEmpty)
-              const SliverToBoxAdapter(child: _EmptyAgenda())
+              SliverToBoxAdapter(child: _EmptyAgenda(day: selectedDay))
             else ...[
               if (selectedHabits.isNotEmpty)
                 SliverToBoxAdapter(

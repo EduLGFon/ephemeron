@@ -5,6 +5,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/ui/app_feedback.dart';
+import '../../../core/ui/app_motion.dart';
+
 class CalendarSwipe extends StatefulWidget {
   const CalendarSwipe({
     super.key,
@@ -131,6 +134,7 @@ class _CalendarSwipeState extends State<CalendarSwipe>
     await _animateTo(-direction * _width);
     if (!mounted || generation != _generation) return;
     widget.onShift(direction);
+    AppFeedback.selection();
     setState(() => _offset = direction * _width);
     await _animateTo(0);
     if (!mounted || generation != _generation) return;
@@ -154,11 +158,18 @@ class _CalendarSwipeState extends State<CalendarSwipe>
   }
 
   Future<void> _animateTo(double target) async {
+    if (!mounted) return;
     final begin = _offset;
     if ((begin - target).abs() < 0.5) {
-      if (mounted) setState(() => _offset = target);
+      setState(() => _offset = target);
       return;
     }
+    final duration = AppMotion.duration(context, _duration);
+    if (duration == Duration.zero) {
+      setState(() => _offset = target);
+      return;
+    }
+    _controller.duration = duration;
     _animation = Tween<double>(
       begin: begin,
       end: target,

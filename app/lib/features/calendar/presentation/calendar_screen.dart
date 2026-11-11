@@ -6,6 +6,7 @@ import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/session/session_restore.dart';
+import '../../../core/ui/app_feedback.dart';
 import '../../settings/application/settings_providers.dart';
 import '../../sync/presentation/sync_title.dart';
 import '../application/calendar_providers.dart';
@@ -31,16 +32,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   CalendarWindow? _persisted;
   bool _rebuilding = false;
   bool _rebuildAgain = false;
+  bool _disposed = false;
   Timer? _restoreFallback;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeRebuild());
+    _scheduleRebuild();
     // Safety net: if session restore never reports completion, build the
     // default window instead of leaving the calendar empty.
     _restoreFallback = Timer(const Duration(seconds: 2), () {
-      if (!mounted || ref.read(initialRestoreDoneProvider)) return;
+      if (_disposed || !mounted) return;
+      if (ref.read(initialRestoreDoneProvider)) return;
       ref.read(initialRestoreDoneProvider.notifier).markDone();
       _maybeRebuild();
     });
@@ -48,12 +51,21 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
     _restoreFallback?.cancel();
     super.dispose();
   }
 
+  void _scheduleRebuild() {
+    if (_disposed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed || !mounted) return;
+      _maybeRebuild();
+    });
+  }
+
   Future<void> _maybeRebuild() async {
-    if (!mounted || _rebuilding) {
+    if (_disposed || !mounted || _rebuilding) {
       if (_rebuilding) _rebuildAgain = true;
       return;
     }
@@ -68,7 +80,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       _persisted = window;
       Future.microtask(() async {
         try {
-          if (!mounted) return;
+          if (_disposed || !mounted) return;
           await persistCalendarView(ref);
         } catch (_) {}
       });
@@ -79,7 +91,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     try {
       do {
         _rebuildAgain = false;
-        if (!mounted) break;
+        if (_disposed || !mounted) break;
         final dirty = ref.read(occurrenceDirtyProvider);
         final range = ref.read(calendarCacheRangeProvider);
         if (!dirty && _builtRange == range) break;
@@ -92,6 +104,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 windowStartUtc: range.fromUtc,
                 windowEndUtc: range.toUtc,
               );
+          // The screen may have been replaced while the cache was building.
+          if (_disposed || !mounted) return;
           _builtRange = range;
           didRebuild = true;
           if (ref.read(occurrenceDirtyProvider)) {
@@ -100,13 +114,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         } catch (_) {
           // Keep the previous built range so the next frame retries.
         } finally {
-          if (mounted) building.set(false);
+          if (!_disposed && mounted) building.set(false);
         }
-      } while (_rebuildAgain && mounted);
+      } while (_rebuildAgain && !_disposed && mounted);
     } finally {
       _rebuilding = false;
     }
-    if (mounted && didRebuild) setState(() {});
+    if (!_disposed && mounted && didRebuild) setState(() {});
   }
 
   @override
@@ -114,7 +128,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final window = ref.watch(calendarStateProvider);
     ref.watch(occurrenceDirtyProvider);
     ref.watch(initialRestoreDoneProvider);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeRebuild());
+    _scheduleRebuild();
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -142,7 +156,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         leading: IconButton(
           icon: const Icon(Icons.today),
           tooltip: 'Today',
-          onPressed: () => ref.read(calendarStateProvider.notifier).goToday(),
+          onPressed: () {
+            AppFeedback.tap();
+            ref.read(calendarStateProvider.notifier).goToday();
+          },
         ),
         actions: [
           IconButton(
@@ -155,37 +172,21 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             onPressed: () =>
                 ref.read(calendarStateProvider.notifier).shift(_step(window)),
           ),
-          PopupMenuButton<CalendarViewKind?>(
+          PopupMenuButton<_ViewChoice>(
             icon: const Icon(Icons.view_agenda_outlined),
-            onSelected: (v) {
-              if (v == null) return;
-              ref.read(calendarStateProvider.notifier).setView(v);
+            onSelected: (choice) {
+              AppFeedback.selection();
+              ref
+                  .read(calendarStateProvider.notifier)
+                  .setView(choice.view, dayCount: choice.dayCount);
             },
             itemBuilder: (ctx) => [
-              const PopupMenuItem(
-                value: CalendarViewKind.month,
-                child: Text('Month'),
-              ),
-              for (final d in [3, 4, 5, 7])
-                PopupMenuItem(
-                  value: null,
-                  onTap: () => ref
-                      .read(calendarStateProvider.notifier)
-                      .setView(CalendarViewKind.multiDay, dayCount: d),
-                  child: Text('$d days'),
+              for (final choice in _viewChoices)
+                CheckedPopupMenuItem<_ViewChoice>(
+                  value: choice,
+                  checked: choice.isSelected(window),
+                  child: Text(choice.label),
                 ),
-              const PopupMenuItem(
-                value: CalendarViewKind.day,
-                child: Text('Day'),
-              ),
-              const PopupMenuItem(
-                value: CalendarViewKind.agenda,
-                child: Text('Agenda'),
-              ),
-              const PopupMenuItem(
-                value: CalendarViewKind.year,
-                child: Text('Year'),
-              ),
             ],
           ),
           IconButton(
@@ -242,9 +243,54 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       DeviceDateFormat.yMMM(context).format(w.anchor);
 }
 
+class _ViewChoice {
+  const _ViewChoice(this.view, {this.dayCount = 1});
+
+  final CalendarViewKind view;
+  final int dayCount;
+
+  String get label => switch (view) {
+    CalendarViewKind.month => 'Month',
+    CalendarViewKind.multiDay => '$dayCount days',
+    CalendarViewKind.day => 'Day',
+    CalendarViewKind.agenda => 'Agenda',
+    CalendarViewKind.year => 'Year',
+  };
+
+  bool isSelected(CalendarWindow window) => isCalendarViewChoiceSelected(
+    view: view,
+    dayCount: dayCount,
+    window: window,
+  );
+}
+
+const List<_ViewChoice> _viewChoices = [
+  _ViewChoice(CalendarViewKind.month),
+  _ViewChoice(CalendarViewKind.multiDay, dayCount: 3),
+  _ViewChoice(CalendarViewKind.multiDay, dayCount: 4),
+  _ViewChoice(CalendarViewKind.multiDay, dayCount: 5),
+  _ViewChoice(CalendarViewKind.multiDay, dayCount: 7),
+  _ViewChoice(CalendarViewKind.day),
+  _ViewChoice(CalendarViewKind.agenda),
+  _ViewChoice(CalendarViewKind.year),
+];
+
+/// True when [window] already shows the view represented by [view]/[dayCount].
+bool isCalendarViewChoiceSelected({
+  required CalendarViewKind view,
+  required int dayCount,
+  required CalendarWindow window,
+}) {
+  if (window.view != view) return false;
+  if (view == CalendarViewKind.multiDay) return window.dayCount == dayCount;
+  return true;
+}
+
 Future<void> persistCalendarView(WidgetRef ref) async {
-  final repo = await ref.read(settingsRepositoryProvider.future);
+  // Snapshot before the await so a disposed screen's ref is never read after
+  // the settings repository resolves.
   final window = ref.read(calendarStateProvider);
+  final repo = await ref.read(settingsRepositoryProvider.future);
   await repo.setCalendarView(window.view.name);
   await repo.setCalendarAnchorMs(
     DateTime.utc(

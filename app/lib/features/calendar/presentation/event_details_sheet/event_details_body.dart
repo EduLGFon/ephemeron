@@ -42,21 +42,45 @@ class _EventDetailsBody extends ConsumerWidget {
               onTap: isMicrosoft
                   ? null
                   : () async {
+                      final container = ProviderScope.containerOf(
+                        context,
+                        listen: false,
+                      );
+                      final originCalendarId = e.calendarId;
                       final moved = await pickAndMoveEvent(
                         context,
                         ref,
                         eventId: e.id,
-                        currentCalendarId: e.calendarId,
+                        currentCalendarId: originCalendarId,
                       );
-                      if (moved && context.mounted) {
-                        Navigator.of(context).pop();
-                      }
+                      if (!moved || !context.mounted) return;
+                      AppFeedback.tap();
+                      showUndoSnackBar(
+                        context,
+                        'Event moved',
+                        onUndo: () async {
+                          try {
+                            await container
+                                .read(eventRepositoryProvider)
+                                .moveEventToCalendar(e.id, originCalendarId);
+                            container
+                                .read(occurrenceDirtyProvider.notifier)
+                                .markDirty();
+                            container.invalidate(occurrenceSourceMapProvider);
+                          } catch (_) {
+                            // The move already happened; undo is best effort.
+                          }
+                        },
+                      );
+                      Navigator.of(context).pop();
                     },
             ),
             if (e.location != null && e.location!.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.place_outlined),
                 title: Text(e.location!),
+                trailing: const Icon(Icons.open_in_new),
+                onTap: () => _openLocation(context, e.location!),
               ),
             if (e.meetUrl != null && e.meetUrl!.isNotEmpty)
               _MeetTile(url: e.meetUrl!),
@@ -135,6 +159,20 @@ class _EventDetailsBody extends ConsumerWidget {
   }
 }
 
+Future<void> _openLocation(BuildContext context, String location) async {
+  final url = Uri.https('www.google.com', '/maps/search/', {
+    'api': '1',
+    'query': location,
+  }).toString();
+  final ok = await SystemLauncher.openUrl(url);
+  if (!context.mounted) return;
+  if (ok) {
+    AppFeedback.tap();
+    return;
+  }
+  showAppSnackBar(context, 'Could not open maps', icon: Icons.map_outlined);
+}
+
 class _MeetTile extends StatelessWidget {
   const _MeetTile({required this.url});
 
@@ -142,23 +180,21 @@ class _MeetTile extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     final ok = await SystemLauncher.openUrl(url);
-    var copied = true;
-    if (!ok) {
-      try {
-        await Clipboard.setData(ClipboardData(text: url));
-      } catch (_) {
-        copied = false;
-      }
-    }
     if (!context.mounted) return;
-    final message = ok
-        ? 'Opening meeting'
-        : copied
-        ? 'Join not supported here - link copied'
-        : 'Join not supported here - could not copy link';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    if (ok) {
+      AppFeedback.tap();
+      showAppSnackBar(
+        context,
+        'Opening meeting',
+        icon: Icons.videocam_outlined,
+      );
+    } else {
+      showAppSnackBar(
+        context,
+        'Could not open link',
+        icon: Icons.error_outline,
+      );
+    }
   }
 
   Future<void> _copy(BuildContext context) async {
@@ -169,11 +205,17 @@ class _MeetTile extends StatelessWidget {
       copied = false;
     }
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(copied ? 'Meet link copied' : 'Could not copy link'),
-      ),
-    );
+    if (copied) {
+      AppFeedback.tap();
+      showAppSnackBar(context, 'Link copied', icon: Icons.link);
+    } else {
+      AppFeedback.error();
+      showAppSnackBar(
+        context,
+        'Could not copy link',
+        icon: Icons.error_outline,
+      );
+    }
   }
 
   @override
@@ -185,7 +227,7 @@ class _MeetTile extends StatelessWidget {
           leading: const Icon(Icons.videocam_outlined),
           title: Text(url),
           subtitle: const Text('Google Meet'),
-          onTap: () => _copy(context),
+          onTap: () => _open(context),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(72, 0, 16, 8),
