@@ -54,6 +54,26 @@ mixin _TaskQueryOps on _TaskRepositoryBase {
         .get();
   }
 
+  /// Open, non-deleted tasks carrying [tagId], newest first.
+  Future<List<Task>> searchTasksForTag(String tagId, {int limit = 50}) async {
+    final query =
+        _db.select(_db.tasks).join([
+          innerJoin(_db.taskTags, _db.taskTags.taskId.equalsExp(_db.tasks.id)),
+        ])..where(
+          _db.taskTags.tagId.equals(tagId) &
+              _db.tasks.deletedAt.isNull() &
+              _db.tasks.completedAt.isNull() &
+              _db.tasks.id.isNotInQuery(
+                pendingIdsQuery(_db, entity: 'task', ops: const {'delete'}),
+              ),
+        );
+    query
+      ..orderBy([OrderingTerm.desc(_db.tasks.updatedAt)])
+      ..limit(limit);
+    final rows = await query.get();
+    return [for (final row in rows) row.readTable(_db.tasks)];
+  }
+
   Future<List<Tag>> searchTags(String query, {int limit = 20}) async {
     final q = query.trim();
     if (q.isEmpty || _blank(q)) return [];
