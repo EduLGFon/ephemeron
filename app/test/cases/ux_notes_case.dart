@@ -48,23 +48,45 @@ void main() {
     const baseStyle = TextStyle(color: Colors.black);
     const highlight = Colors.blue;
 
-    test('keeps plain text and highlights bold markers', () {
+    test('highlights real query hits case-insensitively', () {
       final spans = highlightSnippetSpans(
-        'alpha <b>beta</b> gamma',
+        'Alpha beta GAMMA beta',
+        query: 'beta',
         baseStyle: baseStyle,
         highlightColor: highlight,
       );
 
-      expect(spans.map((s) => s.text).toList(), ['alpha ', 'beta', ' gamma']);
+      expect(spans.map((s) => s.text).toList(), [
+        'Alpha ',
+        'beta',
+        ' GAMMA ',
+        'beta',
+      ]);
       expect(spans[0].style?.color, Colors.black);
       expect(spans[1].style?.fontWeight, FontWeight.bold);
       expect(spans[1].style?.color, highlight);
-      expect(spans[2].style?.color, Colors.black);
+      expect(spans[3].style?.fontWeight, FontWeight.bold);
     });
 
-    test('returns the snippet unchanged without markers', () {
+    test('preserves literal markup and text around hits', () {
+      const snippet = 'literal <b>tag</b> and Beta';
+      final spans = highlightSnippetSpans(
+        snippet,
+        query: 'beta',
+        baseStyle: baseStyle,
+        highlightColor: highlight,
+      );
+
+      expect(spans.map((s) => s.text).join(), snippet);
+      expect(spans.first.text, 'literal <b>tag</b> and ');
+      expect(spans.last.text, 'Beta');
+      expect(spans.last.style?.fontWeight, FontWeight.bold);
+    });
+
+    test('returns the snippet unchanged without a hit', () {
       final spans = highlightSnippetSpans(
         'plain snippet',
+        query: 'missing',
         baseStyle: baseStyle,
         highlightColor: highlight,
       );

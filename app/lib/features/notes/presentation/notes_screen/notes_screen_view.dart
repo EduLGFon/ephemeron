@@ -264,68 +264,10 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   }
 
   Future<void> _search(BuildContext context) async {
-    final controller = TextEditingController(text: _query);
-    String? submitted;
-    try {
-      submitted = await showDialog<String>(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            title: const Text('Search notes'),
-            content: TextField(
-              key: const Key('notes-search-field'),
-              controller: controller,
-              autofocus: true,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Search notes',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  tooltip: 'Clear',
-                  onPressed: () {
-                    AppFeedback.tap();
-                    controller.clear();
-                  },
-                ),
-              ),
-              onSubmitted: (value) {
-                final query = value.trim();
-                if (query.isEmpty) return;
-                AppFeedback.selection();
-                Navigator.of(ctx).pop(query);
-              },
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  AppFeedback.tap();
-                  Navigator.of(ctx).pop();
-                },
-                child: const Text('Cancel'),
-              ),
-              ValueListenableBuilder<TextEditingValue>(
-                valueListenable: controller,
-                builder: (context, value, _) {
-                  final query = value.text.trim();
-                  return FilledButton(
-                    onPressed: query.isEmpty
-                        ? null
-                        : () {
-                            AppFeedback.selection();
-                            Navigator.of(ctx).pop(query);
-                          },
-                    child: const Text('Search'),
-                  );
-                },
-              ),
-            ],
-          );
-        },
-      );
-    } finally {
-      controller.dispose();
-    }
-    final query = submitted;
+    final query = await showDialog<String>(
+      context: context,
+      builder: (_) => _SearchDialog(initialQuery: _query),
+    );
     if (query == null || query.isEmpty || !mounted) return;
     setState(() => _query = query);
     final hits = await ref.read(noteRepositoryProvider).searchNotes(query);
@@ -336,6 +278,87 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         builder: (_) =>
             _SearchResults(query: query, hits: hits, onOpen: _openById),
       ),
+    );
+  }
+}
+
+/// Owns the search field controller so it outlives the dialog route's exit
+/// animation and is disposed with the route state.
+class _SearchDialog extends StatefulWidget {
+  const _SearchDialog({required this.initialQuery});
+
+  final String initialQuery;
+
+  @override
+  State<_SearchDialog> createState() => _SearchDialogState();
+}
+
+class _SearchDialogState extends State<_SearchDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialQuery);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Search notes'),
+      content: TextField(
+        key: const Key('notes-search-field'),
+        controller: _controller,
+        autofocus: true,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Search notes',
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.clear),
+            tooltip: 'Clear',
+            onPressed: () {
+              AppFeedback.tap();
+              _controller.clear();
+            },
+          ),
+        ),
+        onSubmitted: (value) {
+          final query = value.trim();
+          if (query.isEmpty) return;
+          AppFeedback.selection();
+          Navigator.of(context).pop(query);
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            AppFeedback.tap();
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancel'),
+        ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _controller,
+          builder: (context, value, _) {
+            final query = value.text.trim();
+            return FilledButton(
+              onPressed: query.isEmpty
+                  ? null
+                  : () {
+                      AppFeedback.selection();
+                      Navigator.of(context).pop(query);
+                    },
+              child: const Text('Search'),
+            );
+          },
+        ),
+      ],
     );
   }
 }
