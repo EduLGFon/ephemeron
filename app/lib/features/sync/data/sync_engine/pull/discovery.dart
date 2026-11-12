@@ -172,7 +172,10 @@ extension on SyncEngine {
       remote = await client.taskLists();
     } on GoogleApiException catch (e) {
       debugPrint('[sync] taskLists discovery failed status=${e.status}');
-      _recordFailure(e);
+      // 404 and forbidden 403 are list-only: the token/account is fine, so do
+      // not demand reconnect or mark the whole run as failed. Auth, rate,
+      // server and other statuses stay global failures.
+      if (e.status != 404 && !e.isForbidden) _recordFailure(e);
       await _setSyncMeta('tasks', error: 'Google ${e.status}');
       return (0, 0);
     } catch (e) {

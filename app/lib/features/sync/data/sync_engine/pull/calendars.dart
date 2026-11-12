@@ -307,8 +307,10 @@ extension on SyncEngine {
           await _mergeAttendees(localId, g);
         }
       } catch (e) {
-        // Never log titles, attendee emails, or remote ids here. Catch Object
-        // too: one malformed remote item must not abort the whole stage.
+        // Deliberate external-data isolation, not silent swallowing: a
+        // malformed remote item is skipped so the rest of the batch merges,
+        // and the failure is still logged by type. Never log titles, attendee
+        // emails, or remote ids here.
         debugPrint('[sync] merge item failed type=${e.runtimeType}');
         continue;
       }

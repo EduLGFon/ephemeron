@@ -296,6 +296,31 @@ void main() {
     },
   );
 
+  test('push Error does not stop pull; reports unknown failure', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _seedCalendar(db, 'c1', 'r1');
+    await _seedOutboxEvent(db, eventId: 'e1', calendarId: 'c1');
+    final fake = _FakeGoogle()
+      ..calendars = [
+        {'id': 'r1', 'summary': 'Calendar', 'accessRole': 'owner'},
+      ]
+      ..eventsByCal['r1'] = [_event('g1')]
+      ..insertError = StateError('boom');
+    final engine = SyncEngine(db, clientFactory: () => fake);
+
+    await engine.syncNow();
+
+    expect(fake.pulledCalendars, contains('r1'));
+    final merged = await (db.select(
+      db.events,
+    )..where((e) => e.remoteId.equals('g1'))).get();
+    expect(merged, hasLength(1));
+    expect(engine.authFailure, isFalse);
+    expect(engine.errorKind, SyncErrorKind.unknown);
+    expect(engine.status, SyncStatus.error);
+  });
+
   test('calendar discovery failure still pulls known calendars', () async {
     for (final entry in <(Object Function(), SyncErrorKind)>[
       (() => GoogleApiException(500, 'boom'), SyncErrorKind.server),
@@ -462,6 +487,63 @@ void main() {
         db.syncState,
       )..where((s) => s.key.equals('tasks:l1:meta'))).getSingle();
       expect(meta.lastError, label);
+    }
+  });
+
+  test('task-list discovery 404/forbidden stays list-only', () async {
+    for (final (error, label) in <(GoogleApiException, String)>[
+      (GoogleApiException(404, 'not found'), 'Google 404'),
+      (GoogleApiException(403, _googleError('forbidden')), 'Google 403'),
+    ]) {
+      final db = _db();
+      addTearDown(db.close);
+      await _seedTaskList(db, 'l1', 'rl1', account: 'a@x');
+      final fake = _FakeGoogle()..taskListsError = error;
+      final engine = SyncEngine(db, clientFactory: () => fake, account: 'a@x');
+
+      await engine.syncNow();
+
+      expect(engine.authFailure, isFalse);
+      expect(engine.errorKind, SyncErrorKind.none);
+      expect(engine.status, SyncStatus.synced);
+      final meta = await (db.select(
+        db.syncState,
+      )..where((s) => s.key.equals('tasks:meta'))).getSingle();
+      expect(meta.lastError, label);
+    }
+  });
+
+  test('task-list discovery auth/rate/server stay global failures', () async {
+    for (final (error, kind, auth)
+        in <(GoogleApiException, SyncErrorKind, bool)>[
+          (
+            GoogleApiException(403, _googleError('insufficientPermissions')),
+            SyncErrorKind.auth,
+            true,
+          ),
+          (
+            GoogleApiException(429, 'slow down'),
+            SyncErrorKind.rateLimited,
+            false,
+          ),
+          (GoogleApiException(500, 'boom'), SyncErrorKind.server, false),
+          (
+            GoogleApiException(400, 'bad request'),
+            SyncErrorKind.unknown,
+            false,
+          ),
+        ]) {
+      final db = _db();
+      addTearDown(db.close);
+      await _seedTaskList(db, 'l1', 'rl1', account: 'a@x');
+      final fake = _FakeGoogle()..taskListsError = error;
+      final engine = SyncEngine(db, clientFactory: () => fake, account: 'a@x');
+
+      await engine.syncNow();
+
+      expect(engine.authFailure, auth);
+      expect(engine.errorKind, kind);
+      expect(engine.status, SyncStatus.error);
     }
   });
 

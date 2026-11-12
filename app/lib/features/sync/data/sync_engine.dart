@@ -176,7 +176,10 @@ class SyncEngine {
   Future<void> _runStage(String stage, Future<void> Function() body) async {
     try {
       await body();
-    } on Exception catch (e) {
+    } catch (e) {
+      // Catch Object, not just Exception: a thrown Error (for example a
+      // StateError from a malformed response) must only fail this stage and
+      // not abort later stages.
       debugPrint('[sync] $stage failed type=${e.runtimeType}');
       _recordFailure(e);
     }
