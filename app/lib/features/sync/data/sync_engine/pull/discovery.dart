@@ -19,19 +19,21 @@ extension on SyncEngine {
       final id = c['id'] as String?;
       if (id == null || c['deleted'] == true) continue;
       final name = (c['summary'] as String?)?.trim();
-      var existing = await (_db.select(
+      final linkedRows = await (_db.select(
         _db.calendars,
-      )..where((t) => t.remoteId.equals(id))).getSingleOrNull();
+      )..where((t) => t.remoteId.equals(id))).get();
+      var existing = linkedRows.firstOrNull;
       // Repair legacy rows created before remoteId was persisted.
       if (existing == null && name != null && name.isNotEmpty) {
-        existing =
+        final legacyRows =
             await (_db.select(_db.calendars)..where(
                   (t) =>
                       t.source.equals('google') &
                       t.remoteId.isNull() &
                       t.name.equals(name),
                 ))
-                .getSingleOrNull();
+                .get();
+        existing = legacyRows.firstOrNull;
         if (existing != null) {
           await (_db.update(
             _db.calendars,
@@ -92,40 +94,78 @@ extension on SyncEngine {
         }
       }
     }
-    // Remove duplicate google calendars left by earlier (buggy) runs.
+    // Remove duplicate google calendars left by earlier (buggy) runs. Keep
+    // one row per remoteId, reassign events from duplicates to the kept row
+    // inside a transaction so no events are orphaned, then delete duplicates.
     final all = await (_db.select(
       _db.calendars,
     )..where((c) => c.source.equals('google'))).get();
-    final seen = <String>{};
+    final byRemote = <String, List<Calendar>>{};
     for (final c in all) {
       final key = c.remoteId;
       if (key == null) continue;
-      if (seen.contains(key)) {
-        await (_db.delete(_db.calendars)..where((x) => x.id.equals(c.id))).go();
-      } else {
-        seen.add(key);
-      }
+      byRemote.putIfAbsent(key, () => []).add(c);
     }
-    // Disable calendars of THIS account that are no longer reachable, but
-    // only when the remote list is non-empty (an empty result is ambiguous).
-    // Never touch another account's rows: their loop owns them.
-    if (remote.isNotEmpty && account != null) {
-      final remoteIds = {for (final c in remote) c['id'] as String?}
-        ..removeWhere((x) => x == null);
-      for (final c in all) {
-        if (c.googleAccount == account &&
-            c.remoteId != null &&
-            !remoteIds.contains(c.remoteId)) {
-          await (_db.update(_db.calendars)..where((x) => x.id.equals(c.id)))
-              .write(const CalendarsCompanion(enabled: Value(false)));
+    await _db.transaction(() async {
+      for (final entry in byRemote.entries) {
+        final rows = entry.value;
+        if (rows.length <= 1) continue;
+        // Prefer an active row over a tombstone/disabled one; then oldest.
+        final kept = rows.reduce((a, b) {
+          final aDeleted = a.deletedAt != null;
+          final bDeleted = b.deletedAt != null;
+          if (aDeleted != bDeleted) return aDeleted ? b : a;
+          final aEnabled = a.enabled;
+          final bEnabled = b.enabled;
+          if (aEnabled != bEnabled) return aEnabled ? a : b;
+          if (a.createdAt != b.createdAt) {
+            return a.createdAt < b.createdAt ? a : b;
+          }
+          return a.id.compareTo(b.id) <= 0 ? a : b;
+        });
+        for (final dup in rows) {
+          if (dup.id == kept.id) continue;
+          await (_db.update(_db.events)
+                ..where((e) => e.calendarId.equals(dup.id)))
+              .write(EventsCompanion(calendarId: Value(kept.id)));
+          // Drop stale sync tokens/meta for the removed duplicate.
+          await (_db.delete(
+            _db.syncState,
+          )..where((s) => s.key.equals('cal:${dup.id}:token'))).go();
+          await (_db.delete(
+            _db.syncState,
+          )..where((s) => s.key.equals('cal:${dup.id}:meta'))).go();
+          await (_db.delete(
+            _db.syncState,
+          )..where((s) => s.key.equals('cal:v2:${dup.id}:token'))).go();
+          await (_db.delete(
+            _db.syncState,
+          )..where((s) => s.key.equals('cal:v2:${dup.id}:meta'))).go();
+          await (_db.delete(
+            _db.calendars,
+          )..where((x) => x.id.equals(dup.id))).go();
         }
       }
-    }
+    });
     return (remote.length, created);
   }
 
   Future<(int, int)> _syncTaskLists(GoogleApiClient client) async {
-    final remote = await client.taskLists();
+    List<Map<String, dynamic>> remote;
+    try {
+      remote = await client.taskLists();
+    } on GoogleApiException catch (e) {
+      debugPrint('[sync] taskLists discovery failed status=${e.status}');
+      if (e.isPermissionDenied) {
+        _authFailure = true;
+      }
+      await _setSyncMeta('tasks', error: 'Google ${e.status}');
+      return (0, 0);
+    } catch (e) {
+      debugPrint('[sync] taskLists discovery failed: $e');
+      await _setSyncMeta('tasks', error: 'sync failed');
+      return (0, 0);
+    }
     debugPrint('[sync] taskLists returned ${remote.length} items');
     _accountListIds = account == null
         ? null
