@@ -53,6 +53,10 @@ class TimelineEventBlock extends ConsumerWidget {
     var y0 = sMin / 60 * hourHeight + yOffset;
     var y1 = eMin / 60 * hourHeight + yOffset;
     if (y1 - y0 < 20) y1 = y0 + 20;
+    // Small vertical inset so adjacent blocks don't touch.
+    y0 += 2;
+    y1 -= 2;
+    if (y1 - y0 < 18) y1 = y0 + 18;
 
     final laneW = columnWidth - 4;
     final fracLeft = placement?.left ?? 0.0;

@@ -243,6 +243,17 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
           .map((l) => l.id)
           .firstOrNull;
       listId ??= await repo.createList(p.list!);
+    } else {
+      try {
+        final srepo = await ref.read(settingsRepositoryProvider.future);
+        final last = srepo.selectedTaskListId;
+        if (last != null) {
+          final lists = await ref.read(taskListsProvider.future);
+          if (lists.any((l) => l.id == last && l.deletedAt == null)) {
+            listId = last;
+          }
+        }
+      } catch (_) {}
     }
     final createdId = await repo.createTask(
       title: p.title,
@@ -267,6 +278,7 @@ class _QuickAddSheetState extends ConsumerState<_QuickAddSheet> {
     try {
       await ref.read(draftStoreProvider).clear('quick_add', null);
       final srepo = await ref.read(settingsRepositoryProvider.future);
+      if (listId != null) await srepo.setSelectedTaskListId(listId);
       if (srepo.openSheet == 'quick_add') await srepo.setOpenSheet(null);
     } catch (_) {}
     if (!mounted) return;

@@ -52,7 +52,9 @@ extension on _EventEditorState {
                         ref,
                         selectedId: _calendarId,
                       );
-                      if (picked != null) _changed(() => _calendarId = picked);
+                      if (picked != null) {
+                        _changed(() => _calendarId = picked);
+                      }
                     },
                   );
                 },

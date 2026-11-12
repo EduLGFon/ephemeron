@@ -8,12 +8,102 @@ mixin TimelineDrag on TimelineInteraction {
     int stripCount,
   ) {
     final dayIdx = (pos.dx / colW).floor().clamp(0, stripCount - 1);
-    final hour = (pos.dy / hourHeight).floor().clamp(0, 23);
-    showEventEditor(
-      context,
-      initialDay: timelineDayStart(stripAnchor, dayIdx),
-      initialHour: hour,
+    final slotMin = ((pos.dy / hourHeight * 60) / 30).floor() * 30;
+    final min = slotMin.clamp(0, 1380).toInt();
+    final start = timelineDayStart(
+      stripAnchor,
+      dayIdx,
+    ).add(Duration(minutes: min));
+    final end = start.add(const Duration(hours: 1));
+    showEventEditor(context, initialStart: start, initialEnd: end);
+  }
+
+  // Empty-grid long-press selection state.
+  int selStartDay = 0;
+  int selStartMin = 0;
+  int selEndDay = 0;
+  int selEndMin = 30;
+  // Immutable gesture anchor; never mutated by updateSelection.
+  int anchorSelDay = 0;
+  int anchorSelMin = 0;
+  DateTime? selectionStripAnchor;
+  int selectionStripCount = 1;
+
+  void beginSelection(
+    Offset pos,
+    double colW,
+    DateTime stripAnchor,
+    int stripCount,
+  ) {
+    final day = (pos.dx / colW).floor().clamp(0, stripCount - 1);
+    final slot = ((pos.dy / hourHeight * 60) / 30).floor().clamp(0, 47).toInt();
+    final min = slot * 30;
+    swipeDisabled = true;
+    swipeAbort();
+    setState(() {
+      isSelecting = true;
+      anchorSelDay = day;
+      anchorSelMin = min;
+      selStartDay = day;
+      selStartMin = min;
+      selEndDay = day;
+      selEndMin = (min + 30).clamp(0, 1440);
+      selectionStripAnchor = stripAnchor;
+      selectionStripCount = stripCount;
+    });
+  }
+
+  void updateSelection(
+    Offset pos,
+    double colW,
+    DateTime stripAnchor,
+    int stripCount,
+  ) {
+    if (!isSelecting) return;
+    final day = (pos.dx / colW).floor().clamp(0, stripCount - 1);
+    final slot = ((pos.dy / hourHeight * 60) / 30).floor().clamp(0, 47).toInt();
+    final pointMin = slot * 30;
+    final b = timelineSelectionBounds(
+      anchorDay: anchorSelDay,
+      anchorMin: anchorSelMin,
+      pointerDay: day,
+      pointerMin: pointMin,
+      stripCount: stripCount,
     );
+    setState(() {
+      selStartDay = b.startDay;
+      selStartMin = b.startMin;
+      selEndDay = b.endDay;
+      selEndMin = b.endMin;
+      selectionStripAnchor = stripAnchor;
+      selectionStripCount = stripCount;
+    });
+  }
+
+  void cancelSelection() {
+    if (!isSelecting) return;
+    setState(() => isSelecting = false);
+    swipeDisabled = false;
+  }
+
+  void endSelection() {
+    if (!isSelecting) return;
+    swipeDisabled = false;
+    final anchor = selectionStripAnchor;
+    if (anchor == null) {
+      setState(() => isSelecting = false);
+      return;
+    }
+    final start = timelineDayStart(
+      anchor,
+      selStartDay,
+    ).add(Duration(minutes: selStartMin));
+    final totalMin =
+        (selEndDay - selStartDay) * 1440 + (selEndMin - selStartMin);
+    final dur = totalMin <= 0 ? 30 : totalMin;
+    final end = start.add(Duration(minutes: dur));
+    setState(() => isSelecting = false);
+    showEventEditor(context, initialStart: start, initialEnd: end);
   }
 
   void beginDrag(String eventId) {

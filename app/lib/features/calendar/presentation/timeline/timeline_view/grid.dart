@@ -75,6 +75,21 @@ extension _TimelineViewGrid on _TimelineViewState {
                                       stripAnchor,
                                       stripCount,
                                     ),
+                                    onLongPressStart: (d) => beginSelection(
+                                      d.localPosition,
+                                      dayWidth,
+                                      stripAnchor,
+                                      stripCount,
+                                    ),
+                                    onLongPressMoveUpdate: (d) =>
+                                        updateSelection(
+                                          d.localPosition,
+                                          dayWidth,
+                                          stripAnchor,
+                                          stripCount,
+                                        ),
+                                    onLongPressEnd: (_) => endSelection(),
+                                    onLongPressCancel: () => cancelSelection(),
                                     child: RepaintBoundary(
                                       child: CustomPaint(
                                         size: Size(stripWidth, 24 * hourHeight),
@@ -153,6 +168,43 @@ extension _TimelineViewGrid on _TimelineViewState {
                                           placements[timelineHabitItemId(h)],
                                       onTap: () =>
                                           showHabitActionSheet(context, h),
+                                    ),
+                                  if (isSelecting)
+                                    IgnorePointer(
+                                      child: Stack(
+                                        children: [
+                                          for (final seg
+                                              in timelineSelectionSegments(
+                                                startDay: selStartDay,
+                                                startMin: selStartMin,
+                                                endDay: selEndDay,
+                                                endMin: selEndMin,
+                                              ))
+                                            Positioned(
+                                              key: seg.day == selStartDay
+                                                  ? const Key(
+                                                      'timeline-selection',
+                                                    )
+                                                  : null,
+                                              left: seg.day * dayWidth,
+                                              top:
+                                                  seg.startMin /
+                                                  60 *
+                                                  hourHeight,
+                                              width: dayWidth,
+                                              height:
+                                                  (seg.endMin - seg.startMin) /
+                                                  60 *
+                                                  hourHeight,
+                                              child: Container(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withValues(alpha: 0.2),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                   IgnorePointer(
                                     child: RepaintBoundary(

@@ -3,7 +3,7 @@ part of '../timeline_controller.dart';
 mixin TimelineSwipe on TimelineInteraction {
   void onSwipeStart(DragStartDetails details) {
     if (swipeController.isAnimating) swipeAbort();
-    if (dragId != null) {
+    if (dragId != null || isSelecting) {
       swipeDragging = false;
       return;
     }
@@ -19,7 +19,9 @@ mixin TimelineSwipe on TimelineInteraction {
   }
 
   void onSwipeUpdate(DragUpdateDetails details) {
-    if (!swipeDragging || swipeDisabled || dragId != null) return;
+    if (!swipeDragging || swipeDisabled || dragId != null || isSelecting) {
+      return;
+    }
     final step = lastColW.clamp(1.0, double.infinity);
     final limit = step * timelineBufferDays;
     swipeOffset = (swipeOffset + details.delta.dx).clamp(-limit, limit);
