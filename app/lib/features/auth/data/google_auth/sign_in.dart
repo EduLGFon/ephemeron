@@ -35,6 +35,7 @@ mixin _GoogleAuthSignIn on _GoogleAuthBase {
       );
       final token = authz.accessToken;
       if (email.isEmpty) return _activeEmail;
+      _storeGoogleAccount(account);
       if (!_accounts.contains(email)) _accounts.add(email);
       _activeEmail = email;
       _accessTokens[email] = token;

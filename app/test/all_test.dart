@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'cases/account_email_case.dart' as account_email;
 import 'cases/alarm_migration_v4v5_case.dart' as alarm_migration_v4v5;
 import 'cases/alarm_notification_actions_case.dart'
     as alarm_notification_actions;
@@ -118,6 +119,7 @@ import 'cases/widget_provider_match_case.dart' as widget_provider_match;
 import 'cases/year_view_case.dart' as year_view;
 
 const _included = <String>{
+  'account_email_case.dart',
   'alarm_migration_v4v5_case.dart',
   'alarm_notification_actions_case.dart',
   'alarm_repository_case.dart',
@@ -234,6 +236,7 @@ void main() {
     );
   });
 
+  group('account_email', account_email.main);
   group('alarm_migration_v4v5', alarm_migration_v4v5.main);
   group('alarm_notification_actions', alarm_notification_actions.main);
   group('alarm_repository', alarm_repository.main);
