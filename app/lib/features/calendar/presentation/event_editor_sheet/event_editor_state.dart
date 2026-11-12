@@ -8,12 +8,16 @@ class _EventEditor extends ConsumerStatefulWidget {
     this.event,
     this.initialDay,
     this.initialHour,
+    this.initialStart,
+    this.initialEnd,
     this.restoredDraft,
   });
 
   final Event? event;
   final DateTime? initialDay;
   final int? initialHour;
+  final DateTime? initialStart;
+  final DateTime? initialEnd;
   final Map<String, dynamic>? restoredDraft;
 
   @override
@@ -101,6 +105,12 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
       _end = endMs == null
           ? _start.add(const Duration(hours: 1))
           : DateTime.fromMillisecondsSinceEpoch(endMs);
+    } else if (widget.initialStart != null) {
+      _start = widget.initialStart!;
+      final end = widget.initialEnd;
+      _end = (end == null || !end.isAfter(_start))
+          ? _start.add(const Duration(hours: 1))
+          : end;
     } else {
       final day = widget.initialDay ?? DateTime.now();
       final hour = widget.initialHour ?? 9;
@@ -149,6 +159,22 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
         await repo.setOpenSheet(
           widget.event == null ? 'event_new' : 'event:${widget.event!.id}',
         );
+        if (widget.event == null &&
+            widget.restoredDraft == null &&
+            _calendarId == null) {
+          final last = repo.defaultCalendarId;
+          if (last != null) {
+            Future.microtask(() async {
+              try {
+                final cals = await ref.read(calendarsProvider.future);
+                final ok = cals.any((c) => c.id == last && !c.readOnly);
+                if (ok && mounted && _calendarId == null) {
+                  setState(() => _calendarId = last);
+                }
+              } catch (_) {}
+            });
+          }
+        }
       } catch (_) {}
     });
   }

@@ -101,6 +101,11 @@ extension on _EventEditorState {
     }
     final settings = await ref.read(settingsRepositoryProvider.future);
     _calendarId ??= settings.defaultCalendarId;
+    if (widget.event == null && _calendarId != null) {
+      try {
+        await settings.setDefaultCalendarId(_calendarId!);
+      } catch (_) {}
+    }
     final notesPayload = _notesPayload();
     final startDateKey = _allDay ? _fmtDate(_start) : null;
     final endDateKey = _allDay

@@ -26,6 +26,7 @@ mixin TimelineInteraction {
   double? pinchStartDist;
   double pinchBaseScale = 1;
 
+  bool isSelecting = false;
   double swipeOffset = 0;
   bool swipeDragging = false;
   bool swipeDisabled = false;

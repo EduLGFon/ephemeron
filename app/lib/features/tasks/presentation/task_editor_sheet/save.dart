@@ -133,6 +133,12 @@ mixin _TaskEditorSave on _TaskEditorStateBase {
       ref.read(occurrenceDirtyProvider.notifier).markDirty();
     } catch (_) {}
     _saved = true;
+    if (widget.task == null && _listId != null) {
+      try {
+        final srepo = await ref.read(settingsRepositoryProvider.future);
+        await srepo.setSelectedTaskListId(_listId);
+      } catch (_) {}
+    }
     try {
       await ref.read(draftStoreProvider).clear('task', _draftEntityId);
       final srepo = await ref.read(settingsRepositoryProvider.future);

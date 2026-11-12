@@ -41,6 +41,20 @@ mixin _TaskEditorLifecycle on _TaskEditorStateBase {
     for (final c in [_title, _notes, _tags]) {
       c.addListener(_queueDraft);
     }
+    if (d == null && t == null && _listId == null) {
+      Future.microtask(() async {
+        try {
+          final repo = await ref.read(settingsRepositoryProvider.future);
+          final last = repo.selectedTaskListId;
+          if (last == null || !mounted || _listId != null) return;
+          final lists = await ref.read(taskListsProvider.future);
+          if (!mounted || _listId != null) return;
+          if (lists.any((l) => l.id == last && l.deletedAt == null)) {
+            setState(() => _listId = last);
+          }
+        } catch (_) {}
+      });
+    }
     if (d == null && t == null) Future.microtask(_preloadDraft);
   }
 

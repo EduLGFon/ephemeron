@@ -65,6 +65,64 @@ bool timelineIsPast(OccurrenceCacheData o, {int? nowMs}) {
   return o.endUtc < now;
 }
 
+/// Pure selection-bounds helper for empty-grid long-press. Anchor and pointer
+/// are slot positions (day index + minutes); the pointer slot is inclusive and
+/// the returned end is exclusive. A zero/negative span becomes 30 minutes.
+({int startDay, int startMin, int endDay, int endMin}) timelineSelectionBounds({
+  required int anchorDay,
+  required int anchorMin,
+  required int pointerDay,
+  required int pointerMin,
+  required int stripCount,
+}) {
+  final aDay = anchorDay.clamp(0, stripCount - 1);
+  final aMin = (anchorMin ~/ 30) * 30;
+  final pDay = pointerDay.clamp(0, stripCount - 1);
+  final pMin = (pointerMin ~/ 30) * 30;
+  var aTotal = aDay * 1440 + aMin;
+  var pTotal = pDay * 1440 + pMin;
+  int startTotal;
+  int endTotal;
+  if (pTotal < aTotal) {
+    startTotal = pTotal;
+    endTotal = aTotal + 30;
+  } else {
+    startTotal = aTotal;
+    endTotal = pTotal + 30;
+  }
+  final maxTotal = stripCount * 1440;
+  if (endTotal > maxTotal) endTotal = maxTotal;
+  if (endTotal - startTotal < 30) {
+    endTotal = (startTotal + 30).clamp(0, maxTotal);
+  }
+  final startDay = (startTotal ~/ 1440).clamp(0, stripCount - 1);
+  final startM = startTotal % 1440;
+  final endDay = ((endTotal - 1) ~/ 1440).clamp(0, stripCount - 1);
+  final endM = endTotal % 1440;
+  return (
+    startDay: startDay,
+    startMin: startM,
+    endDay: endDay,
+    endMin: endM == 0 ? 1440 : endM,
+  );
+}
+
+/// Pure per-day segmentation for the empty-grid selection overlay.
+List<({int day, int startMin, int endMin})> timelineSelectionSegments({
+  required int startDay,
+  required int startMin,
+  required int endDay,
+  required int endMin,
+}) {
+  final out = <({int day, int startMin, int endMin})>[];
+  for (var d = startDay; d <= endDay; d++) {
+    final s = d == startDay ? startMin : 0;
+    final e = d == endDay ? endMin : 1440;
+    out.add((day: d, startMin: s, endMin: e <= s ? s + 30 : e));
+  }
+  return out;
+}
+
 Color timelineEventColor(BuildContext context, String? colorId) {
   if (colorId != null && colorId.isNotEmpty) {
     final parsed = googleCalendarColors[colorId] ?? tryParseCssHex(colorId);

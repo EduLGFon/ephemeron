@@ -71,6 +71,19 @@ class _SourcePicker extends StatefulWidget {
 class _SourcePickerState extends State<_SourcePicker> {
   String? _account;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selectedId != null) {
+      for (final option in widget.options) {
+        if (option.id == widget.selectedId) {
+          _account = option.accountKey;
+          break;
+        }
+      }
+    }
+  }
+
   List<String> get _accounts {
     final keys = <String>[];
     for (final option in widget.options) {
