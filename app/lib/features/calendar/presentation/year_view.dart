@@ -1,9 +1,11 @@
 // Year heat-map: 12 month cards with counts and a compact year-in-review summary.
 import 'package:flutter/material.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
+import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/calendar_providers.dart';
+import 'calendar_error_banner.dart';
 
 class YearView extends ConsumerWidget {
   const YearView({super.key});
@@ -12,11 +14,14 @@ class YearView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final window = ref.watch(calendarStateProvider);
     final range = ref.watch(calendarCacheRangeProvider);
-    final occAsync = ref.watch(windowOccurrencesProvider(range));
-    final building = ref.watch(calendarCacheBuildingProvider);
+    final built = ref.watch(calendarBuiltRangeProvider);
+    final ready = built == range;
+    final occAsync = ready ? ref.watch(windowOccurrencesProvider(range)) : null;
+    final errored = occAsync?.hasError ?? false;
+    final loading = occAsync == null || occAsync.isLoading;
     final year = window.anchor.year;
     final yearPrefix = '$year-';
-    final occs = occAsync.maybeWhen(data: (v) => v, orElse: () => const []);
+    final occs = occAsync?.value ?? const <OccurrenceCacheData>[];
 
     // One O(n) pass for counts + stats.
     final monthCounts = <int, int>{};
@@ -66,13 +71,19 @@ class YearView extends ConsumerWidget {
     final max = monthCounts.values.fold<int>(1, (a, b) => a > b ? a : b);
     final now = DateTime.now();
     final isCurrentYear = year == now.year;
-    final countsPending = building && occs.isEmpty;
+    // During loading or after a failure the counts are not final yet, so the
+    // summary and month cards show a placeholder instead of zeros.
+    final countsPending = loading || errored;
 
     final notifier = ref.read(calendarStateProvider.notifier);
 
     return Column(
       children: [
-        if (countsPending)
+        if (errored)
+          CalendarErrorBanner(
+            onRetry: () => ref.invalidate(windowOccurrencesProvider(range)),
+          )
+        else if (loading)
           const Padding(
             padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: LinearProgressIndicator(minHeight: 2),
@@ -111,9 +122,11 @@ class YearView extends ConsumerWidget {
               final month = m + 1;
               final c = monthCounts[month] ?? 0;
               final isCurrentMonth = isCurrentYear && month == now.month;
+              final countLabel = countsPending ? '...' : '$c';
               return Semantics(
                 label:
-                    'Open ${DeviceDateFormat.monthName(context, month)} $year, $c items',
+                    'Open ${DeviceDateFormat.monthName(context, month)} $year'
+                    '${countsPending ? '' : ', $c items'}',
                 button: true,
                 child: InkWell(
                   onTap: () => notifier.openMonth(year, month),
@@ -132,7 +145,7 @@ class YearView extends ConsumerWidget {
                         : null,
                     child: Center(
                       child: Text(
-                        '${DeviceDateFormat.shortMonthName(context, month)}\n$c',
+                        '${DeviceDateFormat.shortMonthName(context, month)}\n$countLabel',
                         textAlign: TextAlign.center,
                       ),
                     ),

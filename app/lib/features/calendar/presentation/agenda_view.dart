@@ -24,48 +24,50 @@ class AgendaView extends ConsumerStatefulWidget {
 }
 
 class _AgendaViewState extends ConsumerState<AgendaView> {
-  List<OccurrenceCacheData> _lastOccurrences = const [];
-
   @override
   Widget build(BuildContext context) {
     final window = ref.watch(calendarStateProvider);
     final range = ref.watch(calendarCacheRangeProvider);
-    final occAsync = ref.watch(windowOccurrencesProvider(range));
-    final building = ref.watch(calendarCacheBuildingProvider);
-    final habits = ref
-        .watch(calendarHabitEntriesProvider)
-        .maybeWhen(data: (v) => v, orElse: () => const <HabitCalendarEntry>[]);
-    final visibleHabits = _visibleHabits(window, habits);
-    return occAsync.when(
-      loading: () {
-        final filtered = _visible(window, _lastOccurrences);
-        if (filtered.isEmpty &&
-            visibleHabits.isEmpty &&
-            (building || _lastOccurrences.isEmpty)) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        return _body(context, filtered, visibleHabits, window.anchor);
-      },
-      error: (e, _) => Center(
+    final built = ref.watch(calendarBuiltRangeProvider);
+    final ready = built == range;
+    // Hold the list back until CalendarScreen materializes this range, so a
+    // switch never flashes rows from the previous range or a partial set.
+    final occAsync = ready ? ref.watch(windowOccurrencesProvider(range)) : null;
+    final habitAsync = ready
+        ? ref.watch(calendarHabitEntriesProvider(range))
+        : null;
+    if (occAsync == null || habitAsync == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    // Both streams gate the agenda; a habit failure must not render as an
+    // empty day list either.
+    if (occAsync.hasError || habitAsync.hasError) {
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('Could not load agenda.'),
             OutlinedButton(
-              onPressed: () => ref.invalidate(windowOccurrencesProvider(range)),
+              onPressed: () {
+                ref.invalidate(windowOccurrencesProvider(range));
+                ref.invalidate(calendarHabitEntriesProvider(range));
+              },
               child: const Text('Retry'),
             ),
           ],
         ),
-      ),
-      data: (occs) {
-        _lastOccurrences = occs;
-        final filtered = _visible(window, occs);
-        if (filtered.isEmpty && visibleHabits.isEmpty && building) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        return _body(context, filtered, visibleHabits, window.anchor);
-      },
+      );
+    }
+    final occs = occAsync.value;
+    final habits = habitAsync.value;
+    if (occs == null || habits == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return _body(
+      context,
+      _visible(window, occs),
+      _visibleHabits(window, habits),
+      window.anchor,
     );
   }
 

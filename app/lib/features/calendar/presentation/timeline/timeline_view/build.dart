@@ -3,20 +3,24 @@ part of '../timeline_view.dart';
 extension _TimelineViewBuild on _TimelineViewState {
   Widget _buildTimeline(BuildContext context) {
     final range = ref.watch(calendarCacheRangeProvider);
-    final occAsync = ref.watch(windowOccurrencesProvider(range));
-    final building = ref.watch(calendarCacheBuildingProvider);
-    // Keep the previous day rows while the shifted window reloads. The old
-    // buffer already covers the days that slide in, so no empty frame shows.
-    final occs = occAsync.maybeWhen(
-      data: (v) {
-        _lastOccurrences = v;
-        return v;
-      },
-      orElse: () => _lastOccurrences,
-    );
-    final habitEntries = ref
-        .watch(calendarHabitEntriesProvider)
-        .maybeWhen(data: (v) => v, orElse: () => const <HabitCalendarEntry>[]);
+    final built = ref.watch(calendarBuiltRangeProvider);
+    final ready = built == range;
+    // Subscribe only after CalendarScreen materializes this range, so the
+    // first frame of a range never shows a partial pre-rebuild snapshot.
+    final occAsync = ready ? ref.watch(windowOccurrencesProvider(range)) : null;
+    final habitAsync = ready
+        ? ref.watch(calendarHabitEntriesProvider(range))
+        : null;
+    final errored =
+        (occAsync?.hasError ?? false) || (habitAsync?.hasError ?? false);
+    final loading =
+        !ready ||
+        occAsync == null ||
+        occAsync.isLoading ||
+        habitAsync == null ||
+        habitAsync.isLoading;
+    final occs = occAsync?.value ?? const <OccurrenceCacheData>[];
+    final habitEntries = habitAsync?.value ?? const <HabitCalendarEntry>[];
     final stripAnchor = timelineStripAnchor(widget.anchor);
     final stripCount = timelineStripCount(widget.dayCount);
     final timed = <OccurrenceCacheData>[];
@@ -80,11 +84,14 @@ extension _TimelineViewBuild on _TimelineViewState {
                       }
                     : null,
               ),
-              if (timed.isEmpty &&
-                  allDay.isEmpty &&
-                  timedHabits.isEmpty &&
-                  allDayHabits.isEmpty &&
-                  building)
+              if (errored)
+                CalendarErrorBanner(
+                  onRetry: () {
+                    ref.invalidate(windowOccurrencesProvider(range));
+                    ref.invalidate(calendarHabitEntriesProvider(range));
+                  },
+                )
+              else if (loading)
                 const LinearProgressIndicator(minHeight: 2),
               if (allDay.isNotEmpty || allDayHabits.isNotEmpty)
                 TimelineAllDayStrip(

@@ -27,6 +27,7 @@ class _MonthDayCell extends StatelessWidget {
     required this.isPastDay,
     required this.occurrences,
     this.habits = const <HabitCalendarEntry>[],
+    required this.countsPending,
     required this.onTap,
     this.onDoubleTap,
   });
@@ -37,6 +38,10 @@ class _MonthDayCell extends StatelessWidget {
   final bool isPastDay;
   final List<OccurrenceCacheData> occurrences;
   final List<HabitCalendarEntry> habits;
+
+  /// True while the range is loading or failed, so the day cell must not
+  /// announce a final "0 events" count that is not authoritative yet.
+  final bool countsPending;
   final VoidCallback onTap;
   final VoidCallback? onDoubleTap;
 
@@ -46,12 +51,13 @@ class _MonthDayCell extends StatelessWidget {
     final primary = scheme.primary;
     final onSurface = scheme.onSurface;
     final dimmed = !inMonth || isPastDay;
+    final countLabel = countsPending ? '' : ', ${occurrences.length} events';
     return Semantics(
       button: true,
       selected: selected,
       label:
-          '${DeviceDateFormat.monthName(context, day.month)} ${day.day}, '
-          '${occurrences.length} events',
+          '${DeviceDateFormat.monthName(context, day.month)} ${day.day}'
+          '$countLabel',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,

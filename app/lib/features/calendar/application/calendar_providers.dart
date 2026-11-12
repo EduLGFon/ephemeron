@@ -63,6 +63,25 @@ class CalendarCacheBuilding extends Notifier<bool> {
 final calendarCacheBuildingProvider =
     NotifierProvider<CalendarCacheBuilding, bool>(CalendarCacheBuilding.new);
 
+/// Cache range whose occurrences are fully materialized and safe to render.
+///
+/// [CalendarScreen] marks a range built after a successful rebuild. Views
+/// compare this against [calendarCacheRangeProvider] and only then subscribe
+/// to the occurrence and habit streams, so a new range never renders a
+/// partial pre-rebuild snapshot. The default matches the current cache range
+/// so views hosted without [CalendarScreen] still render prebuilt data.
+class CalendarBuiltRange extends Notifier<CalendarRange?> {
+  @override
+  CalendarRange? build() => ref.read(calendarCacheRangeProvider);
+
+  void markBuilt(CalendarRange range) => state = range;
+}
+
+final calendarBuiltRangeProvider =
+    NotifierProvider<CalendarBuiltRange, CalendarRange?>(
+      CalendarBuiltRange.new,
+    );
+
 final windowOccurrencesProvider =
     StreamProvider.family<List<OccurrenceCacheData>, CalendarRange>((
       ref,
@@ -73,17 +92,23 @@ final windowOccurrencesProvider =
           .watchWindow(range.fromUtc, range.toUtc);
     });
 
-/// Scheduled habits with their log state for the materialized calendar range.
-final calendarHabitEntriesProvider = StreamProvider<List<HabitCalendarEntry>>((
-  ref,
-) {
-  final range = ref.watch(calendarCacheRangeProvider);
-  final fromKey = dateKey(range.fromUtc);
-  final toKey = dateKey(range.toUtc.subtract(const Duration(milliseconds: 1)));
-  return ref
-      .watch(habitRepositoryProvider)
-      .watchCalendarEntries(fromKey, toKey);
-});
+/// Scheduled habits with their log state for a materialized calendar range.
+///
+/// Keyed by [CalendarRange] like [windowOccurrencesProvider] so switching
+/// ranges never exposes habit entries from the previous range.
+final calendarHabitEntriesProvider =
+    StreamProvider.family<List<HabitCalendarEntry>, CalendarRange>((
+      ref,
+      range,
+    ) {
+      final fromKey = dateKey(range.fromUtc);
+      final toKey = dateKey(
+        range.toUtc.subtract(const Duration(milliseconds: 1)),
+      );
+      return ref
+          .watch(habitRepositoryProvider)
+          .watchCalendarEntries(fromKey, toKey);
+    });
 
 /// Display source for an event occurrence. Loaded once per cache range so
 /// timeline, agenda and month views can show labels without per-row queries.
@@ -106,6 +131,10 @@ class OccurrenceSource {
 final occurrenceSourceMapProvider =
     FutureProvider<Map<String, OccurrenceSource>>((ref) async {
       final range = ref.watch(calendarCacheRangeProvider);
+      final built = ref.watch(calendarBuiltRangeProvider);
+      // Wait for the range to be materialized; otherwise the occurrence
+      // stream emits a partial pre-rebuild snapshot and labels resolve wrong.
+      if (built != range) return const {};
       final occurrences = await ref.watch(
         windowOccurrencesProvider(range).future,
       );

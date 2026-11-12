@@ -10,6 +10,7 @@ import '../../../domain/habits/habit_calendar_entry.dart';
 import '../application/calendar_providers.dart';
 import '../application/calendar_state.dart';
 import 'agenda_event_tile.dart';
+import 'calendar_error_banner.dart';
 import 'event_details_sheet.dart';
 import 'event_editor_sheet.dart';
 import 'task_action_sheet.dart';
@@ -29,7 +30,6 @@ class MonthView extends ConsumerStatefulWidget {
 
 class _MonthViewState extends ConsumerState<MonthView> {
   late final ScrollController _scroll = ScrollController();
-  List<OccurrenceCacheData> _lastOccurrences = const [];
 
   @override
   void dispose() {
@@ -41,18 +41,24 @@ class _MonthViewState extends ConsumerState<MonthView> {
   Widget build(BuildContext context) {
     final window = ref.watch(calendarStateProvider);
     final range = ref.watch(calendarCacheRangeProvider);
-    final occAsync = ref.watch(windowOccurrencesProvider(range));
-    final building = ref.watch(calendarCacheBuildingProvider);
-    final occurrences = occAsync.maybeWhen(
-      data: (v) {
-        _lastOccurrences = v;
-        return v;
-      },
-      orElse: () => _lastOccurrences,
-    );
-    final habitEntries = ref
-        .watch(calendarHabitEntriesProvider)
-        .maybeWhen(data: (v) => v, orElse: () => const <HabitCalendarEntry>[]);
+    final built = ref.watch(calendarBuiltRangeProvider);
+    final ready = built == range;
+    // Wait for CalendarScreen to materialize the range before subscribing,
+    // so cells never mix rows from the previous and the new range.
+    final occAsync = ready ? ref.watch(windowOccurrencesProvider(range)) : null;
+    final habitAsync = ready
+        ? ref.watch(calendarHabitEntriesProvider(range))
+        : null;
+    final errored =
+        (occAsync?.hasError ?? false) || (habitAsync?.hasError ?? false);
+    final loading =
+        !ready ||
+        occAsync == null ||
+        occAsync.isLoading ||
+        habitAsync == null ||
+        habitAsync.isLoading;
+    final occurrences = occAsync?.value ?? const <OccurrenceCacheData>[];
+    final habitEntries = habitAsync?.value ?? const <HabitCalendarEntry>[];
     final habitsByDay = <String, List<HabitCalendarEntry>>{};
     for (final h in habitEntries) {
       habitsByDay.putIfAbsent(h.dayKey, () => []).add(h);
@@ -82,9 +88,6 @@ class _MonthViewState extends ConsumerState<MonthView> {
     final selectedOccs = byDay[selectedKey] ?? const <OccurrenceCacheData>[];
     final selectedHabits =
         habitsByDay[selectedKey] ?? const <HabitCalendarEntry>[];
-    final hasVisibleOccurrences = days.any(
-      (d) => byDay.containsKey(dateKey(d)),
-    );
 
     return LayoutBuilder(
       builder: (context, cons) {
@@ -97,7 +100,14 @@ class _MonthViewState extends ConsumerState<MonthView> {
                 height: viewportHeight,
                 child: Column(
                   children: [
-                    if (!hasVisibleOccurrences && building)
+                    if (errored)
+                      CalendarErrorBanner(
+                        onRetry: () {
+                          ref.invalidate(windowOccurrencesProvider(range));
+                          ref.invalidate(calendarHabitEntriesProvider(range));
+                        },
+                      )
+                    else if (loading)
                       const LinearProgressIndicator(minHeight: 2),
                     const _WeekdayHeader(),
                     for (var week = 0; week < 6; week++)
@@ -131,6 +141,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                                         days[week * 7 + dow],
                                       )] ??
                                       const <HabitCalendarEntry>[],
+                                  countsPending: loading || errored,
                                   onTap: () => ref
                                       .read(calendarStateProvider.notifier)
                                       .goTo(days[week * 7 + dow]),
@@ -159,53 +170,62 @@ class _MonthViewState extends ConsumerState<MonthView> {
             SliverToBoxAdapter(
               child: _AgendaHeader(
                 day: selectedDay,
-                count: selectedOccs.length + selectedHabits.length,
+                // A pending or failed range has no final count yet.
+                count: loading || errored
+                    ? null
+                    : selectedOccs.length + selectedHabits.length,
               ),
             ),
-            if (selectedOccs.isEmpty && selectedHabits.isEmpty)
-              SliverToBoxAdapter(child: _EmptyAgenda(day: selectedDay))
-            else ...[
-              if (selectedHabits.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final h in selectedHabits)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: HabitCalendarMarker(entry: h),
-                          ),
-                      ],
+            // Never claim the day is empty until the range is built and both
+            // streams emitted data; a failed range keeps the error banner only.
+            if (!errored) ...[
+              if (loading)
+                const SliverToBoxAdapter(child: _AgendaLoading())
+              else if (selectedOccs.isEmpty && selectedHabits.isEmpty)
+                SliverToBoxAdapter(child: _EmptyAgenda(day: selectedDay))
+              else ...[
+                if (selectedHabits.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final h in selectedHabits)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: HabitCalendarMarker(entry: h),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
+                SliverList.builder(
+                  itemCount: selectedOccs.length,
+                  itemBuilder: (ctx, i) {
+                    final o = selectedOccs[i];
+                    return AgendaEventTile(
+                      key: ValueKey('month-agenda-${o.eventId}'),
+                      occurrence: o,
+                      onTap: () {
+                        if (o.sourceType == 'task') {
+                          showTaskActionSheet(
+                            context,
+                            taskId: o.eventId,
+                            occurrenceDate: o.dayKey,
+                          );
+                        } else {
+                          showEventDetails(
+                            context,
+                            o.eventId,
+                            occurrenceStartMs: o.startUtc,
+                          );
+                        }
+                      },
+                    );
+                  },
                 ),
-              SliverList.builder(
-                itemCount: selectedOccs.length,
-                itemBuilder: (ctx, i) {
-                  final o = selectedOccs[i];
-                  return AgendaEventTile(
-                    key: ValueKey('month-agenda-${o.eventId}'),
-                    occurrence: o,
-                    onTap: () {
-                      if (o.sourceType == 'task') {
-                        showTaskActionSheet(
-                          context,
-                          taskId: o.eventId,
-                          occurrenceDate: o.dayKey,
-                        );
-                      } else {
-                        showEventDetails(
-                          context,
-                          o.eventId,
-                          occurrenceStartMs: o.startUtc,
-                        );
-                      }
-                    },
-                  );
-                },
-              ),
+              ],
             ],
             const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],

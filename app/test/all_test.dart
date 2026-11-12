@@ -19,6 +19,7 @@ import 'cases/auth_screen_case.dart' as auth_screen;
 import 'cases/backend_auth_case.dart' as backend_auth;
 import 'cases/backend_sync_case.dart' as backend_sync;
 import 'cases/backup_case.dart' as backup;
+import 'cases/calendar_atomic_load_case.dart' as calendar_atomic_load;
 import 'cases/calendar_color_case.dart' as calendar_color;
 import 'cases/calendar_header_case.dart' as calendar_header;
 import 'cases/calendar_list_pagination_case.dart' as calendar_list_pagination;
@@ -131,6 +132,7 @@ const _included = <String>{
   'backend_auth_case.dart',
   'backend_sync_case.dart',
   'backup_case.dart',
+  'calendar_atomic_load_case.dart',
   'calendar_color_case.dart',
   'calendar_header_case.dart',
   'calendar_list_pagination_case.dart',
@@ -249,6 +251,7 @@ void main() {
   group('backend_auth', backend_auth.main);
   group('backend_sync', backend_sync.main);
   group('backup', backup.main);
+  group('calendar_atomic_load', calendar_atomic_load.main);
   group('calendar_color', calendar_color.main);
   group('calendar_header', calendar_header.main);
   group('calendar_list_pagination', calendar_list_pagination.main);
