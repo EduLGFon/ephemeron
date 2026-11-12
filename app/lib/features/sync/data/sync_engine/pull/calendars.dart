@@ -18,7 +18,7 @@ extension on SyncEngine {
         '[sync] pulling calendar id=${cal.id} remoteId=${cal.remoteId} '
         'name=${cal.name} enabled=${cal.enabled}',
       );
-      final token = await _syncValue('cal:${cal.id}:token');
+      final token = await _syncValue('cal:v2:${cal.id}:token');
       final remoteId = cal.remoteId;
       if (remoteId == null) {
         debugPrint('[sync] skip calendar with null remoteId');
@@ -34,27 +34,29 @@ extension on SyncEngine {
           );
           total += await _mergeEvents(cal, page.items);
           if (page.nextSyncToken != null) {
-            await _setSyncValue('cal:${cal.id}:token', page.nextSyncToken!);
+            await _setSyncValue('cal:v2:${cal.id}:token', page.nextSyncToken!);
+            // Best-effort cleanup of legacy token key.
+            await (_db.delete(
+              _db.syncState,
+            )..where((s) => s.key.equals('cal:${cal.id}:token'))).go();
           }
         }
         await _setSyncMeta('cal:${cal.id}', error: null);
+        // 404 stays enabled (fail-open) to avoid hiding shared calendars; transient
+        // non-auth per-calendar failures are recorded in syncState meta and retried
+        // next run instead of aborting the whole account.
       } on GoogleApiException catch (e) {
         debugPrint('[sync] calendar pull failed status=${e.status}');
         if (e.isPermissionDenied) {
           _authFailure = true;
           await _setSyncMeta('cal:${cal.id}', error: 'Google ${e.status}');
-          rethrow;
         } else if (e.isGone) {
           total += await _fullCalendarResync(cal, client, keepDirty: true);
           await _setSyncMeta('cal:${cal.id}', error: null);
         } else if (e.status == 404) {
-          debugPrint('[sync] disabling unreachable calendar ${cal.id}');
-          await (_db.update(_db.calendars)..where((x) => x.id.equals(cal.id)))
-              .write(const CalendarsCompanion(enabled: Value(false)));
           await _setSyncMeta('cal:${cal.id}', error: 'Google 404');
         } else {
           await _setSyncMeta('cal:${cal.id}', error: 'Google ${e.status}');
-          rethrow;
         }
       }
     }
@@ -77,11 +79,7 @@ extension on SyncEngine {
     GoogleApiClient client, {
     required bool keepDirty,
   }) async {
-    final page = await client.eventsList(
-      cal.remoteId ?? cal.id,
-      timeMin: _iso(_now() - 30 * msPerDay),
-      timeMax: _iso(_now() + 90 * msPerDay),
-    );
+    final page = await client.eventsList(cal.remoteId ?? cal.id);
     debugPrint(
       '[sync] full resync got ${page.items.length} items (has remoteId=${cal.remoteId != null})',
     );
@@ -103,8 +101,12 @@ extension on SyncEngine {
       final n = await _mergeEvents(cal, page.items);
       debugPrint('[sync] full resync merged $n events');
       if (page.nextSyncToken != null) {
-        await _setSyncValue('cal:${cal.id}:token', page.nextSyncToken!);
+        await _setSyncValue('cal:v2:${cal.id}:token', page.nextSyncToken!);
       }
+      // Best-effort cleanup of legacy token key.
+      await (_db.delete(
+        _db.syncState,
+      )..where((s) => s.key.equals('cal:${cal.id}:token'))).go();
       return n;
     });
   }
@@ -114,57 +116,149 @@ extension on SyncEngine {
     List<Map<String, dynamic>> items,
   ) async {
     var n = 0;
-    for (final g in items) {
+    // Process non-exception masters/singles first, then exceptions.
+    final nonExceptions = items
+        .where((g) => g['recurringEventId'] == null)
+        .toList();
+    final exceptions = items
+        .where((g) => g['recurringEventId'] != null)
+        .toList();
+    for (final g in [...nonExceptions, ...exceptions]) {
       final remoteId = g['id'] as String?;
       if (remoteId == null) continue;
-      final existing =
-          await (_db.select(_db.events)..where(
-                (e) =>
-                    e.remoteId.equals(remoteId) & e.calendarId.equals(cal.id),
-              ))
-              .getSingleOrNull();
-      if (g['status'] == 'cancelled') {
-        if (existing != null && !existing.dirty) {
+      try {
+        final isException = g['recurringEventId'] != null;
+        final masterRemoteId = g['recurringEventId'] as String?;
+        String? masterLocalId;
+        if (isException && masterRemoteId != null) {
+          final masterRow =
+              await (_db.select(_db.events)..where(
+                    (e) =>
+                        e.remoteId.equals(masterRemoteId) &
+                        e.calendarId.equals(cal.id),
+                  ))
+                  .getSingleOrNull();
+          masterLocalId = masterRow?.id;
+        }
+        final existing =
+            await (_db.select(_db.events)..where(
+                  (e) =>
+                      e.remoteId.equals(remoteId) & e.calendarId.equals(cal.id),
+                ))
+                .getSingleOrNull();
+        final cancelled = g['status'] == 'cancelled';
+        if (cancelled && !isException) {
+          // Standalone cancelled event keeps tombstone behavior.
+          if (existing != null && !existing.dirty) {
+            await (_db.update(
+              _db.events,
+            )..where((e) => e.id.equals(existing.id))).write(
+              EventsCompanion(
+                status: const Value('cancelled'),
+                deletedAt: Value(_now()),
+                dirty: const Value(false),
+              ),
+            );
+          }
+          continue;
+        }
+        if (cancelled && isException) {
+          // Cancelled exception: exception row, status cancelled, deletedAt NULL.
+          if (masterLocalId == null) {
+            // Fallback: store as normal single event (tombstone for cancelled).
+            if (existing != null && !existing.dirty) {
+              await (_db.update(
+                _db.events,
+              )..where((e) => e.id.equals(existing.id))).write(
+                EventsCompanion(
+                  status: const Value('cancelled'),
+                  deletedAt: Value(_now()),
+                  dirty: const Value(false),
+                ),
+              );
+            }
+            continue;
+          }
+          final localId = existing?.id ?? newId();
+          final mapped = eventFromGoogle(
+            g,
+            cal.id,
+            localId,
+            recurringMasterLocalId: masterLocalId,
+          );
+          if (existing == null) {
+            await _db
+                .into(_db.events)
+                .insert(
+                  mapped.companion.copyWith(
+                    googleAccount: Value(account),
+                    deletedAt: const Value(null),
+                    status: const Value('cancelled'),
+                  ),
+                );
+            n++;
+          } else if (!existing.dirty) {
+            await (_db.update(
+              _db.events,
+            )..where((e) => e.id.equals(existing.id))).write(
+              mapped.companion.copyWith(
+                alarmPreset: const Value.absent(),
+                deletedAt: const Value(null),
+                status: const Value('cancelled'),
+              ),
+            );
+            n++;
+          }
+          continue;
+        }
+        // Non-cancelled.
+        late String localId;
+        if (existing == null) {
+          final mapped = eventFromGoogle(
+            g,
+            cal.id,
+            newId(),
+            recurringMasterLocalId: isException ? masterLocalId : null,
+          );
+          await _db
+              .into(_db.events)
+              .insert(mapped.companion.copyWith(googleAccount: Value(account)));
+          localId = mapped.companion.id.value;
+          n++;
+        } else if (!existing.dirty) {
+          final mapped = eventFromGoogle(
+            g,
+            cal.id,
+            existing.id,
+            recurringMasterLocalId: isException ? masterLocalId : null,
+          );
           await (_db.update(
             _db.events,
           )..where((e) => e.id.equals(existing.id))).write(
-            EventsCompanion(
-              status: const Value('cancelled'),
-              deletedAt: Value(_now()),
-              dirty: const Value(false),
-            ),
+            mapped.companion.copyWith(alarmPreset: const Value.absent()),
           );
+          localId = existing.id;
+          n++;
+        } else {
+          localId = existing.id;
         }
+        // Local row wins: do not overwrite hangout/attendees when dirty.
+        if (!(existing?.dirty ?? false)) {
+          final hangout = g['hangoutLink'] as String?;
+          if (hangout != null) {
+            await (_db.update(_db.events)..where((e) => e.id.equals(localId)))
+                .write(EventsCompanion(meetUrl: Value(hangout)));
+          }
+          await _mergeAttendees(localId, g);
+        }
+      } catch (e) {
+        debugPrint(
+          '[sync] merge item failed remoteId=$remoteId type=${e.runtimeType}',
+        );
+        if (e is Error) rethrow;
+        // Skip a single bad item; keep processing the rest of the batch.
         continue;
       }
-      late String localId;
-      if (existing == null) {
-        final mapped = eventFromGoogle(g, cal.id, newId());
-        await _db
-            .into(_db.events)
-            .insert(mapped.companion.copyWith(googleAccount: Value(account)));
-        localId = mapped.companion.id.value;
-        n++;
-      } else if (!existing.dirty) {
-        // Last-writer-wins on shared fields; local-only fields preserved
-        // by only writing shared columns.
-        final mapped = eventFromGoogle(g, cal.id, existing.id);
-        await (_db.update(
-          _db.events,
-        )..where((e) => e.id.equals(existing.id))).write(
-          mapped.companion.copyWith(alarmPreset: const Value.absent()),
-        );
-        localId = existing.id;
-        n++;
-      } else {
-        localId = existing.id;
-      }
-      final hangout = g['hangoutLink'] as String?;
-      if (hangout != null) {
-        await (_db.update(_db.events)..where((e) => e.id.equals(localId)))
-            .write(EventsCompanion(meetUrl: Value(hangout)));
-      }
-      await _mergeAttendees(localId, g);
     }
     return n;
   }

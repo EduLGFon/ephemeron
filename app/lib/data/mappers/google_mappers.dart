@@ -14,8 +14,9 @@ class MappedEvent {
 MappedEvent eventFromGoogle(
   Map<String, dynamic> g,
   String calendarId,
-  String localId,
-) {
+  String localId, {
+  String? recurringMasterLocalId,
+}) {
   final start = g['start'] as Map? ?? {};
   final end = g['end'] as Map? ?? {};
   final isAllDay = start['date'] != null;
@@ -48,6 +49,39 @@ MappedEvent eventFromGoogle(
     rrule = (rec.first as String).replaceFirst('RRULE:', '');
   }
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  int? originalStart;
+  final ost = g['originalStartTime'];
+  if (ost is Map) {
+    final dt = ost['dateTime'];
+    if (dt is String) {
+      final parsed = DateTime.tryParse(dt);
+      if (parsed != null) {
+        originalStart = parsed.toUtc().millisecondsSinceEpoch;
+      }
+    } else {
+      final d = ost['date'];
+      if (d is String) {
+        final p = d.split('-');
+        if (p.length == 3) {
+          final y = int.tryParse(p[0]);
+          final m = int.tryParse(p[1]);
+          final day = int.tryParse(p[2]);
+          if (y != null &&
+              m != null &&
+              day != null &&
+              m >= 1 &&
+              m <= 12 &&
+              day >= 1 &&
+              day <= 31) {
+            final dt = DateTime.utc(y, m, day);
+            if (dt.year == y && dt.month == m && dt.day == day) {
+              originalStart = dt.millisecondsSinceEpoch;
+            }
+          }
+        }
+      }
+    }
+  }
   return MappedEvent(
     companion: EventsCompanion(
       id: Value(localId),
@@ -63,6 +97,8 @@ MappedEvent eventFromGoogle(
       tzId: Value(start['timeZone'] as String?),
       endTzId: Value(end['timeZone'] as String?),
       rrule: Value(rrule),
+      recurringMasterId: Value(recurringMasterLocalId),
+      originalStart: Value(originalStart),
       status: Value((g['status'] as String?) ?? 'confirmed'),
       transparency: Value(g['transparency'] as String?),
       visibility: Value(g['visibility'] as String?),

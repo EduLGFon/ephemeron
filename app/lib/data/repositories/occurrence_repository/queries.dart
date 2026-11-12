@@ -119,18 +119,36 @@ mixin _CacheQueryOps
       _collectTask(rows, t, windowStartUtc, windowEndUtc, listColors, siblings);
     }
 
+    // Dedupe rows before insert.
+    final seen = <String>{};
+    final deduped = <OccurrenceCacheCompanion>[];
+    for (final r in rows) {
+      final key =
+          '${r.eventId.value}|${r.startUtc.value}|${r.endUtc.value}|${r.dayKey.value}|${r.sourceType.value}';
+      if (seen.add(key)) deduped.add(r);
+    }
+    final startKeyPad = dateKey(
+      windowStartUtc.toUtc().subtract(const Duration(days: 1)),
+    );
+    final endKeyPad = dateKey(
+      windowEndUtc.toUtc().add(const Duration(days: 1)),
+    );
     await _db.transaction(() async {
       await (_db.delete(_db.occurrenceCache)..where(
             (c) =>
-                c.startUtc.isSmallerOrEqualValue(toMs) &
-                c.endUtc.isBiggerOrEqualValue(fromMs),
+                ((c.startUtc.isSmallerOrEqualValue(toMs) &
+                    c.endUtc.isBiggerOrEqualValue(fromMs)) |
+                (c.dayKey.isBiggerOrEqualValue(startKeyPad) &
+                    c.dayKey.isSmallerOrEqualValue(endKeyPad))),
           ))
           .go();
-      if (rows.isNotEmpty) {
-        await _db.batch((batch) => batch.insertAll(_db.occurrenceCache, rows));
+      if (deduped.isNotEmpty) {
+        await _db.batch(
+          (batch) => batch.insertAll(_db.occurrenceCache, deduped),
+        );
       }
     });
-    return rows.length;
+    return deduped.length;
   }
 
   /// Deletes all cached rows for a master and its exceptions.
