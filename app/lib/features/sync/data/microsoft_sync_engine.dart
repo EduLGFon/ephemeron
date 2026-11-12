@@ -33,19 +33,31 @@ class MicrosoftSyncEngine {
     this.account, {
     DateTime? windowStart,
     DateTime? windowEnd,
+    List<String>? signedInAccounts,
   }) : _windowStart =
            (windowStart ??
                    DateTime.now().toUtc().subtract(const Duration(days: 30)))
                .toUtc(),
        _windowEnd =
            (windowEnd ?? DateTime.now().toUtc().add(const Duration(days: 90)))
-               .toUtc();
+               .toUtc(),
+       _signedInAccounts = signedInAccounts == null
+           ? null
+           : Set.unmodifiable(
+               signedInAccounts
+                   .map((a) => a.trim().toLowerCase())
+                   .where((a) => a.isNotEmpty),
+             );
 
   final AppDatabase _db;
   final MicrosoftGraphClient _client;
   final String account;
   final DateTime _windowStart;
   final DateTime _windowEnd;
+
+  /// All accounts currently signed in, used to pick a single reader for a
+  /// shared calendar. Null means the caller did not provide the account list.
+  final Set<String>? _signedInAccounts;
 
   bool _authFailure = false;
   bool get authFailure => _authFailure;

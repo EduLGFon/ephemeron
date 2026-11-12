@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:ephemeron/domain/microsoft/microsoft_graph_models.dart';
 import 'package:ephemeron/features/sync/data/microsoft_graph_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -45,7 +46,9 @@ void main() {
   });
 
   test('listCalendars maps fields', () async {
+    Uri? seen;
     final client = MockClient((req) async {
+      seen = req.url;
       return http.Response(
         jsonEncode({
           'value': [
@@ -55,6 +58,7 @@ void main() {
               'color': 'auto',
               'hexColor': '#ff0000',
               'isDefaultCalendar': true,
+              'isSharedWithMe': true,
               'canEdit': true,
               'owner': {'name': 'Alice', 'address': 'alice@example.com'},
             },
@@ -69,13 +73,30 @@ void main() {
       httpClient: client,
     );
     final cals = await api.listCalendars();
+    expect(seen!.queryParameters[r'$select'], contains('isSharedWithMe'));
     expect(cals.length, 1);
     expect(cals.first.id, 'c1');
     expect(cals.first.name, 'Calendar');
     expect(cals.first.hexColor, '#ff0000');
     expect(cals.first.isDefaultCalendar, true);
+    expect(cals.first.isSharedWithMe, true);
     expect(cals.first.canEdit, true);
     expect(cals.first.owner?.address, 'alice@example.com');
+  });
+
+  test('MsCalendar.fromMap parses shared flag and owner', () {
+    final cal = MsCalendar.fromMap({
+      'id': 'c-shared',
+      'name': 'Team',
+      'isSharedWithMe': true,
+      'owner': {'name': 'Alice', 'address': 'alice@example.com'},
+    });
+    expect(cal.isSharedWithMe, true);
+    expect(cal.owner?.address, 'alice@example.com');
+    expect(
+      MsCalendar.fromMap(const {'id': 'c-own', 'name': 'Mine'}).isSharedWithMe,
+      false,
+    );
   });
 
   test('calendarView is scoped to the requested calendar', () async {
