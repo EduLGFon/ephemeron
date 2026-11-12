@@ -12,7 +12,14 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
     Map<String, String?> calColors,
   ) {
     if (master.isAllDay) {
-      _collectAllDayMaster(rows, master, exceptions, calColors);
+      _collectAllDayMaster(
+        rows,
+        master,
+        exceptions,
+        rangeStart,
+        rangeEnd,
+        calColors,
+      );
       return;
     }
     if (master.startUtc == null) return;
@@ -27,6 +34,14 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
         if (ex.status != 'cancelled' && ex.originalStart != null)
           ex.originalStart!: ex,
     };
+    // Suppress original slots for moved (non-same-time) overrides.
+    final exdate = <int>{...cancelled};
+    for (final entry in overrides.entries) {
+      final ex = entry.value;
+      if (ex.startUtc != null && ex.startUtc != entry.key) {
+        exdate.add(entry.key);
+      }
+    }
     final color = effectiveEventColor(
       eventColorId: master.colorId,
       calendarColor: calColors[master.calendarId],
@@ -41,7 +56,7 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
       tzId: master.tzId,
       rangeStartUtc: rangeStart,
       rangeEndUtc: rangeEnd,
-      exdateUtcMs: cancelled,
+      exdateUtcMs: exdate,
       cap: OccurrenceRepository.instanceCap,
     );
     for (final s in starts) {
@@ -56,7 +71,59 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
           endMs,
           _dayKey(startMs, master.tzId),
           title: override?.title ?? master.title,
-          colorId: override?.colorId ?? color,
+          colorId: override?.colorId != null
+              ? effectiveEventColor(
+                  eventColorId: override!.colorId,
+                  calendarColor: calColors[master.calendarId],
+                  calendarId: master.calendarId,
+                )
+              : color,
+        ),
+      );
+    }
+    // Apply moved/edited overrides that landed on a different slot: emit
+    // their own span (already handled above when key matches master slot).
+    // Non-slot overrides (moved to a date the master did not originally
+    // cover) are emitted here, but only when they overlap the rebuild window.
+    final fromMs = rangeStart.toUtc().millisecondsSinceEpoch;
+    final toMs = rangeEnd.toUtc().millisecondsSinceEpoch;
+    final startKeys = <int>{for (final s in starts) s.millisecondsSinceEpoch};
+    final emittedKeys = <String>{
+      for (final r in rows)
+        '${r.eventId.value}|${r.startUtc.value}|${r.dayKey.value}',
+    };
+    for (final entry in overrides.entries) {
+      final originalKey = entry.key;
+      if (startKeys.contains(originalKey)) {
+        continue;
+      }
+      final ex = entry.value;
+      if (ex.startUtc == null) continue;
+      final exEnd = ex.endUtc ?? ex.startUtc!;
+      if (exEnd < fromMs || ex.startUtc! > toMs) {
+        continue;
+      }
+      // Avoid duplicate (eventId, startUtc, dayKey) rows.
+      final dedupeKey =
+          '${master.id}|${ex.startUtc}|${_dayKey(ex.startUtc!, master.tzId)}';
+      if (emittedKeys.contains(dedupeKey)) {
+        continue;
+      }
+      emittedKeys.add(dedupeKey);
+      rows.add(
+        _row(
+          master.id,
+          ex.startUtc!,
+          exEnd,
+          _dayKey(ex.startUtc!, master.tzId),
+          title: ex.title,
+          colorId: ex.colorId != null
+              ? effectiveEventColor(
+                  eventColorId: ex.colorId,
+                  calendarColor: calColors[master.calendarId],
+                  calendarId: master.calendarId,
+                )
+              : color,
         ),
       );
     }
@@ -66,6 +133,8 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
     List<OccurrenceCacheCompanion> rows,
     Event master,
     List<Event> exceptions,
+    DateTime rangeStart,
+    DateTime rangeEnd,
     Map<String, String?> calColors,
   ) {
     if (master.startDate == null) return;
@@ -76,6 +145,15 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
             DateTime.fromMillisecondsSinceEpoch(ex.originalStart!, isUtc: true),
           ),
     };
+    final overrides = <String, Event>{
+      for (final ex in exceptions)
+        if (ex.status != 'cancelled' && ex.originalStart != null)
+          dateKey(
+            DateTime.fromMillisecondsSinceEpoch(ex.originalStart!, isUtc: true),
+          ): ex,
+    };
+    // Suppress original slots for moved/edited overrides.
+    final exdateKeys = <String>{...cancelledKeys, ...overrides.keys};
     final parts = master.startDate!.split('-');
     var cursor = DateTime.utc(
       int.parse(parts[0]),
@@ -83,8 +161,6 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
       int.parse(parts[2]),
     );
     final endParts = (master.endDate ?? master.startDate)!.split('-');
-    // All-day endDate is EXCLUSIVE (Google-style). spanDays is the number
-    // of days the event spans; legacy rows with end==start count as one day.
     final spanDaysRaw = DateTime.utc(
       int.parse(endParts[0]),
       int.parse(endParts[1]),
@@ -96,15 +172,24 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
       calendarColor: calColors[master.calendarId],
       calendarId: master.calendarId,
     );
+    final startKeyPad = dateKey(
+      rangeStart.toUtc().subtract(const Duration(days: 1)),
+    );
+    final endKeyPad = dateKey(rangeEnd.toUtc().add(const Duration(days: 1)));
     final starts = expandOccurrences(
       startUtc: cursor,
       rrule: master.rrule!,
       allDay: true,
-      exdateDateKeys: cancelledKeys,
+      rangeStartUtc: rangeStart,
+      rangeEndUtc: rangeEnd,
+      exdateDateKeys: exdateKeys,
       cap: OccurrenceRepository.instanceCap,
     );
     for (final s in starts) {
       final day = dateKey(s);
+      if (day.compareTo(startKeyPad) < 0 || day.compareTo(endKeyPad) > 0) {
+        continue;
+      }
       final dayEnd = DateTime.utc(
         s.year,
         s.month,
@@ -120,6 +205,50 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
           colorId: color,
         ),
       );
+    }
+    // Emit override spans (moved/edited all-day instances).
+    for (final ex in overrides.values) {
+      final oStartRaw = ex.startDate;
+      if (oStartRaw == null) continue;
+      final oParts = oStartRaw.split('-');
+      var oCursor = DateTime.utc(
+        int.parse(oParts[0]),
+        int.parse(oParts[1]),
+        int.parse(oParts[2]),
+      );
+      final oEndRaw = ex.endDate ?? ex.startDate!;
+      final oEndParts = oEndRaw.split('-');
+      final oEndBase = DateTime.utc(
+        int.parse(oEndParts[0]),
+        int.parse(oEndParts[1]),
+        int.parse(oEndParts[2]),
+      );
+      final oSpanRaw = oEndBase.difference(oCursor).inDays;
+      final oSpan = oSpanRaw < 1 ? 1 : oSpanRaw;
+      final exColor = effectiveEventColor(
+        eventColorId: ex.colorId,
+        calendarColor: calColors[master.calendarId],
+        calendarId: master.calendarId,
+      );
+      var oc = oCursor;
+      final oEndExclusive = oCursor.add(Duration(days: oSpan));
+      while (oc.isBefore(oEndExclusive)) {
+        final dk = dateKey(oc);
+        if (dk.compareTo(startKeyPad) >= 0 && dk.compareTo(endKeyPad) <= 0) {
+          final next = oc.add(const Duration(days: 1));
+          rows.add(
+            _row(
+              ex.id,
+              oc.millisecondsSinceEpoch,
+              next.millisecondsSinceEpoch - 1,
+              dk,
+              title: ex.title,
+              colorId: exColor,
+            ),
+          );
+        }
+        oc = oc.add(const Duration(days: 1));
+      }
     }
   }
 
@@ -137,16 +266,22 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
     );
     if (e.isAllDay) {
       if (e.startDate == null) return;
-      // All-day endDate is EXCLUSIVE (Google-style). Legacy local rows may
-      // have end==start; treat those as a single day.
       final lastRaw = e.endDate ?? e.startDate!;
       var cursor = _parseDate(e.startDate!);
       var end = _parseDate(lastRaw);
       if (!end.isAfter(cursor)) {
         end = cursor.add(const Duration(days: 1));
       }
-      if (e.startDate!.compareTo(dateKey(rangeEnd)) > 0) return;
-      if (dateKey(end).compareTo(dateKey(rangeStart)) <= 0) return;
+      final startKey = dateKey(rangeStart);
+      final endKey = dateKey(rangeEnd);
+      if (e.startDate!.compareTo(endKey) > 0) return;
+      if (dateKey(end).compareTo(startKey) <= 0) return;
+      // Clamp iteration to the rebuild window (one-day padding handled by caller range).
+      final windowStartDay = _parseDate(startKey);
+      final windowEndDay = _parseDate(endKey).add(const Duration(days: 1));
+      if (cursor.isBefore(windowStartDay)) cursor = windowStartDay;
+      if (end.isAfter(windowEndDay)) end = windowEndDay;
+      if (!cursor.isBefore(end)) return;
       var n = 0;
       while (cursor.isBefore(end)) {
         final next = cursor.add(const Duration(days: 1));

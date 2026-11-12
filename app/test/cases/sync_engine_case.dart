@@ -236,7 +236,7 @@ void main() {
         .into(db.syncState)
         .insert(
           SyncStateCompanion.insert(
-            key: 'cal:c1:token',
+            key: 'cal:v2:c1:token',
             value: Value('old-tok'),
           ),
         );

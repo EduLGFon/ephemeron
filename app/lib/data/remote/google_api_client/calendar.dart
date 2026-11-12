@@ -27,7 +27,7 @@ mixin _GoogleApiCalendarOps on _GoogleApiBase {
       final q = <String, String>{
         'singleEvents': 'false',
         'showDeleted': 'true',
-        'maxResults': '250',
+        'maxResults': '2500',
       };
       if (syncToken != null) q['syncToken'] = syncToken;
       if (timeMin != null) q['timeMin'] = timeMin;

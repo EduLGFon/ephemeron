@@ -435,4 +435,184 @@ void main() {
       expect((await repo.occurrencesForDay('2026-03-03')).length, 1);
     },
   );
+
+  test(
+    'daily all-day recurring series has no duplicate (eventId,startUtc,dayKey) after shifted rebuilds',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      await _cal(db);
+      await _event(
+        db,
+        id: 'm1',
+        rrule: 'FREQ=DAILY;COUNT=30',
+        startDate: '2026-03-01',
+        endDate: '2026-03-02',
+        isAllDay: true,
+      );
+      final repo = OccurrenceRepository(db);
+      await repo.rebuildWindow(
+        windowStartUtc: DateTime.utc(2026, 3, 5),
+        windowEndUtc: DateTime.utc(2026, 3, 10),
+      );
+      await repo.rebuildWindow(
+        windowStartUtc: DateTime.utc(2026, 3, 12),
+        windowEndUtc: DateTime.utc(2026, 3, 15),
+      );
+      final rows = await db.select(db.occurrenceCache).get();
+      // Each in-window date exactly once.
+      final days = rows.map((r) => r.dayKey).toList();
+      expect(days.toSet().length, days.length);
+    },
+  );
+
+  test(
+    'multi-day all-day single rebuilt twice keeps one row per covered day',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      await _cal(db);
+      await _event(
+        db,
+        id: 'multi',
+        startDate: '2026-11-03',
+        endDate: '2026-11-06',
+        isAllDay: true,
+      );
+      final repo = OccurrenceRepository(db);
+      await repo.rebuildWindow(
+        windowStartUtc: DateTime.utc(2026, 11, 1),
+        windowEndUtc: DateTime.utc(2026, 11, 30),
+      );
+      await repo.rebuildWindow(
+        windowStartUtc: DateTime.utc(2026, 11, 1),
+        windowEndUtc: DateTime.utc(2026, 11, 30),
+      );
+      for (final day in ['2026-11-03', '2026-11-04', '2026-11-05']) {
+        expect((await repo.occurrencesForDay(day)).length, 1);
+      }
+      expect(await repo.occurrencesForDay('2026-11-06'), isEmpty);
+    },
+  );
+
+  test('all-day exception moves and suppresses original slot', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _event(
+      db,
+      id: 'm1',
+      rrule: 'FREQ=DAILY;COUNT=5',
+      startDate: '2026-03-02',
+      endDate: '2026-03-03',
+      isAllDay: true,
+    );
+    await _event(
+      db,
+      id: 'ex1',
+      masterId: 'm1',
+      originalStart: DateTime.utc(2026, 3, 3).millisecondsSinceEpoch,
+      status: 'confirmed',
+      startDate: '2026-03-10',
+      endDate: '2026-03-11',
+      isAllDay: true,
+    );
+    final repo = OccurrenceRepository(db);
+    await repo.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 3, 1),
+      windowEndUtc: DateTime.utc(2026, 3, 12),
+    );
+    expect(await repo.occurrencesForDay('2026-03-03'), isEmpty);
+    expect((await repo.occurrencesForDay('2026-03-10')).length, 1);
+  });
+
+  test('timed moved exception shows once at new time not original', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    final start = DateTime.utc(2026, 3, 2, 9);
+    await _event(
+      db,
+      id: 'm1',
+      rrule: 'FREQ=DAILY;COUNT=5',
+      startUtc: start.millisecondsSinceEpoch,
+      endUtc: start.add(const Duration(hours: 1)).millisecondsSinceEpoch,
+      tzId: 'UTC',
+    );
+    final movedStart = DateTime.utc(2026, 3, 4, 11);
+    await _event(
+      db,
+      id: 'ex1',
+      masterId: 'm1',
+      originalStart: DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+      status: 'confirmed',
+      startUtc: movedStart.millisecondsSinceEpoch,
+      endUtc: movedStart.add(const Duration(hours: 1)).millisecondsSinceEpoch,
+      tzId: 'UTC',
+    );
+    final repo = OccurrenceRepository(db);
+    await repo.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 3, 1),
+      windowEndUtc: DateTime.utc(2026, 3, 8),
+    );
+    expect(await repo.occurrencesForDay('2026-03-03'), isEmpty);
+    final movedDay = await repo.occurrencesForDay('2026-03-04');
+    expect(
+      movedDay
+          .where((r) => r.startUtc == movedStart.millisecondsSinceEpoch)
+          .length,
+      1,
+    );
+  });
+
+  test('timed moved exception outside window not accumulated', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    final start = DateTime.utc(2026, 3, 2, 9);
+    await _event(
+      db,
+      id: 'm1',
+      rrule: 'FREQ=DAILY;COUNT=5',
+      startUtc: start.millisecondsSinceEpoch,
+      endUtc: start.add(const Duration(hours: 1)).millisecondsSinceEpoch,
+      tzId: 'UTC',
+    );
+    final movedStart = DateTime.utc(2026, 3, 20, 11);
+    await _event(
+      db,
+      id: 'ex1',
+      masterId: 'm1',
+      originalStart: DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+      status: 'confirmed',
+      startUtc: movedStart.millisecondsSinceEpoch,
+      endUtc: movedStart.add(const Duration(hours: 1)).millisecondsSinceEpoch,
+      tzId: 'UTC',
+    );
+    final repo = OccurrenceRepository(db);
+    await repo.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 3, 5),
+      windowEndUtc: DateTime.utc(2026, 3, 10),
+    );
+    // exception row absent in this window
+    final rows1 = await db.select(db.occurrenceCache).get();
+    expect(
+      rows1
+          .where((r) => r.startUtc == movedStart.millisecondsSinceEpoch)
+          .length,
+      0,
+    );
+    await repo.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 3, 18),
+      windowEndUtc: DateTime.utc(2026, 3, 25),
+    );
+    final rows2 = await db.select(db.occurrenceCache).get();
+    // at most once overall after second rebuild
+    expect(
+      rows2
+          .where((r) => r.startUtc == movedStart.millisecondsSinceEpoch)
+          .length,
+      lessThanOrEqualTo(1),
+    );
+  });
 }
