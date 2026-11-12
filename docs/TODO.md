@@ -1,5 +1,17 @@
 # TODO
 
+## Google multi-account restore (2026-11-12)
+
+- Implemented: `accessTokenFor` restores any unexpired token cached for a
+  stored account after restart; `restore()` checks every stored account and
+  exposes `accountsNeedingReconnect`; session restore merges those accounts into
+  the global reconnect banner without persisting emails.
+- Verification: `flutter analyze` clean; targeted auth and sync tests passed.
+- Deferred: the GoogleSignIn plugin has no unit-test platform, so silent restore
+  is covered through pure token/identity helpers only; accounts whose cached
+  token expired and that the plugin cannot silently restore still need
+  interactive reconnect, now surfaced at startup.
+
 ## Calendar/sync/notes verification (2026-11-11)
 
 - Implemented: occurrence-cache duplicate fix (all-day recurrence window clamp,

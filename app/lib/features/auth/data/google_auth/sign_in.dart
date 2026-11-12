@@ -48,6 +48,7 @@ mixin _GoogleAuthSignIn on _GoogleAuthBase {
             .add(const Duration(minutes: 50))
             .millisecondsSinceEpoch,
       );
+      _clearNeedsReconnect(email);
       await _storage.saveGoogleAccounts(_accounts);
       return _activeEmail;
     } on UnimplementedError {
@@ -192,6 +193,7 @@ mixin _GoogleAuthSignIn on _GoogleAuthBase {
           .add(Duration(seconds: expiresIn - 60))
           .millisecondsSinceEpoch,
     );
+    _clearNeedsReconnect(email);
     await _storage.saveGoogleAccounts(_accounts);
     return _activeEmail;
   }

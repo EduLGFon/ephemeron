@@ -29,32 +29,59 @@ mixin _GoogleAuthToken on _GoogleAuthBase {
           .add(const Duration(minutes: 50))
           .millisecondsSinceEpoch,
     );
+    _clearNeedsReconnect(account);
   }
 
   @override
   Future<String?> accessToken() async {
     final account = _activeEmail;
     if (account == null) return null;
+    return accessTokenFor(account);
+  }
+
+  /// Returns an access token bound to [account].
+  ///
+  /// After a process restart this restores any unexpired token cached for the
+  /// account, not only the active one. When no valid token exists it uses the
+  /// account-specific GoogleSignIn object or a matching lightweight sign-in.
+  @override
+  Future<String?> accessTokenFor(String account) async {
     if (defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.windows) {
       return _desktopAccessToken(account);
     }
+    final now = DateTime.now().toUtc();
     final cached = _accessTokens[account];
-    if (cached != null) {
-      final exp = await _storage.googleExpiryMsFor(account);
-      // SECURITY: Only the unexpired token stored for this email is reused.
-      if (exp != null && DateTime.now().toUtc().millisecondsSinceEpoch < exp) {
-        return cached;
-      }
+    final cachedExpiry = await _storage.googleExpiryMsFor(account);
+    // SECURITY: Only the unexpired token stored for this exact account is
+    // reused. A cached token without a trusted expiry is never returned.
+    if (isGoogleAccessTokenUsable(
+      accessToken: cached,
+      expiryMs: cachedExpiry,
+      now: now,
+    )) {
+      _clearNeedsReconnect(account);
+      return cached;
+    }
+    final stored = await _storage.googleAccessTokenFor(account);
+    final storedExpiry = await _storage.googleExpiryMsFor(account);
+    // SECURITY: The per-account storage key binds this token to the email it
+    // was issued for, so an unexpired stored token is safe to restore.
+    if (isGoogleAccessTokenUsable(
+      accessToken: stored,
+      expiryMs: storedExpiry,
+      now: now,
+    )) {
+      _accessTokens[account] = stored!;
+      _clearNeedsReconnect(account);
+      return stored;
     }
     await _ensureInit();
-    var googleAccount = _googleAccountFor(account);
-    if (googleAccount == null) {
-      googleAccount = await _lightweightAccountFor(account);
-      if (googleAccount == null) return null;
-    }
-    // SECURITY: Authorize through the account object bound to this email. The
-    // global GoogleSignIn client may belong to another signed-in account.
+    final googleAccount =
+        _googleAccountFor(account) ?? await _lightweightAccountFor(account);
+    // SECURITY: Never authorize through the global GoogleSignIn client. It may
+    // belong to another signed-in account.
+    if (googleAccount == null) return null;
     final authz = await googleAccount.authorizationClient
         .authorizationForScopes(AppConfig.googleScopes);
     if (authz == null) return null;
@@ -67,6 +94,7 @@ mixin _GoogleAuthToken on _GoogleAuthBase {
           .add(const Duration(minutes: 50))
           .millisecondsSinceEpoch,
     );
+    _clearNeedsReconnect(account);
     return _accessTokens[account];
   }
 

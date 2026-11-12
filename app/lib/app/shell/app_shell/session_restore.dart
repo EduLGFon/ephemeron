@@ -88,7 +88,7 @@ extension _AppShellSessionRestore on _AppShellState {
         ref.read(searchScopeProvider.notifier).set(scope);
       } catch (_) {}
       // Restore a previous Google sign-in so sync works after restart.
-      await ref.read(googleAccountProvider.notifier).restore();
+      await _restoreGoogleSession();
       if (!mounted) return;
       // A widget tap or a pending alarm ring requested explicit navigation;
       // do not push restored routes or reopen sheets over it.
@@ -124,8 +124,31 @@ extension _AppShellSessionRestore on _AppShellState {
       // Best-effort: restore must never block startup.
       ref.read(initialRestoreDoneProvider.notifier).markDone();
       try {
-        await ref.read(googleAccountProvider.notifier).restore();
+        await _restoreGoogleSession();
       } catch (_) {}
     }
+  }
+
+  Future<void> _restoreGoogleSession() async {
+    try {
+      await ref.read(googleAccountProvider.notifier).restore();
+    } catch (_) {
+      // Keep startup alive; unavailable auth leaves the list untouched.
+    }
+    if (!mounted) return;
+    final existing = ref.read(googleReconsentAccountsProvider);
+    final needsReconnect = ref
+        .read(googleAuthProvider)
+        .accountsNeedingReconnect;
+    final merged = normalizeAccountEmails([...existing, ...needsReconnect]);
+    if (merged.isEmpty) {
+      // A clean restore must not leave a stale banner or persisted flag.
+      ref.read(googleReconsentAccountsProvider.notifier).set(const []);
+      await ref.read(googleReconnectNeededProvider.notifier).set(false);
+      return;
+    }
+    ref.read(googleReconsentAccountsProvider.notifier).set(merged);
+    // The persisted flag is non-personal; account emails stay in memory.
+    unawaited(ref.read(googleReconnectNeededProvider.notifier).set(true));
   }
 }
