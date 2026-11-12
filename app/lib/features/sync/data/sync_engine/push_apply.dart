@@ -68,14 +68,8 @@ extension on SyncEngine {
       if (e.remoteId == null) {
         await _insertRemoteEvent(client, e, calId);
       } else {
+        final body = await _eventBody(e);
         try {
-          final body = eventToGoogle(e);
-          final atts = await (_db.select(
-            _db.eventAttendees,
-          )..where((a) => a.eventId.equals(e.id))).get();
-          if (atts.isNotEmpty) {
-            body['attendees'] = atts.map((a) => {'email': a.email}).toList();
-          }
           final updated = await client.eventPatch(
             calId,
             e.remoteId!,
@@ -100,7 +94,7 @@ extension on SyncEngine {
                 .where((m) => m['id'] == e.remoteId)
                 .firstOrNull;
             if (remote == null) {
-              final created = await client.eventInsert(calId, eventToGoogle(e));
+              final created = await client.eventInsert(calId, body);
               await (_db.update(
                 _db.events,
               )..where((t) => t.id.equals(e.id))).write(
@@ -114,7 +108,7 @@ extension on SyncEngine {
               final updated = await client.eventPatch(
                 calId,
                 e.remoteId!,
-                eventToGoogle(e),
+                body,
                 etag: remote['etag'] as String?,
               );
               await (_db.update(
@@ -251,31 +245,90 @@ extension on SyncEngine {
         throw GoogleApiException(500, 'Google insert returned no id');
       }
     }
-    final instanceId =
-        e.remoteId ??
-        await _resolveExceptionInstanceId(client, calId, masterRemoteId, e);
     if (e.deletedAt != null || e.status == 'cancelled') {
-      if (instanceId == null) return;
+      await _pushExceptionDelete(client, e, calId, masterRemoteId);
+    } else {
+      await _pushExceptionPatch(client, e, calId, masterRemoteId);
+    }
+  }
+
+  /// Deletes the Google instance for a cancelled/deleted exception.
+  Future<void> _pushExceptionDelete(
+    GoogleApiClient client,
+    Event e,
+    String calId,
+    String masterRemoteId,
+  ) async {
+    final instance = await _exceptionInstance(client, e, calId, masterRemoteId);
+    if (instance != null) {
       try {
-        await client.eventDelete(calId, instanceId);
+        await client.eventDelete(calId, instance.id);
       } on GoogleApiException catch (err) {
         // Already gone: the local cancelled row is the desired state, so
         // clear the op instead of retrying a 410/404 forever.
         if (err.status != 404 && err.status != 410) rethrow;
       }
-      return;
     }
-    if (instanceId == null) {
-      throw GoogleApiException(404, 'Google instance not found');
-    }
-    final updated = await client.eventPatch(
-      calId,
-      instanceId,
-      eventToGoogle(e),
-    );
     await (_db.update(_db.events)..where((t) => t.id.equals(e.id))).write(
       EventsCompanion(
-        remoteId: Value(updated['id'] as String? ?? instanceId),
+        remoteId: const Value(null),
+        remoteEtag: const Value(null),
+        dirty: const Value(false),
+        updatedAt: Value(_now()),
+      ),
+    );
+  }
+
+  /// Patches the Google instance for a confirmed exception, retrying once
+  /// with a fresh etag after a conflict.
+  Future<void> _pushExceptionPatch(
+    GoogleApiClient client,
+    Event e,
+    String calId,
+    String masterRemoteId,
+  ) async {
+    var instance = await _exceptionInstance(client, e, calId, masterRemoteId);
+    if (instance == null) {
+      throw GoogleApiException(503, 'Google instance not found');
+    }
+    final body = await _eventBody(e);
+    try {
+      final updated = await client.eventPatch(
+        calId,
+        instance.id,
+        body,
+        etag: instance.etag,
+      );
+      await _saveExceptionPatch(e, updated, instance.id);
+    } on GoogleApiException catch (err) {
+      if (!err.isConflict) rethrow;
+      instance = await _resolveExceptionInstance(
+        client,
+        calId,
+        masterRemoteId,
+        e.originalStart,
+      );
+      if (instance == null) {
+        throw GoogleApiException(503, 'Google instance not found');
+      }
+      final updated = await client.eventPatch(
+        calId,
+        instance.id,
+        body,
+        etag: instance.etag,
+      );
+      await _saveExceptionPatch(e, updated, instance.id);
+    }
+  }
+
+  Future<void> _saveExceptionPatch(
+    Event e,
+    Map<String, dynamic> updated,
+    String fallbackId,
+  ) async {
+    await (_db.update(_db.events)..where((t) => t.id.equals(e.id))).write(
+      EventsCompanion(
+        remoteId: Value(updated['id'] as String? ?? fallbackId),
         remoteEtag: Value(updated['etag'] as String?),
         dirty: const Value(false),
         updatedAt: Value(_now()),
@@ -283,14 +336,31 @@ extension on SyncEngine {
     );
   }
 
-  /// Finds the Google instance id for [e]'s original occurrence.
-  Future<String?> _resolveExceptionInstanceId(
+  /// Uses the exception's own instance id when known, otherwise resolves the
+  /// generated instance for its original occurrence.
+  Future<({String id, String? etag})?> _exceptionInstance(
+    GoogleApiClient client,
+    Event e,
+    String calId,
+    String masterRemoteId,
+  ) async {
+    final remoteId = e.remoteId;
+    if (remoteId != null) return (id: remoteId, etag: e.remoteEtag);
+    return _resolveExceptionInstance(
+      client,
+      calId,
+      masterRemoteId,
+      e.originalStart,
+    );
+  }
+
+  /// Finds the Google instance id/etag for an original occurrence.
+  Future<({String id, String? etag})?> _resolveExceptionInstance(
     GoogleApiClient client,
     String calId,
     String masterRemoteId,
-    Event e,
+    int? originalStart,
   ) async {
-    final originalStart = e.originalStart;
     if (originalStart == null) return null;
     final page = await client.eventsList(
       calId,
@@ -302,9 +372,23 @@ extension on SyncEngine {
     for (final item in page.items) {
       if (item['recurringEventId'] != masterRemoteId) continue;
       if (originalStartMsFromGoogle(item) != originalStart) continue;
-      return item['id'] as String?;
+      final id = item['id'] as String?;
+      if (id == null) continue;
+      return (id: id, etag: item['etag'] as String?);
     }
     return null;
+  }
+
+  /// Serializes an event with its attendees for Google patches/inserts.
+  Future<Map<String, dynamic>> _eventBody(Event e) async {
+    final body = eventToGoogle(e);
+    final atts = await (_db.select(
+      _db.eventAttendees,
+    )..where((a) => a.eventId.equals(e.id))).get();
+    if (atts.isNotEmpty) {
+      body['attendees'] = atts.map((a) => {'email': a.email}).toList();
+    }
+    return body;
   }
 
   /// Inserts [e] and persists the returned remote id/etag. Shared by normal
@@ -314,13 +398,7 @@ extension on SyncEngine {
     Event e,
     String calId,
   ) async {
-    final body = eventToGoogle(e);
-    final atts = await (_db.select(
-      _db.eventAttendees,
-    )..where((a) => a.eventId.equals(e.id))).get();
-    if (atts.isNotEmpty) {
-      body['attendees'] = atts.map((a) => {'email': a.email}).toList();
-    }
+    final body = await _eventBody(e);
     final created = await client.eventInsert(calId, body);
     final remoteId = created['id'] as String?;
     await (_db.update(_db.events)..where((t) => t.id.equals(e.id))).write(

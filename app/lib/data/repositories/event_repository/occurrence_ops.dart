@@ -133,6 +133,11 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
         if (resetExceptions) {
           final now = nowMs();
           for (final ex in await exceptionsOf(masterId)) {
+            // The exception is about to disappear locally: drop any queued
+            // create/update before deciding whether a remote delete is due.
+            await (_db.delete(
+              _db.outbox,
+            )..where((o) => o.entityId.equals(ex.id))).go();
             if (ex.remoteId != null) {
               await _enqueue(ex.id, 'delete');
             }
@@ -202,6 +207,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
                   : const Value('confirmed'),
               isAllDay: Value(master.isAllDay),
               tzId: Value(master.tzId),
+              dirty: const Value(true),
               createdAt: Value(now),
               updatedAt: Value(now),
             ),
