@@ -10,12 +10,12 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
     final cutMs = originalStartUtc.toUtc().millisecondsSinceEpoch;
     switch (scope) {
       case EditScope.single:
-        await _upsertException(
+        final exId = await _upsertException(
           master,
           cutMs,
           const EventsCompanion(status: Value('cancelled')),
         );
-        await _enqueue(masterId, 'update');
+        await _enqueue(exId, 'delete');
       case EditScope.following:
         final first = _seriesFirstStart(master);
         if (first != null && cutMs <= first) {
@@ -81,7 +81,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
             notes: notePatch,
           ),
         );
-        await _enqueue(masterId, 'update');
+        await _enqueue(affectedId, 'update');
       case EditScope.following:
         affectedId = await _splitMaster(
           master,
@@ -131,14 +131,15 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
           ),
         );
         if (resetExceptions) {
+          final now = nowMs();
           for (final ex in await exceptionsOf(masterId)) {
+            if (ex.remoteId != null) {
+              await _enqueue(ex.id, 'delete');
+            }
             await (_db.update(
               _db.events,
             )..where((e) => e.id.equals(ex.id))).write(
-              EventsCompanion(
-                deletedAt: Value(nowMs()),
-                updatedAt: Value(nowMs()),
-              ),
+              EventsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
             );
           }
         }

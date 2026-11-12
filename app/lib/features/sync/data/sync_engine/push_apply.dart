@@ -27,6 +27,12 @@ extension on SyncEngine {
       // Deleted locally and purged: nothing to push.
       if (e == null) return;
       final calId = await _remoteCalendarId(e.calendarId) ?? e.calendarId;
+      // Single-occurrence exceptions are separate Google instances; they
+      // need their own delete/patch instead of touching the series master.
+      if (e.recurringMasterId != null) {
+        await _applyExceptionOp(client, e, calId);
+        return;
+      }
       if (op.op == 'delete' || e.deletedAt != null) {
         if (e.remoteId != null) {
           await client.eventDelete(calId, e.remoteId!);
@@ -60,21 +66,7 @@ extension on SyncEngine {
         }
       }
       if (e.remoteId == null) {
-        final body = eventToGoogle(e);
-        final atts = await (_db.select(
-          _db.eventAttendees,
-        )..where((a) => a.eventId.equals(e.id))).get();
-        if (atts.isNotEmpty) {
-          body['attendees'] = atts.map((a) => {'email': a.email}).toList();
-        }
-        final created = await client.eventInsert(calId, body);
-        await (_db.update(_db.events)..where((t) => t.id.equals(e.id))).write(
-          EventsCompanion(
-            remoteId: Value(created['id'] as String?),
-            remoteEtag: Value(created['etag'] as String?),
-            dirty: const Value(false),
-          ),
-        );
+        await _insertRemoteEvent(client, e, calId);
       } else {
         try {
           final body = eventToGoogle(e);
@@ -235,5 +227,109 @@ extension on SyncEngine {
         );
       }
     }
+  }
+
+  /// Pushes one single-occurrence exception. Google addresses an overridden
+  /// instance by its own event id, so a local exception first resolves the
+  /// matching generated instance when it has never been synced.
+  Future<void> _applyExceptionOp(
+    GoogleApiClient client,
+    Event e,
+    String calId,
+  ) async {
+    final masterId = e.recurringMasterId;
+    if (masterId == null) return;
+    final master = await (_db.select(
+      _db.events,
+    )..where((t) => t.id.equals(masterId))).getSingleOrNull();
+    if (master == null) return;
+    // The instance cannot be looked up until the series exists remotely.
+    var masterRemoteId = master.remoteId;
+    if (masterRemoteId == null) {
+      masterRemoteId = await _insertRemoteEvent(client, master, calId);
+      if (masterRemoteId == null) {
+        throw GoogleApiException(500, 'Google insert returned no id');
+      }
+    }
+    final instanceId =
+        e.remoteId ??
+        await _resolveExceptionInstanceId(client, calId, masterRemoteId, e);
+    if (e.deletedAt != null || e.status == 'cancelled') {
+      if (instanceId == null) return;
+      try {
+        await client.eventDelete(calId, instanceId);
+      } on GoogleApiException catch (err) {
+        // Already gone: the local cancelled row is the desired state, so
+        // clear the op instead of retrying a 410/404 forever.
+        if (err.status != 404 && err.status != 410) rethrow;
+      }
+      return;
+    }
+    if (instanceId == null) {
+      throw GoogleApiException(404, 'Google instance not found');
+    }
+    final updated = await client.eventPatch(
+      calId,
+      instanceId,
+      eventToGoogle(e),
+    );
+    await (_db.update(_db.events)..where((t) => t.id.equals(e.id))).write(
+      EventsCompanion(
+        remoteId: Value(updated['id'] as String? ?? instanceId),
+        remoteEtag: Value(updated['etag'] as String?),
+        dirty: const Value(false),
+        updatedAt: Value(_now()),
+      ),
+    );
+  }
+
+  /// Finds the Google instance id for [e]'s original occurrence.
+  Future<String?> _resolveExceptionInstanceId(
+    GoogleApiClient client,
+    String calId,
+    String masterRemoteId,
+    Event e,
+  ) async {
+    final originalStart = e.originalStart;
+    if (originalStart == null) return null;
+    final page = await client.eventsList(
+      calId,
+      timeMin: _iso(originalStart - msPerDay),
+      timeMax: _iso(originalStart + msPerDay),
+      singleEvents: true,
+      showDeleted: true,
+    );
+    for (final item in page.items) {
+      if (item['recurringEventId'] != masterRemoteId) continue;
+      if (originalStartMsFromGoogle(item) != originalStart) continue;
+      return item['id'] as String?;
+    }
+    return null;
+  }
+
+  /// Inserts [e] and persists the returned remote id/etag. Shared by normal
+  /// creates and by exception pushes that must materialize a local master.
+  Future<String?> _insertRemoteEvent(
+    GoogleApiClient client,
+    Event e,
+    String calId,
+  ) async {
+    final body = eventToGoogle(e);
+    final atts = await (_db.select(
+      _db.eventAttendees,
+    )..where((a) => a.eventId.equals(e.id))).get();
+    if (atts.isNotEmpty) {
+      body['attendees'] = atts.map((a) => {'email': a.email}).toList();
+    }
+    final created = await client.eventInsert(calId, body);
+    final remoteId = created['id'] as String?;
+    await (_db.update(_db.events)..where((t) => t.id.equals(e.id))).write(
+      EventsCompanion(
+        remoteId: Value(remoteId),
+        remoteEtag: Value(created['etag'] as String?),
+        dirty: const Value(false),
+      ),
+    );
+    return remoteId;
   }
 }

@@ -24,6 +24,8 @@ class _FakeGoogle implements GoogleApiClient {
     String? syncToken,
     String? timeMin,
     String? timeMax,
+    bool singleEvents = false,
+    bool showDeleted = true,
   }) async {
     lastSyncTokenSeen = syncToken;
     lastTimeMin = timeMin;

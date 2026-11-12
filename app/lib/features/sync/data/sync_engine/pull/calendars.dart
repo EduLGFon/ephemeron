@@ -13,7 +13,7 @@ extension on SyncEngine {
     debugPrint('[sync] pulling ${calendars.length} google calendars');
     var total = 0;
     for (final cal in calendars) {
-      if (!_pullableCalendar(cal)) continue;
+      if (!await _pullableCalendar(cal)) continue;
       debugPrint('[sync] pulling calendar id=${cal.id} enabled=${cal.enabled}');
       final token = await _syncValue('cal:v2:${cal.id}:token');
       final remoteId = cal.remoteId;
@@ -61,28 +61,35 @@ extension on SyncEngine {
               '[sync] calendar resync failed type=${retryError.runtimeType}',
             );
             _recordFailure(retryError);
+            await _clearReaderClaim(remoteId);
             await _setSyncMeta('cal:${cal.id}', error: 'sync failed');
           }
         } else if (e.isAuthFailure) {
           _recordFailure(e);
+          await _clearReaderClaim(remoteId);
           await _setSyncMeta('cal:${cal.id}', error: 'Google auth');
         } else if (e.isRateLimited) {
           _recordFailure(e);
+          await _clearReaderClaim(remoteId);
           await _setSyncMeta('cal:${cal.id}', error: 'rate limited');
         } else if (e.isForbidden) {
           // Permanently inaccessible calendar (for example freeBusyReader or
           // a shared calendar this account cannot read). Record and skip; do
           // not demand reconnect for the whole account.
+          await _clearReaderClaim(remoteId);
           await _setSyncMeta('cal:${cal.id}', error: 'forbidden');
         } else if (e.status == 404) {
+          await _clearReaderClaim(remoteId);
           await _setSyncMeta('cal:${cal.id}', error: 'Google 404');
         } else {
           _recordFailure(e);
+          await _clearReaderClaim(remoteId);
           await _setSyncMeta('cal:${cal.id}', error: 'Google ${e.status}');
         }
       } on Exception catch (e) {
         debugPrint('[sync] calendar pull failed type=${e.runtimeType}');
         _recordFailure(e);
+        await _clearReaderClaim(remoteId);
         await _setSyncMeta('cal:${cal.id}', error: 'sync failed');
       }
     }
@@ -91,11 +98,14 @@ extension on SyncEngine {
 
   /// Whether [cal] may be pulled under the active account.
   ///
-  /// A calendar stamped to the active account is always pulled. A shared
-  /// calendar stamped to another signed-in account is pulled when this
-  /// account's discovery says it can read events, so it is not lost. Entries
-  /// that are freeBusyReader-only have no event details and are skipped.
-  bool _pullableCalendar(Calendar cal) {
+  /// A calendar stamped to the active account is always pulled. A calendar
+  /// stamped to another signed-in account belongs to that owner and is
+  /// skipped here, so a shared calendar is not fetched once per account.
+  /// A calendar whose stamp names an account that is not signed in is pulled
+  /// by a single deterministic reader recorded in syncState, so the same
+  /// calendar is not pulled by every account in turn. Entries that are
+  /// freeBusyReader-only have no event details and are skipped.
+  Future<bool> _pullableCalendar(Calendar cal) async {
     final remoteId = cal.remoteId;
     final discovered = _accountCalendarIds;
     final readable = _readableCalendarIds;
@@ -107,13 +117,44 @@ extension on SyncEngine {
       return false;
     }
     if (account == null) return true;
-    if (cal.googleAccount == account) return true;
-    if (remoteId != null && readable != null && readable.contains(remoteId)) {
-      return true;
+    final owner = cal.googleAccount;
+    if (owner == account) return true;
+    if (owner != null && _ownerIsSignedIn(owner)) return false;
+    if (owner == null) {
+      // Legacy unstamped rows keep discovery gating and are not claimed:
+      // there is no host account whose absence needs a reader.
+      if (discovered == null) return true;
+      return remoteId == null || discovered.contains(remoteId);
     }
-    if (cal.googleAccount != null) return false;
-    if (discovered == null) return true;
-    return remoteId == null || discovered.contains(remoteId);
+    if (remoteId == null) return false;
+    final key = 'cal:reader:$remoteId';
+    final reader = await _syncValue(key);
+    if (reader == account) return true;
+    if (reader != null && _ownerIsSignedIn(reader)) return false;
+    // Claim only when the calendar is actually readable under this account,
+    // otherwise a freeBusyReader or inaccessible entry would occupy the slot.
+    if (readable == null || !readable.contains(remoteId)) return false;
+    await _setSyncValue(key, account!);
+    debugPrint('[sync] claimed shared calendar reader id=$remoteId');
+    return true;
+  }
+
+  /// Best-effort release of a shared-calendar reader claim after a failed
+  /// pull. Clears only when the key still names the active account so a
+  /// concurrent account's claim is never stolen. Never throws into the pull
+  /// loop: a cleanup failure must not abort remaining calendars.
+  Future<void> _clearReaderClaim(String? remoteId) async {
+    final active = account;
+    if (remoteId == null || active == null) return;
+    final key = 'cal:reader:$remoteId';
+    try {
+      final reader = await _syncValue(key);
+      if (reader != active) return;
+      await (_db.delete(_db.syncState)..where((s) => s.key.equals(key))).go();
+      debugPrint('[sync] released shared calendar reader id=$remoteId');
+    } catch (e) {
+      debugPrint('[sync] reader claim cleanup failed type=${e.runtimeType}');
+    }
   }
 
   Future<int> _fullCalendarResync(

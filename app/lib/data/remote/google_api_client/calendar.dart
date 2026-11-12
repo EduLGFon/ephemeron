@@ -37,6 +37,8 @@ mixin _GoogleApiCalendarOps on _GoogleApiBase {
     String? syncToken,
     String? timeMin,
     String? timeMax,
+    bool singleEvents = false,
+    bool showDeleted = true,
   }) async {
     final all = <Map<String, dynamic>>[];
     String? pageToken;
@@ -44,8 +46,8 @@ mixin _GoogleApiCalendarOps on _GoogleApiBase {
     var pages = 0;
     do {
       final q = <String, String>{
-        'singleEvents': 'false',
-        'showDeleted': 'true',
+        'singleEvents': singleEvents ? 'true' : 'false',
+        'showDeleted': showDeleted ? 'true' : 'false',
         'maxResults': '2500',
       };
       if (syncToken != null) q['syncToken'] = syncToken;
