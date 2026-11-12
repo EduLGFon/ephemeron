@@ -138,6 +138,8 @@ abstract class GoogleApiClient {
     String? syncToken,
     String? timeMin,
     String? timeMax,
+    bool singleEvents = false,
+    bool showDeleted = true,
   });
   Future<Map<String, dynamic>> eventInsert(
     String calendarId,

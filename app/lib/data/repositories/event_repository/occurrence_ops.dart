@@ -10,12 +10,12 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
     final cutMs = originalStartUtc.toUtc().millisecondsSinceEpoch;
     switch (scope) {
       case EditScope.single:
-        await _upsertException(
+        final exId = await _upsertException(
           master,
           cutMs,
           const EventsCompanion(status: Value('cancelled')),
         );
-        await _enqueue(masterId, 'update');
+        await _enqueue(exId, 'delete');
       case EditScope.following:
         final first = _seriesFirstStart(master);
         if (first != null && cutMs <= first) {
@@ -78,10 +78,12 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
             createMeet: createMeet == null
                 ? const Value.absent()
                 : Value(createMeet),
+            status: const Value('confirmed'),
+            deletedAt: const Value(null),
             notes: notePatch,
           ),
         );
-        await _enqueue(masterId, 'update');
+        await _enqueue(affectedId, 'update');
       case EditScope.following:
         affectedId = await _splitMaster(
           master,
@@ -131,14 +133,20 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
           ),
         );
         if (resetExceptions) {
+          final now = nowMs();
           for (final ex in await exceptionsOf(masterId)) {
+            // The exception is about to disappear locally: drop any queued
+            // create/update before deciding whether a remote delete is due.
+            await (_db.delete(
+              _db.outbox,
+            )..where((o) => o.entityId.equals(ex.id))).go();
+            if (ex.remoteId != null) {
+              await _enqueue(ex.id, 'delete');
+            }
             await (_db.update(
               _db.events,
             )..where((e) => e.id.equals(ex.id))).write(
-              EventsCompanion(
-                deletedAt: Value(nowMs()),
-                updatedAt: Value(nowMs()),
-              ),
+              EventsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
             );
           }
         }
@@ -201,6 +209,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
                   : const Value('confirmed'),
               isAllDay: Value(master.isAllDay),
               tzId: Value(master.tzId),
+              dirty: const Value(true),
               createdAt: Value(now),
               updatedAt: Value(now),
             ),

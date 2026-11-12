@@ -251,6 +251,8 @@ class _FailAll extends FakeGoogle {
     String? syncToken,
     String? timeMin,
     String? timeMax,
+    bool singleEvents = false,
+    bool showDeleted = true,
   }) async => throw GoogleApiException(status, message);
 
   @override

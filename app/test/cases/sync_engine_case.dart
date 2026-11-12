@@ -3,18 +3,29 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/event_repository.dart';
+import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/data/remote/google_api_client.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeGoogle implements GoogleApiClient {
   List<Map<String, dynamic>> events = [];
+  List<Map<String, dynamic>> instances = [];
   List<Map<String, dynamic>> calendars = [];
   List<Map<String, dynamic>> taskListsResult = [];
   final List<String> pulledCalendars = [];
   final List<String> pulledTaskLists = [];
+  final List<String> patchedEventIds = [];
+  final List<String> deletedEvents = [];
+  Map<String, dynamic>? lastPatchBody;
+  final List<String?> etagHistory = [];
   String? lastSyncTokenSeen;
   String? lastEtagSeen;
+  String? lastInstanceTimeMin;
+  String? lastInstanceTimeMax;
+  bool? lastInstanceShowDeleted;
+  int singleEventsCalls = 0;
   bool fail410Once = false;
   bool fail429Once = false;
   bool fail412Once = false;
@@ -27,7 +38,6 @@ class FakeGoogle implements GoogleApiClient {
   String? lastTaskListTitle;
   final List<String> patchedTaskLists = [];
   final List<String> deletedTaskLists = [];
-  final List<String> deletedEvents = [];
   final List<String> deletedTasks = [];
   int? retryAfterSec;
 
@@ -40,7 +50,16 @@ class FakeGoogle implements GoogleApiClient {
     String? syncToken,
     String? timeMin,
     String? timeMax,
+    bool singleEvents = false,
+    bool showDeleted = true,
   }) async {
+    if (singleEvents) {
+      singleEventsCalls++;
+      lastInstanceTimeMin = timeMin;
+      lastInstanceTimeMax = timeMax;
+      lastInstanceShowDeleted = showDeleted;
+      return CalendarPage(items: List.of(instances));
+    }
     if (fail410Once) {
       fail410Once = false;
       throw GoogleApiException(410, 'gone');
@@ -67,12 +86,15 @@ class FakeGoogle implements GoogleApiClient {
     String? etag,
   }) async {
     lastEtagSeen = etag;
+    etagHistory.add(etag);
     if (fail412Once) {
       fail412Once = false;
       throw GoogleApiException(412, 'etag mismatch');
     }
     patches++;
-    return {'etag': 'e$patches'};
+    patchedEventIds.add(eventId);
+    lastPatchBody = body;
+    return {'id': eventId, 'etag': 'e$patches'};
   }
 
   @override
@@ -174,6 +196,99 @@ Future<String> _cal(AppDatabase db, {String source = 'google'}) async {
       );
   return 'c1';
 }
+
+Future<void> _seedToken(AppDatabase db) async {
+  await db
+      .into(db.syncState)
+      .insert(
+        SyncStateCompanion.insert(
+          key: 'cal:v2:c1:token',
+          value: const Value('t0'),
+        ),
+      );
+}
+
+Future<void> _seedMaster(AppDatabase db) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.events)
+      .insert(
+        EventsCompanion.insert(
+          id: 'm1',
+          calendarId: 'c1',
+          title: const Value('Master'),
+          startUtc: Value(DateTime.utc(2026, 3, 2, 9).millisecondsSinceEpoch),
+          endUtc: Value(DateTime.utc(2026, 3, 2, 10).millisecondsSinceEpoch),
+          tzId: const Value('UTC'),
+          rrule: const Value('FREQ=DAILY;COUNT=5'),
+          remoteId: const Value('master-remote'),
+          remoteEtag: const Value('me'),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+}
+
+Future<void> _seedException(
+  AppDatabase db, {
+  required String id,
+  required DateTime originalStart,
+  String? remoteId,
+  String status = 'confirmed',
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.events)
+      .insert(
+        EventsCompanion.insert(
+          id: id,
+          calendarId: 'c1',
+          title: const Value('Exception'),
+          startUtc: Value(originalStart.millisecondsSinceEpoch),
+          endUtc: Value(
+            originalStart.add(const Duration(hours: 1)).millisecondsSinceEpoch,
+          ),
+          tzId: const Value('UTC'),
+          recurringMasterId: const Value('m1'),
+          originalStart: Value(originalStart.millisecondsSinceEpoch),
+          status: Value(status),
+          remoteId: Value(remoteId),
+          remoteEtag: const Value('ex-etag'),
+          dirty: const Value(true),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+}
+
+Map<String, dynamic> _instance(
+  String id,
+  DateTime originalStart, {
+  String masterRemoteId = 'master-remote',
+}) => {
+  'id': id,
+  'etag': 'ie-$id',
+  'status': 'confirmed',
+  'summary': 'Master',
+  'recurringEventId': masterRemoteId,
+  'originalStartTime': {'dateTime': originalStart.toIso8601String()},
+  'start': {'dateTime': originalStart.toIso8601String()},
+  'end': {
+    'dateTime': originalStart.add(const Duration(hours: 1)).toIso8601String(),
+  },
+};
+
+Map<String, dynamic> _cancelledInstance(
+  String id,
+  DateTime originalStart, {
+  String masterRemoteId = 'master-remote',
+}) => {
+  'id': id,
+  'etag': 'ie-$id',
+  'status': 'cancelled',
+  'recurringEventId': masterRemoteId,
+  'originalStartTime': {'dateTime': originalStart.toIso8601String()},
+};
 
 void main() {
   test('pull saves token, second pull sends it', () async {
@@ -382,6 +497,536 @@ void main() {
     expect(reset.nextTryAt, isNull);
     expect(reset.attempts, 0);
   });
+
+  test('single occurrence edit patches the Google instance', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final exId = await repo.editOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      title: 'Special',
+    );
+    final before = await repo.getEvent(exId);
+    expect(before!.dirty, isTrue);
+    await repo.setAttendees(exId, ['ex@example.com']);
+    final queued = await db.select(db.outbox).get();
+    expect(queued.map((o) => o.entityId), [exId]);
+    expect(queued.single.op, 'update');
+
+    final fake = FakeGoogle()
+      ..instances = [_instance('instance-1', DateTime.utc(2026, 3, 3, 9))];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    expect(fake.singleEventsCalls, 1);
+    expect(fake.lastInstanceShowDeleted, isTrue);
+    expect(fake.lastInstanceTimeMin, isNotNull);
+    expect(fake.lastInstanceTimeMax, isNotNull);
+    expect(fake.patchedEventIds, ['instance-1']);
+    expect(fake.lastPatchBody?['summary'], 'Special');
+    expect(fake.lastPatchBody?['attendees'], [
+      {'email': 'ex@example.com'},
+    ]);
+    final ex = await repo.getEvent(exId);
+    expect(ex!.remoteId, 'instance-1');
+    expect(ex.dirty, isFalse);
+    expect(await db.select(db.outbox).get(), isEmpty);
+    expect(engine.status, SyncStatus.synced);
+  });
+
+  test(
+    'exception push creates a local master before instance lookup',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      await _cal(db);
+      await _seedToken(db);
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      await db
+          .into(db.events)
+          .insert(
+            EventsCompanion.insert(
+              id: 'm-local',
+              calendarId: 'c1',
+              title: const Value('Master'),
+              startUtc: Value(
+                DateTime.utc(2026, 3, 2, 9).millisecondsSinceEpoch,
+              ),
+              endUtc: Value(
+                DateTime.utc(2026, 3, 2, 10).millisecondsSinceEpoch,
+              ),
+              rrule: const Value('FREQ=DAILY;COUNT=5'),
+              dirty: const Value(true),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      final repo = EventRepository(db, OccurrenceRepository(db));
+      final exId = await repo.editOccurrence(
+        'm-local',
+        DateTime.utc(2026, 3, 3, 9),
+        scope: EditScope.single,
+        title: 'Special',
+      );
+      final fake = FakeGoogle()
+        ..instances = [
+          _instance(
+            'instance-1',
+            DateTime.utc(2026, 3, 3, 9),
+            masterRemoteId: 'r1',
+          ),
+        ];
+      final engine = SyncEngine(db, clientFactory: () => fake);
+      await engine.syncNow();
+
+      expect(fake.inserts, 1);
+      expect(fake.patchedEventIds, ['instance-1']);
+      final master = await repo.getEvent('m-local');
+      expect(master!.remoteId, 'r1');
+      expect(master.dirty, isFalse);
+      final ex = await repo.getEvent(exId);
+      expect(ex!.remoteId, 'instance-1');
+      expect(await db.select(db.outbox).get(), isEmpty);
+    },
+  );
+
+  test('single occurrence delete removes the Google instance once', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await repo.deleteOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+    );
+    final queued = await db.select(db.outbox).get();
+    expect(queued.single.op, 'delete');
+    expect(queued.single.entityId, isNot('m1'));
+
+    final fake = FakeGoogle()
+      ..instances = [_instance('instance-1', DateTime.utc(2026, 3, 3, 9))];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    expect(fake.singleEventsCalls, 1);
+    expect(fake.deletedEvents, ['instance-1']);
+    expect(await db.select(db.outbox).get(), isEmpty);
+    final cancelled = await (db.select(
+      db.events,
+    )..where((e) => e.recurringMasterId.equals('m1'))).getSingle();
+    expect(cancelled.status, 'cancelled');
+    expect(cancelled.deletedAt, isNull);
+    expect(cancelled.remoteId, isNull);
+    expect(cancelled.remoteEtag, isNull);
+    expect(cancelled.dirty, isFalse);
+
+    await engine.syncNow();
+    expect(fake.deletedEvents.where((id) => id == 'instance-1'), hasLength(1));
+    expect(fake.singleEventsCalls, 1);
+  });
+
+  test('pull relinks an echoed cancelled instance after delete', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await repo.deleteOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+    );
+    final fake = FakeGoogle()
+      ..instances = [_instance('instance-1', DateTime.utc(2026, 3, 3, 9))]
+      ..events = [
+        _cancelledInstance('instance-cancelled', DateTime.utc(2026, 3, 3, 9)),
+      ];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    final rows =
+        await (db.select(db.events)..where(
+              (e) => e.originalStart.equals(
+                DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+              ),
+            ))
+            .get();
+    expect(rows, hasLength(1));
+    expect(rows.single.status, 'cancelled');
+    expect(rows.single.remoteId, 'instance-cancelled');
+    expect(rows.single.dirty, isFalse);
+    expect(fake.deletedEvents, ['instance-1']);
+    expect(await db.select(db.outbox).get(), isEmpty);
+  });
+
+  test('re-editing a deleted occurrence restores the same row', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await repo.deleteOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+    );
+    final deleteFake = FakeGoogle()
+      ..instances = [_instance('instance-1', DateTime.utc(2026, 3, 3, 9))];
+    final deleteEngine = SyncEngine(db, clientFactory: () => deleteFake);
+    await deleteEngine.syncNow();
+    final before =
+        await (db.select(db.events)..where(
+              (e) => e.originalStart.equals(
+                DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+              ),
+            ))
+            .getSingle();
+    expect(before.status, 'cancelled');
+    expect(before.remoteId, isNull);
+
+    final exId = await repo.editOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      title: 'Restored',
+    );
+    expect(exId, before.id);
+    final restored =
+        await (db.select(db.events)..where(
+              (e) => e.originalStart.equals(
+                DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+              ),
+            ))
+            .get();
+    expect(restored, hasLength(1));
+    expect(restored.single.status, 'confirmed');
+    expect(restored.single.deletedAt, isNull);
+    expect(restored.single.dirty, isTrue);
+    expect(restored.single.title, 'Restored');
+
+    final fake = FakeGoogle()
+      ..instances = [
+        _cancelledInstance('instance-cancelled', DateTime.utc(2026, 3, 3, 9)),
+      ];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    expect(fake.singleEventsCalls, 1);
+    expect(fake.patchedEventIds, ['instance-cancelled']);
+    expect(fake.lastPatchBody?['status'], 'confirmed');
+    expect(fake.lastPatchBody?['summary'], 'Restored');
+    final pushed = await repo.getEvent(exId);
+    expect(pushed!.status, 'confirmed');
+    expect(pushed.remoteId, 'instance-cancelled');
+    expect(pushed.dirty, isFalse);
+    expect(await db.select(db.outbox).get(), isEmpty);
+  });
+
+  test('synced exception patches and deletes without lookup', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    await _seedException(
+      db,
+      id: 'ex-edit',
+      originalStart: DateTime.utc(2026, 3, 3, 9),
+      remoteId: 'instance-edit',
+    );
+    await _seedException(
+      db,
+      id: 'ex-delete',
+      originalStart: DateTime.utc(2026, 3, 4, 9),
+      remoteId: 'instance-delete',
+    );
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final fake = FakeGoogle();
+    final engine = SyncEngine(db, clientFactory: () => fake);
+
+    await repo.editOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      title: 'Edited',
+    );
+    await engine.syncNow();
+    expect(fake.singleEventsCalls, 0);
+    expect(fake.patchedEventIds, ['instance-edit']);
+    expect(fake.lastPatchBody?['summary'], 'Edited');
+    final edited = await repo.getEvent('ex-edit');
+    expect(edited!.remoteId, 'instance-edit');
+    expect(edited.dirty, isFalse);
+
+    await repo.deleteOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 4, 9),
+      scope: EditScope.single,
+    );
+    await engine.syncNow();
+    expect(fake.singleEventsCalls, 0);
+    expect(fake.deletedEvents, ['instance-delete']);
+    expect(await db.select(db.outbox).get(), isEmpty);
+  });
+
+  test('exception patch retries once with a fresh etag after 412', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    await _seedException(
+      db,
+      id: 'ex-edit',
+      originalStart: DateTime.utc(2026, 3, 3, 9),
+      remoteId: 'instance-edit',
+    );
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await repo.editOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      title: 'Edited',
+    );
+    final fake = FakeGoogle()
+      ..fail412Once = true
+      ..instances = [_instance('instance-edit', DateTime.utc(2026, 3, 3, 9))];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    expect(fake.etagHistory, ['ex-etag', 'ie-instance-edit']);
+    expect(fake.patchedEventIds, ['instance-edit']);
+    expect(await db.select(db.outbox).get(), isEmpty);
+    expect(engine.status, SyncStatus.synced);
+    final edited = await repo.getEvent('ex-edit');
+    expect(edited!.remoteEtag, isNot('ex-etag'));
+    expect(edited.dirty, isFalse);
+  });
+
+  test('edit all resetExceptions deletes remote exceptions', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    await _seedException(
+      db,
+      id: 'ex-remote',
+      originalStart: DateTime.utc(2026, 3, 3, 9),
+      remoteId: 'instance-remote',
+    );
+    await _seedException(
+      db,
+      id: 'ex-local',
+      originalStart: DateTime.utc(2026, 3, 4, 9),
+    );
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await repo.editOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 2, 9),
+      scope: EditScope.all,
+      title: 'Renamed',
+      resetExceptions: true,
+    );
+
+    final queued = await db.select(db.outbox).get();
+    final deletes = queued
+        .where((o) => o.entity == 'event' && o.op == 'delete')
+        .map((o) => o.entityId);
+    expect(deletes, ['ex-remote']);
+    expect(
+      queued.where((o) => o.entityId == 'm1').map((o) => o.op),
+      contains('update'),
+    );
+
+    final fake = FakeGoogle();
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    expect(fake.singleEventsCalls, 0);
+    expect(fake.deletedEvents, ['instance-remote']);
+    final rows = await db.select(db.events).get();
+    expect(
+      rows
+          .where((e) => e.id == 'ex-remote' || e.id == 'ex-local')
+          .every((e) => e.deletedAt != null),
+      isTrue,
+    );
+    expect(await db.select(db.outbox).get(), isEmpty);
+  });
+
+  test(
+    'resetExceptions drops queued update for local-only exception',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      await _cal(db);
+      await _seedToken(db);
+      await _seedMaster(db);
+      await _seedException(
+        db,
+        id: 'ex-local',
+        originalStart: DateTime.utc(2026, 3, 3, 9),
+      );
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      await db
+          .into(db.outbox)
+          .insert(
+            OutboxCompanion.insert(
+              id: 'op-local',
+              entity: 'event',
+              entityId: 'ex-local',
+              op: 'update',
+              createdAt: now,
+            ),
+          );
+      final repo = EventRepository(db, OccurrenceRepository(db));
+      await repo.editOccurrence(
+        'm1',
+        DateTime.utc(2026, 3, 2, 9),
+        scope: EditScope.all,
+        title: 'Renamed',
+        resetExceptions: true,
+      );
+
+      final queued = await db.select(db.outbox).get();
+      expect(queued.where((o) => o.entityId == 'ex-local'), isEmpty);
+      final fake = FakeGoogle();
+      final engine = SyncEngine(db, clientFactory: () => fake);
+      await engine.syncNow();
+      expect(fake.deletedEvents, isEmpty);
+      expect(await db.select(db.outbox).get(), isEmpty);
+    },
+  );
+
+  test('missing Google instance 404 does not stop other ops', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    await _seedException(
+      db,
+      id: 'ex-gone',
+      originalStart: DateTime.utc(2026, 3, 3, 9),
+      remoteId: 'instance-gone',
+      status: 'cancelled',
+    );
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.events)
+        .insert(
+          EventsCompanion.insert(
+            id: 'ok',
+            calendarId: 'c1',
+            title: const Value('New'),
+            createdAt: now,
+            updatedAt: now,
+            dirty: const Value(true),
+          ),
+        );
+    await db
+        .into(db.outbox)
+        .insert(
+          OutboxCompanion.insert(
+            id: 'op-gone',
+            entity: 'event',
+            entityId: 'ex-gone',
+            op: 'delete',
+            createdAt: now,
+          ),
+        );
+    await db
+        .into(db.outbox)
+        .insert(
+          OutboxCompanion.insert(
+            id: 'op-ok',
+            entity: 'event',
+            entityId: 'ok',
+            op: 'create',
+            createdAt: now + 10,
+          ),
+        );
+
+    final fake = _MissingInstanceDelete();
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    expect(fake.inserts, 1);
+    expect(await db.select(db.outbox).get(), isEmpty);
+    expect(engine.status, SyncStatus.synced);
+  });
+
+  test('missing instance on edit keeps the outbox op for retry', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final exId = await repo.editOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      title: 'Special',
+    );
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.events)
+        .insert(
+          EventsCompanion.insert(
+            id: 'ok',
+            calendarId: 'c1',
+            title: const Value('New'),
+            createdAt: now,
+            updatedAt: now,
+            dirty: const Value(true),
+          ),
+        );
+    await db
+        .into(db.outbox)
+        .insert(
+          OutboxCompanion.insert(
+            id: 'op-ok',
+            entity: 'event',
+            entityId: 'ok',
+            op: 'create',
+            createdAt: now + 10,
+          ),
+        );
+
+    final fake = FakeGoogle();
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    // The exception edit is retryable, not dropped; the later create still ran.
+    expect(fake.singleEventsCalls, 1);
+    expect(fake.inserts, 1);
+    expect(engine.status, SyncStatus.error);
+    expect(engine.errorKind, SyncErrorKind.server);
+    final pending = await (db.select(
+      db.outbox,
+    )..where((o) => o.entityId.equals(exId))).getSingle();
+    expect(pending.attempts, 1);
+    expect(pending.nextTryAt, isNotNull);
+    final ex = await repo.getEvent(exId);
+    expect(ex!.remoteId, isNull);
+    expect(ex.dirty, isTrue);
+    final created = await (db.select(
+      db.outbox,
+    )..where((o) => o.entityId.equals('ok'))).get();
+    expect(created, isEmpty);
+  });
 }
 
 class _RateLimitedOnce extends FakeGoogle {
@@ -393,5 +1038,12 @@ class _RateLimitedOnce extends FakeGoogle {
     String? etag,
   }) async {
     throw GoogleApiException(429, 'slow down', retryAfterSec: 5);
+  }
+}
+
+class _MissingInstanceDelete extends FakeGoogle {
+  @override
+  Future<void> eventDelete(String calendarId, String eventId) async {
+    throw GoogleApiException(404, 'not found');
   }
 }

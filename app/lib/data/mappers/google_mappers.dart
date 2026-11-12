@@ -11,6 +11,36 @@ class MappedEvent {
   final String? remoteEtag;
 }
 
+/// Parses Google's `originalStartTime` (timed `dateTime` or all-day `date`)
+/// into UTC epoch milliseconds. Returns null for missing or malformed values.
+int? originalStartMsFromGoogle(Map<String, dynamic> g) {
+  final ost = g['originalStartTime'];
+  if (ost is! Map) return null;
+  final dt = ost['dateTime'];
+  if (dt is String) {
+    return DateTime.tryParse(dt)?.toUtc().millisecondsSinceEpoch;
+  }
+  final d = ost['date'];
+  if (d is! String) return null;
+  final p = d.split('-');
+  if (p.length != 3) return null;
+  final y = int.tryParse(p[0]);
+  final m = int.tryParse(p[1]);
+  final day = int.tryParse(p[2]);
+  if (y == null ||
+      m == null ||
+      day == null ||
+      m < 1 ||
+      m > 12 ||
+      day < 1 ||
+      day > 31) {
+    return null;
+  }
+  final parsed = DateTime.utc(y, m, day);
+  if (parsed.year != y || parsed.month != m || parsed.day != day) return null;
+  return parsed.millisecondsSinceEpoch;
+}
+
 MappedEvent eventFromGoogle(
   Map<String, dynamic> g,
   String calendarId,
@@ -56,39 +86,7 @@ MappedEvent eventFromGoogle(
     }
   }
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-  int? originalStart;
-  final ost = g['originalStartTime'];
-  if (ost is Map) {
-    final dt = ost['dateTime'];
-    if (dt is String) {
-      final parsed = DateTime.tryParse(dt);
-      if (parsed != null) {
-        originalStart = parsed.toUtc().millisecondsSinceEpoch;
-      }
-    } else {
-      final d = ost['date'];
-      if (d is String) {
-        final p = d.split('-');
-        if (p.length == 3) {
-          final y = int.tryParse(p[0]);
-          final m = int.tryParse(p[1]);
-          final day = int.tryParse(p[2]);
-          if (y != null &&
-              m != null &&
-              day != null &&
-              m >= 1 &&
-              m <= 12 &&
-              day >= 1 &&
-              day <= 31) {
-            final dt = DateTime.utc(y, m, day);
-            if (dt.year == y && dt.month == m && dt.day == day) {
-              originalStart = dt.millisecondsSinceEpoch;
-            }
-          }
-        }
-      }
-    }
-  }
+  final originalStart = originalStartMsFromGoogle(g);
   return MappedEvent(
     companion: EventsCompanion(
       id: Value(localId),

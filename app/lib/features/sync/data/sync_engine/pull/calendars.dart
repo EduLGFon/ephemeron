@@ -265,14 +265,31 @@ extension on SyncEngine {
             }
             continue;
           }
-          final localId = existing?.id ?? newId();
+          // A delete clears the local instance id, so the echoed cancelled
+          // instance must re-link by master and original occurrence rather
+          // than insert a second tombstone for the same occurrence.
+          var localException = existing;
+          final originalStartMs = originalStartMsFromGoogle(g);
+          if (localException == null && originalStartMs != null) {
+            final localMasterId = masterLocalId;
+            localException =
+                await (_db.select(_db.events)..where(
+                      (e) =>
+                          e.calendarId.equals(cal.id) &
+                          e.recurringMasterId.equals(localMasterId) &
+                          e.originalStart.equals(originalStartMs) &
+                          e.deletedAt.isNull(),
+                    ))
+                    .getSingleOrNull();
+          }
+          final localId = localException?.id ?? newId();
           final mapped = eventFromGoogle(
             g,
             cal.id,
             localId,
             recurringMasterLocalId: masterLocalId,
           );
-          if (existing == null) {
+          if (localException == null) {
             await _db
                 .into(_db.events)
                 .insert(
@@ -283,10 +300,11 @@ extension on SyncEngine {
                   ),
                 );
             n++;
-          } else if (!existing.dirty) {
+          } else if (!localException.dirty) {
+            final current = localException;
             await (_db.update(
               _db.events,
-            )..where((e) => e.id.equals(existing.id))).write(
+            )..where((e) => e.id.equals(current.id))).write(
               mapped.companion.copyWith(
                 alarmPreset: const Value.absent(),
                 deletedAt: const Value(null),

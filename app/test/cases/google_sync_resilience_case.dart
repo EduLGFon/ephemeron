@@ -38,6 +38,8 @@ class _FakeGoogle implements GoogleApiClient {
     String? syncToken,
     String? timeMin,
     String? timeMax,
+    bool singleEvents = false,
+    bool showDeleted = true,
   }) async {
     final failures = failuresByCal[calendarId];
     if (failures != null && failures.isNotEmpty) {
@@ -573,7 +575,7 @@ void main() {
     expect(engine.status, SyncStatus.synced);
   });
 
-  test('shared calendar keeps its owner stamp when pulled by B', () async {
+  test('B skips the A-owned shared calendar', () async {
     final db = _db();
     addTearDown(db.close);
     await _seedCalendar(db, 'c1', 'shared', account: 'a@x');
@@ -591,18 +593,16 @@ void main() {
 
     await engine.syncNow();
 
-    expect(fake.pulledCalendars, ['shared']);
+    // The owner account pulls the shared calendar; B must not duplicate it.
+    expect(fake.pulledCalendars, isEmpty);
     final calendar = await (db.select(
       db.calendars,
     )..where((c) => c.id.equals('c1'))).getSingle();
     expect(calendar.googleAccount, 'a@x');
     final merged = await (db.select(
       db.events,
-    )..where((e) => e.remoteId.equals('g-shared'))).getSingle();
-    expect(merged.calendarId, 'c1');
-    // The calendar row owns the event; a second account pulling the shared
-    // calendar must not flap the event's ownership stamp.
-    expect(merged.googleAccount, 'a@x');
+    )..where((e) => e.remoteId.equals('g-shared'))).get();
+    expect(merged, isEmpty);
     expect(engine.status, SyncStatus.synced);
   });
 
@@ -781,5 +781,34 @@ void main() {
       'local1',
     );
     expect(mapped.companion.rrule.value, 'FREQ=WEEKLY;COUNT=2');
+  });
+
+  test('originalStartTime parses dateTime, date, and malformed input', () {
+    expect(
+      originalStartMsFromGoogle({
+        'originalStartTime': {'dateTime': '2026-03-03T09:00:00Z'},
+      }),
+      DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+    );
+    expect(
+      originalStartMsFromGoogle({
+        'originalStartTime': {'date': '2026-03-03'},
+      }),
+      DateTime.utc(2026, 3, 3).millisecondsSinceEpoch,
+    );
+    expect(
+      originalStartMsFromGoogle({
+        'originalStartTime': {'dateTime': 'not-a-date'},
+      }),
+      isNull,
+    );
+    expect(
+      originalStartMsFromGoogle({
+        'originalStartTime': {'date': '2026-02-31'},
+      }),
+      isNull,
+    );
+    expect(originalStartMsFromGoogle({'originalStartTime': 'bad'}), isNull);
+    expect(originalStartMsFromGoogle({}), isNull);
   });
 }
