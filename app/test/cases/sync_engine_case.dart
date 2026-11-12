@@ -278,6 +278,18 @@ Map<String, dynamic> _instance(
   },
 };
 
+Map<String, dynamic> _cancelledInstance(
+  String id,
+  DateTime originalStart, {
+  String masterRemoteId = 'master-remote',
+}) => {
+  'id': id,
+  'etag': 'ie-$id',
+  'status': 'cancelled',
+  'recurringEventId': masterRemoteId,
+  'originalStartTime': {'dateTime': originalStart.toIso8601String()},
+};
+
 void main() {
   test('pull saves token, second pull sends it', () async {
     final db = _db();
@@ -619,6 +631,105 @@ void main() {
     await engine.syncNow();
     expect(fake.deletedEvents.where((id) => id == 'instance-1'), hasLength(1));
     expect(fake.singleEventsCalls, 1);
+  });
+
+  test('pull relinks an echoed cancelled instance after delete', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await repo.deleteOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+    );
+    final fake = FakeGoogle()
+      ..instances = [_instance('instance-1', DateTime.utc(2026, 3, 3, 9))]
+      ..events = [
+        _cancelledInstance('instance-cancelled', DateTime.utc(2026, 3, 3, 9)),
+      ];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    final rows =
+        await (db.select(db.events)..where(
+              (e) => e.originalStart.equals(
+                DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+              ),
+            ))
+            .get();
+    expect(rows, hasLength(1));
+    expect(rows.single.status, 'cancelled');
+    expect(rows.single.remoteId, 'instance-cancelled');
+    expect(rows.single.dirty, isFalse);
+    expect(fake.deletedEvents, ['instance-1']);
+    expect(await db.select(db.outbox).get(), isEmpty);
+  });
+
+  test('re-editing a deleted occurrence restores the same row', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _seedToken(db);
+    await _seedMaster(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await repo.deleteOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+    );
+    final deleteFake = FakeGoogle()
+      ..instances = [_instance('instance-1', DateTime.utc(2026, 3, 3, 9))];
+    final deleteEngine = SyncEngine(db, clientFactory: () => deleteFake);
+    await deleteEngine.syncNow();
+    final before =
+        await (db.select(db.events)..where(
+              (e) => e.originalStart.equals(
+                DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+              ),
+            ))
+            .getSingle();
+    expect(before.status, 'cancelled');
+    expect(before.remoteId, isNull);
+
+    final exId = await repo.editOccurrence(
+      'm1',
+      DateTime.utc(2026, 3, 3, 9),
+      scope: EditScope.single,
+      title: 'Restored',
+    );
+    expect(exId, before.id);
+    final restored =
+        await (db.select(db.events)..where(
+              (e) => e.originalStart.equals(
+                DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch,
+              ),
+            ))
+            .get();
+    expect(restored, hasLength(1));
+    expect(restored.single.status, 'confirmed');
+    expect(restored.single.deletedAt, isNull);
+    expect(restored.single.dirty, isTrue);
+    expect(restored.single.title, 'Restored');
+
+    final fake = FakeGoogle()
+      ..instances = [
+        _cancelledInstance('instance-cancelled', DateTime.utc(2026, 3, 3, 9)),
+      ];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    expect(fake.singleEventsCalls, 1);
+    expect(fake.patchedEventIds, ['instance-cancelled']);
+    expect(fake.lastPatchBody?['status'], 'confirmed');
+    expect(fake.lastPatchBody?['summary'], 'Restored');
+    final pushed = await repo.getEvent(exId);
+    expect(pushed!.status, 'confirmed');
+    expect(pushed.remoteId, 'instance-cancelled');
+    expect(pushed.dirty, isFalse);
+    expect(await db.select(db.outbox).get(), isEmpty);
   });
 
   test('synced exception patches and deletes without lookup', () async {

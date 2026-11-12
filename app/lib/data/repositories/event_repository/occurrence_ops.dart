@@ -78,6 +78,8 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
             createMeet: createMeet == null
                 ? const Value.absent()
                 : Value(createMeet),
+            status: const Value('confirmed'),
+            deletedAt: const Value(null),
             notes: notePatch,
           ),
         );
