@@ -11,6 +11,11 @@ class DeviceDateFormat {
   static String date(BuildContext context, DateTime d) =>
       DateFormat.yMMMd(locale(context)).format(d);
 
+  /// Compact month and day used where space is tight (for example matrix
+  /// task rows).
+  static String shortDate(BuildContext context, DateTime d) =>
+      DateFormat.MMMd(locale(context)).format(d);
+
   static String dateTime(BuildContext context, DateTime d) =>
       DateFormat.yMMMd(locale(context)).add_Hm().format(d);
 

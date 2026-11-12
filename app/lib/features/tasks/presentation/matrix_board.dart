@@ -20,9 +20,10 @@ part 'matrix_board/tray.dart';
 
 const double _pagePadding = 12;
 const double _gap = 8;
-// Reserve for the unclassified tray (140) plus vertical gaps and the bottom
-// FAB padding so the 2x2 board fills most of the viewport on tall screens.
-const double _boardHeightReserve = 260;
+// Reserve for the unclassified tray (compact cap 112) plus vertical gaps and
+// the bottom FAB padding so the 2x2 board fills most of the viewport on tall
+// screens.
+const double _boardHeightReserve = 232;
 
 class MatrixBoardField {
   const MatrixBoardField({
@@ -81,7 +82,7 @@ class MatrixBoard extends StatelessWidget {
           // Taller quadrants: derive height from the viewport so the 2x2 board
           // fills most of the screen; clamped for small/large screens.
           final cellHeight = ((constraints.maxHeight - _boardHeightReserve) / 2)
-              .clamp(160.0, 420.0);
+              .clamp(160.0, 520.0);
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(
               _pagePadding,

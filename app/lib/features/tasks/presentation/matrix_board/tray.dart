@@ -55,7 +55,7 @@ class _UnclassifiedTrayState extends State<_UnclassifiedTray> {
     // overflow a fixed cap; populated trays get a modestly scaled scroll cap.
     final constraints = tasks.isEmpty
         ? const BoxConstraints()
-        : BoxConstraints(maxHeight: 140 * textScale.clamp(1.0, 2.0));
+        : BoxConstraints(maxHeight: 112 * textScale.clamp(1.0, 2.0));
     return ConstrainedBox(
       constraints: constraints,
       child: Card(

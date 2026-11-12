@@ -36,6 +36,7 @@ void main() {
         .getSize(find.byKey(const ValueKey('matrix-unclassified')))
         .height;
     expect(fieldHeight, greaterThan(trayHeight));
+    expect(fieldHeight, greaterThan(380));
 
     await _dispose(tester, db);
   });
@@ -124,7 +125,7 @@ void main() {
     final trayHeight = tester
         .getSize(find.byKey(const ValueKey('matrix-unclassified')))
         .height;
-    expect(trayHeight, lessThanOrEqualTo(140));
+    expect(trayHeight, lessThanOrEqualTo(112));
     expect(
       find.byKey(const ValueKey('matrix-scrollbar-unclassified')),
       findsOneWidget,
@@ -251,6 +252,49 @@ void main() {
           rect.bottom > listRect.bottom;
     });
     expect(partiallyVisible, isNotEmpty);
+
+    await _dispose(tester, db);
+  });
+
+  testWidgets('800x1200 shows at least six compact task rows', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = TaskRepository(db);
+    final now = DateTime.now();
+    final ids = <String>[];
+    for (var i = 0; i < 12; i++) {
+      ids.add(
+        await repo.createTask(
+          title: 'Do first $i',
+          priority: 3,
+          dueDate: _date(now.add(const Duration(days: 1))),
+        ),
+      );
+    }
+
+    await _pumpMatrix(tester, db);
+    final listRect = tester.getRect(
+      find.byKey(const ValueKey('matrix-list-doFirst')),
+    );
+    final visibleRows = ids.where((id) {
+      final finder = find.byKey(ValueKey('matrix-task-$id'));
+      if (finder.evaluate().isEmpty) return false;
+      final rect = tester.getRect(finder);
+      return rect.top >= listRect.top && rect.top < listRect.bottom;
+    });
+    expect(visibleRows.length, greaterThanOrEqualTo(6));
+
+    final rowHeight = tester
+        .getSize(find.byKey(ValueKey('matrix-task-${ids.first}')))
+        .height;
+    expect(rowHeight, inInclusiveRange(38, 48));
 
     await _dispose(tester, db);
   });
