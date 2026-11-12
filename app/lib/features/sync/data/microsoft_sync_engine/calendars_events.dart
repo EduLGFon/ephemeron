@@ -231,6 +231,10 @@ extension on MicrosoftSyncEngine {
         debugPrint('[ms-sync] calendarView failed type=${e.runtimeType}');
         continue;
       }
+      final remoteEventIds = {
+        for (final e in events)
+          if (e.id.isNotEmpty) e.id,
+      };
       for (final e in events) {
         final remoteId = e.id;
         if (remoteId.isEmpty) continue;
@@ -321,6 +325,14 @@ extension on MicrosoftSyncEngine {
         }
         // TODO(#issue): map Graph recurrence to RRULE when representable; for now store occurrence as single event.
       }
+      // Reconcile newly missing events only after a complete, successful fetch
+      // for this calendar. A failed fetch is caught above and never reaches
+      // this point, so per-calendar isolation is preserved.
+      await _reconcileDeletedEvents(
+        localCalId,
+        remoteEventIds,
+        DateTime.now().toUtc().millisecondsSinceEpoch,
+      );
     }
     return eventCount;
   }
