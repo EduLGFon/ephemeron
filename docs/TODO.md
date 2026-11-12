@@ -1,5 +1,27 @@
 # TODO
 
+## Calendar/sync/notes verification (2026-11-11)
+
+- Implemented: occurrence-cache duplicate fix (all-day recurrence window clamp,
+  dedupe, day-key delete), Google recurring exceptions (timed/all-day
+  moved/cancelled), unbounded one-time Google full resync via `cal:v2` tokens,
+  calendarList pagination, per-calendar failure isolation, truthful force-sync
+  messages, timeline tap/long-press 30-min selection with cross-day overlay,
+  last event calendar/task list memory, matrix taller scrollable quadrants with
+  14px next-task peek and compact tray, notes default square preview grid with
+  persisted list toggle.
+- Verification: `flutter analyze` clean; full `flutter test` passed (594 tests)
+  on master; targeted units passed; `dart format --set-exit-if-changed .` clean.
+- Owner/device verification pending: real shared-calendar sync (Google
+  multi-account and Microsoft), recurring exceptions moved/cancelled,
+  force-sync error paths, tap/long-press selection vs swipe/scroll on device,
+  matrix peek/scroll at large text, notes grid performance with many notes.
+- Deferred: Microsoft shared calendars need `Calendars.Read.Shared` scope +
+  owner console consent; device calendar import is still a one-shot copy (no
+  live device-calendar sync); sync notifier final-status matrix tests are partly
+  deferred; initial unbounded Google full sync can be heavy on very large
+  calendars; legacy `syncState` token rows may remain stale on old installs.
+
 ## Owner / device verification (no SDK/devices here)
 
 - Week calendar home widget: verify Android native build and launcher behavior.
