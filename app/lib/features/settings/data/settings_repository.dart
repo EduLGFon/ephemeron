@@ -227,6 +227,14 @@ class SettingsRepository {
   int get syncIntervalMin => _prefs.getInt(_kSyncInterval) ?? 30;
   Future<void> setSyncIntervalMin(int v) => _prefs.setInt(_kSyncInterval, v);
 
+  /// True when the last Google sync needed renewed permission. Persisted so
+  /// the global banner survives a restart. Never stores an account email.
+  static const _kGoogleReconnectNeeded = 'sync.googleReconnectNeeded';
+  bool get googleReconnectNeeded =>
+      _prefs.getBool(_kGoogleReconnectNeeded) ?? false;
+  Future<void> setGoogleReconnectNeeded(bool v) =>
+      _prefs.setBool(_kGoogleReconnectNeeded, v);
+
   /// Focus: enable alarms-only DND while a session runs (Android only,
   /// needs notification-policy access granted in system settings).
   static const _kFocusDnd = 'focus.dnd';

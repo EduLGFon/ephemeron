@@ -30,6 +30,7 @@ final googleApiClientProvider = Provider<GoogleApiClient>((ref) {
 
 final syncEngineProvider = Provider<SyncEngine>((ref) {
   final db = ref.watch(appDatabaseProvider);
+  final accounts = ref.watch(googleAccountsProvider);
   return SyncEngine(
     db,
     clientFactory: () {
@@ -39,6 +40,7 @@ final syncEngineProvider = Provider<SyncEngine>((ref) {
         return null;
       }
     },
+    signedInAccounts: accounts,
   );
 });
 

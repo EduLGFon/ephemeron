@@ -18,15 +18,23 @@ class _ReconnectBanner extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Google sync needs permission again for: ${accounts.join(', ')}. '
-              'Your changes are kept on this device and will sync after reconnecting.',
+            const Text(
+              'Google sync needs permission again. Your changes are kept on '
+              'this device and will sync after reconnecting.',
             ),
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: () => _reconnect(context, ref, accounts.first),
-              child: const Text('Grant Calendar + Tasks access'),
-            ),
+            for (final email in accounts) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: Text(email)),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () => _reconnect(context, ref, email),
+                    child: const Text('Reconnect'),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -41,9 +49,25 @@ class _ReconnectBanner extends ConsumerWidget {
     try {
       await ref.read(googleAccountProvider.notifier).setActive(email);
       await ref.read(googleAccountProvider.notifier).signIn(tasks: true);
+      final active = ref.read(googleAccountProvider);
+      if (!isSameAccountEmail(active ?? '', email)) {
+        if (!context.mounted) return;
+        showErrorSnackBar(
+          context,
+          'Signed in with a different account. '
+          'Reconnect $email to continue syncing it.',
+        );
+        return;
+      }
       ref.read(googleReconsentAccountsProvider.notifier).clear(email);
+      await ref
+          .read(googleReconnectNeededProvider.notifier)
+          .set(ref.read(googleReconsentAccountsProvider).isNotEmpty);
       await ref.read(syncStatusProvider.notifier).syncNow();
       await ref.read(googleAutoSyncServiceProvider).start();
+      if (!context.mounted) return;
+      AppFeedback.success();
+      showAppSnackBar(context, 'Google access renewed.', icon: Icons.check);
     } on GoogleAuthException catch (e) {
       if (!context.mounted) return;
       showErrorSnackBar(context, e.message);

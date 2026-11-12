@@ -30,6 +30,7 @@ import '../../features/settings/data/settings_repository.dart';
 import '../../features/settings/presentation/onboarding_screen.dart';
 import '../../features/sync/application/pending_operations.dart';
 import '../../features/sync/application/sync_providers.dart';
+import '../../features/sync/presentation/sync_reconnect_banner.dart';
 import '../../features/tasks/presentation/quick_add_sheet.dart';
 import '../../features/tasks/presentation/task_editor_sheet.dart';
 import '../../data/services/home_widget_data_binder.dart';
@@ -242,7 +243,12 @@ class _AppShellState extends ConsumerState<AppShell>
       child: AlarmActionHandler(
         child: AlarmListener(
           child: Scaffold(
-            body: widget.navigationShell,
+            body: Column(
+              children: [
+                const SyncReconnectBanner(),
+                Expanded(child: widget.navigationShell),
+              ],
+            ),
             bottomNavigationBar: Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: NavigationBar(

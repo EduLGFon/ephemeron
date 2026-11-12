@@ -19,6 +19,75 @@ class GoogleReconsentAccounts extends Notifier<List<String>> {
       state = state.where((a) => a != account).toList();
 }
 
+/// Highest-priority Google failure from the last sync run. Null means no
+/// Google issue. Backend (and Microsoft) failures are tracked separately so
+/// they never raise a Google reconnect prompt.
+final syncIssueProvider = NotifierProvider<SyncIssueNotifier, SyncErrorKind?>(
+  SyncIssueNotifier.new,
+);
+
+class SyncIssueNotifier extends Notifier<SyncErrorKind?> {
+  @override
+  SyncErrorKind? build() => null;
+
+  void set(SyncErrorKind? issue) => state = issue;
+}
+
+/// Persisted, non-personal flag: the last Google sync needed renewed
+/// permission. Drives the global banner even when the account list has not
+/// loaded yet. The in-memory reconsent list remains the source of account
+/// names; this flag never stores an email.
+final googleReconnectNeededProvider =
+    NotifierProvider<GoogleReconnectNeededNotifier, bool>(
+      GoogleReconnectNeededNotifier.new,
+    );
+
+class GoogleReconnectNeededNotifier extends Notifier<bool> {
+  bool _hasSetValue = false;
+
+  @override
+  bool build() {
+    unawaited(_load());
+    return false;
+  }
+
+  Future<void> _load() async {
+    try {
+      final repo = await ref.read(settingsRepositoryProvider.future);
+      if (_hasSetValue) return;
+      state = repo.googleReconnectNeeded;
+    } catch (_) {
+      // Prefs unavailable: keep the conservative in-memory value.
+    }
+  }
+
+  Future<void> set(bool value) async {
+    _hasSetValue = true;
+    state = value;
+    try {
+      final repo = await ref.read(settingsRepositoryProvider.future);
+      await repo.setGoogleReconnectNeeded(value);
+    } catch (_) {
+      // Persistence is best-effort; in-memory state still drives the UI.
+    }
+  }
+}
+
+int _googleIssuePriority(SyncErrorKind? kind) => switch (kind) {
+  SyncErrorKind.auth => 5,
+  SyncErrorKind.rateLimited => 4,
+  SyncErrorKind.network => 3,
+  SyncErrorKind.server => 2,
+  SyncErrorKind.unknown => 1,
+  SyncErrorKind.none || null => 0,
+};
+
+SyncErrorKind? _higherGoogleIssue(
+  SyncErrorKind? current,
+  SyncErrorKind? next,
+) =>
+    _googleIssuePriority(next) > _googleIssuePriority(current) ? next : current;
+
 final microsoftReconsentAccountsProvider =
     NotifierProvider<MicrosoftReconsentAccounts, List<String>>(
       MicrosoftReconsentAccounts.new,
@@ -54,12 +123,16 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       if (googleAccounts.isEmpty && msAccounts.isEmpty) {
         debugPrint('[sync] not signed in: offline');
         state = SyncStatus.offline;
+        ref.read(syncIssueProvider.notifier).set(null);
+        ref.read(googleReconsentAccountsProvider.notifier).set(const []);
+        await ref.read(googleReconnectNeededProvider.notifier).set(false);
         return;
       }
       bool anyAttempted = false;
       bool anyPulled = false;
       bool hasAuthFailure = false;
       bool hasRealError = false;
+      SyncErrorKind? googleIssue;
 
       // Google
       final needReconnectGoogle = <String>[];
@@ -80,6 +153,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
                 }
               },
               account: acct,
+              signedInAccounts: googleAccounts,
             );
             debugPrint('[sync] signed in ($acct), calling engine');
             await engine.syncNow();
@@ -89,16 +163,27 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             if (engine.authFailure) {
               needReconnectGoogle.add(acct);
               hasAuthFailure = true;
+              googleIssue = _higherGoogleIssue(googleIssue, SyncErrorKind.auth);
             } else if (engine.status == SyncStatus.synced) {
               anyPulled = true;
             } else if (engine.status == SyncStatus.error) {
               hasRealError = true;
+              googleIssue = _higherGoogleIssue(
+                googleIssue,
+                engine.errorKind == SyncErrorKind.none
+                    ? SyncErrorKind.unknown
+                    : engine.errorKind,
+              );
             }
           } catch (e) {
             debugPrint('[sync] google account failed: $e');
             hasRealError = true;
             anyAttempted = true;
             googleAttempted = true;
+            googleIssue = _higherGoogleIssue(
+              googleIssue,
+              SyncErrorKind.unknown,
+            );
           }
         }
         if (googleAttempted) {
@@ -106,6 +191,20 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               .read(googleReconsentAccountsProvider.notifier)
               .set(needReconnectGoogle);
         }
+        final reconsent = ref.read(googleReconsentAccountsProvider);
+        if (reconsent.isNotEmpty) googleIssue = SyncErrorKind.auth;
+        ref
+            .read(syncIssueProvider.notifier)
+            .set(googleIssue == SyncErrorKind.none ? null : googleIssue);
+        if (googleAttempted) {
+          await ref
+              .read(googleReconnectNeededProvider.notifier)
+              .set(needReconnectGoogle.isNotEmpty);
+        }
+      } else {
+        ref.read(syncIssueProvider.notifier).set(null);
+        ref.read(googleReconsentAccountsProvider.notifier).set(const []);
+        await ref.read(googleReconnectNeededProvider.notifier).set(false);
       }
 
       // Microsoft

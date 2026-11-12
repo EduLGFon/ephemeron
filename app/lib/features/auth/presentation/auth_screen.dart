@@ -25,6 +25,7 @@ import '../../sync/data/sync_engine.dart';
 import '../application/auth_providers.dart';
 import '../data/google_auth.dart';
 import '../data/microsoft_auth.dart';
+import '../domain/account_email.dart';
 
 part 'auth_screen/reconnect_banner.dart';
 part 'auth_screen/backend_section.dart';
