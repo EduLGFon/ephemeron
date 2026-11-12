@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
+import 'package:ephemeron/core/config/app_config.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/domain/microsoft/microsoft_graph_models.dart';
 import 'package:ephemeron/features/sync/data/microsoft_graph_client.dart';
@@ -565,6 +566,303 @@ void main() {
     },
   );
 
+  test('Microsoft scopes request shared calendar read access', () {
+    expect(
+      AppConfig.microsoftScopes,
+      contains('https://graph.microsoft.com/Calendars.Read.Shared'),
+    );
+  });
+
+  test('403 signals auth failure only for a shared calendar', () async {
+    for (final entry in <(bool, bool)>[(true, true), (false, false)]) {
+      final db = _db();
+      addTearDown(db.close);
+      final fake = _FailingCalendarFake(403)
+        ..calendars = [
+          MsCalendar(
+            id: 'bad',
+            name: 'Bad',
+            isSharedWithMe: entry.$1,
+            canEdit: true,
+          ),
+          const MsCalendar(id: 'good', name: 'Good', canEdit: true),
+        ]
+        ..eventsByCalendar = {
+          'good': [
+            MsEvent(
+              id: 'e-good',
+              subject: 'Keep',
+              start: _dt('2026-01-01T10:00:00'),
+              end: _dt('2026-01-01T11:00:00'),
+            ),
+          ],
+        }
+        ..lists = [const MsTodoList(id: 'l1', displayName: 'Tasks')]
+        ..tasksByList = {
+          'l1': [MsTodoTask(id: 't1', title: 'Task')],
+        };
+      final result = await MicrosoftSyncEngine(
+        db,
+        fake,
+        'acct@example.com',
+      ).syncNow();
+
+      expect(result.authFailure, entry.$2);
+      final events = await db.select(db.events).get();
+      expect(events.where((e) => e.remoteId == 'e-good'), hasLength(1));
+      expect(await db.select(db.tasks).get(), hasLength(1));
+    }
+  });
+
+  test('403 uses the owner address when the shared flag is missing', () async {
+    for (final entry in <(String, bool)>[
+      ('owner@example.com', true),
+      ('acct@example.com', false),
+    ]) {
+      final db = _db();
+      addTearDown(db.close);
+      final fake = _FailingCalendarFake(403)
+        ..calendars = [
+          MsCalendar(
+            id: 'bad',
+            name: 'Bad',
+            owner: MsEmailAddress(address: entry.$1),
+          ),
+          const MsCalendar(id: 'good', name: 'Good', canEdit: true),
+        ]
+        ..eventsByCalendar = {
+          'good': [
+            MsEvent(
+              id: 'e-good',
+              subject: 'Keep',
+              start: _dt('2026-01-01T10:00:00'),
+              end: _dt('2026-01-01T11:00:00'),
+            ),
+          ],
+        }
+        ..lists = [const MsTodoList(id: 'l1', displayName: 'Tasks')]
+        ..tasksByList = {
+          'l1': [MsTodoTask(id: 't1', title: 'Task')],
+        };
+      final result = await MicrosoftSyncEngine(
+        db,
+        fake,
+        'acct@example.com',
+      ).syncNow();
+
+      expect(result.authFailure, entry.$2);
+      final events = await db.select(db.events).get();
+      expect(events.where((e) => e.remoteId == 'e-good'), hasLength(1));
+      expect(await db.select(db.tasks).get(), hasLength(1));
+    }
+  });
+
+  test('shared calendar stored once and only its owner pulls events', () async {
+    final db = _db();
+    addTearDown(db.close);
+    const ownerCopy = MsCalendar(
+      id: 'c-shared',
+      name: 'Team',
+      owner: MsEmailAddress(address: 'owner@example.com'),
+    );
+    const sharedCopy = MsCalendar(
+      id: 'c-shared',
+      name: 'Team',
+      isSharedWithMe: true,
+      owner: MsEmailAddress(address: 'owner@example.com'),
+    );
+    const signedIn = ['owner@example.com', 'delegate@example.com'];
+    final ownerFake = _SharedCalendarFake('c-shared')..calendars = [ownerCopy];
+    final delegateFake = _SharedCalendarFake('c-shared')
+      ..calendars = [sharedCopy];
+
+    await MicrosoftSyncEngine(
+      db,
+      ownerFake,
+      'owner@example.com',
+      signedInAccounts: signedIn,
+    ).syncNow();
+    await MicrosoftSyncEngine(
+      db,
+      delegateFake,
+      'delegate@example.com',
+      signedInAccounts: signedIn,
+    ).syncNow();
+
+    final cals = await db.select(db.calendars).get();
+    expect(cals, hasLength(1));
+    expect(cals.single.microsoftAccount, 'owner@example.com');
+    expect(ownerFake.sharedPulls, 1);
+    expect(delegateFake.sharedPulls, 0);
+    final events = await db.select(db.events).get();
+    expect(events, hasLength(1));
+    expect(events.single.microsoftAccount, 'owner@example.com');
+    expect(events.single.calendarId, cals.single.id);
+  });
+
+  test('delegate-first shared calendar uses the Graph owner stamp', () async {
+    final db = _db();
+    addTearDown(db.close);
+    const sharedCopy = MsCalendar(
+      id: 'c-shared',
+      name: 'Team',
+      isSharedWithMe: true,
+      owner: MsEmailAddress(address: 'a@x'),
+    );
+    final bFake = _SharedCalendarFake('c-shared')..calendars = [sharedCopy];
+    await MicrosoftSyncEngine(
+      db,
+      bFake,
+      'b@x',
+      signedInAccounts: const ['b@x'],
+    ).syncNow();
+
+    var cals = await db.select(db.calendars).get();
+    expect(cals, hasLength(1));
+    expect(cals.single.microsoftAccount, 'a@x');
+    expect(bFake.sharedPulls, 1);
+    expect(await db.select(db.events).get(), hasLength(1));
+
+    const ownerCopy = MsCalendar(
+      id: 'c-shared',
+      name: 'Team',
+      owner: MsEmailAddress(address: 'a@x'),
+    );
+    final aFake = _SharedCalendarFake('c-shared')..calendars = [ownerCopy];
+    await MicrosoftSyncEngine(
+      db,
+      aFake,
+      'a@x',
+      signedInAccounts: const ['a@x', 'b@x'],
+    ).syncNow();
+
+    cals = await db.select(db.calendars).get();
+    expect(cals, hasLength(1));
+    expect(cals.single.microsoftAccount, 'a@x');
+    // The owner wins over the recorded delegate reader and pulls the events.
+    expect(aFake.sharedPulls, 1);
+    final events = await db.select(db.events).get();
+    expect(events, hasLength(1));
+    expect(events.single.microsoftAccount, 'a@x');
+  });
+
+  test('shared calendar with absent owner allows a single claimer', () async {
+    final db = _db();
+    addTearDown(db.close);
+    const ownerCopy = MsCalendar(
+      id: 'c-shared',
+      name: 'Team',
+      owner: MsEmailAddress(address: 'owner@example.com'),
+    );
+    const sharedCopy = MsCalendar(
+      id: 'c-shared',
+      name: 'Team',
+      isSharedWithMe: true,
+      owner: MsEmailAddress(address: 'owner@example.com'),
+    );
+    final ownerFake = _SharedCalendarFake('c-shared')..calendars = [ownerCopy];
+    await MicrosoftSyncEngine(
+      db,
+      ownerFake,
+      'owner@example.com',
+      signedInAccounts: const ['owner@example.com'],
+    ).syncNow();
+
+    const bAndC = ['b@example.com', 'c@example.com'];
+    final bFake = _SharedCalendarFake('c-shared')..calendars = [sharedCopy];
+    final cFake = _SharedCalendarFake('c-shared')..calendars = [sharedCopy];
+    await MicrosoftSyncEngine(
+      db,
+      bFake,
+      'b@example.com',
+      signedInAccounts: bAndC,
+    ).syncNow();
+    await MicrosoftSyncEngine(
+      db,
+      cFake,
+      'c@example.com',
+      signedInAccounts: bAndC,
+    ).syncNow();
+
+    expect(await db.select(db.calendars).get(), hasLength(1));
+    expect(bFake.sharedPulls, 1);
+    expect(cFake.sharedPulls, 0);
+    final cal = (await db.select(db.calendars).get()).single;
+    expect(cal.microsoftAccount, 'owner@example.com');
+    final events = await db.select(db.events).get();
+    expect(events, hasLength(1));
+    expect(events.single.microsoftAccount, 'owner@example.com');
+
+    // The recorded reader is signed out, so another account may claim it.
+    await MicrosoftSyncEngine(
+      db,
+      cFake,
+      'c@example.com',
+      signedInAccounts: const ['c@example.com'],
+    ).syncNow();
+    expect(cFake.sharedPulls, 1);
+    expect(await db.select(db.calendars).get(), hasLength(1));
+    expect(await db.select(db.events).get(), hasLength(1));
+  });
+
+  test('shared calendar event row is adopted instead of duplicated', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.calendars)
+        .insert(
+          CalendarsCompanion.insert(
+            id: 'mscal_owner_c-shared',
+            remoteId: const Value('c-shared'),
+            name: 'Team',
+            source: const Value('microsoft'),
+            microsoftAccount: const Value('owner@example.com'),
+            enabled: const Value(true),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await db
+        .into(db.events)
+        .insert(
+          EventsCompanion.insert(
+            id: 'msevt_delegate_c-shared',
+            calendarId: 'mscal_owner_c-shared',
+            title: const Value('Shared event'),
+            startUtc: Value(
+              DateTime.utc(2026, 1, 1, 10).millisecondsSinceEpoch,
+            ),
+            endUtc: Value(DateTime.utc(2026, 1, 1, 11).millisecondsSinceEpoch),
+            microsoftAccount: const Value('delegate@example.com'),
+            remoteId: const Value('e-shared'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final fake = _SharedCalendarFake('c-shared')
+      ..calendars = [
+        const MsCalendar(
+          id: 'c-shared',
+          name: 'Team',
+          owner: MsEmailAddress(address: 'owner@example.com'),
+        ),
+      ];
+    await MicrosoftSyncEngine(
+      db,
+      fake,
+      'owner@example.com',
+      signedInAccounts: const ['owner@example.com'],
+    ).syncNow();
+
+    final events = await (db.select(
+      db.events,
+    )..where((e) => e.remoteId.equals('e-shared'))).get();
+    expect(events, hasLength(1));
+    expect(events.single.microsoftAccount, 'owner@example.com');
+    expect(events.single.calendarId, 'mscal_owner_c-shared');
+  });
+
   test('calendarView pagination is followed (client contract)', () async {
     // Pagination is implemented in HttpMicrosoftGraphClient._paginate and
     // covered by microsoft_graph_case.dart; reconciliation relies on complete
@@ -611,6 +909,33 @@ class _FailingCalendarFake extends FakeMs {
   }) async {
     if (calendarId == 'bad') {
       throw MicrosoftGraphException(failStatus, 'boom');
+    }
+    return super.calendarView(startUtc, endUtc, calendarId: calendarId);
+  }
+}
+
+class _SharedCalendarFake extends FakeMs {
+  _SharedCalendarFake(this.sharedCalendarId);
+
+  final String sharedCalendarId;
+  int sharedPulls = 0;
+
+  @override
+  Future<List<MsEvent>> calendarView(
+    DateTime startUtc,
+    DateTime endUtc, {
+    String? calendarId,
+  }) async {
+    if (calendarId == sharedCalendarId) {
+      sharedPulls++;
+      return [
+        MsEvent(
+          id: 'e-shared',
+          subject: 'Shared event',
+          start: _dt('2026-01-01T10:00:00'),
+          end: _dt('2026-01-01T11:00:00'),
+        ),
+      ];
     }
     return super.calendarView(startUtc, endUtc, calendarId: calendarId);
   }

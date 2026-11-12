@@ -45,6 +45,7 @@ class MsCalendar {
     this.color,
     this.hexColor,
     this.isDefaultCalendar = false,
+    this.isSharedWithMe = false,
     this.canEdit = false,
     this.owner,
   });
@@ -54,6 +55,10 @@ class MsCalendar {
   final String? color;
   final String? hexColor;
   final bool isDefaultCalendar;
+
+  /// True when this calendar was shared or delegated to the signed-in user by
+  /// another account. Requires the `Calendars.Read.Shared` scope.
+  final bool isSharedWithMe;
   final bool canEdit;
   final MsEmailAddress? owner;
 
@@ -64,6 +69,7 @@ class MsCalendar {
       color: m['color'] as String?,
       hexColor: m['hexColor'] as String?,
       isDefaultCalendar: m['isDefaultCalendar'] as bool? ?? false,
+      isSharedWithMe: m['isSharedWithMe'] as bool? ?? false,
       canEdit: m['canEdit'] as bool? ?? false,
       owner: m['owner'] is Map<String, dynamic>
           ? MsEmailAddress.fromMap(m['owner'] as Map<String, dynamic>)

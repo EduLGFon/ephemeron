@@ -65,6 +65,7 @@ class AppConfig {
     'offline_access',
     'https://graph.microsoft.com/User.Read',
     'https://graph.microsoft.com/Calendars.ReadWrite',
+    'https://graph.microsoft.com/Calendars.Read.Shared',
     'https://graph.microsoft.com/Tasks.ReadWrite',
   ];
   static const String microsoftGraphBase = 'https://graph.microsoft.com/v1.0';

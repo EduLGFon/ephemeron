@@ -162,7 +162,7 @@ class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
         .replace(
           queryParameters: const {
             r'$select':
-                'id,name,color,hexColor,isDefaultCalendar,canEdit,owner',
+                'id,name,color,hexColor,isDefaultCalendar,isSharedWithMe,canEdit,owner',
           },
         );
     return _paginate(initial, headers, MsCalendar.fromMap);

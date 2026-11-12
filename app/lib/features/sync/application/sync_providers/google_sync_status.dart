@@ -220,6 +220,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               ref.read(appDatabaseProvider),
               client,
               acct,
+              signedInAccounts: msAccounts,
             );
             final result = await engine.syncNow();
             if (result.authFailure) {
