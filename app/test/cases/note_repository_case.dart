@@ -278,4 +278,44 @@ void main() {
     expect(note!.title, 'ideas');
     expect(note.body, contains('Hello'));
   });
+
+  test('notes ordered pinned first then updatedAt desc', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.notes)
+        .insert(
+          NotesCompanion.insert(
+            id: 'a',
+            title: const Value('a'),
+            createdAt: now - 2000,
+            updatedAt: now - 2000,
+          ),
+        );
+    await db
+        .into(db.notes)
+        .insert(
+          NotesCompanion.insert(
+            id: 'b',
+            title: const Value('b'),
+            pinned: const Value(true),
+            createdAt: now - 1000,
+            updatedAt: now - 1000,
+          ),
+        );
+    await db
+        .into(db.notes)
+        .insert(
+          NotesCompanion.insert(
+            id: 'c',
+            title: const Value('c'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final repo = NoteRepository(db, attachmentDir: null);
+    final notes = await repo.notesInFolder(null);
+    expect(notes.map((n) => n.id).toList(), ['b', 'c', 'a']);
+  });
 }

@@ -52,6 +52,26 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       appBar: AppBar(
         title: const Text('Notes'),
         actions: [
+          Builder(
+            builder: (context) {
+              final mode = ref.watch(notesViewModeProvider);
+              return IconButton(
+                icon: Icon(
+                  mode == NotesViewMode.grid
+                      ? Icons.view_list
+                      : Icons.grid_view,
+                ),
+                tooltip: mode == NotesViewMode.grid ? 'List view' : 'Grid view',
+                onPressed: () => ref
+                    .read(notesViewModeProvider.notifier)
+                    .setMode(
+                      mode == NotesViewMode.grid
+                          ? NotesViewMode.list
+                          : NotesViewMode.grid,
+                    ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.search),
             tooltip: 'Search',

@@ -56,6 +56,7 @@ import 'cases/migration_v7_v11_regression_case.dart' as migration_v7_v11_regress
 import 'cases/month_view_case.dart' as month_view;
 import 'cases/note_editor_case.dart' as note_editor;
 import 'cases/note_repository_case.dart' as note_repository;
+import 'cases/notes_screen_grid_case.dart' as notes_screen_grid;
 import 'cases/occurrence_cache_case.dart' as occurrence_cache;
 import 'cases/onboarding_case.dart' as onboarding;
 import 'cases/parser_case.dart' as parser;
@@ -156,6 +157,7 @@ const _included = <String>{
   'month_view_case.dart',
   'note_editor_case.dart',
   'note_repository_case.dart',
+  'notes_screen_grid_case.dart',
   'occurrence_cache_case.dart',
   'onboarding_case.dart',
   'parser_case.dart',
@@ -263,6 +265,7 @@ void main() {
   group('month_view', month_view.main);
   group('note_editor', note_editor.main);
   group('note_repository', note_repository.main);
+  group('notes_screen_grid', notes_screen_grid.main);
   group('occurrence_cache', occurrence_cache.main);
   group('onboarding', onboarding.main);
   group('parser', parser.main);
