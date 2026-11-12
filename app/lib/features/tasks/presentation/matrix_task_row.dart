@@ -50,16 +50,18 @@ class _MatrixTaskRowContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final dueLabel = _dueLabel(context);
+    // Compact single-line row: the small checkbox and the title/date line are
+    // sized to stay around 40 px tall at 1x text so many tasks fit per field.
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Tooltip(
             message: 'Mark "${task.title}" concluded',
             child: SizedBox(
-              width: 32,
-              height: 32,
+              width: 28,
+              height: 28,
               child: Checkbox(
                 key: ValueKey('matrix-complete-${task.id}'),
                 value: false,
@@ -79,24 +81,27 @@ class _MatrixTaskRowContent extends ConsumerWidget {
                   : () => showTaskEditor(context, task: task),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      task.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
+                    Expanded(
+                      child: Text(
+                        task.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ),
-                    if (task.dueDate != null)
+                    if (dueLabel != null) ...[
+                      const SizedBox(width: 6),
                       Text(
-                        DeviceDateFormat.dateIso(context, task.dueDate!),
+                        dueLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -105,6 +110,13 @@ class _MatrixTaskRowContent extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String? _dueLabel(BuildContext context) {
+    final raw = task.dueDate;
+    if (raw == null) return null;
+    final parsed = DateTime.tryParse(raw);
+    return parsed == null ? raw : DeviceDateFormat.shortDate(context, parsed);
   }
 
   Future<void> _complete(BuildContext context, WidgetRef ref) async {

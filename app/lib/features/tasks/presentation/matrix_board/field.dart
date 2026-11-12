@@ -46,7 +46,7 @@ class _MatrixFieldState extends State<_MatrixField> {
       color: hovering ? theme.colorScheme.primaryContainer : null,
       shape: _dropShape(theme, hovering),
       child: Padding(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -72,7 +72,7 @@ class _MatrixFieldState extends State<_MatrixField> {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Expanded(
               child: field.tasks.isEmpty
                   ? Center(
@@ -85,27 +85,31 @@ class _MatrixFieldState extends State<_MatrixField> {
                     )
                   : LayoutBuilder(
                       builder: (context, constraints) {
-                        // Measure a real text size so accessibility scales
-                        // above 2x still reserve enough row height.
-                        final scaledBody = MediaQuery.textScalerOf(
-                          context,
-                        ).scale(14.0);
-                        final textScale = scaledBody > 0
-                            ? scaledBody / 14.0
-                            : 1.0;
-                        const peek = 14.0;
-                        final baseRow = 64.0 * textScale;
+                        // Rows keep a compact natural height derived from the
+                        // scaled title and meta lines. The list shows as many
+                        // full rows as fit plus a thin peek of the next row;
+                        // rows never stretch to fill the field.
+                        final scaler = MediaQuery.textScalerOf(context);
+                        final baseRow =
+                            (scaler.scale(
+                                      theme.textTheme.bodySmall?.fontSize ??
+                                          12.0,
+                                    ) +
+                                    scaler.scale(
+                                      theme.textTheme.labelSmall?.fontSize ??
+                                          11.0,
+                                    ) +
+                                    8.0)
+                                .clamp(40.0, 100.0);
+                        const peek = 12.0;
                         final viewport = constraints.maxHeight;
                         final n = math.max(
                           1,
                           ((viewport - peek) / baseRow).floor(),
                         );
-                        // Keep the cap at least the scaled row height so 2x
-                        // text does not get cut by an invalid clamp range.
-                        final rowCap = math.max(baseRow, 120.0);
-                        final itemExtent = ((viewport - peek) / n).clamp(
-                          baseRow,
-                          rowCap,
+                        final itemExtent = math.min(
+                          (viewport - peek) / n,
+                          baseRow + 6,
                         );
                         return Scrollbar(
                           key: ValueKey('matrix-scrollbar-${field.id}'),
