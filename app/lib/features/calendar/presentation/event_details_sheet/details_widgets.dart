@@ -138,8 +138,9 @@ String _when(BuildContext context, Event e) {
   if (e.isAllDay) {
     if (e.startDate == null) return '';
     try {
-      return DeviceDateFormat.yMMMd(context)
-          .format(DateTime.parse(e.startDate!));
+      return DeviceDateFormat.yMMMd(
+        context,
+      ).format(DateTime.parse(e.startDate!));
     } catch (_) {
       return e.startDate!;
     }

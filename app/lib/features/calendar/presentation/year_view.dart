@@ -118,8 +118,9 @@ class YearView extends ConsumerWidget {
                 child: InkWell(
                   onTap: () => notifier.openMonth(year, month),
                   child: Card(
-                    color: Theme.of(context).colorScheme.primary
-                        .withValues(alpha: 0.1 + 0.5 * c / max),
+                    color: Theme.of(context).colorScheme.primary.withValues(
+                      alpha: 0.1 + 0.5 * c / max,
+                    ),
                     shape: isCurrentMonth
                         ? RoundedRectangleBorder(
                             side: BorderSide(
