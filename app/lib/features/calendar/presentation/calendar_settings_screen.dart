@@ -1,5 +1,5 @@
-// Calendar settings: calendars (add/enable/default), week start,
-// default duration.
+// Calendar settings: calendars (add/enable/default), device calendar import
+// and refresh, week start, default duration.
 import 'package:flutter/material.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,11 +24,33 @@ List<MapEntry<String, List<Calendar>>> _groupCalendars(List<Calendar> cals) {
   return map.entries.toList();
 }
 
-class CalendarSettingsScreen extends ConsumerWidget {
+String _importCounts(DeviceImportResult result) =>
+    '${result.inserted} new, ${result.updated} updated, '
+    '${result.deleted} removed, ${result.skipped} skipped';
+
+class CalendarSettingsScreen extends ConsumerStatefulWidget {
   const CalendarSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CalendarSettingsScreen> createState() =>
+      _CalendarSettingsScreenState();
+}
+
+class _CalendarSettingsScreenState
+    extends ConsumerState<CalendarSettingsScreen> {
+  late Future<bool> _hasMappings;
+
+  @override
+  void initState() {
+    super.initState();
+    _hasMappings = _service.hasMappings();
+  }
+
+  DeviceCalendarImportService get _service =>
+      DeviceCalendarImportService(ref.read(eventRepositoryProvider));
+
+  @override
+  Widget build(BuildContext context) {
     final calsAsync = ref.watch(calendarsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Calendars')),
@@ -58,12 +80,23 @@ class CalendarSettingsScreen extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.add),
                   title: const Text('Add local calendar'),
-                  onTap: () => _addCalendar(context, ref),
+                  onTap: () => _addCalendar(),
                 ),
                 ListTile(
                   leading: const Icon(Icons.download_outlined),
                   title: const Text('Import from device calendars'),
-                  onTap: () => _importDeviceCalendars(context, ref),
+                  onTap: () => _importDeviceCalendars(),
+                ),
+                FutureBuilder<bool>(
+                  future: _hasMappings,
+                  builder: (ctx, snap) {
+                    if (snap.data != true) return const SizedBox.shrink();
+                    return ListTile(
+                      leading: const Icon(Icons.refresh),
+                      title: const Text('Refresh device calendars'),
+                      onTap: () => _refreshDeviceCalendars(),
+                    );
+                  },
                 ),
               ],
             ),
@@ -73,7 +106,7 @@ class CalendarSettingsScreen extends ConsumerWidget {
           ListTile(
             title: const Text('Week starts on'),
             trailing: FutureBuilder<int>(
-              future: _weekStart(ref),
+              future: _weekStart(),
               builder: (ctx, snap) => DropdownButton<int>(
                 value: snap.data ?? DateTime.monday,
                 items: [
@@ -102,8 +135,8 @@ class CalendarSettingsScreen extends ConsumerWidget {
                     settingsRepositoryProvider.future,
                   );
                   await repo.setWeekStart(v);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
                       const SnackBar(content: Text('Week start saved')),
                     );
                   }
@@ -116,20 +149,15 @@ class CalendarSettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<int> _weekStart(WidgetRef ref) async {
+  Future<int> _weekStart() async {
     final repo = await ref.read(settingsRepositoryProvider.future);
     return repo.weekStart;
   }
 
-  Future<void> _importDeviceCalendars(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final service = DeviceCalendarImportService(
-      ref.read(eventRepositoryProvider),
-    );
+  Future<void> _importDeviceCalendars() async {
+    final service = _service;
     if (!service.isSupported) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Device calendars not supported here')),
         );
@@ -140,7 +168,7 @@ class CalendarSettingsScreen extends ConsumerWidget {
     if (!await AppPermissions.explainCalendarImport(context)) return;
     final granted = await service.requestPermission();
     if (granted == 0) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
@@ -159,7 +187,7 @@ class CalendarSettingsScreen extends ConsumerWidget {
     }
     final deviceCals = await service.listCalendars();
     if (deviceCals.isEmpty) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No device calendars found')),
         );
@@ -171,14 +199,14 @@ class CalendarSettingsScreen extends ConsumerWidget {
             .where((c) => c.source == 'device')
             .toList();
     if (appCals.isEmpty) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Create a local calendar first')),
         );
       }
       return;
     }
-    if (!context.mounted) return;
+    if (!mounted) return;
     String targetId = appCals.first.id;
     final selected = <String>{};
     final ok = await showDialog<bool>(
@@ -234,21 +262,68 @@ class CalendarSettingsScreen extends ConsumerWidget {
       ),
     );
     if (ok != true || selected.isEmpty) return;
-    int total = 0;
+    var result = const DeviceImportResult();
+    final completed = <String>{};
     for (final id in selected) {
-      total += await service.importCalendar(
+      final imported = await service.importCalendar(
         deviceCalendarId: id,
         targetCalendarId: targetId,
       );
+      result += imported;
+      if (imported.completed) completed.add(id);
     }
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Imported $total events')));
+    if (completed.isNotEmpty) {
+      await service.saveMappings({for (final id in completed) id: targetId});
     }
+    if (!mounted) return;
+    setState(() => _hasMappings = service.hasMappings());
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Imported device calendars: ${_importCounts(result)}'),
+      ),
+    );
   }
 
-  Future<void> _addCalendar(BuildContext context, WidgetRef ref) async {
+  Future<void> _refreshDeviceCalendars() async {
+    final service = _service;
+    if (!service.isSupported) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Device calendars not supported here')),
+        );
+      }
+      return;
+    }
+    if (!await AppPermissions.explainCalendarImport(context)) return;
+    final granted = await service.requestPermission();
+    if (granted == 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Calendar permission denied. The refresh needs read access.',
+            ),
+            duration: const Duration(seconds: 6),
+            persist: false,
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: SystemLauncher.openAppSettings,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    final result = await service.refreshMappedCalendars();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Refreshed device calendars: ${_importCounts(result)}'),
+      ),
+    );
+  }
+
+  Future<void> _addCalendar() async {
     final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
