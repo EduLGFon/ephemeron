@@ -51,6 +51,7 @@ import 'cases/l10n_case.dart' as l10n;
 import 'cases/markdown_editing_controller_case.dart'
     as markdown_editing_controller;
 import 'cases/matrix_case.dart' as matrix;
+import 'cases/matrix_layout_case.dart' as matrix_layout;
 import 'cases/matrix_planned_case.dart' as matrix_planned;
 import 'cases/microsoft_auth_case.dart' as microsoft_auth;
 import 'cases/microsoft_graph_case.dart' as microsoft_graph;
@@ -158,6 +159,7 @@ const _included = <String>{
   'l10n_case.dart',
   'markdown_editing_controller_case.dart',
   'matrix_case.dart',
+  'matrix_layout_case.dart',
   'matrix_planned_case.dart',
   'microsoft_auth_case.dart',
   'microsoft_graph_case.dart',
@@ -272,6 +274,7 @@ void main() {
   group('l10n', l10n.main);
   group('markdown_editing_controller', markdown_editing_controller.main);
   group('matrix', matrix.main);
+  group('matrix_layout', matrix_layout.main);
   group('matrix_planned', matrix_planned.main);
   group('microsoft_auth', microsoft_auth.main);
   group('microsoft_graph', microsoft_graph.main);
