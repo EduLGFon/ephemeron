@@ -151,35 +151,42 @@ List<Widget> _navigationSection(_SettingsScreenState state) {
   ];
 }
 
+/// User-facing message for a classified Google sync failure. Auth, rate limit
+/// and server failures must never tell the user to check their connection.
+String syncIssueMessage(SyncErrorKind? kind) => switch (kind) {
+  SyncErrorKind.auth => 'Sync needs permission. Reconnect your Google account.',
+  SyncErrorKind.rateLimited => 'Google is rate-limiting sync. Try again later.',
+  SyncErrorKind.network => 'No connection. Changes are queued.',
+  SyncErrorKind.server => 'Google returned an error. Try again later.',
+  SyncErrorKind.unknown => 'Sync failed. Try again.',
+  SyncErrorKind.none || null => 'Sync failed. Try again.',
+};
+
 class _LastSyncTile extends ConsumerWidget {
   const _LastSyncTile();
-
-  String _statusLabel(SyncStatus status) {
-    switch (status) {
-      case SyncStatus.synced:
-        return 'Synced';
-      case SyncStatus.syncing:
-        return 'Syncing';
-      case SyncStatus.offline:
-        return 'Offline';
-      case SyncStatus.error:
-        return 'Error';
-    }
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(syncStatusProvider);
     final lastSync = ref.watch(lastGoogleSyncAtProvider);
-    final label = _statusLabel(status);
+    final date = lastSync == null
+        ? null
+        : DeviceDateFormat.dateTime(context, lastSync.toLocal());
     final String subtitle;
-    if (lastSync == null) {
-      subtitle = status == SyncStatus.synced
-          ? 'Not synced yet'
-          : '$label - has not synced yet';
+    if (status == SyncStatus.synced) {
+      subtitle = date == null ? 'Not synced yet' : 'Synced - $date';
+    } else if (status == SyncStatus.error) {
+      subtitle = date == null
+          ? 'Error - has not synced yet'
+          : 'Error - last success $date';
+    } else if (status == SyncStatus.syncing) {
+      subtitle = date == null
+          ? 'Syncing - has not synced yet'
+          : 'Syncing - last success $date';
     } else {
-      subtitle =
-          '$label - ${DeviceDateFormat.dateTime(context, lastSync.toLocal())}';
+      subtitle = date == null
+          ? 'Offline - has not synced yet'
+          : 'Offline - last success $date';
     }
     return ListTile(
       title: const Text('Last sync'),
@@ -222,11 +229,16 @@ class _LastSyncTile extends ConsumerWidget {
         final reconsentGoogle = ref.read(googleReconsentAccountsProvider);
         final reconsentMs = ref.read(microsoftReconsentAccountsProvider);
         final backendStatus = ref.read(backendSyncStatusProvider);
-        if (reconsentGoogle.isNotEmpty || reconsentMs.isNotEmpty) {
+        final issue = ref.read(syncIssueProvider);
+        if (reconsentGoogle.isNotEmpty) {
+          showErrorSnackBar(context, syncIssueMessage(SyncErrorKind.auth));
+        } else if (reconsentMs.isNotEmpty) {
           showErrorSnackBar(
             context,
             'Sync needs attention. Reconnect your account.',
           );
+        } else if (issue != null) {
+          showErrorSnackBar(context, syncIssueMessage(issue));
         } else if (ref.read(syncStatusProvider) == SyncStatus.synced &&
             backendStatus == SyncStatus.error) {
           showErrorSnackBar(
@@ -234,7 +246,7 @@ class _LastSyncTile extends ConsumerWidget {
             'Calendar sync complete. Habits/focus sync failed.',
           );
         } else {
-          showErrorSnackBar(context, 'Could not sync. Check your connection.');
+          showErrorSnackBar(context, syncIssueMessage(null));
         }
       } else {
         showAppSnackBar(context, 'Sync is still running', icon: Icons.sync);
@@ -242,7 +254,7 @@ class _LastSyncTile extends ConsumerWidget {
     } catch (_) {
       if (!context.mounted) return;
       AppFeedback.error();
-      showErrorSnackBar(context, 'Could not sync. Check your connection.');
+      showErrorSnackBar(context, syncIssueMessage(SyncErrorKind.unknown));
     }
   }
 }
