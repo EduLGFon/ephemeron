@@ -14,3 +14,18 @@ bool isSameAccountEmail(String a, String b) {
   final normalizedA = normalizeAccountEmail(a);
   return normalizedA.isNotEmpty && normalizedA == normalizeAccountEmail(b);
 }
+
+/// Returns normalized, de-duplicated account emails in first-seen order.
+///
+/// Empty and whitespace-only values are dropped so a malformed entry can never
+/// surface as a reconnect target.
+List<String> normalizeAccountEmails(Iterable<String> emails) {
+  final seen = <String>{};
+  final result = <String>[];
+  for (final email in emails) {
+    final normalized = normalizeAccountEmail(email);
+    if (normalized.isEmpty || !seen.add(normalized)) continue;
+    result.add(normalized);
+  }
+  return List.unmodifiable(result);
+}

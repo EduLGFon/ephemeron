@@ -1,8 +1,19 @@
 part of '../google_auth.dart';
 
 mixin _GoogleAuthAccount on _GoogleAuthBase {
-  Future<String?> restore() async {
+  Future<String?>? _restoreInFlight;
+
+  /// Restores stored accounts once, even when the provider build and session
+  /// restore both request it during startup.
+  Future<String?> restore() {
+    return _restoreInFlight ??= _restore().whenComplete(() {
+      _restoreInFlight = null;
+    });
+  }
+
+  Future<String?> _restore() async {
     final accs = await _storage.googleAccounts();
+    _setAccountsNeedingReconnect(const []);
     _accounts
       ..clear()
       ..addAll(accs);
@@ -10,19 +21,33 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
     _activeEmail = _accounts.first;
     try {
       await _ensureInit();
+      // One lightweight attempt for the whole restore. Its account is stored
+      // only when it is one of the emails already known locally.
       final lightweight = await _attemptLightweightAccount();
       if (lightweight != null &&
           _accounts.any((a) => isSameAccountEmail(a, lightweight.email))) {
         _storeGoogleAccount(lightweight);
       }
-      final token = await accessToken();
-      if (token == null) {
-        // keep accounts; token may refresh later
+      final needsReconnect = <String>[];
+      for (final account in _accounts) {
+        String? token;
+        try {
+          token = await accessTokenFor(account);
+        } catch (_) {
+          // One account's plugin failure must not block the others.
+          token = null;
+        }
+        if (token == null) needsReconnect.add(account);
       }
+      _setAccountsNeedingReconnect(needsReconnect);
       debugPrint('GoogleAuth.restore ok');
       return _activeEmail;
     } catch (e) {
-      debugPrint('GoogleAuth.restore failed: $e');
+      // Log only the type: plugin error text may contain account identifiers.
+      debugPrint('GoogleAuth.restore failed: ${e.runtimeType}');
+      // A failed outer restore cannot prove any account is usable. Warn for
+      // every stored account instead of failing silently.
+      if (_accounts.isNotEmpty) _setAccountsNeedingReconnect(_accounts);
       return _activeEmail;
     }
   }
@@ -30,6 +55,7 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
   Future<void> signOut([String? account]) async {
     final target = account ?? _activeEmail;
     if (target == null) return;
+    _clearNeedsReconnect(target);
     if (defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.windows) {
       _accessTokens.remove(target);
@@ -90,6 +116,7 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
           .add(const Duration(minutes: 50))
           .millisecondsSinceEpoch,
     );
+    _clearNeedsReconnect(email);
     await _storage.saveGoogleAccounts(_accounts);
   }
 }

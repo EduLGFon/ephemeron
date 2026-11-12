@@ -9,9 +9,26 @@ abstract class _GoogleAuthBase {
 
   Future<void> _ensureInit();
   Future<String?> accessToken();
+  Future<String?> accessTokenFor(String account);
   final List<String> _accounts = [];
   String? _activeEmail;
   final Map<String, String?> _accessTokens = {};
+  final List<String> _accountsNeedingReconnect = [];
+
+  /// Normalized, de-duplicated emails that could not restore a token and need
+  /// interactive reconnection.
+  List<String> get accountsNeedingReconnect =>
+      List.unmodifiable(_accountsNeedingReconnect);
+
+  void _setAccountsNeedingReconnect(Iterable<String> emails) {
+    _accountsNeedingReconnect
+      ..clear()
+      ..addAll(normalizeAccountEmails(emails));
+  }
+
+  void _clearNeedsReconnect(String email) {
+    _accountsNeedingReconnect.removeWhere((a) => isSameAccountEmail(a, email));
+  }
 
   // Signed-in account objects keyed by normalized email. Tokens must come from
   // the matching account's authorization client, never the global one.
