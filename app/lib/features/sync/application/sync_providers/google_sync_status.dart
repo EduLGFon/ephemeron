@@ -267,7 +267,10 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
                 windowEndUtc: range.toUtc,
               );
           debugPrint('[sync] occurrence cache rebuilt rows=$n');
-          ref.invalidate(windowOccurrencesProvider(range));
+          // Do not invalidate windowOccurrencesProvider here: it is a Drift
+          // stream over this database and the rebuild transaction emits the
+          // complete new window. Invalidating re-subscribes the stream and can
+          // briefly surface AsyncLoading, making events disappear/reappear.
         } catch (e) {
           debugPrint('[sync] occurrence cache rebuild failed: $e');
         }
