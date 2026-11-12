@@ -11,6 +11,8 @@ extension _TimelineViewBuild on _TimelineViewState {
     final habitAsync = ready
         ? ref.watch(calendarHabitEntriesProvider(range))
         : null;
+    final errored =
+        (occAsync?.hasError ?? false) || (habitAsync?.hasError ?? false);
     final loading =
         !ready ||
         occAsync == null ||
@@ -82,7 +84,15 @@ extension _TimelineViewBuild on _TimelineViewState {
                       }
                     : null,
               ),
-              if (loading) const LinearProgressIndicator(minHeight: 2),
+              if (errored)
+                CalendarErrorBanner(
+                  onRetry: () {
+                    ref.invalidate(windowOccurrencesProvider(range));
+                    ref.invalidate(calendarHabitEntriesProvider(range));
+                  },
+                )
+              else if (loading)
+                const LinearProgressIndicator(minHeight: 2),
               if (allDay.isNotEmpty || allDayHabits.isNotEmpty)
                 TimelineAllDayStrip(
                   occs: allDay,

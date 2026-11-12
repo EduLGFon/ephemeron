@@ -14,6 +14,7 @@ import '../../../../domain/habits/habit_calendar_entry.dart';
 import '../../application/calendar_providers.dart';
 import '../../application/calendar_state.dart';
 import '../../../settings/application/settings_providers.dart';
+import '../calendar_error_banner.dart';
 import '../event_details_sheet.dart';
 import '../habit_action_sheet.dart';
 import '../task_action_sheet.dart';

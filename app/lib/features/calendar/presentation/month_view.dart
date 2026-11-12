@@ -10,6 +10,7 @@ import '../../../domain/habits/habit_calendar_entry.dart';
 import '../application/calendar_providers.dart';
 import '../application/calendar_state.dart';
 import 'agenda_event_tile.dart';
+import 'calendar_error_banner.dart';
 import 'event_details_sheet.dart';
 import 'event_editor_sheet.dart';
 import 'task_action_sheet.dart';
@@ -48,6 +49,8 @@ class _MonthViewState extends ConsumerState<MonthView> {
     final habitAsync = ready
         ? ref.watch(calendarHabitEntriesProvider(range))
         : null;
+    final errored =
+        (occAsync?.hasError ?? false) || (habitAsync?.hasError ?? false);
     final loading =
         !ready ||
         occAsync == null ||
@@ -97,7 +100,15 @@ class _MonthViewState extends ConsumerState<MonthView> {
                 height: viewportHeight,
                 child: Column(
                   children: [
-                    if (loading) const LinearProgressIndicator(minHeight: 2),
+                    if (errored)
+                      CalendarErrorBanner(
+                        onRetry: () {
+                          ref.invalidate(windowOccurrencesProvider(range));
+                          ref.invalidate(calendarHabitEntriesProvider(range));
+                        },
+                      )
+                    else if (loading)
+                      const LinearProgressIndicator(minHeight: 2),
                     const _WeekdayHeader(),
                     for (var week = 0; week < 6; week++)
                       Expanded(
@@ -158,53 +169,62 @@ class _MonthViewState extends ConsumerState<MonthView> {
             SliverToBoxAdapter(
               child: _AgendaHeader(
                 day: selectedDay,
-                count: selectedOccs.length + selectedHabits.length,
+                // A pending or failed range has no final count yet.
+                count: loading || errored
+                    ? null
+                    : selectedOccs.length + selectedHabits.length,
               ),
             ),
-            if (selectedOccs.isEmpty && selectedHabits.isEmpty)
-              SliverToBoxAdapter(child: _EmptyAgenda(day: selectedDay))
-            else ...[
-              if (selectedHabits.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final h in selectedHabits)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: HabitCalendarMarker(entry: h),
-                          ),
-                      ],
+            // Never claim the day is empty until the range is built and both
+            // streams emitted data; a failed range keeps the error banner only.
+            if (!errored) ...[
+              if (loading)
+                const SliverToBoxAdapter(child: _AgendaLoading())
+              else if (selectedOccs.isEmpty && selectedHabits.isEmpty)
+                SliverToBoxAdapter(child: _EmptyAgenda(day: selectedDay))
+              else ...[
+                if (selectedHabits.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final h in selectedHabits)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: HabitCalendarMarker(entry: h),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
+                SliverList.builder(
+                  itemCount: selectedOccs.length,
+                  itemBuilder: (ctx, i) {
+                    final o = selectedOccs[i];
+                    return AgendaEventTile(
+                      key: ValueKey('month-agenda-${o.eventId}'),
+                      occurrence: o,
+                      onTap: () {
+                        if (o.sourceType == 'task') {
+                          showTaskActionSheet(
+                            context,
+                            taskId: o.eventId,
+                            occurrenceDate: o.dayKey,
+                          );
+                        } else {
+                          showEventDetails(
+                            context,
+                            o.eventId,
+                            occurrenceStartMs: o.startUtc,
+                          );
+                        }
+                      },
+                    );
+                  },
                 ),
-              SliverList.builder(
-                itemCount: selectedOccs.length,
-                itemBuilder: (ctx, i) {
-                  final o = selectedOccs[i];
-                  return AgendaEventTile(
-                    key: ValueKey('month-agenda-${o.eventId}'),
-                    occurrence: o,
-                    onTap: () {
-                      if (o.sourceType == 'task') {
-                        showTaskActionSheet(
-                          context,
-                          taskId: o.eventId,
-                          occurrenceDate: o.dayKey,
-                        );
-                      } else {
-                        showEventDetails(
-                          context,
-                          o.eventId,
-                          occurrenceStartMs: o.startUtc,
-                        );
-                      }
-                    },
-                  );
-                },
-              ),
+              ],
             ],
             const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],

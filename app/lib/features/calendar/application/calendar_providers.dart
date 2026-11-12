@@ -131,6 +131,10 @@ class OccurrenceSource {
 final occurrenceSourceMapProvider =
     FutureProvider<Map<String, OccurrenceSource>>((ref) async {
       final range = ref.watch(calendarCacheRangeProvider);
+      final built = ref.watch(calendarBuiltRangeProvider);
+      // Wait for the range to be materialized; otherwise the occurrence
+      // stream emits a partial pre-rebuild snapshot and labels resolve wrong.
+      if (built != range) return const {};
       final occurrences = await ref.watch(
         windowOccurrencesProvider(range).future,
       );

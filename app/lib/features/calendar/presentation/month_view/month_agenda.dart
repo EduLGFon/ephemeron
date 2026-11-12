@@ -4,14 +4,19 @@ class _AgendaHeader extends StatelessWidget {
   const _AgendaHeader({required this.day, required this.count});
 
   final DateTime day;
-  final int count;
+
+  /// Final item count, or null while the day's range is loading or failed.
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
     final title =
         '${DeviceDateFormat.weekdayFull(context, day)}, '
         '${DeviceDateFormat.monthName(context, day.month)} ${day.day}';
-    final subtitle = count == 0
+    final count = this.count;
+    final subtitle = count == null
+        ? null
+        : count == 0
         ? 'No events'
         : count == 1
         ? '1 event'
@@ -26,14 +31,36 @@ class _AgendaHeader extends StatelessWidget {
             key: const Key('month-agenda-title'),
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// Small placeholder for the selected day while its range is loading.
+class _AgendaLoading extends StatelessWidget {
+  const _AgendaLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      key: Key('month-agenda-loading'),
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
       ),
     );
   }

@@ -39,14 +39,19 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
     if (occAsync == null || habitAsync == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (occAsync.hasError) {
+    // Both streams gate the agenda; a habit failure must not render as an
+    // empty day list either.
+    if (occAsync.hasError || habitAsync.hasError) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('Could not load agenda.'),
             OutlinedButton(
-              onPressed: () => ref.invalidate(windowOccurrencesProvider(range)),
+              onPressed: () {
+                ref.invalidate(windowOccurrencesProvider(range));
+                ref.invalidate(calendarHabitEntriesProvider(range));
+              },
               child: const Text('Retry'),
             ),
           ],
