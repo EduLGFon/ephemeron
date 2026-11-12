@@ -60,13 +60,13 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
     }
     final occs = occAsync.value;
     final habits = habitAsync.value;
-    if (occs == null || (habits == null && !habitAsync.hasError)) {
+    if (occs == null || habits == null) {
       return const Center(child: CircularProgressIndicator());
     }
     return _body(
       context,
       _visible(window, occs),
-      _visibleHabits(window, habits ?? const <HabitCalendarEntry>[]),
+      _visibleHabits(window, habits),
       window.anchor,
     );
   }

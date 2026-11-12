@@ -141,6 +141,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                                         days[week * 7 + dow],
                                       )] ??
                                       const <HabitCalendarEntry>[],
+                                  countsPending: loading || errored,
                                   onTap: () => ref
                                       .read(calendarStateProvider.notifier)
                                       .goTo(days[week * 7 + dow]),

@@ -3,10 +3,13 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
+import 'package:ephemeron/domain/habits/habit_calendar_entry.dart';
 import 'package:ephemeron/features/calendar/application/calendar_providers.dart';
 import 'package:ephemeron/features/calendar/application/calendar_state.dart';
+import 'package:ephemeron/features/calendar/presentation/agenda_view.dart';
 import 'package:ephemeron/features/calendar/presentation/calendar_error_banner.dart';
 import 'package:ephemeron/features/calendar/presentation/month_view.dart';
 import 'package:ephemeron/features/calendar/presentation/timeline/timeline_view.dart';
@@ -103,6 +106,27 @@ final _failingOccurrences = windowOccurrencesProvider.overrideWith(
   (ref, range) => Stream<List<OccurrenceCacheData>>.error(StateError('boom')),
 );
 
+/// Habit entry stream that fails while occurrences still load, so the agenda
+/// error path is exercised without an occurrence failure.
+final _failingHabitEntries = calendarHabitEntriesProvider.overrideWith(
+  (ref, range) =>
+      Stream<List<HabitCalendarEntry>>.error(StateError('habits boom')),
+);
+
+/// Day-cell semantics label currently rendered by [MonthView].
+Semantics _dayCellSemantics(WidgetTester tester, DateTime day) {
+  return tester.widget<Semantics>(
+    find
+        .descendant(
+          of: find.byKey(Key('month-day-${dateKey(day)}')),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Semantics && widget.properties.button == true,
+          ),
+        )
+        .first,
+  );
+}
+
 Future<void> _pumpMonth(
   WidgetTester tester,
   AppDatabase db,
@@ -161,18 +185,49 @@ void main() {
     expect(container.read(calendarBuiltRangeProvider), other);
   });
 
-  test('source map stays empty until the cache range is built', () async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    final cacheBefore = container.read(calendarCacheRangeProvider);
-    expect(container.read(calendarBuiltRangeProvider), cacheBefore);
+  test('source map is populated only for the built cache range', () async {
+    final db = _db();
+    await _seed(db);
+    final window = CalendarWindow(
+      anchor: _rangeA.anchor,
+      view: CalendarViewKind.day,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        calendarStateProvider.overrideWith(() => _FixedWindow(window)),
+      ],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await db.close();
+    });
 
-    container
-        .read(calendarStateProvider.notifier)
-        .restore(CalendarViewKind.month, DateTime(2030, 1, 15));
+    final range = container.read(calendarCacheRangeProvider);
+    expect(range, window.cacheRange);
+    expect(container.read(calendarBuiltRangeProvider), range);
+    // Keep the provider alive while awaiting its future in a bare container.
+    container.listen(occurrenceSourceMapProvider, (_, _) {});
 
-    expect(container.read(calendarCacheRangeProvider), isNot(cacheBefore));
-    expect(container.read(calendarBuiltRangeProvider), cacheBefore);
+    // Gate closed: a built range that is not the cache range yields nothing.
+    final other = _rangeB.cacheRange;
+    expect(other, isNot(range));
+    container.read(calendarBuiltRangeProvider.notifier).markBuilt(other);
+    expect(await container.read(occurrenceSourceMapProvider.future), isEmpty);
+
+    // Positive control: materialize the cache range, mark it built, and prove
+    // the map resolves to real labels rather than an empty cache result.
+    await OccurrenceRepository(
+      db,
+    ).rebuildWindow(windowStartUtc: range.fromUtc, windowEndUtc: range.toUtc);
+    container.read(calendarBuiltRangeProvider.notifier).markBuilt(range);
+    final sources = await container.read(occurrenceSourceMapProvider.future);
+    expect(sources, isNotEmpty);
+    expect(sources.keys, containsAll(['a1', 'a2']));
+
+    // A different built range gates a previously populated map back to empty
+    // even though the occurrence cache still holds rows.
+    container.read(calendarBuiltRangeProvider.notifier).markBuilt(other);
     expect(await container.read(occurrenceSourceMapProvider.future), isEmpty);
   });
 
@@ -273,6 +328,11 @@ void main() {
     expect(find.byKey(const Key('month-agenda-empty')), findsNothing);
     expect(find.text('Nothing on this day'), findsNothing);
     expect(find.text('No events'), findsNothing);
+    // Day cells must not announce a final zero count while the range loads.
+    expect(
+      _dayCellSemantics(tester, _emptyMonth.anchor).properties.label,
+      isNot(contains('0 events')),
+    );
 
     // Once the range is built and both streams emitted, the empty state is
     // final and may render.
@@ -288,6 +348,10 @@ void main() {
 
     expect(find.byKey(const Key('month-agenda-loading')), findsNothing);
     expect(find.byKey(const Key('month-agenda-empty')), findsOneWidget);
+    expect(
+      _dayCellSemantics(tester, _emptyMonth.anchor).properties.label,
+      contains('0 events'),
+    );
 
     await _tearDown(tester, db);
   });
@@ -380,6 +444,77 @@ void main() {
     expect(find.textContaining('Events:'), findsNothing);
     expect(find.textContaining(RegExp(r'\n0')), findsNothing);
     expect(find.textContaining('\n...'), findsWidgets);
+
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('year shows an error banner and no final counts when failing', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          calendarStateProvider.overrideWith(
+            () => _FixedWindow(
+              CalendarWindow(
+                anchor: DateTime(2027, 6, 1),
+                view: CalendarViewKind.year,
+              ),
+            ),
+          ),
+          _failingOccurrences,
+        ],
+        child: const MaterialApp(home: Scaffold(body: YearView())),
+      ),
+    );
+    await _pumpTwice(tester);
+
+    expect(find.byKey(const Key('calendar-error')), findsOneWidget);
+    expect(find.text('Could not load calendar.'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    // A failed range has no counts: the cards keep the loading placeholder.
+    expect(find.textContaining('Events:'), findsNothing);
+    expect(find.textContaining(RegExp(r'\n0')), findsNothing);
+    expect(find.textContaining('\n...'), findsWidgets);
+
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('agenda shows an error and retry when only habits fail', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    await _seed(db);
+    await OccurrenceRepository(db).rebuildWindow(
+      windowStartUtc: _rangeA.fromUtc,
+      windowEndUtc: _rangeA.toUtc,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          calendarStateProvider.overrideWith(() => _FixedWindow(_rangeA)),
+          _failingHabitEntries,
+        ],
+        child: const MaterialApp(home: Scaffold(body: AgendaView())),
+      ),
+    );
+    await _pumpTwice(tester);
+
+    // Occurrences loaded fine, but the failed habit stream must not render as
+    // an empty agenda.
+    expect(find.text('Could not load agenda.'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    expect(find.text('Nothing scheduled'), findsNothing);
+    expect(find.text('Alpha One'), findsNothing);
+
+    await tester.tap(find.text('Retry'));
+    await _pumpTwice(tester);
+    expect(find.text('Could not load agenda.'), findsOneWidget);
+    expect(find.text('Nothing scheduled'), findsNothing);
 
     await _tearDown(tester, db);
   });
