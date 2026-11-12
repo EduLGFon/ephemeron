@@ -2,7 +2,6 @@ part of '../google_auth.dart';
 
 mixin _GoogleAuthSignIn on _GoogleAuthBase {
   Future<String?> signIn({bool tasks = true}) async {
-    debugPrint('GoogleAuth.signIn start platform=$defaultTargetPlatform');
     try {
       await _ensureInit();
     } on UnimplementedError {
@@ -15,8 +14,9 @@ mixin _GoogleAuthSignIn on _GoogleAuthBase {
         defaultTargetPlatform == TargetPlatform.windows) {
       try {
         return await _signInDesktop();
-      } catch (e, st) {
-        debugPrint('GoogleAuth desktop error: $e\n$st');
+      } catch (e) {
+        // PRIVACY: plugin error text may contain tokens or account ids.
+        debugPrint('GoogleAuth desktop error: ${e.runtimeType}');
         rethrow;
       }
     }
@@ -120,10 +120,18 @@ mixin _GoogleAuthSignIn on _GoogleAuthBase {
       await req.response.close();
     });
 
+    var browserOpened = false;
     try {
-      await Process.run('xdg-open', [authUrl]);
+      final launcher = await Process.run('xdg-open', [authUrl]);
+      browserOpened = launcher.exitCode == 0;
     } catch (_) {
-      debugPrint('Open this URL to sign in: $authUrl');
+      browserOpened = false;
+    }
+    if (!browserOpened) {
+      await server.close();
+      // PRIVACY: never log or return the authorization URL; it carries
+      // ephemeral OAuth secrets.
+      throw GoogleAuthException('Could not open a browser for Google sign-in.');
     }
 
     final code = await codeCompleter.future.timeout(const Duration(minutes: 5));
@@ -147,7 +155,7 @@ mixin _GoogleAuthSignIn on _GoogleAuthBase {
     final tokenRes = await tokenReq.close();
     final tokenBody = await tokenRes.transform(utf8.decoder).join();
     if (tokenRes.statusCode != 200) {
-      throw GoogleAuthException('Token exchange failed: $tokenBody');
+      throw GoogleAuthException('Token exchange failed.');
     }
     final tokenJson = jsonDecode(tokenBody) as Map<String, dynamic>;
     final accessToken = tokenJson['access_token'] as String;

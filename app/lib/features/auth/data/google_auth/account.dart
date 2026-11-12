@@ -40,10 +40,10 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
         if (token == null) needsReconnect.add(account);
       }
       _setAccountsNeedingReconnect(needsReconnect);
-      debugPrint('GoogleAuth.restore ok');
       return _activeEmail;
     } catch (e) {
       // Log only the type: plugin error text may contain account identifiers.
+      // PRIVACY: never interpolate the exception or account data here.
       debugPrint('GoogleAuth.restore failed: ${e.runtimeType}');
       // A failed outer restore cannot prove any account is usable. Warn for
       // every stored account instead of failing silently.
