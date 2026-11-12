@@ -219,7 +219,23 @@ class _LastSyncTile extends ConsumerWidget {
         );
       } else if (status == SyncStatus.error) {
         AppFeedback.error();
-        showErrorSnackBar(context, 'Could not sync. Check your connection.');
+        final reconsentGoogle = ref.read(googleReconsentAccountsProvider);
+        final reconsentMs = ref.read(microsoftReconsentAccountsProvider);
+        final backendStatus = ref.read(backendSyncStatusProvider);
+        if (reconsentGoogle.isNotEmpty || reconsentMs.isNotEmpty) {
+          showErrorSnackBar(
+            context,
+            'Sync needs attention. Reconnect your account.',
+          );
+        } else if (ref.read(syncStatusProvider) == SyncStatus.synced &&
+            backendStatus == SyncStatus.error) {
+          showErrorSnackBar(
+            context,
+            'Calendar sync complete. Habits/focus sync failed.',
+          );
+        } else {
+          showErrorSnackBar(context, 'Could not sync. Check your connection.');
+        }
       } else {
         showAppSnackBar(context, 'Sync is still running', icon: Icons.sync);
       }

@@ -19,6 +19,7 @@ import 'cases/backend_sync_case.dart' as backend_sync;
 import 'cases/backup_case.dart' as backup;
 import 'cases/calendar_color_case.dart' as calendar_color;
 import 'cases/calendar_header_case.dart' as calendar_header;
+import 'cases/calendar_list_pagination_case.dart' as calendar_list_pagination;
 import 'cases/calendar_perf_case.dart' as calendar_perf;
 import 'cases/calendar_swipe_case.dart' as calendar_swipe;
 import 'cases/calendar_week_nav_case.dart' as calendar_week_nav;
@@ -119,6 +120,7 @@ const _included = <String>{
   'backup_case.dart',
   'calendar_color_case.dart',
   'calendar_header_case.dart',
+  'calendar_list_pagination_case.dart',
   'calendar_perf_case.dart',
   'calendar_swipe_case.dart',
   'calendar_week_nav_case.dart',
@@ -226,6 +228,7 @@ void main() {
   group('backup', backup.main);
   group('calendar_color', calendar_color.main);
   group('calendar_header', calendar_header.main);
+  group('calendar_list_pagination', calendar_list_pagination.main);
   group('calendar_perf', calendar_perf.main);
   group('calendar_swipe', calendar_swipe.main);
   group('calendar_week_nav', calendar_week_nav.main);

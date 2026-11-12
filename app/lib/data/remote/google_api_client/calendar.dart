@@ -3,13 +3,32 @@ part of '../google_api_client.dart';
 mixin _GoogleApiCalendarOps on _GoogleApiBase {
   @override
   Future<List<Map<String, dynamic>>> calendarList() async {
-    final r = await _http.get(
-      Uri.parse('${AppConfig.calendarApiBase}/users/me/calendarList'),
-      headers: await _headers(),
-    );
-    if (r.statusCode != 200) _throw(r);
-    final items = (jsonDecode(r.body) as Map)['items'] as List? ?? [];
-    return items.cast<Map<String, dynamic>>();
+    final all = <Map<String, dynamic>>[];
+    String? pageToken;
+    var pages = 0;
+    do {
+      final q = <String, String>{'maxResults': '250'};
+      if (pageToken != null) q['pageToken'] = pageToken;
+      final r = await _http.get(
+        Uri.parse(
+          '${AppConfig.calendarApiBase}/users/me/calendarList',
+        ).replace(queryParameters: q),
+        headers: await _headers(),
+      );
+      if (r.statusCode != 200) _throw(r);
+      final body = jsonDecode(r.body) as Map<String, dynamic>;
+      all.addAll(((body['items'] as List?) ?? []).cast<Map<String, dynamic>>());
+      pageToken = body['nextPageToken'] as String?;
+      pages++;
+    } while (pageToken != null && pages < 50);
+    if (pageToken != null) {
+      // ignore: avoid_print
+      print(
+        '[google] calendarList stopped after $pages pages '
+        'with nextPageToken still present; returned ${all.length} items',
+      );
+    }
+    return all;
   }
 
   @override

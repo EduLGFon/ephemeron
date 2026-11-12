@@ -45,96 +45,140 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   Future<void> syncNow() async {
     debugPrint('[sync] notifier syncNow start');
     state = SyncStatus.syncing;
-    final googleAuth = ref.read(googleAuthProvider);
-    final googleAccounts = googleAuth.accounts;
-    final msAuth = ref.read(microsoftAuthProvider);
-    await msAuth.restore();
-    final msAccounts = msAuth.accounts;
-    if (googleAccounts.isEmpty && msAccounts.isEmpty) {
-      debugPrint('[sync] not signed in: offline');
-      state = SyncStatus.offline;
-      return;
-    }
-    bool allSucceeded = true;
-    bool anyAttempted = false;
-    bool anyPulled = false;
-    // Google
-    final needReconnectGoogle = <String>[];
-    if (googleAccounts.isNotEmpty) {
-      for (final acct in googleAccounts) {
-        await googleAuth.setActiveAccount(acct);
-        final engine = SyncEngine(
-          ref.read(appDatabaseProvider),
-          clientFactory: () {
-            try {
-              return HttpGoogleApiClient(
-                accessToken: () => googleAuth.accessToken(),
-              );
-            } catch (_) {
-              return null;
-            }
-          },
-          account: acct,
-        );
-        debugPrint('[sync] signed in ($acct), calling engine');
-        await engine.syncNow();
-        if (engine.status != SyncStatus.synced) allSucceeded = false;
-        if (engine.authFailure) needReconnectGoogle.add(acct);
-        anyAttempted = true;
-        if (engine.status == SyncStatus.synced) anyPulled = true;
+    try {
+      final googleAuth = ref.read(googleAuthProvider);
+      final googleAccounts = googleAuth.accounts;
+      final msAuth = ref.read(microsoftAuthProvider);
+      await msAuth.restore();
+      final msAccounts = msAuth.accounts;
+      if (googleAccounts.isEmpty && msAccounts.isEmpty) {
+        debugPrint('[sync] not signed in: offline');
+        state = SyncStatus.offline;
+        return;
       }
-      ref
-          .read(googleReconsentAccountsProvider.notifier)
-          .set(needReconnectGoogle);
-    }
-    // Microsoft
-    final needReconnectMs = <String>[];
-    if (msAccounts.isNotEmpty) {
-      for (final acct in msAccounts) {
-        await msAuth.setActiveAccount(acct);
-        final client = HttpMicrosoftGraphClient(
-          accessToken: () => msAuth.accessTokenFor(acct),
-        );
-        final engine = MicrosoftSyncEngine(
-          ref.read(appDatabaseProvider),
-          client,
-          acct,
-        );
-        final result = await engine.syncNow();
-        if (result.authFailure) {
-          needReconnectMs.add(acct);
-          allSucceeded = false;
-        }
-        anyAttempted = true;
-        anyPulled = true;
-      }
-      ref
-          .read(microsoftReconsentAccountsProvider.notifier)
-          .set(needReconnectMs);
-    }
-    if (!anyAttempted) {
-      state = SyncStatus.offline;
-      return;
-    }
-    final finalStatus = allSucceeded ? SyncStatus.synced : SyncStatus.error;
-    state = finalStatus;
-    if (finalStatus == SyncStatus.synced) {
-      unawaited(ref.read(lastGoogleSyncAtProvider.notifier).recordNow());
-    }
-    if (anyPulled) {
-      // Rebuild occurrence cache once after both loops.
-      try {
-        final range = ref.read(calendarCacheRangeProvider);
-        final n = await ref
-            .read(occurrenceRepositoryProvider)
-            .rebuildWindow(
-              windowStartUtc: range.fromUtc,
-              windowEndUtc: range.toUtc,
+      bool anyAttempted = false;
+      bool anyPulled = false;
+      bool hasAuthFailure = false;
+      bool hasRealError = false;
+
+      // Google
+      final needReconnectGoogle = <String>[];
+      bool googleAttempted = false;
+      if (googleAccounts.isNotEmpty) {
+        for (final acct in googleAccounts) {
+          try {
+            await googleAuth.setActiveAccount(acct);
+            final engine = SyncEngine(
+              ref.read(appDatabaseProvider),
+              clientFactory: () {
+                try {
+                  return HttpGoogleApiClient(
+                    accessToken: () => googleAuth.accessToken(),
+                  );
+                } catch (_) {
+                  return null;
+                }
+              },
+              account: acct,
             );
-        debugPrint('[sync] occurrence cache rebuilt rows=$n');
-        ref.invalidate(windowOccurrencesProvider(range));
-      } catch (e) {
-        debugPrint('[sync] occurrence cache rebuild failed: $e');
+            debugPrint('[sync] signed in ($acct), calling engine');
+            await engine.syncNow();
+            if (engine.skipped) continue;
+            googleAttempted = true;
+            anyAttempted = true;
+            if (engine.authFailure) {
+              needReconnectGoogle.add(acct);
+              hasAuthFailure = true;
+            } else if (engine.status == SyncStatus.synced) {
+              anyPulled = true;
+            } else if (engine.status == SyncStatus.error) {
+              hasRealError = true;
+            }
+          } catch (e) {
+            debugPrint('[sync] google account failed: $e');
+            hasRealError = true;
+            anyAttempted = true;
+            googleAttempted = true;
+          }
+        }
+        if (googleAttempted) {
+          ref
+              .read(googleReconsentAccountsProvider.notifier)
+              .set(needReconnectGoogle);
+        }
+      }
+
+      // Microsoft
+      final needReconnectMs = <String>[];
+      if (msAccounts.isNotEmpty) {
+        for (final acct in msAccounts) {
+          try {
+            await msAuth.setActiveAccount(acct);
+            final client = HttpMicrosoftGraphClient(
+              accessToken: () => msAuth.accessTokenFor(acct),
+            );
+            final engine = MicrosoftSyncEngine(
+              ref.read(appDatabaseProvider),
+              client,
+              acct,
+            );
+            final result = await engine.syncNow();
+            if (result.authFailure) {
+              needReconnectMs.add(acct);
+              hasAuthFailure = true;
+            } else {
+              anyPulled = true;
+            }
+            anyAttempted = true;
+          } catch (e) {
+            debugPrint('[sync] microsoft account failed: $e');
+            hasRealError = true;
+            anyAttempted = true;
+          }
+        }
+        ref
+            .read(microsoftReconsentAccountsProvider.notifier)
+            .set(needReconnectMs);
+      }
+
+      if (!anyAttempted) {
+        state = SyncStatus.offline;
+        return;
+      }
+      SyncStatus finalStatus;
+      if (hasAuthFailure || hasRealError) {
+        finalStatus = SyncStatus.error;
+      } else if (anyPulled) {
+        finalStatus = SyncStatus.synced;
+      } else {
+        finalStatus = SyncStatus.offline;
+      }
+      state = finalStatus;
+      if (finalStatus == SyncStatus.synced) {
+        unawaited(ref.read(lastGoogleSyncAtProvider.notifier).recordNow());
+      }
+      if (anyPulled) {
+        // Rebuild occurrence cache once after both loops.
+        try {
+          final range = ref.read(calendarCacheRangeProvider);
+          final n = await ref
+              .read(occurrenceRepositoryProvider)
+              .rebuildWindow(
+                windowStartUtc: range.fromUtc,
+                windowEndUtc: range.toUtc,
+              );
+          debugPrint('[sync] occurrence cache rebuilt rows=$n');
+          ref.invalidate(windowOccurrencesProvider(range));
+        } catch (e) {
+          debugPrint('[sync] occurrence cache rebuild failed: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('[sync] notifier unexpected error: $e');
+      state = SyncStatus.error;
+    } finally {
+      if (state == SyncStatus.syncing) {
+        state = SyncStatus.offline;
       }
     }
   }

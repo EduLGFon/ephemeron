@@ -36,10 +36,14 @@ class SyncEngine {
   SyncStatus _status = SyncStatus.synced;
   String? _lastError;
   bool _authFailure = false;
+  bool _skipped = false;
 
   /// Set when any op in the last run failed with an auth/permission error.
   /// Drives the reconnect banner; reset on every [syncNow].
   bool get authFailure => _authFailure;
+
+  /// Set when [syncNow] returned early due to single-flight (_busy/_running).
+  bool get skipped => _skipped;
 
   /// Cross-instance single-flight: the notifier, auto-sync timer, sign-in
   /// flow and headless worker each build their own engine.
@@ -64,12 +68,14 @@ class SyncEngine {
   Future<void> syncNow() async {
     if (_running || _busy) {
       debugPrint('[sync] syncNow skipped: already running');
+      _skipped = true;
       return;
     }
     _running = true;
     _busy = true;
     _status = SyncStatus.syncing;
     _authFailure = false;
+    _skipped = false;
     debugPrint('[sync] syncNow start');
     try {
       final client = _clientFactory?.call();
@@ -107,7 +113,12 @@ class SyncEngine {
     } on GoogleApiException catch (e) {
       debugPrint('[sync] GoogleApiException status=${e.status}');
       _status = SyncStatus.error;
-      _lastError = 'Google ${e.status}';
+      if (e.isPermissionDenied) {
+        _authFailure = true;
+        _lastError = 'Google auth';
+      } else {
+        _lastError = 'Google ${e.status}';
+      }
     } catch (e) {
       debugPrint('[sync] unexpected error: $e');
       _status = SyncStatus.error;
