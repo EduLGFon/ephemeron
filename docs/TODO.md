@@ -22,6 +22,32 @@
   deferred; initial unbounded Google full sync can be heavy on very large
   calendars; legacy `syncState` token rows may remain stale on old installs.
 
+## Calendar/sync follow-up verification (2026-11-12)
+
+- Implemented: matrix task rows compact (~40 px at 1x) with taller quadrants and
+  a compact Unclassified tray; event editor keeps an autosaved draft's content
+  but ignores its timing when the user tapped/dragged an explicit slot; calendar
+  views render a loading/error state for a new range and then the complete
+  occurrence set atomically; Google sync isolates push/discovery/calendar/task
+  failures, pulls shared calendars readable by any signed-in account, skips
+  freeBusyReader, classifies auth/rate/network/server errors, revives cancelled
+  tombstones, selects RRULE among recurrence lines, and clears stale v2 tokens on
+  410; Google tokens are account-bound; global reconnect banner plus truthful
+  force-sync and last-success messages.
+- Verification: `flutter analyze` clean; `dart format --set-exit-if-changed .`
+  clean; full `flutter test` passed (635 tests) on master.
+- Owner/device verification pending: real multi-account shared calendars (Google
+  and Microsoft), freeBusyReader calendars, reconnect banner after revoked grant
+  and after app restart, tapped/dragged slot on device, matrix density at
+  2.5x/3x text.
+- Deferred: shared calendars readable by multiple signed-in accounts may be
+  pulled once per account (extra API/battery); Microsoft shared calendars still
+  need `Calendars.Read.Shared` + owner console consent; device-calendar import
+  remains one-shot; Google single-occurrence push remains local-only;
+  multi-account reauth after process restart may require interactive reconnect
+  for accounts the plugin does not restore; the persisted reconnect banner may
+  flash one frame on cold start.
+
 ## Owner / device verification (no SDK/devices here)
 
 - Week calendar home widget: verify Android native build and launcher behavior.
@@ -164,10 +190,10 @@
 - Read-only shared calendars: hide the details move action and block timeline
   drag/save when the source calendar is read-only; enforce source read-only at
   the repository boundary.
-- Sync diagnostics: failed outbox rows and per-calendar errors are invisible,
-  and transport errors can abort sync instead of degrading to offline. Add a
-  pending/failed changes view with retry/discard.
+- Sync diagnostics: failed outbox rows and per-calendar errors are invisible.
+  Transport errors no longer abort sync, but a pending/failed changes view with
+  retry/discard is still missing.
 - Device-calendar live sync: replace the one-shot import with stable device
   event ids and conservative upsert/reconcile.
-- Creation gestures: the all-day strip and month view still lack quick-create
-  affordances.
+- Creation gestures: timeline tap/drag creation is done; the all-day strip and
+  month view still lack quick-create affordances.
