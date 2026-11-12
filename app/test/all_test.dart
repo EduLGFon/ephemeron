@@ -29,6 +29,7 @@ import 'cases/calendar_ux_source_case.dart' as calendar_ux_source;
 import 'cases/calendar_week_nav_case.dart' as calendar_week_nav;
 import 'cases/countdowns_screen_case.dart' as countdowns_screen;
 import 'cases/db_case.dart' as db;
+import 'cases/device_calendar_import_case.dart' as device_calendar_import;
 import 'cases/dirty_guard_case.dart' as dirty_guard;
 import 'cases/event_editor_time_case.dart' as event_editor_time;
 import 'cases/event_rsvp_case.dart' as event_rsvp;
@@ -38,6 +39,7 @@ import 'cases/focus_breaks_metrics_case.dart' as focus_breaks_metrics;
 import 'cases/focus_overtime_case.dart' as focus_overtime;
 import 'cases/focus_screen_case.dart' as focus_screen;
 import 'cases/focus_stopwatch_case.dart' as focus_stopwatch;
+import 'cases/google_restore_case.dart' as google_restore;
 import 'cases/google_sync_resilience_case.dart' as google_sync_resilience;
 import 'cases/habit_calendar_repository_case.dart' as habit_calendar_repository;
 import 'cases/habit_delete_case.dart' as habit_delete;
@@ -78,6 +80,7 @@ import 'cases/session_restore_case.dart' as session_restore;
 import 'cases/settings_case.dart' as settings;
 import 'cases/settings_screen_case.dart' as settings_screen;
 import 'cases/settings_sync_status_case.dart' as settings_sync_status;
+import 'cases/shared_calendar_dedupe_case.dart' as shared_calendar_dedupe;
 import 'cases/smart_filter_case.dart' as smart_filter;
 import 'cases/source_label_case.dart' as source_label;
 import 'cases/source_move_case.dart' as source_move;
@@ -144,6 +147,7 @@ const _included = <String>{
   'calendar_week_nav_case.dart',
   'countdowns_screen_case.dart',
   'db_case.dart',
+  'device_calendar_import_case.dart',
   'dirty_guard_case.dart',
   'event_editor_time_case.dart',
   'event_rsvp_case.dart',
@@ -153,6 +157,7 @@ const _included = <String>{
   'focus_overtime_case.dart',
   'focus_screen_case.dart',
   'focus_stopwatch_case.dart',
+  'google_restore_case.dart',
   'google_sync_resilience_case.dart',
   'habit_calendar_repository_case.dart',
   'habit_delete_case.dart',
@@ -191,6 +196,7 @@ const _included = <String>{
   'settings_case.dart',
   'settings_screen_case.dart',
   'settings_sync_status_case.dart',
+  'shared_calendar_dedupe_case.dart',
   'smart_filter_case.dart',
   'source_label_case.dart',
   'source_move_case.dart',
@@ -265,6 +271,7 @@ void main() {
   group('calendar_week_nav', calendar_week_nav.main);
   group('countdowns_screen', countdowns_screen.main);
   group('db', db.main);
+  group('device_calendar_import', device_calendar_import.main);
   group('dirty_guard', dirty_guard.main);
   group('event_editor_time', event_editor_time.main);
   group('event_rsvp', event_rsvp.main);
@@ -274,6 +281,7 @@ void main() {
   group('focus_overtime', focus_overtime.main);
   group('focus_screen', focus_screen.main);
   group('focus_stopwatch', focus_stopwatch.main);
+  group('google_restore', google_restore.main);
   group('google_sync_resilience', google_sync_resilience.main);
   group('habit_calendar_repository', habit_calendar_repository.main);
   group('habit_delete', habit_delete.main);
@@ -312,6 +320,7 @@ void main() {
   group('settings', settings.main);
   group('settings_screen', settings_screen.main);
   group('settings_sync_status', settings_sync_status.main);
+  group('shared_calendar_dedupe', shared_calendar_dedupe.main);
   group('smart_filter', smart_filter.main);
   group('source_label', source_label.main);
   group('source_move', source_move.main);
