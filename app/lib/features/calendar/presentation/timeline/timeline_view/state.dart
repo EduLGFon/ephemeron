@@ -8,7 +8,6 @@ mixin _TimelineViewStateMixin
         TimelineScale,
         TimelineDrag,
         WidgetsBindingObserver {
-  List<OccurrenceCacheData> _lastOccurrences = const [];
   bool _tickerEnabled = true;
 
   @override

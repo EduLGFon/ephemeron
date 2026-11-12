@@ -108,6 +108,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           if (_disposed || !mounted) return;
           _builtRange = range;
           didRebuild = true;
+          // Only expose the new range once the whole window is materialized.
+          ref.read(calendarBuiltRangeProvider.notifier).markBuilt(range);
           if (ref.read(occurrenceDirtyProvider)) {
             ref.read(occurrenceDirtyProvider.notifier).clear();
           }

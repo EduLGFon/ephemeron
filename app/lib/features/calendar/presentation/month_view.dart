@@ -29,7 +29,6 @@ class MonthView extends ConsumerStatefulWidget {
 
 class _MonthViewState extends ConsumerState<MonthView> {
   late final ScrollController _scroll = ScrollController();
-  List<OccurrenceCacheData> _lastOccurrences = const [];
 
   @override
   void dispose() {
@@ -41,18 +40,22 @@ class _MonthViewState extends ConsumerState<MonthView> {
   Widget build(BuildContext context) {
     final window = ref.watch(calendarStateProvider);
     final range = ref.watch(calendarCacheRangeProvider);
-    final occAsync = ref.watch(windowOccurrencesProvider(range));
-    final building = ref.watch(calendarCacheBuildingProvider);
-    final occurrences = occAsync.maybeWhen(
-      data: (v) {
-        _lastOccurrences = v;
-        return v;
-      },
-      orElse: () => _lastOccurrences,
-    );
-    final habitEntries = ref
-        .watch(calendarHabitEntriesProvider)
-        .maybeWhen(data: (v) => v, orElse: () => const <HabitCalendarEntry>[]);
+    final built = ref.watch(calendarBuiltRangeProvider);
+    final ready = built == range;
+    // Wait for CalendarScreen to materialize the range before subscribing,
+    // so cells never mix rows from the previous and the new range.
+    final occAsync = ready ? ref.watch(windowOccurrencesProvider(range)) : null;
+    final habitAsync = ready
+        ? ref.watch(calendarHabitEntriesProvider(range))
+        : null;
+    final loading =
+        !ready ||
+        occAsync == null ||
+        occAsync.isLoading ||
+        habitAsync == null ||
+        habitAsync.isLoading;
+    final occurrences = occAsync?.value ?? const <OccurrenceCacheData>[];
+    final habitEntries = habitAsync?.value ?? const <HabitCalendarEntry>[];
     final habitsByDay = <String, List<HabitCalendarEntry>>{};
     for (final h in habitEntries) {
       habitsByDay.putIfAbsent(h.dayKey, () => []).add(h);
@@ -82,9 +85,6 @@ class _MonthViewState extends ConsumerState<MonthView> {
     final selectedOccs = byDay[selectedKey] ?? const <OccurrenceCacheData>[];
     final selectedHabits =
         habitsByDay[selectedKey] ?? const <HabitCalendarEntry>[];
-    final hasVisibleOccurrences = days.any(
-      (d) => byDay.containsKey(dateKey(d)),
-    );
 
     return LayoutBuilder(
       builder: (context, cons) {
@@ -97,8 +97,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                 height: viewportHeight,
                 child: Column(
                   children: [
-                    if (!hasVisibleOccurrences && building)
-                      const LinearProgressIndicator(minHeight: 2),
+                    if (loading) const LinearProgressIndicator(minHeight: 2),
                     const _WeekdayHeader(),
                     for (var week = 0; week < 6; week++)
                       Expanded(

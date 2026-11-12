@@ -1,6 +1,7 @@
 // Year heat-map: 12 month cards with counts and a compact year-in-review summary.
 import 'package:flutter/material.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
+import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/calendar_providers.dart';
@@ -12,11 +13,13 @@ class YearView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final window = ref.watch(calendarStateProvider);
     final range = ref.watch(calendarCacheRangeProvider);
-    final occAsync = ref.watch(windowOccurrencesProvider(range));
-    final building = ref.watch(calendarCacheBuildingProvider);
+    final built = ref.watch(calendarBuiltRangeProvider);
+    final ready = built == range;
+    final occAsync = ready ? ref.watch(windowOccurrencesProvider(range)) : null;
+    final loading = occAsync == null || occAsync.isLoading;
     final year = window.anchor.year;
     final yearPrefix = '$year-';
-    final occs = occAsync.maybeWhen(data: (v) => v, orElse: () => const []);
+    final occs = occAsync?.value ?? const <OccurrenceCacheData>[];
 
     // One O(n) pass for counts + stats.
     final monthCounts = <int, int>{};
@@ -66,7 +69,7 @@ class YearView extends ConsumerWidget {
     final max = monthCounts.values.fold<int>(1, (a, b) => a > b ? a : b);
     final now = DateTime.now();
     final isCurrentYear = year == now.year;
-    final countsPending = building && occs.isEmpty;
+    final countsPending = loading;
 
     final notifier = ref.read(calendarStateProvider.notifier);
 
