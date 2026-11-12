@@ -16,6 +16,7 @@ part 'event_repository/create.dart';
 part 'event_repository/move.dart';
 part 'event_repository/occurrence_ops.dart';
 part 'event_repository/calendars.dart';
+part 'event_repository/device_import.dart';
 part 'event_repository/helpers.dart';
 
 enum EditScope { single, following, all }
@@ -139,6 +140,7 @@ class EventRepository extends _EventRepositoryBase
         _EventMoveOps,
         _EventOccurrenceOps,
         _EventCalendarOps,
+        _EventDeviceImportOps,
         _EventHelperOps {
   EventRepository(super._db, super._occ);
 
