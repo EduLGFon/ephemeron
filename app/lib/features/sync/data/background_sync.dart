@@ -43,6 +43,7 @@ void backgroundSyncDispatcher() {
               }
             },
             account: account,
+            signedInAccounts: googleAuth.accounts,
           );
           await engine.syncNow();
         }

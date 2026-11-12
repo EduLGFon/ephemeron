@@ -35,6 +35,7 @@ import 'cases/focus_breaks_metrics_case.dart' as focus_breaks_metrics;
 import 'cases/focus_overtime_case.dart' as focus_overtime;
 import 'cases/focus_screen_case.dart' as focus_screen;
 import 'cases/focus_stopwatch_case.dart' as focus_stopwatch;
+import 'cases/google_sync_resilience_case.dart' as google_sync_resilience;
 import 'cases/habit_calendar_repository_case.dart' as habit_calendar_repository;
 import 'cases/habit_delete_case.dart' as habit_delete;
 import 'cases/habit_focus_case.dart' as habit_focus;
@@ -145,6 +146,7 @@ const _included = <String>{
   'focus_overtime_case.dart',
   'focus_screen_case.dart',
   'focus_stopwatch_case.dart',
+  'google_sync_resilience_case.dart',
   'habit_calendar_repository_case.dart',
   'habit_delete_case.dart',
   'habit_focus_case.dart',
@@ -261,6 +263,7 @@ void main() {
   group('focus_overtime', focus_overtime.main);
   group('focus_screen', focus_screen.main);
   group('focus_stopwatch', focus_stopwatch.main);
+  group('google_sync_resilience', google_sync_resilience.main);
   group('habit_calendar_repository', habit_calendar_repository.main);
   group('habit_delete', habit_delete.main);
   group('habit_focus', habit_focus.main);

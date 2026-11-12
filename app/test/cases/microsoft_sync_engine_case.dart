@@ -475,9 +475,13 @@ void main() {
     expect(otherTask.deletedAt, isNull);
   });
 
-  test(
-    'task fetch failure prevents reconciliation for that list only',
-    () async {
+  test('task fetch failure is isolated to that list and auth scoped', () async {
+    for (final entry in <(int, bool)>[
+      (401, true),
+      (403, false),
+      (404, false),
+      (500, false),
+    ]) {
       final db = _db();
       addTearDown(db.close);
       final fake = _FailingTasksFake()
@@ -487,25 +491,77 @@ void main() {
         ]
         ..tasksByList = {
           'l1': [MsTodoTask(id: 't1', title: 'One')],
-          'l2': [
-            MsTodoTask(id: 't2', title: 'Keep'),
-            MsTodoTask(id: 't3', title: 'Remote gone'),
-          ],
+          'l2': [MsTodoTask(id: 't2', title: 'Keep')],
         };
       final engine = MicrosoftSyncEngine(db, fake, 'acct@example.com');
       await engine.syncNow();
-      // l1 task fetch fails; l2 task reconciliation must not run because sync
-      // aborts before reaching l2.
+
+      fake.failStatus = entry.$1;
       fake.failListId = 'l1';
       fake.tasksByList = {
-        'l1': [MsTodoTask(id: 't1', title: 'One')],
-        'l2': [MsTodoTask(id: 't2', title: 'Keep')],
+        'l1': [],
+        'l2': [MsTodoTask(id: 't2', title: 'Keep v2')],
       };
-      await expectLater(engine.syncNow(), throwsA(isA<StateError>()));
-      final t3 = await (db.select(
+
+      final result = await engine.syncNow();
+
+      expect(result.authFailure, entry.$2);
+      // The second list is still pulled after the first one fails.
+      final t2 = await (db.select(
         db.tasks,
-      )..where((t) => t.remoteId.equals('t3'))).getSingle();
-      expect(t3.deletedAt, isNull);
+      )..where((t) => t.remoteId.equals('t2'))).getSingle();
+      expect(t2.title, 'Keep v2');
+      expect(t2.deletedAt, isNull);
+      // The failed list is not reconciled, so its tasks stay.
+      final t1 = await (db.select(
+        db.tasks,
+      )..where((t) => t.remoteId.equals('t1'))).getSingle();
+      expect(t1.deletedAt, isNull);
+    }
+  });
+
+  test(
+    'one calendar failure does not abort other calendars or tasks',
+    () async {
+      for (final entry in <(int, bool)>[
+        (401, true),
+        (403, false),
+        (404, false),
+        (410, false),
+        (500, false),
+      ]) {
+        final db = _db();
+        addTearDown(db.close);
+        final fake = _FailingCalendarFake(entry.$1)
+          ..calendars = [
+            const MsCalendar(id: 'bad', name: 'Bad', canEdit: true),
+            const MsCalendar(id: 'good', name: 'Good', canEdit: true),
+          ]
+          ..eventsByCalendar = {
+            'good': [
+              MsEvent(
+                id: 'e-good',
+                subject: 'Keep',
+                start: _dt('2026-01-01T10:00:00'),
+                end: _dt('2026-01-01T11:00:00'),
+              ),
+            ],
+          }
+          ..lists = [const MsTodoList(id: 'l1', displayName: 'Tasks')]
+          ..tasksByList = {
+            'l1': [MsTodoTask(id: 't1', title: 'Task')],
+          };
+        final engine = MicrosoftSyncEngine(db, fake, 'acct@example.com');
+
+        final result = await engine.syncNow();
+
+        expect(result.authFailure, entry.$2);
+        final events = await db.select(db.events).get();
+        expect(events.where((e) => e.remoteId == 'e-good'), hasLength(1));
+        final tasks = await db.select(db.tasks).get();
+        expect(tasks, hasLength(1));
+        expect(tasks.single.remoteId, 't1');
+      }
     },
   );
 
@@ -531,10 +587,31 @@ void main() {
 
 class _FailingTasksFake extends FakeMs {
   String? failListId;
+  int failStatus = 500;
 
   @override
   Future<List<MsTodoTask>> listTodoTasks(String listId) async {
-    if (listId == failListId) throw StateError('boom');
+    if (listId == failListId) {
+      throw MicrosoftGraphException(failStatus, 'boom');
+    }
     return super.listTodoTasks(listId);
+  }
+}
+
+class _FailingCalendarFake extends FakeMs {
+  _FailingCalendarFake(this.failStatus);
+
+  final int failStatus;
+
+  @override
+  Future<List<MsEvent>> calendarView(
+    DateTime startUtc,
+    DateTime endUtc, {
+    String? calendarId,
+  }) async {
+    if (calendarId == 'bad') {
+      throw MicrosoftGraphException(failStatus, 'boom');
+    }
+    return super.calendarView(startUtc, endUtc, calendarId: calendarId);
   }
 }

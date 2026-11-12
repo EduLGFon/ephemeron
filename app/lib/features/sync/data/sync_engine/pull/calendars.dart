@@ -14,10 +14,7 @@ extension on SyncEngine {
     var total = 0;
     for (final cal in calendars) {
       if (!_pullableCalendar(cal)) continue;
-      debugPrint(
-        '[sync] pulling calendar id=${cal.id} remoteId=${cal.remoteId} '
-        'name=${cal.name} enabled=${cal.enabled}',
-      );
+      debugPrint('[sync] pulling calendar id=${cal.id} enabled=${cal.enabled}');
       final token = await _syncValue('cal:v2:${cal.id}:token');
       final remoteId = cal.remoteId;
       if (remoteId == null) {
@@ -47,31 +44,76 @@ extension on SyncEngine {
         // next run instead of aborting the whole account.
       } on GoogleApiException catch (e) {
         debugPrint('[sync] calendar pull failed status=${e.status}');
-        if (e.isPermissionDenied) {
-          _authFailure = true;
-          await _setSyncMeta('cal:${cal.id}', error: 'Google ${e.status}');
-        } else if (e.isGone) {
-          total += await _fullCalendarResync(cal, client, keepDirty: true);
-          await _setSyncMeta('cal:${cal.id}', error: null);
+        if (e.isGone) {
+          // Drop the stale token before retrying: if the resync itself fails,
+          // a surviving token would repeat 410 forever. A successful resync
+          // writes a fresh token.
+          await (_db.delete(
+            _db.syncState,
+          )..where((s) => s.key.equals('cal:v2:${cal.id}:token'))).go();
+          // Full resync from inside a catch must not escape this calendar and
+          // abort the remaining pull.
+          try {
+            total += await _fullCalendarResync(cal, client, keepDirty: true);
+            await _setSyncMeta('cal:${cal.id}', error: null);
+          } on Exception catch (retryError) {
+            debugPrint(
+              '[sync] calendar resync failed type=${retryError.runtimeType}',
+            );
+            _recordFailure(retryError);
+            await _setSyncMeta('cal:${cal.id}', error: 'sync failed');
+          }
+        } else if (e.isAuthFailure) {
+          _recordFailure(e);
+          await _setSyncMeta('cal:${cal.id}', error: 'Google auth');
+        } else if (e.isRateLimited) {
+          _recordFailure(e);
+          await _setSyncMeta('cal:${cal.id}', error: 'rate limited');
+        } else if (e.isForbidden) {
+          // Permanently inaccessible calendar (for example freeBusyReader or
+          // a shared calendar this account cannot read). Record and skip; do
+          // not demand reconnect for the whole account.
+          await _setSyncMeta('cal:${cal.id}', error: 'forbidden');
         } else if (e.status == 404) {
           await _setSyncMeta('cal:${cal.id}', error: 'Google 404');
         } else {
+          _recordFailure(e);
           await _setSyncMeta('cal:${cal.id}', error: 'Google ${e.status}');
         }
+      } on Exception catch (e) {
+        debugPrint('[sync] calendar pull failed type=${e.runtimeType}');
+        _recordFailure(e);
+        await _setSyncMeta('cal:${cal.id}', error: 'sync failed');
       }
     }
     return total;
   }
 
-  /// Whether [cal] may be pulled under the active account. Rows stamped
-  /// with another account belong to that account's loop; null-stamped rows
-  /// absent from this run's discovery belong to an unsigned-in account.
+  /// Whether [cal] may be pulled under the active account.
+  ///
+  /// A calendar stamped to the active account is always pulled. A shared
+  /// calendar stamped to another signed-in account is pulled when this
+  /// account's discovery says it can read events, so it is not lost. Entries
+  /// that are freeBusyReader-only have no event details and are skipped.
   bool _pullableCalendar(Calendar cal) {
+    final remoteId = cal.remoteId;
+    final discovered = _accountCalendarIds;
+    final readable = _readableCalendarIds;
+    if (remoteId != null &&
+        discovered != null &&
+        readable != null &&
+        discovered.contains(remoteId) &&
+        !readable.contains(remoteId)) {
+      return false;
+    }
     if (account == null) return true;
-    if (cal.googleAccount != null) return cal.googleAccount == account;
-    final ids = _accountCalendarIds;
-    if (ids == null) return true;
-    return cal.remoteId == null || ids.contains(cal.remoteId);
+    if (cal.googleAccount == account) return true;
+    if (remoteId != null && readable != null && readable.contains(remoteId)) {
+      return true;
+    }
+    if (cal.googleAccount != null) return false;
+    if (discovered == null) return true;
+    return remoteId == null || discovered.contains(remoteId);
   }
 
   Future<int> _fullCalendarResync(
@@ -92,9 +134,9 @@ extension on SyncEngine {
               .get();
       for (final e in local) {
         if (e.remoteId != null && !(keepDirty && e.dirty)) {
-          await (_db.delete(
-            _db.occurrenceCache,
-          )..where((o) => o.eventId.equals(e.id))).go();
+          // Keep occurrence rows until the single post-pull rebuild replaces
+          // the window atomically; deleting per calendar makes events flicker
+          // out mid-sync.
           await (_db.delete(_db.events)..where((x) => x.id.equals(e.id))).go();
         }
       }
@@ -116,6 +158,9 @@ extension on SyncEngine {
     List<Map<String, dynamic>> items,
   ) async {
     var n = 0;
+    // Keep event ownership anchored to the calendar owner when known so a
+    // shared calendar pulled under another account does not flap ownership.
+    final owner = cal.googleAccount ?? account;
     // Process non-exception masters/singles first, then exceptions.
     final nonExceptions = items
         .where((g) => g['recurringEventId'] == null)
@@ -191,7 +236,7 @@ extension on SyncEngine {
                 .into(_db.events)
                 .insert(
                   mapped.companion.copyWith(
-                    googleAccount: Value(account),
+                    googleAccount: Value(owner),
                     deletedAt: const Value(null),
                     status: const Value('cancelled'),
                   ),
@@ -222,7 +267,12 @@ extension on SyncEngine {
           );
           await _db
               .into(_db.events)
-              .insert(mapped.companion.copyWith(googleAccount: Value(account)));
+              .insert(
+                mapped.companion.copyWith(
+                  googleAccount: Value(owner),
+                  deletedAt: const Value(null),
+                ),
+              );
           localId = mapped.companion.id.value;
           n++;
         } else if (!existing.dirty) {
@@ -235,7 +285,12 @@ extension on SyncEngine {
           await (_db.update(
             _db.events,
           )..where((e) => e.id.equals(existing.id))).write(
-            mapped.companion.copyWith(alarmPreset: const Value.absent()),
+            mapped.companion.copyWith(
+              alarmPreset: const Value.absent(),
+              // A confirmed remote event revives a previously cancelled or
+              // soft-deleted local tombstone.
+              deletedAt: const Value(null),
+            ),
           );
           localId = existing.id;
           n++;
@@ -252,11 +307,9 @@ extension on SyncEngine {
           await _mergeAttendees(localId, g);
         }
       } catch (e) {
-        debugPrint(
-          '[sync] merge item failed remoteId=$remoteId type=${e.runtimeType}',
-        );
-        if (e is Error) rethrow;
-        // Skip a single bad item; keep processing the rest of the batch.
+        // Never log titles, attendee emails, or remote ids here. Catch Object
+        // too: one malformed remote item must not abort the whole stage.
+        debugPrint('[sync] merge item failed type=${e.runtimeType}');
         continue;
       }
     }

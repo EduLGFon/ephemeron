@@ -62,7 +62,19 @@ extension on MicrosoftSyncEngine {
       if (remoteListId.isEmpty) continue;
       final localListId = listIdByRemote[remoteListId];
       if (localListId == null) continue;
-      final tasks = await _client.listTodoTasks(remoteListId);
+      late final List<MsTodoTask> tasks;
+      try {
+        tasks = await _client.listTodoTasks(remoteListId);
+      } on MicrosoftGraphException catch (e) {
+        // One unreadable To Do list must not abort the remaining lists or the
+        // rest of sync. Only 401 means the account credential is bad.
+        if (e.isUnauthorized) _authFailure = true;
+        debugPrint('[ms-sync] listTodoTasks failed status=${e.status}');
+        continue;
+      } on Exception catch (e) {
+        debugPrint('[ms-sync] listTodoTasks failed type=${e.runtimeType}');
+        continue;
+      }
       final remoteTaskIds = {
         for (final t in tasks)
           if (t.id.isNotEmpty) t.id,

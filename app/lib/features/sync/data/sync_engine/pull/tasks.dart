@@ -38,12 +38,29 @@ extension on SyncEngine {
         await _setSyncMeta('tasks:${list.id}', error: null);
       } on GoogleApiException catch (e) {
         debugPrint('[sync] tasks pull failed status=${e.status}');
-        if (e.isPermissionDenied) {
-          // Calendar-only grant hitting Tasks, or revoked access. Keep the
-          // rows; the reconnect banner owns this state.
-          _authFailure = true;
+        // Keep rows for every failure. Auth, rate, network and server
+        // failures are account-wide; 404/forbidden are list-only and must
+        // not demand reconnect.
+        late final String label;
+        if (e.isAuthFailure) {
+          _recordFailure(e);
+          label = 'Google auth';
+        } else if (e.isRateLimited) {
+          _recordFailure(e);
+          label = 'rate limited';
+        } else if (e.isForbidden) {
+          label = 'forbidden';
+        } else if (e.status == 404) {
+          label = 'Google 404';
+        } else {
+          _recordFailure(e);
+          label = 'Google ${e.status}';
         }
-        await _setSyncMeta('tasks:${list.id}', error: 'Google ${e.status}');
+        await _setSyncMeta('tasks:${list.id}', error: label);
+      } on Exception catch (e) {
+        debugPrint('[sync] tasks pull failed type=${e.runtimeType}');
+        _recordFailure(e);
+        await _setSyncMeta('tasks:${list.id}', error: 'sync failed');
       }
     }
     return total;

@@ -45,8 +45,15 @@ MappedEvent eventFromGoogle(
   }
   String? rrule;
   final rec = g['recurrence'] as List?;
-  if (rec != null && rec.isNotEmpty) {
-    rrule = (rec.first as String).replaceFirst('RRULE:', '');
+  if (rec != null) {
+    // Google may list EXDATE/RDATE lines before the RRULE; take the first
+    // RRULE line instead of blindly reading the first element.
+    for (final line in rec) {
+      if (line is String && line.startsWith('RRULE:')) {
+        rrule = line.substring('RRULE:'.length);
+        break;
+      }
+    }
   }
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
   int? originalStart;

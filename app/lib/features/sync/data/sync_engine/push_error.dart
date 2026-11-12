@@ -11,11 +11,23 @@ extension on SyncEngine {
   }
 
   Future<void> _handleOpError(OutboxData op, GoogleApiException e) async {
-    if (e.isPermissionDenied) {
+    // 404 here means the remote row is genuinely gone: the op reached the
+    // right account (wrong-account rows are skipped before any API call).
+    if (e.status == 404) {
+      debugPrint('[sync] dropping gone outbox op ${op.id} status=404');
+      if (op.entity == 'task_list' && op.op == 'delete') {
+        // The remote list is gone; clear the local tombstone so discovery
+        // cannot revive it forever.
+        await _hardDeleteTaskList(op.entityId);
+      }
+      await (_db.delete(_db.outbox)..where((o) => o.id.equals(op.id))).go();
+      return;
+    }
+    _recordFailure(e);
+    if (e.isAuthFailure) {
       // Expired/revoked token or a grant missing the needed scope (for
       // example Calendar-only trying Tasks). The row is valid; keep it due
       // with backoff and surface it for the reconnect banner.
-      _authFailure = true;
       debugPrint('[sync] auth failure on op ${op.id} status=${e.status}');
       await (_db.update(_db.outbox)..where((o) => o.id.equals(op.id))).write(
         OutboxCompanion(
@@ -35,18 +47,6 @@ extension on SyncEngine {
           attempts: Value(op.attempts + 1),
         ),
       );
-      return;
-    }
-    // 404 here means the remote row is genuinely gone: the op reached the
-    // right account (wrong-account rows are skipped before any API call).
-    if (e.status == 404) {
-      debugPrint('[sync] dropping gone outbox op ${op.id} status=404');
-      if (op.entity == 'task_list' && op.op == 'delete') {
-        // The remote list is gone; clear the local tombstone so discovery
-        // cannot revive it forever.
-        await _hardDeleteTaskList(op.entityId);
-      }
-      await (_db.delete(_db.outbox)..where((o) => o.id.equals(op.id))).go();
       return;
     }
     if ([400, 409].contains(e.status) &&
