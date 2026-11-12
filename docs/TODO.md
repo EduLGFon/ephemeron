@@ -151,3 +151,23 @@
 - Full test suite passes (557 tests) and flutter analyze is clean after the UX
   merges; test/all_test.dart must be regenerated with
   `dart run tools/gen_test_runner.dart` whenever a case file is added.
+
+## Next priorities (2026-11-12)
+
+- Google single-occurrence push: exception rows are not serialized or queued to
+  Google yet, so "this event only" edits/deletes stay local. An unmerged local
+  branch explored partial field and read-only fixes, but it was rejected in
+  review.
+- Single-occurrence integrity: timed series alerts still use master reminders,
+  the details edit can target the first occurrence, and location/Meet
+  inheritance on moved exceptions is incomplete.
+- Read-only shared calendars: hide the details move action and block timeline
+  drag/save when the source calendar is read-only; enforce source read-only at
+  the repository boundary.
+- Sync diagnostics: failed outbox rows and per-calendar errors are invisible,
+  and transport errors can abort sync instead of degrading to offline. Add a
+  pending/failed changes view with retry/discard.
+- Device-calendar live sync: replace the one-shot import with stable device
+  event ids and conservative upsert/reconcile.
+- Creation gestures: the all-day strip and month view still lack quick-create
+  affordances.
