@@ -21,25 +21,102 @@ class GoogleApiException implements Exception {
   bool get isUnauthorized => status == 401;
   bool get isConflict => status == 412;
 
-  /// 429, or 403 carrying a rate-limit/quota reason. All other 403s are
-  /// permission denials (missing scopes, revoked access) and must never
-  /// be treated as rate limits or stale rows.
+  Map<String, dynamic>? get _body {
+    final trimmed = message.trim();
+    if (!trimmed.startsWith('{')) return null;
+    try {
+      final decoded = jsonDecode(trimmed);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _errorField(String field) {
+    final error = _body?['error'];
+    if (error is Map<String, dynamic>) {
+      final value = error[field];
+      if (value is String && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  /// First `error.errors[].reason` reported by Google, if any.
+  String? get reason {
+    final error = _body?['error'];
+    if (error is Map<String, dynamic>) {
+      final errors = error['errors'];
+      if (errors is List) {
+        for (final item in errors) {
+          if (item is Map<String, dynamic>) {
+            final value = item['reason'];
+            if (value is String && value.isNotEmpty) return value;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  String? get _statusReason => _errorField('status');
+
+  bool get _hasAuthReason {
+    const reasons = {
+      'autherror',
+      'insufficientpermissions',
+      'access_token_scope_insufficient',
+      'unauthenticated',
+    };
+    final reason = this.reason?.toLowerCase();
+    if (reason != null && reasons.contains(reason)) return true;
+    final statusReason = _statusReason?.toLowerCase();
+    return statusReason == 'unauthenticated' ||
+        statusReason == 'access_token_scope_insufficient';
+  }
+
+  bool get _hasRateReason {
+    const reasons = {
+      'ratelimitexceeded',
+      'userratelimitexceeded',
+      'quotaexceeded',
+      'resource_exhausted',
+      'dailylimitexceeded',
+      'calendarusagelimitsexceeded',
+    };
+    final reason = this.reason?.toLowerCase();
+    if (reason != null && reasons.contains(reason)) return true;
+    final statusReason = _statusReason?.toLowerCase();
+    if (statusReason != null && reasons.contains(statusReason)) return true;
+    final body = message.toLowerCase();
+    return body.contains('ratelimit') ||
+        body.contains('quotaexceeded') ||
+        body.contains('quota_exceeded');
+  }
+
+  /// Expired/revoked token (401) or a 403 that explicitly reports an auth
+  /// problem. Google reports per-resource denials (for example a shared
+  /// freeBusyReader calendar) as 403 too; those must not trigger reconnect.
+  bool get isAuthFailure {
+    if (status == 401) return true;
+    if (status != 403) return false;
+    return _hasAuthReason;
+  }
+
+  /// 429, or 403 carrying a rate-limit/quota reason.
   bool get isRateLimited {
     if (status == 429) return true;
     if (status != 403) return false;
-    final m = message.toLowerCase();
-    return m.contains('ratelimit') ||
-        m.contains('quotaexceeded') ||
-        m.contains('quota_exceeded');
+    return _hasRateReason;
   }
 
-  /// Expired/revoked token (401) or a non-rate-limit 403. The queued row is
-  /// valid; the credential is not. Keep the row and ask to reconnect.
-  bool get isPermissionDenied {
-    if (status == 401) return true;
-    if (status != 403) return false;
-    return !isRateLimited;
-  }
+  /// A 403 that is neither auth nor rate limiting: the resource itself is
+  /// inaccessible under this account (shared calendar, forbidden event).
+  bool get isForbidden => status == 403 && !isAuthFailure && !isRateLimited;
+
+  bool get isServerError => status >= 500 && status < 600;
+
+  /// Compatibility alias: only auth failures require reconnecting.
+  bool get isPermissionDenied => isAuthFailure;
 }
 
 class CalendarPage {

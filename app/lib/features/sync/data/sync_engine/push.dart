@@ -30,6 +30,19 @@ extension on SyncEngine {
           '[sync] push op failed entity=${op.entity} status=${e.status}',
         );
         await _handleOpError(op, e);
+      } on Exception catch (e) {
+        debugPrint(
+          '[sync] push op failed entity=${op.entity} '
+          'type=${e.runtimeType}',
+        );
+        _recordFailure(e);
+        await (_db.update(_db.outbox)..where((o) => o.id.equals(op.id))).write(
+          OutboxCompanion(
+            attempts: Value(op.attempts + 1),
+            nextTryAt: Value(_now() + _backoffMs(op.attempts)),
+            lastError: const Value('sync failed'),
+          ),
+        );
       }
     }
     return done;

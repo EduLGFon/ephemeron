@@ -65,11 +65,24 @@ extension on MicrosoftSyncEngine {
     for (final cal in calendars) {
       final localCalId = calendarIdByRemote[cal.id];
       if (localCalId == null) continue;
-      final events = await _client.calendarView(
-        _windowStart,
-        _windowEnd,
-        calendarId: cal.id,
-      );
+      late final List<MsEvent> events;
+      try {
+        events = await _client.calendarView(
+          _windowStart,
+          _windowEnd,
+          calendarId: cal.id,
+        );
+      } on MicrosoftGraphException catch (e) {
+        // One inaccessible/broken calendar must not abort the others or the
+        // To Do sync. Only 401 means the account credential is bad; a 403 is
+        // a per-calendar permission (for example a shared calendar).
+        if (e.isUnauthorized) _authFailure = true;
+        debugPrint('[ms-sync] calendarView failed status=${e.status}');
+        continue;
+      } on Exception catch (e) {
+        debugPrint('[ms-sync] calendarView failed type=${e.runtimeType}');
+        continue;
+      }
       for (final e in events) {
         final remoteId = e.id;
         if (remoteId.isEmpty) continue;

@@ -1,6 +1,7 @@
 // Read-only Microsoft Graph pull engine. Upserts calendars, events, To Do lists
 // and tasks for one account. Local-only fields are preserved on update.
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../data/drift/app_database.dart';
 import '../../../domain/microsoft/microsoft_graph_models.dart';
@@ -83,7 +84,7 @@ class MicrosoftSyncEngine {
         events: eventCount,
         taskLists: listCount,
         tasks: taskCount,
-        authFailure: false,
+        authFailure: _authFailure,
       );
     } on MicrosoftGraphException catch (e) {
       if (e.isUnauthorized || e.isForbidden) {

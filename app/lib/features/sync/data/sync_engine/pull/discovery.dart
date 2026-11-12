@@ -8,17 +8,22 @@ extension on SyncEngine {
   Future<(int, int)> _syncCalendarList(GoogleApiClient client) async {
     final remote = await client.calendarList();
     debugPrint('[sync] calendarList returned ${remote.length} items');
-    _accountCalendarIds = account == null
-        ? null
-        : {
-            for (final c in remote) c['id'] as String?,
-          }.whereType<String>().toSet();
+    _accountCalendarIds = {
+      for (final c in remote) c['id'] as String?,
+    }.whereType<String>().toSet();
+    _readableCalendarIds = {
+      for (final c in remote)
+        if (c['deleted'] != true && c['accessRole'] != 'freeBusyReader')
+          c['id'] as String?,
+    }.whereType<String>().toSet();
     final now = _now();
     var created = 0;
     for (final c in remote) {
       final id = c['id'] as String?;
       if (id == null || c['deleted'] == true) continue;
       final name = (c['summary'] as String?)?.trim();
+      final accessRole = c['accessRole'] as String?;
+      final readOnly = _isReadOnlyRole(accessRole);
       final linkedRows = await (_db.select(
         _db.calendars,
       )..where((t) => t.remoteId.equals(id))).get();
@@ -60,21 +65,32 @@ extension on SyncEngine {
                 color: Value(_calendarColorOf(c)),
                 source: const Value('google'),
                 googleAccount: Value(account),
-                readOnly: Value((c['accessRole'] as String?) == 'reader'),
+                readOnly: Value(readOnly),
                 createdAt: now,
                 updatedAt: now,
               ),
             );
         created++;
       } else {
-        // Keep the ownership stamp current: a remote id belongs to exactly
-        // one account (shared calendars may flap; either token can pull).
-        if (account != null && existing.googleAccount != account) {
+        // Do not steal a shared calendar already stamped to another signed-in
+        // account. Only null or unknown owners are (re)stamped.
+        final owner = existing.googleAccount;
+        if (account != null && (owner == null || !_ownerIsSignedIn(owner))) {
           await (_db.update(
             _db.calendars,
           )..where((t) => t.id.equals(existing!.id))).write(
             CalendarsCompanion(
               googleAccount: Value(account),
+              updatedAt: Value(now),
+            ),
+          );
+        }
+        if (accessRole != null && existing.readOnly != readOnly) {
+          await (_db.update(
+            _db.calendars,
+          )..where((t) => t.id.equals(existing!.id))).write(
+            CalendarsCompanion(
+              readOnly: Value(readOnly),
               updatedAt: Value(now),
             ),
           );
@@ -156,13 +172,15 @@ extension on SyncEngine {
       remote = await client.taskLists();
     } on GoogleApiException catch (e) {
       debugPrint('[sync] taskLists discovery failed status=${e.status}');
-      if (e.isPermissionDenied) {
-        _authFailure = true;
-      }
+      // 404 and forbidden 403 are list-only: the token/account is fine, so do
+      // not demand reconnect or mark the whole run as failed. Auth, rate,
+      // server and other statuses stay global failures.
+      if (e.status != 404 && !e.isForbidden) _recordFailure(e);
       await _setSyncMeta('tasks', error: 'Google ${e.status}');
       return (0, 0);
     } catch (e) {
-      debugPrint('[sync] taskLists discovery failed: $e');
+      debugPrint('[sync] taskLists discovery failed type=${e.runtimeType}');
+      _recordFailure(e);
       await _setSyncMeta('tasks', error: 'sync failed');
       return (0, 0);
     }
@@ -204,7 +222,8 @@ extension on SyncEngine {
             );
         created++;
       } else {
-        if (account != null && existing.googleAccount != account) {
+        final owner = existing.googleAccount;
+        if (account != null && (owner == null || !_ownerIsSignedIn(owner))) {
           await (_db.update(
             _db.taskLists,
           )..where((t) => t.id.equals(existing.id))).write(
@@ -225,6 +244,9 @@ extension on SyncEngine {
     }
     return (remote.length, created);
   }
+
+  static bool _isReadOnlyRole(String? role) =>
+      role == 'reader' || role == 'freeBusyReader';
 
   /// Google calendarList color: backgroundColor hex wins, colorId palette
   /// id as fallback. Returns null when the entry carries no color so the
