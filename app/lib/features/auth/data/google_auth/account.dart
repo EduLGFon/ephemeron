@@ -10,6 +10,11 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
     _activeEmail = _accounts.first;
     try {
       await _ensureInit();
+      final lightweight = await _attemptLightweightAccount();
+      if (lightweight != null &&
+          _accounts.any((a) => isSameAccountEmail(a, lightweight.email))) {
+        _storeGoogleAccount(lightweight);
+      }
       final token = await accessToken();
       if (token == null) {
         // keep accounts; token may refresh later
@@ -28,6 +33,7 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
     if (defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.windows) {
       _accessTokens.remove(target);
+      _removeGoogleAccount(target);
       _accounts.remove(target);
       await _storage.clearGoogleFor(target);
       final remaining = await _storage.googleAccounts();
@@ -48,6 +54,7 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
       // ignore
     } finally {
       _accessTokens.remove(target);
+      _removeGoogleAccount(target);
       _accounts.remove(target);
       await _storage.clearGoogleFor(target);
       final remaining = await _storage.googleAccounts();
@@ -67,6 +74,7 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
     await _ensureInit();
     final email = account.email;
     if (!_accounts.contains(email)) _accounts.add(email);
+    _storeGoogleAccount(account);
     _activeEmail = email;
     final authz = await account.authorizationClient.authorizeScopes(
       AppConfig.googleScopes,
