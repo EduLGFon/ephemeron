@@ -34,17 +34,32 @@ class MarkdownBody extends StatelessWidget {
     required this.body,
     this.onToggleTask,
     this.padding = EdgeInsets.zero,
+    this.compact = false,
+    this.interactive = true,
   });
 
   final String body;
   final ValueChanged<int>? onToggleTask;
   final EdgeInsetsGeometry padding;
+  final bool compact;
+  final bool interactive;
 
   @override
   Widget build(BuildContext context) {
-    final widgets = _blockWidgets(context, body, onToggleTask);
+    if (compact && body.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final widgets = _blockWidgets(
+      context,
+      body,
+      onToggleTask,
+      compact: compact,
+      interactive: interactive,
+    );
     if (widgets.isEmpty) {
-      return const Text('Nothing to preview');
+      return compact
+          ? const SizedBox.shrink()
+          : const Text('Nothing to preview');
     }
     return Padding(
       padding: padding,
@@ -129,15 +144,22 @@ String _textWithBreaks(md.Node node) {
 List<Widget> _blockWidgets(
   BuildContext context,
   String body,
-  ValueChanged<int>? onToggleTask,
-) {
+  ValueChanged<int>? onToggleTask, {
+  bool compact = false,
+  bool interactive = true,
+}) {
   final prepared = _hardBreakSoftNewlines(_normalizeLineEndings(body));
   final doc = md.Document(
     blockSyntaxes: md.ExtensionSet.gitHubFlavored.blockSyntaxes,
     inlineSyntaxes: md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
   );
   final nodes = doc.parseLines(prepared.split('\n'));
-  final blocks = _Blocks(context, onToggleTask: onToggleTask);
+  final blocks = _Blocks(
+    context,
+    onToggleTask: onToggleTask,
+    compact: compact,
+    interactive: interactive,
+  );
   for (final n in nodes) {
     n.accept(blocks);
   }
@@ -145,31 +167,45 @@ List<Widget> _blockWidgets(
 }
 
 class _Blocks implements md.NodeVisitor {
-  _Blocks(this.context, {this.onToggleTask});
+  _Blocks(
+    this.context, {
+    this.onToggleTask,
+    this.compact = false,
+    this.interactive = true,
+  });
 
   final BuildContext context;
   final ValueChanged<int>? onToggleTask;
+  final bool compact;
+  final bool interactive;
   final widgets = <Widget>[];
   int listDepth = 0;
   int taskIndex = 0;
 
-  TextStyle get _base =>
-      Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
+  TextStyle get _base {
+    final s = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
+    return compact ? s.copyWith(fontSize: 11) : s;
+  }
 
   @override
   bool visitElementBefore(md.Element element) {
     final tag = element.tag;
     if (tag.startsWith('h')) {
       final level = int.tryParse(tag.substring(1)) ?? 1;
+      final size = compact
+          ? (14 - (level - 1).clamp(0, 3) * 1.0)
+          : (22 - level * 2.0);
       widgets.add(
         Padding(
-          padding: EdgeInsets.only(top: level == 1 ? 16 : 12, bottom: 4),
+          padding: EdgeInsets.only(
+            top: compact ? 4 : (level == 1 ? 16 : 12),
+            bottom: 2,
+          ),
           child: Text(
             element.textContent,
-            style: _base.copyWith(
-              fontSize: 22 - level * 2.0,
-              fontWeight: FontWeight.bold,
-            ),
+            style: _base.copyWith(fontSize: size, fontWeight: FontWeight.bold),
+            maxLines: compact ? 2 : null,
+            overflow: compact ? TextOverflow.ellipsis : TextOverflow.clip,
           ),
         ),
       );
@@ -208,15 +244,31 @@ class _Blocks implements md.NodeVisitor {
         final idx = taskIndex++;
         final checked = checkbox?.attributes.containsKey('checked') ?? false;
         final label = _textWithBreaks(element).trim();
-        widgets.add(
-          CheckboxListTile(
-            value: checked,
-            onChanged: onToggleTask == null ? null : (_) => onToggleTask!(idx),
-            title: Text(label.isEmpty ? '(task)' : label),
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-          ),
-        );
+        if (compact) {
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                '${checked ? '[x]' : '[ ]'} ${label.isEmpty ? '(task)' : label}',
+                style: _base,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          );
+        } else {
+          widgets.add(
+            CheckboxListTile(
+              value: checked,
+              onChanged: onToggleTask == null
+                  ? null
+                  : (_) => onToggleTask!(idx),
+              title: Text(label.isEmpty ? '(task)' : label),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+          );
+        }
       } else {
         final text = _textWithBreaks(element).trim();
         widgets.add(
@@ -287,7 +339,7 @@ class _Blocks implements md.NodeVisitor {
         }
         final href = child.tag == 'a' ? child.attributes['href'] : null;
         TapGestureRecognizer? linkTap;
-        if (href != null) {
+        if (href != null && interactive) {
           final url = href;
           linkTap = TapGestureRecognizer()
             ..onTap = () {
@@ -334,7 +386,7 @@ class _Blocks implements md.NodeVisitor {
             }
           }
         }
-        if (href != null) {
+        if (href != null && interactive) {
           spans.add(
             TextSpan(
               text: ' ($href)',

@@ -1,5 +1,6 @@
 // Riverpod providers for notes. UI reads only from Drift streams.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/db/db_provider.dart';
 import '../../../data/drift/app_database.dart';
@@ -46,4 +47,43 @@ class SelectedFolder extends Notifier<String?> {
   String? build() => null;
 
   void select(String? id) => state = id;
+}
+
+enum NotesViewMode { grid, list }
+
+/// Persisted notes list view mode: grid (default) or list.
+final notesViewModeProvider =
+    NotifierProvider<NotesViewModeNotifier, NotesViewMode>(
+      NotesViewModeNotifier.new,
+    );
+
+class NotesViewModeNotifier extends Notifier<NotesViewMode> {
+  static const key = 'notes.viewMode';
+
+  int _generation = 0;
+
+  @override
+  NotesViewMode build() {
+    final g = ++_generation;
+    _load(g);
+    return NotesViewMode.grid;
+  }
+
+  Future<void> _load(int g) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(key);
+      final mode = saved == 'list' ? NotesViewMode.list : NotesViewMode.grid;
+      if (g == _generation && mode != state) state = mode;
+    } catch (_) {}
+  }
+
+  Future<void> setMode(NotesViewMode mode) async {
+    _generation++;
+    state = mode;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(key, mode == NotesViewMode.list ? 'list' : 'grid');
+    } catch (_) {}
+  }
 }
