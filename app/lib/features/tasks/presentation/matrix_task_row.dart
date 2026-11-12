@@ -27,11 +27,7 @@ class MatrixTaskRow extends ConsumerWidget {
       listMicrosoftAccount: list?.microsoftAccount,
     );
     final readOnly = isMs;
-    final content = _MatrixTaskRowContent(
-      key: ValueKey('matrix-task-${task.id}'),
-      task: task,
-      readOnly: readOnly,
-    );
+    final content = _MatrixTaskRowContent(task: task, readOnly: readOnly);
     if (!draggable || readOnly) return content;
     return LongPressDraggable<Task>(
       data: task,
@@ -46,11 +42,7 @@ class MatrixTaskRow extends ConsumerWidget {
 }
 
 class _MatrixTaskRowContent extends ConsumerWidget {
-  const _MatrixTaskRowContent({
-    super.key,
-    required this.task,
-    this.readOnly = false,
-  });
+  const _MatrixTaskRowContent({required this.task, this.readOnly = false});
 
   final Task task;
   final bool readOnly;
@@ -99,6 +91,8 @@ class _MatrixTaskRowContent extends ConsumerWidget {
                     if (task.dueDate != null)
                       Text(
                         DeviceDateFormat.dateIso(context, task.dueDate!),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),

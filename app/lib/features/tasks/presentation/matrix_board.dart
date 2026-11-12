@@ -2,6 +2,7 @@
 // tasks that no field claims. Task rows open the editor on tap. In priority
 // mode rows can be long-pressed and dragged between fields and the tray, and
 // every row carries a circular complete checkbox.
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -19,6 +20,9 @@ part 'matrix_board/tray.dart';
 
 const double _pagePadding = 12;
 const double _gap = 8;
+// Reserve for the unclassified tray (140) plus vertical gaps and the bottom
+// FAB padding so the 2x2 board fills most of the viewport on tall screens.
+const double _boardHeightReserve = 260;
 
 class MatrixBoardField {
   const MatrixBoardField({
@@ -63,6 +67,7 @@ class MatrixBoard extends StatelessWidget {
   bool get _dragEnabled => mode == MatrixMode.priority;
 
   Widget _field(int index) => _MatrixField(
+    key: ValueKey(fields[index].id),
     fields[index],
     dragEnabled: _dragEnabled,
     dropPriority: _dropPriority(fields[index].id),
@@ -73,9 +78,10 @@ class MatrixBoard extends StatelessWidget {
     return RepaintBoundary(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final boardWidth = constraints.maxWidth - _pagePadding * 2;
-          final cellWidth = (boardWidth - _gap) / 2;
-          final cellHeight = math.min(math.max(cellWidth * 1.1, 150), 280);
+          // Taller quadrants: derive height from the viewport so the 2x2 board
+          // fills most of the screen; clamped for small/large screens.
+          final cellHeight = ((constraints.maxHeight - _boardHeightReserve) / 2)
+              .clamp(160.0, 420.0);
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(
               _pagePadding,
@@ -114,6 +120,7 @@ class MatrixBoard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _UnclassifiedTray(
+                  key: ValueKey('matrix-unclassified-${mode.name}'),
                   tasks: unclassified,
                   dragEnabled: _dragEnabled,
                 ),
