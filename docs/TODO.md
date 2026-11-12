@@ -1,16 +1,38 @@
 # TODO
 
-## Google multi-account restore (2026-11-12)
+## Gap closures (2026-11-12)
 
-- Implemented: `accessTokenFor` restores any unexpired token cached for a
-  stored account after restart; `restore()` checks every stored account and
-  exposes `accountsNeedingReconnect`; session restore merges those accounts into
-  the global reconnect banner without persisting emails.
-- Verification: `flutter analyze` clean; targeted auth and sync tests passed.
-- Deferred: the GoogleSignIn plugin has no unit-test platform, so silent restore
-  is covered through pure token/identity helpers only; accounts whose cached
-  token expired and that the plugin cannot silently restore still need
-  interactive reconnect, now surfaced at startup.
+- Implemented: Microsoft shared calendars (`Calendars.Read.Shared` requested,
+  `isSharedWithMe`/owner stamping, one reader per shared calendar, shared 403
+  reconsent); repeatable device-calendar import (`device:` mirror rows,
+  recurring series grouped to one master, dirty local edits preserved, safe
+  soft-delete reconciliation, persisted ID-only mappings, user-initiated
+  refresh); Google single-occurrence push (exception outbox, generated-instance
+  lookup, patch/delete with etag and 412 retry, deleted-instance relink,
+  re-edit restore, resetExceptions queue cleanup); per-account Google token
+  restore after restart with proactive reconnect banner; shared Google calendar
+  owner/reader election so each shared calendar is pulled once.
+- Verification: `flutter analyze` clean; `dart format --set-exit-if-changed .`
+  clean; full `flutter test` passed (673 tests) on master; arm64 release APK
+  built at `app/build/app/outputs/flutter-apk/app-release.apk`, 27.7 MB, only
+  `lib/arm64-v8a/libapp.so`, SHA-256
+  `d26c345f1fde1950a53bd6a983734ce06eb7cc0427fa0398f74ba2dbe8b9298e`.
+- Owner/device verification pending: real Microsoft shared calendars after the
+  new scope consent, Google single-occurrence edit/delete on a real recurring
+  event, app restart with multiple Google accounts and the reconnect banner,
+  Android device-calendar refresh.
+- Residual limitations: existing Microsoft tokens need one reconnect to obtain
+  `Calendars.Read.Shared`; Graph shared-primary calendars that do not appear in
+  `/me/calendars` still require the owner address and are not enumerable;
+  device refresh is manual and uses the default [now-30d, now+365d] window, so
+  rows that drift outside it are soft-deleted; device mappings for calendars
+  deselected in a later import are not pruned (only deleted targets are
+  pruned); a Google single-occurrence push whose instance Google never exposes
+  stays queued with backoff and is reported as a failed change; accounts whose
+  cached Google token expired still need interactive reconnect, and the plugin
+  may restore only one lightweight account; stale shared-calendar reader keys
+  can remain in `syncState`; when `signedInAccounts` is null the shared-calendar
+  dedupe fails open and may pull once per account.
 
 ## Calendar/sync/notes verification (2026-11-11)
 
@@ -28,11 +50,11 @@
   multi-account and Microsoft), recurring exceptions moved/cancelled,
   force-sync error paths, tap/long-press selection vs swipe/scroll on device,
   matrix peek/scroll at large text, notes grid performance with many notes.
-- Deferred: Microsoft shared calendars need `Calendars.Read.Shared` scope +
-  owner console consent; device calendar import is still a one-shot copy (no
-  live device-calendar sync); sync notifier final-status matrix tests are partly
-  deferred; initial unbounded Google full sync can be heavy on very large
-  calendars; legacy `syncState` token rows may remain stale on old installs.
+- Closed 2026-11-12: Microsoft shared calendars and repeatable device-calendar
+  import; see Gap closures.
+- Deferred: sync notifier final-status matrix tests are partly deferred; initial
+  unbounded Google full sync can be heavy on very large calendars; legacy
+  `syncState` token rows may remain stale on old installs.
 
 ## Calendar/sync follow-up verification (2026-11-12)
 
@@ -52,13 +74,9 @@
   and Microsoft), freeBusyReader calendars, reconnect banner after revoked grant
   and after app restart, tapped/dragged slot on device, matrix density at
   2.5x/3x text.
-- Deferred: shared calendars readable by multiple signed-in accounts may be
-  pulled once per account (extra API/battery); Microsoft shared calendars still
-  need `Calendars.Read.Shared` + owner console consent; device-calendar import
-  remains one-shot; Google single-occurrence push remains local-only;
-  multi-account reauth after process restart may require interactive reconnect
-  for accounts the plugin does not restore; the persisted reconnect banner may
-  flash one frame on cold start.
+- Deferred: the persisted reconnect banner may still flash one frame on cold
+  start. See Gap closures for the remaining shared-calendar, device import,
+  Google single-occurrence, and token restore limitations.
 
 ## Owner / device verification (no SDK/devices here)
 
