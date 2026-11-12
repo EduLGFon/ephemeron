@@ -141,8 +141,18 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
     for (final c in [_title, _location, _notes, _attendees]) {
       c.addListener(_queueDraft);
     }
+    // Restore unsaved draft text for a new event, but an explicit grid slot
+    // still wins over the draft's stale timing (see _applyDraft).
     if (d == null && e == null) Future.microtask(_preloadDraft);
   }
+
+  /// True when the caller supplied a concrete time (grid tap/drag or a date
+  /// action), so a stale autosaved draft must not override it.
+  bool get _hasExplicitTime =>
+      widget.initialStart != null ||
+      widget.initialEnd != null ||
+      widget.initialDay != null ||
+      widget.initialHour != null;
 
   @override
   void didChangeDependencies() {
@@ -186,7 +196,6 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
       _notes.text = (j['notes'] as String?) ?? '';
       _attendees.text = (j['attendees'] as String?) ?? '';
       _calendarId = j['calendarId'] as String?;
-      _allDay = (j['allDay'] as bool?) ?? false;
       _colorId = j['colorId'] as String?;
       _tzId = j['tzId'] as String?;
       _addMeet = (j['addMeet'] as bool?) ?? false;
@@ -196,12 +205,16 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
           .toList();
       if (r != null && r.isNotEmpty) _reminders = r;
       _alarmPreset = j['alarmPreset'] as String?;
-      final startMs = (j['startMs'] as num?)?.toInt();
-      final endMs = (j['endMs'] as num?)?.toInt();
-      if (startMs != null) {
-        _start = DateTime.fromMillisecondsSinceEpoch(startMs);
+      // Explicit slot intent wins: keep the timed start/end the caller chose.
+      if (!_hasExplicitTime) {
+        _allDay = (j['allDay'] as bool?) ?? false;
+        final startMs = (j['startMs'] as num?)?.toInt();
+        final endMs = (j['endMs'] as num?)?.toInt();
+        if (startMs != null) {
+          _start = DateTime.fromMillisecondsSinceEpoch(startMs);
+        }
+        if (endMs != null) _end = DateTime.fromMillisecondsSinceEpoch(endMs);
       }
-      if (endMs != null) _end = DateTime.fromMillisecondsSinceEpoch(endMs);
       _rrule = j['rrule'] as String?;
     });
   }
