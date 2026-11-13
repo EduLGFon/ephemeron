@@ -382,4 +382,61 @@ void main() {
     expect(code, isNot(contains('line one  ')));
     expect(code, isNot(contains('line two  ')));
   });
+
+  test('preprocessing leaves indented code blocks verbatim', () {
+    expect(
+      prepareMarkdownForRender(
+        'before\n\n    line one\n    line two\n\nafter\nnext',
+      ).split('\n'),
+      ['before  ', '', '    line one', '    line two', '', 'after  ', 'next  '],
+    );
+  });
+
+  test('preprocessing keeps nested fences inside longer fences', () {
+    expect(
+      prepareMarkdownForRender(
+        '````\n```dart\ncode\n```\n````\nafter\nnext',
+      ).split('\n'),
+      ['````', '```dart', 'code', '```', '````', 'after  ', 'next  '],
+    );
+  });
+
+  test('preprocessing closes fences with longer markers', () {
+    expect(
+      prepareMarkdownForRender('```\ncode\n`````\nafter\nnext').split('\n'),
+      ['```', 'code', '`````', 'after  ', 'next  '],
+    );
+  });
+
+  test('preprocessing preserves literal markup in code blocks', () {
+    const indented = '    <b>not bold</b>\n    *not italic*';
+    expect(prepareMarkdownForRender(indented), indented);
+    const fenced = '```html\n<b>not bold</b>\n*not italic*\n```';
+    expect(prepareMarkdownForRender(fenced), fenced);
+  });
+
+  testWidgets('preview renders literal markup in code blocks as text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MarkdownPreview(
+            body: '```html\n<b>not bold</b>\n*not italic*\n```',
+          ),
+        ),
+      ),
+    );
+    final code = tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byType(MarkdownPreview),
+            matching: find.byType(Text),
+          ),
+        )
+        .firstWhere((t) => t.data?.contains('not bold') ?? false);
+    expect(code.data, contains('&lt;b&gt;not bold&lt;/b&gt;'));
+    expect(code.data, contains('*not italic*'));
+    expect(code.style?.fontWeight, isNot(FontWeight.bold));
+  });
 }

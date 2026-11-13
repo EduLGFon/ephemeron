@@ -45,6 +45,7 @@ mixin _NoteCrudOps on _NoteRepositoryBase {
     String? title,
     String? Function()? body,
     String? Function()? folderId,
+    bool syncEventNotes = true,
   }) async {
     final newBody = body?.call();
     await (_db.update(_db.notes)..where((t) => t.id.equals(id))).write(
@@ -56,34 +57,60 @@ mixin _NoteCrudOps on _NoteRepositoryBase {
         dirty: const Value(true),
       ),
     );
-    if (body != null) await _syncEventDescription(id, newBody);
+    if (body != null && syncEventNotes) {
+      await _syncEventDescription(id, newBody);
+    }
     if (body != null || title != null) await refreshLinks(id);
   }
 
   /// Keeps Events.notes in step when the canonical description note changes.
-  /// Only the narrow event.notes field is updated; the note is never recreated
-  /// or cascaded, and soft-deleted events are left untouched.
+  /// Every live event linked to the note is updated, so a shared link cannot
+  /// leave one row stale depending on query order. Only the narrow event.notes
+  /// field is updated; the note is never recreated or cascaded, and
+  /// soft-deleted events are left untouched.
   Future<void> _syncEventDescription(String noteId, String? body) async {
-    final event =
-        await (_db.select(_db.events)
-              ..where((e) => e.notesOverflowNoteId.equals(noteId))
-              ..limit(1))
-            .getSingleOrNull();
-    if (event == null || event.deletedAt != null) return;
-    await (_db.update(_db.events)..where((e) => e.id.equals(event.id))).write(
-      EventsCompanion(
-        notes: Value(NoteRepository.cappedEventNotes(body)),
-        updatedAt: Value(nowMs()),
-        dirty: const Value(true),
-      ),
-    );
-    await enqueueOutbox(_db, entity: 'event', entityId: event.id, op: 'update');
+    final events =
+        await (_db.select(_db.events)..where(
+              (e) =>
+                  e.notesOverflowNoteId.equals(noteId) & e.deletedAt.isNull(),
+            ))
+            .get();
+    if (events.isEmpty) return;
+    final now = nowMs();
+    final notes = Value(NoteRepository.cappedEventNotes(body));
+    await _db.transaction(() async {
+      for (final event in events) {
+        await (_db.update(
+          _db.events,
+        )..where((e) => e.id.equals(event.id))).write(
+          EventsCompanion(
+            notes: notes,
+            updatedAt: Value(now),
+            dirty: const Value(true),
+          ),
+        );
+        await enqueueOutbox(
+          _db,
+          entity: 'event',
+          entityId: event.id,
+          op: 'update',
+        );
+      }
+    });
   }
 
   /// Canonical description note for [eventId], created on first non-empty
   /// description. An empty description clears an existing note body but keeps
   /// the link and the note.
-  Future<String?> ensureDescriptionNote(String eventId, String fullText) async {
+  ///
+  /// When [mirrorEventNotes] is false the caller already wrote Events.notes
+  /// (for example through `EventRepository.editOccurrence`), so updating the
+  /// note body must not enqueue a second event update.
+  Future<String?> ensureDescriptionNote(
+    String eventId,
+    String fullText, {
+    bool mirrorEventNotes = true,
+  }) async {
     final event = await (_db.select(
       _db.events,
     )..where((e) => e.id.equals(eventId))).getSingleOrNull();
@@ -109,7 +136,11 @@ mixin _NoteCrudOps on _NoteRepositoryBase {
         linkedEventId: eventId,
       );
     } else if (note.body != fullText) {
-      await updateNote(note.id, body: () => fullText);
+      await updateNote(
+        note.id,
+        body: () => fullText,
+        syncEventNotes: mirrorEventNotes,
+      );
     }
     if (event.notesOverflowNoteId != noteId) {
       await (_db.update(_db.events)..where((e) => e.id.equals(eventId))).write(
@@ -127,9 +158,16 @@ mixin _NoteCrudOps on _NoteRepositoryBase {
   /// note's linkedEventId. Soft-deleted rows are returned so callers can tell
   /// a deleted event from a missing one.
   Future<Event?> eventForNote(String noteId) async {
+    // Live rows first, then oldest link, so a shared note resolves the same
+    // way on every call instead of whichever row SQLite returns first.
     final canonical =
         await (_db.select(_db.events)
               ..where((e) => e.notesOverflowNoteId.equals(noteId))
+              ..orderBy([
+                (e) => OrderingTerm.asc(e.deletedAt),
+                (e) => OrderingTerm.asc(e.createdAt),
+                (e) => OrderingTerm.asc(e.id),
+              ])
               ..limit(1))
             .getSingleOrNull();
     if (canonical != null) return canonical;
@@ -252,30 +290,6 @@ mixin _NoteCrudOps on _NoteRepositoryBase {
           )
           ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
         .watch();
-  }
-
-  /// Overflow note for long event descriptions. Idempotent per event:
-  /// returns the existing overflow note when present.
-  Future<String?> ensureOverflowNote(String eventId, String fullText) async {
-    final existing =
-        await (_db.select(_db.notes)
-              ..where(
-                (t) => t.linkedEventId.equals(eventId) & t.deletedAt.isNull(),
-              )
-              ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
-              ..limit(1))
-            .getSingleOrNull();
-    if (existing != null) {
-      if (existing.body != fullText) {
-        await updateNote(existing.id, body: () => fullText);
-      }
-      return existing.id;
-    }
-    return createNote(
-      title: 'Event description',
-      body: fullText,
-      linkedEventId: eventId,
-    );
   }
 
   Stream<List<Note>> watchTrash() {

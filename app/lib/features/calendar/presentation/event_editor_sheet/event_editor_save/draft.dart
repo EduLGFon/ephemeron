@@ -23,10 +23,16 @@ extension on _EventEditorState {
 
   /// Every description is mirrored to the canonical linked note, not only
   /// overflow text. An empty description clears the note body, keeping the
-  /// note and its link.
+  /// note and its link. Events.notes was already written by the repository
+  /// call above, so the note update must not mirror it back and enqueue a
+  /// second event update.
   Future<void> _syncDescription(String eventId, String? fullNotes) async {
     await ref
         .read(noteRepositoryProvider)
-        .ensureDescriptionNote(eventId, fullNotes ?? '');
+        .ensureDescriptionNote(
+          eventId,
+          fullNotes ?? '',
+          mirrorEventNotes: false,
+        );
   }
 }
