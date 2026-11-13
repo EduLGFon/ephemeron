@@ -85,6 +85,7 @@ extension on _EventEditorState {
                 initialValue: _repeatPresets.containsValue(_rrule)
                     ? _rrule
                     : '__custom__',
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Repeat',
                   border: OutlineInputBorder(),
@@ -139,6 +140,7 @@ extension on _EventEditorState {
               const SizedBox(height: 8),
               DropdownButtonFormField<String?>(
                 initialValue: _tzId,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Timezone',
                   border: OutlineInputBorder(),

@@ -9,6 +9,7 @@ class TimelineAllDayStrip extends StatelessWidget {
     required this.dayCount,
     required this.gutterWidth,
     required this.onTap,
+    this.onEmptyTap,
     this.swipeOffset = 0,
   });
 
@@ -18,10 +19,14 @@ class TimelineAllDayStrip extends StatelessWidget {
   final int dayCount;
   final double gutterWidth;
   final ValueChanged<OccurrenceCacheData> onTap;
+
+  /// Opens the event editor for an empty day column (all-day create).
+  final ValueChanged<DateTime>? onEmptyTap;
   final double swipeOffset;
 
   @override
   Widget build(BuildContext context) {
+    final empty = occs.isEmpty && habits.isEmpty;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -56,15 +61,21 @@ class TimelineAllDayStrip extends StatelessWidget {
                         -timelineBufferDays * dayWidth + swipeOffset,
                         0,
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < stripCount; i++)
-                            SizedBox(
-                              width: dayWidth,
-                              child: _dayChips(context, stripAnchor, i),
-                            ),
-                        ],
+                      child: ConstrainedBox(
+                        // Empty rows need a real tap target; populated ones
+                        // keep their natural compact height.
+                        constraints: empty
+                            ? const BoxConstraints(
+                                minHeight: timelineAllDayStripMinTapHeight,
+                              )
+                            : const BoxConstraints(),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var i = 0; i < stripCount; i++)
+                              _dayCell(context, stripAnchor, i, dayWidth),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -74,6 +85,24 @@ class TimelineAllDayStrip extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _dayCell(
+    BuildContext context,
+    DateTime stripAnchor,
+    int i,
+    double dayWidth,
+  ) {
+    final day = timelineDayStart(stripAnchor, i);
+    return SizedBox(
+      width: dayWidth,
+      child: GestureDetector(
+        key: Key('timeline-all-day-${dateKey(day)}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onEmptyTap == null ? null : () => onEmptyTap!(day),
+        child: _dayChips(context, stripAnchor, i),
+      ),
     );
   }
 

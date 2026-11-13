@@ -145,6 +145,13 @@ class _MonthViewState extends ConsumerState<MonthView> {
                                   onTap: () => ref
                                       .read(calendarStateProvider.notifier)
                                       .goTo(days[week * 7 + dow]),
+                                  // Quick-create a timed event at 09:00;
+                                  // tap and double-tap keep their behavior.
+                                  onLongPress: () => showEventEditor(
+                                    context,
+                                    initialDay: days[week * 7 + dow],
+                                    initialHour: 9,
+                                  ),
                                   onDoubleTap: () {
                                     final notifier = ref.read(
                                       calendarStateProvider.notifier,

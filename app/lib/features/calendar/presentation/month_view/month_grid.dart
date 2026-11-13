@@ -29,6 +29,7 @@ class _MonthDayCell extends StatelessWidget {
     this.habits = const <HabitCalendarEntry>[],
     required this.countsPending,
     required this.onTap,
+    this.onLongPress,
     this.onDoubleTap,
   });
 
@@ -43,6 +44,9 @@ class _MonthDayCell extends StatelessWidget {
   /// announce a final "0 events" count that is not authoritative yet.
   final bool countsPending;
   final VoidCallback onTap;
+
+  /// Quick-create affordance for the day; tapping still only selects it.
+  final VoidCallback? onLongPress;
   final VoidCallback? onDoubleTap;
 
   @override
@@ -61,6 +65,7 @@ class _MonthDayCell extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Container(
           decoration: BoxDecoration(
             color: selected ? primary.withValues(alpha: 0.12) : null,

@@ -52,6 +52,7 @@ Future<void> showEventEditor(
   int? initialHour,
   DateTime? initialStart,
   DateTime? initialEnd,
+  bool? initialAllDay,
   Map<String, dynamic>? restoredDraft,
 }) {
   return showAppSheet<void>(
@@ -63,6 +64,7 @@ Future<void> showEventEditor(
         initialHour: initialHour,
         initialStart: initialStart,
         initialEnd: initialEnd,
+        initialAllDay: initialAllDay,
         restoredDraft: restoredDraft,
       ),
     ),

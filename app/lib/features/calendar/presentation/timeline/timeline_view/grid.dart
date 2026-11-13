@@ -7,15 +7,15 @@ extension _TimelineViewGrid on _TimelineViewState {
     required List<HabitCalendarEntry> timedHabits,
     required DateTime stripAnchor,
     required int stripCount,
+    double autoScaleExtraHeight = 0,
   }) {
     final nowController = ref.watch(timelineNowControllerProvider);
     return LayoutBuilder(
       builder: (autoCtx, autoCons) {
         final desired = autoCons.maxHeight > 0
-            ? (autoCons.maxHeight / (17 * timelineBaseHourHeight)).clamp(
-                timelineMinScale,
-                1.0,
-              )
+            ? ((autoCons.maxHeight + autoScaleExtraHeight) /
+                      (17 * timelineBaseHourHeight))
+                  .clamp(timelineMinScale, 1.0)
             : 1.0;
         if ((desired - autoScale).abs() > 1e-9) {
           WidgetsBinding.instance.addPostFrameCallback((_) {

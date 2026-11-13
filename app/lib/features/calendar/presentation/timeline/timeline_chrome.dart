@@ -15,3 +15,7 @@ import 'timeline_utils.dart';
 part 'timeline_chrome/hour_gutter.dart';
 part 'timeline_chrome/day_header.dart';
 part 'timeline_chrome/all_day_strip.dart';
+
+/// Minimum height of an empty all-day strip so every day column stays a
+/// comfortable all-day create target.
+const double timelineAllDayStripMinTapHeight = 32;
