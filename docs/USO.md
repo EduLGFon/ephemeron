@@ -1,196 +1,79 @@
-# Manual do Usuário - Ephemeron
+# Manual do Usuario - Ephemeron
 
-Documentação técnica: `docs/ARCHITECTURE.md`, `docs/PRIVACY.md`, `docs/SECURITY_REVIEW.md`.
+Docs tecnicas: docs/ARCHITECTURE.md, docs/PRIVACY.md, docs/SECURITY_REVIEW.md.
 
-## 1. Introdução
+## 1. Introducao
+App de produtividade offline-first: calendario, tarefas, habitos, contagens regressivas, foco, notas e listas em um app rapido. Tudo funciona sem conta. Sincronizacao (Google e conta de e-mail) opcional.
+Plataformas: Android (max), Linux e Web (medio), Windows (baixo), iOS e macOS (suportados).
 
-Ephemeron é um app de produtividade offline-first: calendário, tarefas, hábitos, contagens regressivas, foco, notas e listas em um único app rápido. Tudo funciona sem nenhuma conta. A sincronização (Google e conta de e-mail) é opcional.
-
-Plataformas: Android (prioridade máxima), Linux e Web (médio), Windows (baixo), iOS e macOS (suportados).
-
-## 2. Navegação e interface
-
-- Sete seções: Calendário, Tarefas, Matriz, Hábitos, Contagens, Foco, Notas.
-- Barra de navegação inferior com as 5 primeiras seções fixas e um botão "Mais" para as demais, Busca, Ajustes e "Personalizar navegação".
-- Personalizar navegação: reordenar seções por arrasto; a ordem é salva.
-- A última seção aberta é restaurada ao abrir o app.
-- Botão flutuante (FAB) cria o item principal da seção atual.
-- Busca global acessível pelo menu "Mais" (ícone de busca) ou em `/search`.
-- Home-screen widgets: Ajustes > Home-screen widgets lists all available types and pins one to the launcher (Android only). Widgets refresh when the app opens. O widget de semana mostra a semana inteira (itens de dia todo, eventos e tarefas com hora); toque numa coluna para abrir essa semana no app.
+## 2. Navegacao e interface
+Sete secoes: Calendario, Tarefas, Matriz, Habitos, Contagens, Foco, Notas. Barra inferior com 5 primeiras fixas + botao Mais (demais, Busca, Ajustes, Personalizar navegacao). Personalizar: reordenar por arrasto, ordem salva. Ultima secao aberta restaurada ao abrir. FAB cria item principal da secao. Busca global via Mais ou /search. Home-screen widgets: Ajustes > Home-screen widgets lista tipos e fixa um (Android). Widgets atualizam ao abrir app. Widget de semana mostra semana inteira (itens de dia todo, eventos e tarefas com hora); toque em coluna abre essa semana.
 
 ## 3. Primeiro uso (onboarding)
+Primeira execucao: 3 paginas (Pular sempre disponivel):
+1. "Seu tempo, offline primeiro" - tudo funciona sem conta.
+2. "Alarmes que tocam" - ao criar primeiro lembrete pede permissao de notificacao e alarme exato; teste de alarme em Ajustes.
+3. "Sincronizar e opcional" - conectar Google para sincronizar calendario/tarefas, ou criar conta de e-mail para habitos/foco. Dados do Google nunca tocam servidor. Pule para ficar local.
+Permissoes pedidas no momento de uso.
 
-Na primeira execução aparecem 3 páginas (com botão "Pular" sempre disponível):
-1. "Seu tempo, offline primeiro" - Calendário, tarefas, hábitos, contagens, foco, notas e listas funcionam sem conta.
-2. "Alarmes que tocam" - ao criar o primeiro lembrete o app pede permissão de notificação e alarme exato; teste de alarme disponível em Ajustes.
-3. "Sincronizar é opcional" - conectar Google para sincronizar calendário e tarefas, ou criar conta de e-mail para sincronizar hábitos e foco. Dados do Google nunca tocam o servidor. Pule para ficar totalmente local.
+## 4. Calendario
+Visualizacoes (menu no AppBar): Mes (grade com pontos); 3/4/7 dias (linha do tempo com hora atual, snap 15 min); Dia; Agenda (lista cronologica); Ano (mapa de calor). Navegacao setas anterior/proximo, icone Hoje. Topo mostra apenas "Calendar" (toque sincroniza), mes/ano abaixo.
+Origem: detalhes de evento mostram calendario e conta de e-mail de origem; tarefa mostra lista e conta. Toque na origem escolhe conta e depois calendario. Evento movido na hora; ao sincronizar, mesma conta usa endpoint de mover do Google, contas diferentes copiam para destino e apagam origem. Series recorrentes so podem mudar de conta por copia local quando destino e local; entre contas Google mantenha serie na mesma conta.
 
-Permissões são pedidas no momento de uso, não todas de uma vez.
+Criar/editar evento (FAB ou toque em horario vazio): titulo, calendario, dia inteiro; datas/horas inicio e fim; repeticao (nao repete, diario, semanal, mensal, anual, ultimo dia do mes, RRULE customizado com validacao/exemplos); local, notas, participantes (virgula), link Meet (criar Meet), cor (colorId); fuso horario opcional (tzId).
+Eventos recorrentes: ao editar escolha escopo - este, este e seguintes, ou todos. Alteracoes de horario em "todos": pergunta manter ou resetar alteracoes por ocorrencia.
+Arrastar para mover com snap 15 min; em recorrentes pergunta escopo.
 
-## 4. Calendário
-
-Visualizações (menu de visualização no AppBar):
-- Mês: grade com pontos nos dias com eventos.
-- 3/4/7 dias: linha do tempo com hora atual e snap de 15 minutos.
-- Dia: linha do tempo de um dia.
-- Agenda: lista cronológica.
-- Ano: mapa de calor.
-
-Navegação: setas anterior/próximo, ícone "Hoje". O topo mostra apenas "Calendar" (toque para sincronizar), com o mês/ano atual logo abaixo.
-
-Origem: os detalhes de um evento mostram o calendário e a conta de e-mail de origem; os detalhes de uma tarefa mostram a lista e a conta. Toque nessa origem para escolher a conta e depois o calendário. O evento é movido na hora; ao sincronizar, a mesma conta usa o endpoint de mover do Google, e contas diferentes copiam para o destino e apagam a origem. Séries recorrentes só podem mudar de conta pela cópia local quando o destino é local; entre contas Google, mantenha a série na mesma conta.
-
-Criar/editar evento (FAB ou toque em horário vazio):
-- Título, calendário, dia inteiro (switch).
-- Datas e horas de início e fim (date/time pickers).
-- Repetição: não repete, diário, semanal, mensal, anual, último dia do mês, ou RRULE customizado com validação e exemplos.
-- Local, notas, participantes (separados por vírgula), link do Meet (criar Meet), cor (colorId).
-- Fuso horário opcional (tzId).
-
-Eventos recorrentes: ao editar, escolha o escopo - este evento, este e os seguintes, ou todos. Para alterações de horário em "todos", pergunta se mantém ou reseta alterações por ocorrência.
-
-Arrastar para mover com snap de 15 minutos; em recorrentes pergunta o escopo.
-
-Calendários (ícone de ajustes do calendário):
-- Listar, ativar/desativar, adicionar calendário local.
-- Configurações: início da semana (segunda/domingo/sábado), duração padrão de evento.
-
-Notas vinculadas: adicionar a partir dos detalhes do evento; lista nos detalhes; notas longas (>8000 caracteres) viram nota de overflow.
+Calendarios (icone ajustes): listar, ativar/desativar, adicionar local. Config: inicio da semana (segunda/domingo/sabado), duracao padrao de evento.
+Notas vinculadas: adicionar a partir dos detalhes do evento; lista nos detalhes; notas longas (>8000 chars) viram nota de overflow.
 
 ## 5. Tarefas
+Tela principal: filtro por lista (chips horizontais), incluindo All e + List. Secao "Overdue (N)" com "Reschedule to today". Swipe concluir/excluir (desfazer, 6 s). AppBar: Concluidas (done_all) e Lixeira.
+Criar/editar (editor ou adicao rapida): titulo, lista, prioridade 0-4, data de vencimento, fixar, notas, tags, subtarefas (parentId).
+Adicao rapida (FAB): campo unico com atalho: #tag para etiquetas; ~lista para lista (cria se nao existir); -p1 a -p4 para prioridade (-p1 mais urgente); resto passa por parser de data/hora natural (EN e PT), incluindo recorrencia. Exemplo: Buy milk #groceries ~home -p1 tomorrow 9h. Chips de pre-visualizacao ao vivo; Salvar e Salvar e adicionar outro.
 
-Tela principal:
-- Filtro por lista (chips horizontais), incluindo "All" e "+ List".
-- Seção "Overdue (N)" com botão "Reschedule to today".
-- Swipe para concluir ou excluir (com desfazer, 6 s).
-- Ações no AppBar: Concluídas (done_all) e Lixeira.
+Matriz: tabuleiro 2x2 com quatro campos e bandeja separada para tarefas sem classificacao. Dois modos: Auto (padrao) quadrantes "Do first", "Schedule", "Delegate", "Eliminate" a partir de prioridade e vencimento; Priority cada campo mostra apenas tarefas da prioridade correspondente P1-P4. Modo salvo. FAB cria tarefa; toque edita. Origem (lista e conta) aparece e pode ser trocada no toque: escolha conta e depois lista. Tarefa movida na hora; sincronizacao usa mover na mesma conta ou copiar/apagar entre contas.
+Lixeira: restaurar ou excluir definitivamente; concluidas em tela separada com reabrir.
 
-Criar/editar (editor ou adição rápida):
-- Título, lista, prioridade (0 a 4), data de vencimento, fixar, notas, tags, subtarefas (parentId).
-- Adição rápida (FAB): campo único com atalho:
-  - `#tag` para etiquetas.
-  - `~lista` para lista (cria se não existir).
-  - `-p1` a `-p4` para prioridade (-p1 = mais urgente).
-  - Resto passa por parser de data/hora natural (EN e PT), incluindo recorrência.
-  - Exemplo: `Buy milk #groceries ~home -p1 tomorrow 9h`.
-  - Chips de pré-visualização ao vivo; "Salvar" e "Salvar e adicionar outro".
-
-Matriz (`Matrix`): tabuleiro 2x2 com quatro campos e uma bandeja separada para tarefas sem classificação. Dois modos:
-- Auto (padrão): quadrantes "Do first", "Schedule", "Delegate" e "Eliminate", a partir de prioridade e data de vencimento.
-- Priority: cada campo mostra apenas as tarefas da prioridade correspondente, P1, P2, P3 ou P4.
-O modo escolhido é salvo. O botão flutuante cria uma tarefa; toque numa tarefa para editar. A origem (lista e conta) aparece nas tarefas e pode ser trocada no toque: escolha a conta e depois a lista. A tarefa é movida na hora e a sincronização usa mover na mesma conta ou copiar/apagar entre contas.
-
-Lixeira: restaurar ou excluir definitivamente; concluídas em tela separada com reabrir.
-
-## 6. Hábitos
-
-- Frequências: diário, dias da semana (máscara), semanal (meta de dias), a cada N dias.
-- Seções (criar pela edição), arquivar/restaurar (ícone no AppBar).
-- Navegador de 7 dias (faixa de dias) para marcar conclusão.
-- Registro em um toque; opção de pular (skip) neutro para streaks.
-- Meta quantitativa: quantidade + unidade.
-- Data de início, lembrete (hora).
-- Streak atual e melhor (saltos neutros não estendem a sequência).
+## 6. Habitos
+Frequencias: diario, dias da semana (mascara), semanal (meta de dias), a cada N dias. Secoes (criar pela edicao), arquivar/restaurar (icone AppBar). Navegador de 7 dias (faixa) para marcar conclusao. Registro em um toque; opcao de pular (skip) neutro para streaks. Meta quantitativa: quantidade + unidade. Data de inicio, lembrete (hora). Streak atual e melhor (saltos neutros nao estendem).
 
 ## 7. Contagens regressivas
-
-- Título, data alvo, repetição anual, mostrar idade, notas.
-- Grupos "Próximas" e "Passadas" ordenados por dias restantes, mais não datadas.
-- Editar/excluir com desfazer.
+Titulo, data alvo, repeticao anual, mostrar idade, notas. Grupos "Proximas" e "Passadas" ordenados por dias restantes, mais nao datadas. Editar/excluir com desfazer.
 
 ## 8. Foco
-
-- Presets de foco: 15, 25, 50 minutos; pausas: 5, 10, 15.
-- Modo Stopwatch sem limite de tempo: conta para cima até você finalizar, sem alarme de fim.
-- Timer baseado em timestamp (startedAt/targetEndUtc): sobrevive a fechamento do app; tick por segundo apenas com a tela visível.
-- Alarme nativo de fim de sessão (AlarmScheduler); não se aplica ao Stopwatch.
-- Histórico e estatísticas: minutos de hoje e da semana.
-- Sessões podem ser associadas a hábitos/tags (conforme domínio).
+Presets de foco: 15, 25, 50 min; pausas: 5, 10, 15. Modo Stopwatch sem limite: conta para cima ate finalizar, sem alarme de fim. Timer baseado em timestamp (startedAt/targetEndUtc): sobrevive fechamento do app; tick por segundo apenas com tela visivel. Alarme nativo de fim de sessao (AlarmScheduler); nao se aplica ao Stopwatch. Historico e estatisticas: minutos de hoje e da semana. Sessoes podem ser associadas a habitos/tags.
 
 ## 9. Notas
-
-- Pastas aninhadas com breadcrumbs; mover entre pastas (anti-ciclo); excluir pasta reparenta filhos.
-- Notas: criar, editar, fixar, duplicar, excluir (com desfazer), lixeira.
-- Editor Markdown: barra de ferramentas, alternância editar/pré-visualização, checklists tocáveis, contagem de palavras/caracteres, autosave a cada 800 ms.
-- Pré-visualização leve (GitHub Flavored), lista lazy, cache por versão.
-- Busca FTS5 com snippets destacados.
-- Anexos em armazenamento content-addressed com limpeza de órfãos.
-- Notas vinculadas a eventos (adicionar nos detalhes do evento).
+Pastas aninhadas com breadcrumbs; mover entre pastas (anti-ciclo); excluir pasta reparenta filhos. Notas: criar, editar, fixar, duplicar, excluir (desfazer), lixeira. Editor Markdown: barra de ferramentas, alternancia editar/preview, checklists tocaveis, contagem palavras/caracteres, autosave 800 ms. Preview leve (GFM), lista lazy, cache por versao. Busca FTS5 com snippets destacados. Anexos em armazenamento content-addressed com limpeza de orfaos. Notas vinculadas a eventos (adicionar nos detalhes do evento).
 
 ## 10. Alarmes
-
-- Agendamento de alarmes vinculados a lembretes/tarefas/foco, com janela rolante (48 h + 60 futuros).
-- Intensidades: leve (exact while idle), médio/forte/constante (setAlarmClock).
-- Tela de toque (`/ring`): sem voltar para dispensar, soneca de 10 minutos e "Concluído"; auto-soneca em 30 s.
-- Repetição constante: a cada 1 minuto, máximo 30.
-- Recuperação após reboot, mudança de hora, fuso e atualização de app (receivers + leitura direta do índice de alarmes).
-- Permissões: alarme exato (conceder nas configurações do sistema), otimização de bateria (deep links).
-- Teste de alarme (toca em 10 s).
-- Alarmes perdidos listados em Ajustes.
-- Orientação para fabricantes (Xiaomi, Samsung, Huawei, Oppo) que bloqueiam alarmes.
-- Plataformas: Android completo; iOS/desktop exibem notificações enquanto o app está aberto; Web exibe banner de indisponibilidade.
+Agendamento vinculado a lembretes/tarefas/foco, janela rolante (48 h + 60 futuros). Intensidades: leve (exact while idle), medio/forte/constante (setAlarmClock). Tela de toque (/ring): sem voltar para dispensar, soneca 10 min e Concluido; auto-soneca 30 s. Repeticao constante: a cada 1 min, max 30. Recuperacao apos reboot, mudanca de hora, fuso, atualizacao de app (receivers + leitura direta do indice de alarmes). Permissoes: alarme exato (conceder nas config do sistema), otimizacao de bateria (deep links). Teste de alarme (toca em 10 s). Alarmes perdidos listados em Ajustes. Orientacao para fabricantes (Xiaomi, Samsung, Huawei, Oppo) que bloqueiam alarmes. Plataformas: Android completo; iOS/desktop exibem notificacoes enquanto app aberto; Web exibe banner de indisponibilidade.
 
 ## 11. Busca global
+Um campo de busca em tarefas, eventos, notas, habitos, contagens e tags. Filtros por tipo (chips): Tudo, Tarefas, Eventos, Notas, Habitos, Contagens, Tags. Resultados agrupados com contagem; linhas so exibicao (navegacao profunda em versao futura).
 
-- Um campo de busca em tarefas, eventos, notas, hábitos, contagens e tags.
-- Filtros por tipo (chips): Tudo, Tarefas, Eventos, Notas, Hábitos, Contagens, Tags.
-- Resultados agrupados com contagem; linhas são apenas exibição (navegação profunda em versão futura).
+## 12. Sincronizacao
+Google (Calendario e Tarefas): login (consent-first), funciona sem conta; escopos incrementais (Calendar e depois Tasks). Sync bidirecional com outbox, backoff com jitter, tratamento 410/401/403/429 com Retry-After. Mapeamento preserva campos locais (alarmPreset, colorId, dueTime, prioridade, rrule). Chip de status: Sincronizado/Sincronizando/Offline/Erro. Gatilhos: tocar no titulo de Calendario, Tarefas ou Matriz sincroniza agora e reinicia contagem; intervalo automatico configuravel (Desligado, 15 min, 30 min, 1 h, 2 h). Lista de alteracoes que falharam com Repetir/Descartar. Dados do Google vao direto do app para Google; nunca tocam servidor. Mudancas de conta/calendario/lista otimistas. Mesma conta push usa mover; entre contas cria no destino e apaga origem quando ambas conectadas.
 
-## 12. Sincronização
-
-Google (Calendário e Tarefas):
-- Login com Google (consent-first), funciona sem conta; escopos incrementais (Calendar e depois Tasks).
-- Sincronização de mão única/dupla com outbox, backoff com jitter, tratamento de 410/401/403/429 com Retry-After.
-- Mapeamento preserva campos locais (alarmPreset, colorId, dueTime, prioridade, rrule).
-- Chip de status: Sincronizado / Sincronizando / Offline / Erro.
-- Gatilhos: tocar no título de Calendário, Tarefas ou Matriz sincroniza agora e reinicia a contagem; intervalo automático configurável (Desligado, 15 min, 30 min, 1 h, 2 h).
-- Lista de alterações que falharam com "Repetir"/"Descartar".
-- Dados do Google vão direto do app para o Google; nunca tocam o servidor.
-- Mudanças de conta/calendário/lista são otimistas. Na mesma conta, o push usa mover; entre contas, o app cria no destino e apaga a origem quando as duas contas estão conectadas.
-
-Conta de e-mail (backend, opcional):
-- Criar conta ou entrar (e-mail + senha de 8+ caracteres).
-- Sincroniza apenas hábitos e sessões de foco entre dispositivos.
-- Calendário, tarefas e notas permanecem no dispositivo.
-- "Sincronizar agora", sair, "Excluir dados remotos" (remove hábitos/foco do servidor; dados locais permanecem).
+Conta de e-mail (backend, opcional): criar conta ou entrar (e-mail + senha 8+). Sincroniza apenas habitos e sessoes de foco entre dispositivos. Calendario, tarefas, notas permanecem no dispositivo. Sincronizar agora, sair, Excluir dados remotos (remove habitos/foco do servidor; dados locais permanecem).
 
 ## 13. Ajustes
+Grupos: Aparência (brilho claro/escuro/AMOLED, cor primaria 10 presets + hex, cor de fundo 6 presets + hex, idioma sistema/ingles/portugues; opcao ativa com marca de selecao); Comportamento e acessibilidade (modo economia auto/sempre ligado/sempre desligado, reduzir animacoes, haptics); Conta e sincronizacao (conta Google/backend, intervalo Google 0/15/30/60/120 min, intervalo habitos/foco); Seguranca (bloqueio biometrico); Dados e widgets (backup e home-screen widgets); Navegacao (reordenar secoes).
 
-Ajustes é organizado em grupos:
-- Aparência: brilho (claro/escuro/AMOLED), cor primária (10 presets + hex), cor de fundo (6 presets + hex) e idioma (sistema, inglês, português). A opção ativa mostra marca de seleção.
-- Comportamento e acessibilidade: modo economia de energia (auto, sempre ligado, sempre desligado), reduzir animações e haptics.
-- Conta e sincronização: conta Google/backend, intervalo do Google (0/15/30/60/120 min) e intervalo de hábitos/foco.
-- Segurança: bloqueio biométrico.
-- Dados e widgets: backup e home-screen widgets.
-- Navegação: reordenar seções.
+Backup: Exportar gera ephemeron-backup-<timestamp>.json com 21 tabelas, validado e transacional. Anexos (bytes) nao incluidos. Restaurar: selecionar arquivo da lista e confirmar. Indisponivel na Web ("File backups are not available on web yet.").
 
-Backup:
-- Exportar: gera `ephemeron-backup-<timestamp>.json` com 21 tabelas, validado e transacional. Anexos (bytes) não incluídos.
-- Restaurar: selecionar arquivo da lista e confirmar.
-- Indisponível na Web ("File backups are not available on web yet.").
+## 14. Plataformas e limitacoes conhecidas
+Web: alarmes indisponiveis; backups de arquivo indisponiveis; Drift via WASM/IndexedDB (dados persistem). Desktop (Linux/macOS/Windows): notificacoes apenas enquanto app aberto; configurar caminhos de som por SO. Android: funcionalidade completa incluindo alarmes e recuperacao apos reboot. Sem SDK/dispositivo: matriz de alarmes em dispositivos fisicos, benchmark de bateria 24 h, auditoria de tamanho nao verificados (docs/TODO.md).
 
-## 14. Plataformas e limitações conhecidas
+## 15. Privacidade e seguranca (resumo)
+Eventos, tarefas, notas, contagens e etiquetas nunca saem do dispositivo, exceto na sincronizacao com Google (direto do app para servidores do Google). Servidor armazena apenas e-mail, hash da senha, habitos, registros de habitos e sessoes de foco (com conta de e-mail). Tokens em armazenamento seguro (keystore); nunca em SharedPreferences, logs ou backups. Sem analytics, anuncios ou coleta de localizacao. Sem rastreamento. Exportar dados via Ajustes > Backup; excluir dados remotos via Conta > Excluir dados remotos. Detalhes: docs/PRIVACY.md, docs/SECURITY_REVIEW.md.
 
-- Web: alarmes indisponíveis; backups de arquivo indisponíveis; Drift via WASM/IndexedDB (dados persistem).
-- Desktop (Linux/macOS/Windows): notificações apenas enquanto o app está aberto; configurar caminhos de som por SO.
-- Android: funcionalidade completa, incluindo alarmes e recuperação após reboot.
-- Sem SDK/dispositivo: matriz de alarmes em dispositivos físicos, benchmark de bateria 24 h, auditoria de tamanho não verificados (ver `docs/TODO.md`).
-
-## 15. Privacidade e segurança (resumo)
-
-- Eventos, tarefas, notas, contagens e etiquetas nunca saem do dispositivo, exceto na sincronização com o Google (direto do app para os servidores do Google).
-- Servidor armazena apenas e-mail, hash da senha, hábitos, registros de hábitos e sessões de foco (com conta de e-mail).
-- Tokens em armazenamento seguro (keystore); nunca em SharedPreferences, logs ou backups.
-- Sem analytics, anúncios ou coleta de localização.
-- Sem rastreamento. Exportar dados via Ajustes > Backup; excluir dados remotos via Conta > Excluir dados remotos.
-- Detalhes: `docs/PRIVACY.md`, `docs/SECURITY_REVIEW.md`.
-
-## 16. Mapa da documentação
-
-- `docs/ARCHITECTURE.md`: arquitetura e especificação.
-- `docs/PRIVACY.md`: política de privacidade (rascunho).
-- `docs/SECURITY_REVIEW.md`: revisão de segurança.
-- `docs/PROGRESS.md`: status das fases.
-- `docs/TODO.md`: pendências e limites de ambiente.
-- `docs/decisions.md`: decisões de implementação.
-- `app/README.md`: setup e versões.
+## 16. Mapa da documentacao
+- docs/ARCHITECTURE.md: arquitetura e especificacao.
+- docs/PRIVACY.md: politica de privacidade (rascunho).
+- docs/SECURITY_REVIEW.md: revisao de seguranca.
+- docs/PROGRESS.md: status das fases.
+- docs/TODO.md: pendencias e limites de ambiente.
+- docs/decisions.md: decisoes de implementacao.
+- server/README.md: setup do backend.

@@ -1,47 +1,27 @@
-# Privacy Policy (DRAFT - needs owner and lawyer sign-off before release)
+# Privacy Policy (DRAFT - needs owner and lawyer sign-off)
 
-> This is an engineering draft describing how the app handles data today.
-> It is not legal advice. Do not publish without review.
+Engineering draft. Not legal advice. Do not publish without review.
 
 ## English
 
-**What stays only on your device.** Calendar events, tasks, notes,
-countdowns and tags never leave your device except when you connect
-Google sync, in which case they go directly from the app to Google's
-servers. Our server never receives them.
+What stays on device only: calendar events, tasks, notes, countdowns, tags. They leave only via Google sync, directly app to Google. Server never receives them.
 
-**What our server stores (only with an email account).** If you create an
-email account for habit/focus sync, the server stores your email and
-password hash plus your habits, habit logs and focus sessions. Nothing
-else. Data is used only to sync your devices.
+What server stores (email account only): email + password hash + habits, habit logs, focus sessions. Nothing else. Used only for sync.
 
-**Tokens.** Sign-in tokens are kept in your device's secure storage
-(keystore) and never in backups of app data made by the OS without
-exclusion rules (see SECURITY_REVIEW.md).
+Tokens: sign-in tokens in device secure storage (keystore); never in OS backups without exclusion rules (see SECURITY_REVIEW.md).
 
-**No tracking.** The app contains no analytics, advertising or
-crash-reporting SDKs. No location, Bluetooth or sensor data is collected.
+No tracking: no analytics, advertising, or crash-reporting SDKs. No location, Bluetooth, or sensor data.
 
-**Your rights (LGPD).** You can export your data (Settings > Backup) and
-request deletion: Settings > Account > Delete remote data removes your
-habits and focus data from the server. Contact details of the data
-controller (DPO) must be added here before release.
+Rights (LGPD): export data (Settings > Backup); request deletion (Settings > Account > Delete remote data removes habits/focus from server). Add DPO contact before release.
 
-**Retention.** Local data stays until you delete it. Server habit/focus
-data is deleted on account deletion.
+Retention: local data until deleted. Server habit/focus data deleted on account deletion.
 
-## Português (resumo)
+## Portugues (resumo)
 
-**O que fica só no seu dispositivo.** Eventos, tarefas, notas, contagens
-e etiquetas nunca saem do dispositivo, exceto na sincronização com o
-Google, que vai direto do app para os servidores do Google. Nosso
-servidor nunca os recebe.
+O que fica so no dispositivo: eventos, tarefas, notas, contagens, etiquetas. Saem apenas na sincronizacao com Google, direto do app para servidores do Google. Nosso servidor nunca os recebe.
 
-**O que nosso servidor guarda (só com conta de e-mail).** E-mail, hash da
-senha, hábitos, registros de hábitos e sessões de foco. Nada mais.
+O que o servidor guarda (so com conta de e-mail): e-mail, hash da senha, habitos, registros de habitos, sessoes de foco. Nada mais.
 
-**Sem rastreamento.** Sem analytics, anúncios ou coleta de localização.
+Sem rastreamento: sem analytics, anuncios ou coleta de localizacao.
 
-**Seus direitos (LGPD).** Exporte seus dados (Ajustes > Backup) e peça
-exclusão (Conta > Excluir dados remotos). Adicionar aqui o contato do
-controlador/DPO antes do lançamento.
+Direitos (LGPD): exporte dados (Ajustes > Backup) e peca exclusao (Conta > Excluir dados remotos). Adicionar contato do controlador/DPO antes do lancamento.
