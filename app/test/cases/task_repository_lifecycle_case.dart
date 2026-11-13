@@ -1,7 +1,14 @@
 import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/countdown_repository.dart';
+import 'package:ephemeron/data/repositories/event_repository.dart';
+import 'package:ephemeron/data/repositories/focus_repository.dart';
+import 'package:ephemeron/data/repositories/habit_repository.dart';
+import 'package:ephemeron/data/repositories/note_repository.dart';
+import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/data/repositories/pending_operations_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
+import 'package:ephemeron/features/sync/application/pending_operations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
@@ -201,6 +208,39 @@ void main() {
       db.tasks,
     )..where((x) => x.id.equals(t))).getSingle();
     expect(row.listId, l1);
+  });
+
+  test('disposed pending operations ignore an in-flight schedule', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = TaskRepository(db);
+    final first = await repo.createTask(title: 'First');
+    final second = await repo.createTask(title: 'Second');
+    final pendingRepo = PendingOperationsRepository(db);
+    await pendingRepo.enqueue(
+      entity: 'task',
+      entityId: first,
+      op: 'delete',
+      delay: const Duration(milliseconds: 50),
+    );
+    final operations = PendingOperations(
+      db,
+      tasks: repo,
+      notes: NoteRepository(db),
+      habits: HabitRepository(db),
+      countdowns: CountdownRepository(db),
+      focus: FocusRepository(db),
+      events: EventRepository(db, OccurrenceRepository(db)),
+    );
+
+    final scheduled = operations.scheduleTaskDelete(second);
+    operations.dispose();
+    await scheduled;
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    final rows = await db.select(db.tasks).get();
+    expect(rows.every((row) => row.deletedAt == null), isTrue);
+    expect(await db.select(db.pendingOperations).get(), hasLength(2));
   });
 
   test('task reminders and alarm preset persist', () async {

@@ -64,10 +64,12 @@ class PendingOperations {
 
   Timer? _timer;
   bool _applying = false;
+  bool _disposed = false;
 
   /// Applies operations left over from a previous session immediately, then
   /// arms the timer for the earliest queued operation.
   Future<void> start() async {
+    if (_disposed) return;
     await _applyAllPending();
     await _scheduleNext();
   }
@@ -148,10 +150,11 @@ class PendingOperations {
   }
 
   Future<void> _applyAllPending() async {
-    if (_applying) return;
+    if (_disposed || _applying) return;
     _applying = true;
     try {
       for (final row in await _repo.all()) {
+        if (_disposed) return;
         await _applyOne(row);
       }
     } finally {
@@ -160,10 +163,11 @@ class PendingOperations {
   }
 
   Future<void> _applyDue() async {
-    if (_applying) return;
+    if (_disposed || _applying) return;
     _applying = true;
     try {
       for (final row in await _repo.dueNow()) {
+        if (_disposed) return;
         await _applyOne(row);
       }
     } finally {
@@ -173,6 +177,7 @@ class PendingOperations {
   }
 
   Future<void> _applyOne(PendingOperation row) async {
+    if (_disposed) return;
     try {
       await _apply(row);
       await _repo.remove(row.id);
@@ -182,8 +187,12 @@ class PendingOperations {
   }
 
   Future<void> _scheduleNext() async {
+    if (_disposed) return;
     _timer?.cancel();
     final next = await _repo.next();
+    // dispose() may run while the query is in flight. Never arm a timer after
+    // the owning provider is gone: its database can close before it fires.
+    if (_disposed) return;
     if (next == null) return;
     final waitMs = next.scheduledAt - nowMs();
     _timer = Timer(
@@ -258,6 +267,7 @@ class PendingOperations {
   }
 
   void dispose() {
+    _disposed = true;
     _timer?.cancel();
     _timer = null;
   }

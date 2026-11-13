@@ -79,7 +79,8 @@ Future<void> _pumpSheet(
 Future<void> _tearDown(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(Container());
   await tester.pump();
-  await tester.pump(const Duration(seconds: 1));
+  // Flush the 6 s undo snackbar timer before the in-memory database closes.
+  await tester.pump(const Duration(seconds: 7));
   await db.close();
 }
 
