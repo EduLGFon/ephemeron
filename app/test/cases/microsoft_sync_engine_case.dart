@@ -1200,6 +1200,229 @@ void main() {
       );
     },
   );
+
+  test(
+    'reconciled calendar tombstone revives on remote reappearance',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final fake = FakeMs()
+        ..calendars = [const MsCalendar(id: 'c1', name: 'Cal', canEdit: true)];
+      final engine = MicrosoftSyncEngine(db, fake, 'acct@example.com');
+      await engine.syncNow();
+
+      fake.calendars = [];
+      await engine.syncNow();
+      var calendar = (await db.select(db.calendars).get()).single;
+      expect(calendar.deletedAt, isNotNull);
+
+      fake.calendars = [
+        const MsCalendar(id: 'c1', name: 'Cal v2', canEdit: true),
+      ];
+      await engine.syncNow();
+      calendar = (await db.select(db.calendars).get()).single;
+      expect(calendar.deletedAt, isNull);
+      expect(calendar.name, 'Cal v2');
+    },
+  );
+
+  test('reconciled event tombstone revives on remote reappearance', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final fake = FakeMs()
+      ..calendars = [const MsCalendar(id: 'c1', name: 'Cal', canEdit: true)]
+      ..eventsByCalendar = {
+        'c1': [
+          MsEvent(
+            id: 'e1',
+            subject: 'Meet',
+            start: _dt('2026-01-05T10:00:00'),
+            end: _dt('2026-01-05T11:00:00'),
+          ),
+        ],
+      };
+    final engine = MicrosoftSyncEngine(
+      db,
+      fake,
+      'acct@example.com',
+      windowStart: DateTime.utc(2026, 1, 1),
+      windowEnd: DateTime.utc(2026, 2, 1),
+    );
+    await engine.syncNow();
+
+    fake.eventsByCalendar = {'c1': <MsEvent>[]};
+    await engine.syncNow();
+    var event = (await db.select(db.events).get()).single;
+    expect(event.deletedAt, isNotNull);
+
+    fake.eventsByCalendar = {
+      'c1': [
+        MsEvent(
+          id: 'e1',
+          subject: 'Meet v2',
+          start: _dt('2026-01-05T10:00:00'),
+          end: _dt('2026-01-05T11:00:00'),
+        ),
+      ],
+    };
+    await engine.syncNow();
+    event = (await db.select(db.events).get()).single;
+    expect(event.deletedAt, isNull);
+    expect(event.dirty, false);
+    expect(event.title, 'Meet v2');
+  });
+
+  test(
+    'reconciled task and list tombstones revive on remote reappearance',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final fake = FakeMs()
+        ..lists = [const MsTodoList(id: 'l1', displayName: 'Tasks')]
+        ..tasksByList = {
+          'l1': [MsTodoTask(id: 't1', title: 'Buy milk')],
+        };
+      final engine = MicrosoftSyncEngine(db, fake, 'acct@example.com');
+      await engine.syncNow();
+
+      fake.lists = [];
+      fake.tasksByList = {};
+      await engine.syncNow();
+      var list = (await db.select(db.taskLists).get()).single;
+      var task = (await db.select(db.tasks).get()).single;
+      expect(list.deletedAt, isNotNull);
+      expect(task.deletedAt, isNotNull);
+
+      fake.lists = [const MsTodoList(id: 'l1', displayName: 'Tasks v2')];
+      fake.tasksByList = {
+        'l1': [MsTodoTask(id: 't1', title: 'Buy milk v2')],
+      };
+      await engine.syncNow();
+      list = (await db.select(db.taskLists).get()).single;
+      task = (await db.select(db.tasks).get()).single;
+      expect(list.deletedAt, isNull);
+      expect(list.name, 'Tasks v2');
+      expect(task.deletedAt, isNull);
+      expect(task.title, 'Buy milk v2');
+    },
+  );
+
+  test(
+    'event deletion reconciliation skips unsafe and local-only rows',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final fake = FakeMs()
+        ..calendars = [const MsCalendar(id: 'c1', name: 'Cal', canEdit: true)]
+        ..eventsByCalendar = {'c1': <MsEvent>[]};
+      final engine = MicrosoftSyncEngine(
+        db,
+        fake,
+        'acct@example.com',
+        windowStart: DateTime.utc(2026, 1, 1),
+        windowEnd: DateTime.utc(2026, 2, 1),
+      );
+      await engine.syncNow();
+      final calendarId = (await db.select(db.calendars).get()).single.id;
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      final startMs = DateTime.utc(2026, 1, 5, 10).millisecondsSinceEpoch;
+      final endMs = DateTime.utc(2026, 1, 5, 11).millisecondsSinceEpoch;
+
+      Future<void> insertEvent(
+        String id, {
+        String? remoteId,
+        String? rrule,
+        String? recurringMasterId,
+        int? startUtc,
+        int? endUtc,
+      }) => db
+          .into(db.events)
+          .insert(
+            EventsCompanion.insert(
+              id: id,
+              calendarId: calendarId,
+              title: Value(id),
+              startUtc: Value(startUtc),
+              endUtc: Value(endUtc),
+              rrule: Value(rrule),
+              recurringMasterId: Value(recurringMasterId),
+              microsoftAccount: const Value('acct@example.com'),
+              remoteId: Value(remoteId),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+
+      await insertEvent(
+        'e-rec',
+        remoteId: 'e-rec',
+        rrule: 'FREQ=DAILY',
+        startUtc: startMs,
+        endUtc: endMs,
+      );
+      await insertEvent(
+        'e-rec-inst',
+        remoteId: 'e-rec-inst',
+        recurringMasterId: 'master',
+        startUtc: startMs,
+        endUtc: endMs,
+      );
+      await insertEvent('e-null', remoteId: 'e-null');
+      await insertEvent(
+        'e-inverted',
+        remoteId: 'e-inverted',
+        startUtc: endMs,
+        endUtc: startMs,
+      );
+      await insertEvent('local-evt', startUtc: startMs, endUtc: endMs);
+      await insertEvent(
+        'e-clean',
+        remoteId: 'e-clean',
+        startUtc: startMs,
+        endUtc: endMs,
+      );
+
+      await engine.syncNow();
+
+      final rows = await db.select(db.events).get();
+      for (final id in [
+        'e-rec',
+        'e-rec-inst',
+        'e-null',
+        'e-inverted',
+        'local-evt',
+      ]) {
+        expect(rows.firstWhere((e) => e.id == id).deletedAt, isNull);
+      }
+      expect(rows.firstWhere((e) => e.id == 'e-clean').deletedAt, isNotNull);
+    },
+  );
+
+  test('listCalendars failure does not soft-delete calendars', () async {
+    for (final status in [401, 500]) {
+      final db = _db();
+      addTearDown(db.close);
+      final fake = _FlakyListCalendarsFake()
+        ..calendars = [const MsCalendar(id: 'c1', name: 'Cal', canEdit: true)];
+      final engine = MicrosoftSyncEngine(db, fake, 'acct@example.com');
+      await engine.syncNow();
+
+      fake.failStatus = status;
+      fake.calendars = [];
+      if (status == 401) {
+        final result = await engine.syncNow();
+        expect(result.authFailure, true);
+      } else {
+        await expectLater(
+          engine.syncNow(),
+          throwsA(isA<MicrosoftGraphException>()),
+        );
+      }
+
+      final calendar = (await db.select(db.calendars).get()).single;
+      expect(calendar.deletedAt, isNull);
+    }
+  });
 }
 
 class _FailingTasksFake extends FakeMs {
@@ -1230,6 +1453,19 @@ class _FailingCalendarFake extends FakeMs {
       throw MicrosoftGraphException(failStatus, 'boom');
     }
     return super.calendarView(startUtc, endUtc, calendarId: calendarId);
+  }
+}
+
+class _FlakyListCalendarsFake extends FakeMs {
+  int? failStatus;
+
+  @override
+  Future<List<MsCalendar>> listCalendars() async {
+    final status = failStatus;
+    if (status != null) {
+      throw MicrosoftGraphException(status, 'boom');
+    }
+    return super.listCalendars();
   }
 }
 

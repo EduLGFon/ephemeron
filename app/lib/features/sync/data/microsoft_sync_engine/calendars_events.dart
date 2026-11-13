@@ -96,9 +96,10 @@ extension on MicrosoftSyncEngine {
           microsoftAccount: ownerEmail != null
               ? Value(ownerEmail)
               : (ownRow != null ? Value(account) : const Value.absent()),
-          deletedAt: sharedRow != null
-              ? const Value(null)
-              : const Value.absent(),
+          // A remote row reappeared in a complete listing, so revive a
+          // reconciliation tombstone. Only rows matched by remote id reach this
+          // path; local-only rows (null remoteId) are never updated here.
+          deletedAt: const Value(null),
         ),
       );
       final canPull = isShared
@@ -312,6 +313,9 @@ extension on MicrosoftSyncEngine {
               microsoftAccount: Value(eventOwner),
               remoteId: Value(remoteId),
               dirty: const Value(false),
+              // A remote event reappeared in a complete calendarView, so revive
+              // a reconciliation tombstone.
+              deletedAt: const Value(null),
               updatedAt: Value(nowMs),
               // Preserve local-only fields.
               alarmPreset: Value(existing.alarmPreset),
