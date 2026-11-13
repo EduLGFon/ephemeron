@@ -1,7 +1,10 @@
 part of '../ring_screen.dart';
 
 mixin _RingScreenLifecycle on _RingScreenStateBase {
-  Future<void> _snooze();
+  // Only the auto-snooze call lives in this mixin; the optional values are
+  // supplied by callers in view.dart, which the analyzer cannot see here.
+  // ignore: unused_element_parameter
+  Future<void> _snooze({int minutes, int? code});
 
   @override
   void initState() {
