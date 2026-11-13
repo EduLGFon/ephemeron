@@ -210,19 +210,17 @@ void main() {
     await _tearDown(tester, db);
   });
 
-  testWidgets('tapping an empty all-day column opens an all-day create', (
+  testWidgets('zero all-day items still offer an all-day create target', (
     WidgetTester tester,
   ) async {
     final db = _db();
     await _seed(db);
     final anchor = DateTime.now();
     final day = DateTime(anchor.year, anchor.month, anchor.day);
-    final otherDay = day.add(const Duration(days: 1));
-    // The strip appears when any day has an all-day item; tomorrow's chip
-    // keeps today's empty column available as a quick-create target.
-    await _seedAllDay(db, day: otherDay);
-    await _pump(tester, db, anchor, 2);
+    await _pump(tester, db, anchor, 1);
 
+    expect(find.byType(TimelineAllDayStrip), findsOneWidget);
+    expect(tester.getSize(find.byType(TimelineAllDayStrip)).height, 32);
     await tester.tap(find.byKey(Key('timeline-all-day-${dateKey(day)}')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));

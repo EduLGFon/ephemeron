@@ -93,35 +93,34 @@ extension _TimelineViewBuild on _TimelineViewState {
                 )
               else if (loading)
                 const LinearProgressIndicator(minHeight: 2),
-              if (allDay.isNotEmpty || allDayHabits.isNotEmpty)
-                TimelineAllDayStrip(
-                  occs: allDay,
-                  habits: allDayHabits,
-                  anchor: widget.anchor,
-                  dayCount: widget.dayCount,
-                  gutterWidth: timelineGutterWidth,
-                  swipeOffset: swipeOffset,
-                  onEmptyTap: (day) => showEventEditor(
-                    context,
-                    initialDay: day,
-                    initialAllDay: true,
-                  ),
-                  onTap: (o) {
-                    if (o.sourceType == 'task') {
-                      showTaskActionSheet(
-                        context,
-                        taskId: o.eventId,
-                        occurrenceDate: o.dayKey,
-                      );
-                    } else {
-                      showEventDetails(
-                        context,
-                        o.eventId,
-                        occurrenceStartMs: o.startUtc,
-                      );
-                    }
-                  },
+              TimelineAllDayStrip(
+                occs: allDay,
+                habits: allDayHabits,
+                anchor: widget.anchor,
+                dayCount: widget.dayCount,
+                gutterWidth: timelineGutterWidth,
+                swipeOffset: swipeOffset,
+                onEmptyTap: (day) => showEventEditor(
+                  context,
+                  initialDay: day,
+                  initialAllDay: true,
                 ),
+                onTap: (o) {
+                  if (o.sourceType == 'task') {
+                    showTaskActionSheet(
+                      context,
+                      taskId: o.eventId,
+                      occurrenceDate: o.dayKey,
+                    );
+                  } else {
+                    showEventDetails(
+                      context,
+                      o.eventId,
+                      occurrenceStartMs: o.startUtc,
+                    );
+                  }
+                },
+              ),
               Expanded(
                 child: _buildGrid(
                   context,
@@ -129,6 +128,11 @@ extension _TimelineViewBuild on _TimelineViewState {
                   timedHabits: timedHabits,
                   stripAnchor: stripAnchor,
                   stripCount: stripCount,
+                  // Keep the hour scale identical to the pre-strip layout
+                  // while the always-visible strip is empty.
+                  autoScaleExtraHeight: allDay.isEmpty && allDayHabits.isEmpty
+                      ? timelineAllDayStripMinTapHeight
+                      : 0,
                 ),
               ),
             ],

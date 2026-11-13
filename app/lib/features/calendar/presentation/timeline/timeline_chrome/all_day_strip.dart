@@ -26,6 +26,7 @@ class TimelineAllDayStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final empty = occs.isEmpty && habits.isEmpty;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -60,12 +61,21 @@ class TimelineAllDayStrip extends StatelessWidget {
                         -timelineBufferDays * dayWidth + swipeOffset,
                         0,
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (var i = 0; i < stripCount; i++)
-                            _dayCell(context, stripAnchor, i, dayWidth),
-                        ],
+                      child: ConstrainedBox(
+                        // Empty rows need a real tap target; populated ones
+                        // keep their natural compact height.
+                        constraints: empty
+                            ? const BoxConstraints(
+                                minHeight: timelineAllDayStripMinTapHeight,
+                              )
+                            : const BoxConstraints(),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var i = 0; i < stripCount; i++)
+                              _dayCell(context, stripAnchor, i, dayWidth),
+                          ],
+                        ),
                       ),
                     ),
                   ),
