@@ -37,18 +37,24 @@ class SyncIssueNotifier extends Notifier<SyncErrorKind?> {
 /// permission. Drives the global banner even when the account list has not
 /// loaded yet. The in-memory reconsent list remains the source of account
 /// names; this flag never stores an email.
+///
+/// Null means "not loaded yet". The banner treats null as unknown instead of
+/// false so a persisted flag cannot flash off on the first frame. When the
+/// settings repository is already resolved, [build] seeds synchronously.
 final googleReconnectNeededProvider =
-    NotifierProvider<GoogleReconnectNeededNotifier, bool>(
+    NotifierProvider<GoogleReconnectNeededNotifier, bool?>(
       GoogleReconnectNeededNotifier.new,
     );
 
-class GoogleReconnectNeededNotifier extends Notifier<bool> {
+class GoogleReconnectNeededNotifier extends Notifier<bool?> {
   bool _hasSetValue = false;
 
   @override
-  bool build() {
+  bool? build() {
+    final repo = ref.read(settingsRepositoryProvider).value;
+    if (repo != null) return repo.googleReconnectNeeded;
     unawaited(_load());
-    return false;
+    return null;
   }
 
   Future<void> _load() async {
@@ -57,7 +63,8 @@ class GoogleReconnectNeededNotifier extends Notifier<bool> {
       if (_hasSetValue) return;
       state = repo.googleReconnectNeeded;
     } catch (_) {
-      // Prefs unavailable: keep the conservative in-memory value.
+      // Prefs unavailable: settle on the conservative in-memory value.
+      if (!_hasSetValue) state = false;
     }
   }
 
@@ -155,7 +162,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               account: acct,
               signedInAccounts: googleAccounts,
             );
-            debugPrint('[sync] signed in ($acct), calling engine');
+            debugPrint('[sync] signed in, calling engine');
             await engine.syncNow();
             if (engine.skipped) continue;
             googleAttempted = true;
@@ -176,7 +183,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               );
             }
           } catch (e) {
-            debugPrint('[sync] google account failed: $e');
+            debugPrint('[sync] google account failed type=${e.runtimeType}');
             hasRealError = true;
             anyAttempted = true;
             googleAttempted = true;
@@ -231,7 +238,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             }
             anyAttempted = true;
           } catch (e) {
-            debugPrint('[sync] microsoft account failed: $e');
+            debugPrint('[sync] microsoft account failed type=${e.runtimeType}');
             hasRealError = true;
             anyAttempted = true;
           }
@@ -273,11 +280,13 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           // complete new window. Invalidating re-subscribes the stream and can
           // briefly surface AsyncLoading, making events disappear/reappear.
         } catch (e) {
-          debugPrint('[sync] occurrence cache rebuild failed: $e');
+          debugPrint(
+            '[sync] occurrence cache rebuild failed type=${e.runtimeType}',
+          );
         }
       }
     } catch (e) {
-      debugPrint('[sync] notifier unexpected error: $e');
+      debugPrint('[sync] notifier unexpected error type=${e.runtimeType}');
       state = SyncStatus.error;
     } finally {
       if (state == SyncStatus.syncing) {

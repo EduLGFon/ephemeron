@@ -65,6 +65,17 @@ List<Widget> _accountsSection(_SettingsScreenState state) {
       ).push(MaterialPageRoute<void>(builder: (_) => const AuthScreen())),
     ),
     const _LastSyncTile(),
+    ListTile(
+      key: const Key('settings-sync-issues'),
+      title: const Text('Sync issues'),
+      subtitle: const Text(
+        'Review changes and calendar errors that need help.',
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.of(
+        state.context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const SyncIssuesScreen())),
+    ),
     SettingsPickerTile<int>(
       title: 'Google auto-sync interval',
       help:

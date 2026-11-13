@@ -16,7 +16,11 @@ class SyncReconnectBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(googleReconsentAccountsProvider);
     final needsReconnect = ref.watch(googleReconnectNeededProvider);
-    if (accounts.isEmpty && !needsReconnect) return const SizedBox.shrink();
+    // Null means the persisted flag has not loaded yet: do not render a false
+    // state, which would flash the banner off on cold start.
+    if (accounts.isEmpty && needsReconnect != true) {
+      return const SizedBox.shrink();
+    }
     final message = accounts.isEmpty
         ? 'Google sync needs permission. Reconnect your Google account.'
         : 'Google sync needs permission again for: ${accounts.join(', ')}. '

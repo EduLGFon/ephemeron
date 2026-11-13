@@ -73,9 +73,9 @@ extension on SyncEngine {
         created++;
       } else {
         // Do not steal a shared calendar already stamped to another signed-in
-        // account. Only null or unknown owners are (re)stamped.
+        // account. An unknown account list fails closed and never steals.
         final owner = existing.googleAccount;
-        if (account != null && (owner == null || !_ownerIsSignedIn(owner))) {
+        if (_mayTakeOwner(owner)) {
           await (_db.update(
             _db.calendars,
           )..where((t) => t.id.equals(existing!.id))).write(
@@ -163,7 +163,20 @@ extension on SyncEngine {
         }
       }
     });
+    await _cleanupReaderClaims();
     return (remote.length, created);
+  }
+
+  /// Whether the active account may stamp [owner] as its own. Null owners are
+  /// claimable; another account's stamp is only replaced when it is known to
+  /// be signed out. A null account list cannot prove that, so it fails closed.
+  bool _mayTakeOwner(String? owner) {
+    final active = account;
+    if (active == null) return false;
+    if (owner == null || owner == active) return true;
+    final signedIn = signedInAccounts;
+    if (signedIn == null) return false;
+    return !signedIn.contains(owner);
   }
 
   Future<(int, int)> _syncTaskLists(GoogleApiClient client) async {
@@ -223,7 +236,7 @@ extension on SyncEngine {
         created++;
       } else {
         final owner = existing.googleAccount;
-        if (account != null && (owner == null || !_ownerIsSignedIn(owner))) {
+        if (_mayTakeOwner(owner)) {
           await (_db.update(
             _db.taskLists,
           )..where((t) => t.id.equals(existing.id))).write(

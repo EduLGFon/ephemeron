@@ -48,6 +48,16 @@ final failedChangesProvider = StreamProvider((ref) {
   return ref.watch(syncEngineProvider).watchFailed();
 });
 
+/// Failed or retrying outbox rows for the user-facing Sync issues screen.
+final syncOutboxIssuesProvider = StreamProvider((ref) {
+  return ref.watch(syncEngineProvider).watchOutboxIssues();
+});
+
+/// Per-calendar/task-list errors recorded in syncState.
+final syncStateIssuesProvider = StreamProvider((ref) {
+  return ref.watch(syncEngineProvider).watchSyncStateIssues();
+});
+
 /// Combined status across Google/Microsoft (`syncStatusProvider`) and backend
 /// (`backendSyncStatusProvider`) syncs. Syncing/error take precedence; a synced
 /// side wins over an offline side so a signed-out backend does not make the
