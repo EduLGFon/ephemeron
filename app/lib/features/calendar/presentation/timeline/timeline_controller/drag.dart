@@ -107,11 +107,40 @@ mixin TimelineDrag on TimelineInteraction {
   }
 
   void beginDrag(String eventId) {
+    final generation = ++_dragBeginGeneration;
+    unawaited(_beginDragIfWritable(eventId, generation));
+  }
+
+  int _dragBeginGeneration = 0;
+
+  Future<void> _beginDragIfWritable(String eventId, int generation) async {
+    if (await _isReadOnlySource(eventId)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Calendar is read-only. Event not moved.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (!mounted || generation != _dragBeginGeneration) return;
     setState(() {
       dragId = eventId;
       dragDy = 0;
       dragDayDelta = 0;
     });
+  }
+
+  Future<bool> _isReadOnlySource(String eventId) async {
+    try {
+      final repo = ref.read(eventRepositoryProvider);
+      final event = await repo.getEvent(eventId);
+      if (event == null) return false;
+      return await repo.isEventReadOnly(event);
+    } catch (_) {
+      return false;
+    }
   }
 
   void updateDrag(String eventId, LongPressMoveUpdateDetails d) {
@@ -129,6 +158,7 @@ mixin TimelineDrag on TimelineInteraction {
   }
 
   void endDrag(String eventId) {
+    _dragBeginGeneration++;
     if (dragId == eventId) {
       unawaited(_dragEnd());
     }
@@ -169,6 +199,17 @@ mixin TimelineDrag on TimelineInteraction {
       _clearPending();
       return;
     }
+    if (await repo.isEventReadOnly(master)) {
+      _clearPending();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Calendar is read-only. Event not moved.'),
+          ),
+        );
+      }
+      return;
+    }
     if (master.isAllDay || master.startUtc == null) {
       _clearPending();
       return;
@@ -184,27 +225,41 @@ mixin TimelineDrag on TimelineInteraction {
       master.endUtc ?? master.startUtc!,
       isUtc: true,
     ).add(Duration(minutes: snapped)).add(Duration(days: dayDelta));
-    if (master.rrule != null && master.rrule!.isNotEmpty) {
-      final scope = await showScopeSheet(context);
-      if (scope == null || !context.mounted) {
-        _clearPending();
-        return;
+    if (!context.mounted) {
+      _clearPending();
+      return;
+    }
+    try {
+      if (master.rrule != null && master.rrule!.isNotEmpty) {
+        final scope = await showScopeSheet(context);
+        if (scope == null || !context.mounted) {
+          _clearPending();
+          return;
+        }
+        await repo.editOccurrence(
+          id,
+          orig,
+          scope: scope,
+          startUtc: newStart,
+          endUtc: newEnd,
+        );
+      } else {
+        await repo.editOccurrence(
+          id,
+          orig,
+          scope: EditScope.all,
+          startUtc: newStart,
+          endUtc: newEnd,
+        );
       }
-      await repo.editOccurrence(
-        id,
-        orig,
-        scope: scope,
-        startUtc: newStart,
-        endUtc: newEnd,
-      );
-    } else {
-      await repo.editOccurrence(
-        id,
-        orig,
-        scope: EditScope.all,
-        startUtc: newStart,
-        endUtc: newEnd,
-      );
+    } on SourceMoveException catch (e) {
+      _clearPending();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+      return;
     }
     if (context.mounted) {
       try {

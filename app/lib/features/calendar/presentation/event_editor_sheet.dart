@@ -48,6 +48,7 @@ part 'event_editor_sheet/event_editor_save/save.dart';
 Future<void> showEventEditor(
   BuildContext context, {
   Event? event,
+  int? occurrenceStartMs,
   DateTime? initialDay,
   int? initialHour,
   DateTime? initialStart,
@@ -60,6 +61,7 @@ Future<void> showEventEditor(
     builder: (_) => EscapeToClose(
       child: _EventEditor(
         event: event,
+        occurrenceStartMs: occurrenceStartMs,
         initialDay: initialDay,
         initialHour: initialHour,
         initialStart: initialStart,

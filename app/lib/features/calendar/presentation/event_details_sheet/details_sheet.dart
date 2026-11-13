@@ -7,6 +7,7 @@ class _LoadedDetails {
     this.task,
     this.source,
     this.isMicrosoft = false,
+    this.readOnly = false,
     this.descriptionNote,
   });
 
@@ -14,6 +15,7 @@ class _LoadedDetails {
   final Task? task;
   final String? source;
   final bool isMicrosoft;
+  final bool readOnly;
 
   /// Canonical description note when the event link resolves to a live note.
   final Note? descriptionNote;
@@ -39,9 +41,9 @@ class _DetailsState extends ConsumerState<_Details> {
   }
 
   void _reload() {
-    setState(
-      () => _future = _load(ref, widget.eventId, widget.occurrenceStartMs),
-    );
+    setState(() {
+      _future = _load(ref, widget.eventId, widget.occurrenceStartMs);
+    });
   }
 
   Future<_LoadedDetails?> _load(
@@ -50,9 +52,11 @@ class _DetailsState extends ConsumerState<_Details> {
     int? occurrenceStartMs,
   ) async {
     final db = ref.read(appDatabaseProvider);
-    final event = await ref
-        .read(eventRepositoryProvider)
-        .resolveEventForOccurrence(id, occurrenceStartMs: occurrenceStartMs);
+    final repo = ref.read(eventRepositoryProvider);
+    final event = await repo.resolveEventForOccurrence(
+      id,
+      occurrenceStartMs: occurrenceStartMs,
+    );
     if (event != null) {
       final calendar = await (db.select(
         db.calendars,
@@ -62,6 +66,7 @@ class _DetailsState extends ConsumerState<_Details> {
         calendarSource: calendar?.source,
         calendarMicrosoftAccount: calendar?.microsoftAccount,
       );
+      final readOnly = await repo.isEventReadOnly(event);
       final descriptionNoteId = event.notesOverflowNoteId;
       final descriptionNote = descriptionNoteId == null
           ? null
@@ -72,6 +77,7 @@ class _DetailsState extends ConsumerState<_Details> {
             ? descriptionNote
             : null,
         isMicrosoft: isMs,
+        readOnly: readOnly,
         source: sourceLabel(
           name: calendar?.name,
           account: accountForSource(
@@ -128,9 +134,11 @@ class _DetailsState extends ConsumerState<_Details> {
         if (e != null) {
           return _EventDetailsBody(
             event: e,
+            occurrenceStartMs: widget.occurrenceStartMs,
             descriptionNote: data?.descriptionNote,
             source: data?.source,
             isMicrosoft: data?.isMicrosoft == true,
+            readOnly: data?.readOnly == true,
             onReload: _reload,
           );
         } else if (data?.task case final t?) {

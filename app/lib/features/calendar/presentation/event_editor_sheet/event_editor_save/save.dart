@@ -34,6 +34,19 @@ extension on _EventEditorState {
       }
       return;
     }
+    if (widget.event != null) {
+      final readOnly = await ref
+          .read(eventRepositoryProvider)
+          .isEventReadOnly(widget.event!);
+      if (readOnly) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('This calendar is read-only.')),
+          );
+        }
+        return;
+      }
+    }
     final repo = ref.read(eventRepositoryProvider);
     final existing = widget.event;
     // Exception editors carry the master id and the occurrence's original
@@ -113,34 +126,46 @@ extension on _EventEditorState {
         : null;
     if (existing == null || !isSeries) {
       if (existing == null) {
-        final eventId = await repo.createEvent(
-          calendarId: _calendarId!,
-          title: title,
-          startUtc: _allDay ? null : _start.toUtc(),
-          endUtc: _allDay ? null : _end.toUtc(),
-          startDate: startDateKey,
-          endDate: endDateKey,
-          allDay: _allDay,
-          // SECURITY: store null (floating local time) for device-created
-          // events. DateTime.now().timeZoneName yields abbreviations like
-          // "-03" that are not IANA ids and crash tz.getLocation lookups.
-          tzId: _tzId,
-          colorId: _colorId,
-          createMeet: _addMeet,
-          rrule: _rrule,
-          location: _location.text.trim().isEmpty
-              ? null
-              : _location.text.trim(),
-          notes: notesPayload.stored,
-          reminders: encodeReminderOffsets(_reminders),
-          alarmPreset: _alarmPreset,
-        );
-        await _syncDescription(eventId, notesPayload.full);
-        await repo.setAttendees(eventId, _attendees.text.split(','));
+        try {
+          final eventId = await repo.createEvent(
+            calendarId: _calendarId!,
+            title: title,
+            startUtc: _allDay ? null : _start.toUtc(),
+            endUtc: _allDay ? null : _end.toUtc(),
+            startDate: startDateKey,
+            endDate: endDateKey,
+            allDay: _allDay,
+            // SECURITY: store null (floating local time) for device-created
+            // events. DateTime.now().timeZoneName yields abbreviations like
+            // "-03" that are not IANA ids and crash tz.getLocation lookups.
+            tzId: _tzId,
+            colorId: _colorId,
+            createMeet: _addMeet,
+            rrule: _rrule,
+            location: _location.text.trim().isEmpty
+                ? null
+                : _location.text.trim(),
+            notes: notesPayload.stored,
+            reminders: encodeReminderOffsets(_reminders),
+            alarmPreset: _alarmPreset,
+          );
+          await _syncDescription(eventId, notesPayload.full);
+          await repo.setAttendees(eventId, _attendees.text.split(','));
+        } on SourceMoveException catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(e.message)));
+          }
+          return;
+        }
       } else {
         final eventId = await repo.editOccurrence(
           existing.id,
-          _originalStartOf(existing),
+          _originalStartOf(
+            existing,
+            occurrenceStartMs: widget.occurrenceStartMs,
+          ),
           scope: EditScope.all,
           title: title,
           startUtc: _allDay ? null : _start.toUtc(),
@@ -203,15 +228,21 @@ extension on _EventEditorState {
       if (!mounted) return;
       final eventId = await repo.editOccurrence(
         seriesId!,
-        _originalStartOf(existing),
+        _originalStartOf(existing, occurrenceStartMs: widget.occurrenceStartMs),
         scope: EditScope.all,
         title: title,
         startUtc: _allDay ? null : _start.toUtc(),
         endUtc: _allDay ? null : _end.toUtc(),
         startDate: startDateKey,
         endDate: endDateKey,
+        location: _location.text.trim().isEmpty ? null : _location.text.trim(),
+        colorId: _colorId,
+        tzId: _tzId,
+        createMeet: _addMeet,
         rrule: () => effectiveRrule,
         resetExceptions: !keep,
+        reminders: () => encodeReminderOffsets(_reminders),
+        alarmPreset: () => _alarmPreset,
         notes: () => notesPayload.stored,
       );
       await _syncDescription(eventId, notesPayload.full);
@@ -222,14 +253,20 @@ extension on _EventEditorState {
     }
     final eventId = await repo.editOccurrence(
       seriesId!,
-      _originalStartOf(existing),
+      _originalStartOf(existing, occurrenceStartMs: widget.occurrenceStartMs),
       scope: scope,
       title: title,
       startUtc: _allDay ? null : _start.toUtc(),
       endUtc: _allDay ? null : _end.toUtc(),
       startDate: startDateKey,
       endDate: endDateKey,
+      location: _location.text.trim().isEmpty ? null : _location.text.trim(),
+      colorId: _colorId,
+      tzId: _tzId,
+      createMeet: _addMeet,
       rrule: scope == EditScope.single ? null : () => effectiveRrule,
+      reminders: () => encodeReminderOffsets(_reminders),
+      alarmPreset: () => _alarmPreset,
       notes: () => notesPayload.stored,
     );
     if (mounted) {

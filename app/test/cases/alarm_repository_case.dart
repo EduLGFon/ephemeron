@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/event_repository.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
+import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
 import 'package:flutter/services.dart';
@@ -405,4 +407,99 @@ void main() {
             .get();
     expect(rows, isEmpty);
   });
+
+  Future<String> seedEventSeries(
+    AppDatabase db, {
+    required DateTime start,
+    String reminders = '[60]',
+    String alarmPreset = 'full_short',
+  }) async {
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.calendars)
+        .insert(
+          CalendarsCompanion.insert(
+            id: 'cal1',
+            name: 'c',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    return EventRepository(db, OccurrenceRepository(db)).createEvent(
+      calendarId: 'cal1',
+      title: 'Series',
+      startUtc: start,
+      endUtc: start.add(const Duration(hours: 1)),
+      tzId: 'UTC',
+      rrule: 'FREQ=DAILY;COUNT=3',
+      reminders: reminders,
+      alarmPreset: alarmPreset,
+    );
+  }
+
+  test('event exception uses its own reminders and alarm preset', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final start = DateTime.now().toUtc().add(const Duration(hours: 2));
+    final master = await seedEventSeries(db, start: start);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final second = start.add(const Duration(days: 1));
+    await repo.editOccurrence(
+      master,
+      second,
+      scope: EditScope.single,
+      reminders: () => '[5]',
+      alarmPreset: () => 'notification',
+    );
+    await OccurrenceRepository(db).rebuildWindow(
+      windowStartUtc: start.subtract(const Duration(days: 1)),
+      windowEndUtc: start.add(const Duration(days: 4)),
+    );
+    await AlarmRepository(db).rebuildWindow(dueTomorrowEnabled: false);
+
+    final prefix = '$master@${second.millisecondsSinceEpoch}';
+    final rows = await (db.select(
+      db.alarmsIndex,
+    )..where((a) => a.sourceId.like('$prefix%'))).get();
+    final reminders = rows.where((r) => r.kind == 'reminder').toList();
+    final alarms = rows.where((r) => r.kind == 'alarm').toList();
+    expect(reminders.map((r) => r.sourceId), ['$prefix#r5']);
+    expect(alarms.single.preset, 'notification');
+  });
+
+  test(
+    'event exception without alerts inherits master reminders and alarm',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final start = DateTime.now().toUtc().add(const Duration(hours: 2));
+      final master = await seedEventSeries(db, start: start);
+      final repo = EventRepository(db, OccurrenceRepository(db));
+      final second = start.add(const Duration(days: 1));
+      final exId = await repo.editOccurrence(
+        master,
+        second,
+        scope: EditScope.single,
+        title: 'Remote exception',
+      );
+      // Simulate a pulled remote exception with no local alert overrides.
+      await (db.update(db.events)..where((e) => e.id.equals(exId))).write(
+        const EventsCompanion(reminders: Value(null), alarmPreset: Value(null)),
+      );
+      await OccurrenceRepository(db).rebuildWindow(
+        windowStartUtc: start.subtract(const Duration(days: 1)),
+        windowEndUtc: start.add(const Duration(days: 4)),
+      );
+      await AlarmRepository(db).rebuildWindow(dueTomorrowEnabled: false);
+
+      final prefix = '$master@${second.millisecondsSinceEpoch}';
+      final rows = await (db.select(
+        db.alarmsIndex,
+      )..where((a) => a.sourceId.like('$prefix%'))).get();
+      final reminders = rows.where((r) => r.kind == 'reminder').toList();
+      final alarms = rows.where((r) => r.kind == 'alarm').toList();
+      expect(reminders.map((r) => r.sourceId), ['$prefix#r60']);
+      expect(alarms.single.preset, 'full_short');
+    },
+  );
 }

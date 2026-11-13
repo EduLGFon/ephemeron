@@ -6,19 +6,24 @@ class _EventDetailsBody extends ConsumerWidget {
     required this.event,
     required this.source,
     required this.isMicrosoft,
+    required this.readOnly,
     required this.onReload,
+    this.occurrenceStartMs,
     this.descriptionNote,
   });
 
   final Event event;
   final String? source;
   final bool isMicrosoft;
+  final bool readOnly;
+  final int? occurrenceStartMs;
   final VoidCallback onReload;
   final Note? descriptionNote;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final e = event;
+    final locked = readOnly;
     final description = descriptionNote?.body ?? e.notes;
     final descriptionNoteMissing =
         e.notesOverflowNoteId != null && descriptionNote == null;
@@ -39,18 +44,26 @@ class _EventDetailsBody extends ConsumerWidget {
               icon: Icons.calendar_today_outlined,
               kind: 'Calendar',
               label: source ?? 'Unknown calendar',
-              onTap: isMicrosoft
+              onTap: isMicrosoft || locked
                   ? null
                   : () async {
                       final container = ProviderScope.containerOf(
                         context,
                         listen: false,
                       );
-                      final originCalendarId = e.calendarId;
+                      final repo = ref.read(eventRepositoryProvider);
+                      final masterId = e.recurringMasterId;
+                      final seriesId = masterId ?? e.id;
+                      final master = masterId == null
+                          ? null
+                          : await repo.getEvent(masterId);
+                      if (!context.mounted) return;
+                      final originCalendarId =
+                          master?.calendarId ?? e.calendarId;
                       final moved = await pickAndMoveEvent(
                         context,
                         ref,
-                        eventId: e.id,
+                        eventId: seriesId,
                         currentCalendarId: originCalendarId,
                       );
                       if (!moved || !context.mounted) return;
@@ -60,9 +73,10 @@ class _EventDetailsBody extends ConsumerWidget {
                         'Event moved',
                         onUndo: () async {
                           try {
-                            await container
-                                .read(eventRepositoryProvider)
-                                .moveEventToCalendar(e.id, originCalendarId);
+                            await repo.moveEventToCalendar(
+                              seriesId,
+                              originCalendarId,
+                            );
                             container
                                 .read(occurrenceDirtyProvider.notifier)
                                 .markDirty();
@@ -75,6 +89,16 @@ class _EventDetailsBody extends ConsumerWidget {
                       Navigator.of(context).pop();
                     },
             ),
+            if (locked)
+              const ListTile(
+                key: Key('read-only-calendar'),
+                leading: Icon(Icons.lock_outline),
+                title: Text('Read-only calendar'),
+                subtitle: Text(
+                  'Editing, deleting, and moving are unavailable.',
+                ),
+                dense: true,
+              ),
             if (e.location != null && e.location!.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.place_outlined),
@@ -108,29 +132,39 @@ class _EventDetailsBody extends ConsumerWidget {
               ),
             _Attendees(eventId: e.id),
             _LinkedNotes(eventId: e.id, excludeNoteId: e.notesOverflowNoteId),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        await showEventEditor(context, event: e);
-                        if (context.mounted) onReload();
-                      },
-                      child: const Text('Edit'),
+            if (!locked)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          await showEventEditor(
+                            context,
+                            event: e,
+                            occurrenceStartMs: occurrenceStartMs,
+                          );
+                          if (context.mounted) onReload();
+                        },
+                        child: const Text('Edit'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _delete(context, ref, e),
-                      child: const Text('Delete'),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _delete(
+                          context,
+                          ref,
+                          e,
+                          occurrenceStartMs: occurrenceStartMs,
+                        ),
+                        child: const Text('Delete'),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: OutlinedButton.icon(

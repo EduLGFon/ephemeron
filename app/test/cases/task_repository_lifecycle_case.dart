@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/countdown_repository.dart';
@@ -264,5 +267,63 @@ void main() {
     )..where((x) => x.id.equals(id))).getSingle();
     expect(row.reminders, '[60]');
     expect(row.alarmPreset, isNull);
+  });
+
+  test('pending deletes on a read-only event are discarded', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.calendars)
+        .insert(
+          CalendarsCompanion.insert(
+            id: 'ro',
+            name: 'Read-only',
+            source: const Value('google'),
+            readOnly: const Value(true),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await db
+        .into(db.events)
+        .insert(
+          EventsCompanion.insert(
+            id: 'event',
+            calendarId: 'ro',
+            title: const Value('Blocked'),
+            startUtc: Value(now),
+            endUtc: Value(now + 3600000),
+            rrule: const Value('FREQ=DAILY'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final pendingRepo = PendingOperationsRepository(db);
+    await pendingRepo.enqueue(entity: 'event', entityId: 'event', op: 'delete');
+    await pendingRepo.enqueue(
+      entity: 'event',
+      entityId: 'event',
+      op: 'delete_occurrence',
+      payload: jsonEncode({'originalStartMs': now, 'scope': 'single'}),
+    );
+    final operations = PendingOperations(
+      db,
+      tasks: TaskRepository(db),
+      notes: NoteRepository(db),
+      habits: HabitRepository(db),
+      countdowns: CountdownRepository(db),
+      focus: FocusRepository(db),
+      events: EventRepository(db, OccurrenceRepository(db)),
+    );
+
+    await operations.start();
+    operations.dispose();
+
+    expect(await pendingRepo.all(), isEmpty);
+    final event = await (db.select(
+      db.events,
+    )..where((e) => e.id.equals('event'))).getSingle();
+    expect(event.deletedAt, isNull);
   });
 }

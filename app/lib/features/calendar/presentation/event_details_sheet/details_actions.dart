@@ -1,6 +1,46 @@
 part of '../event_details_sheet.dart';
 
-Future<void> _delete(BuildContext context, WidgetRef ref, Event e) async {
+Future<void> _delete(
+  BuildContext context,
+  WidgetRef ref,
+  Event e, {
+  int? occurrenceStartMs,
+}) async {
+  final repo = ref.read(eventRepositoryProvider);
+  final readOnly = await repo.isEventReadOnly(e);
+  if (readOnly) {
+    if (context.mounted) {
+      showAppSnackBar(
+        context,
+        'This calendar is read-only.',
+        icon: Icons.lock_outline,
+      );
+    }
+    return;
+  }
+  // A resolved exception must cancel its series slot; deleting the override
+  // row alone would let the master occurrence reappear.
+  final masterId = e.recurringMasterId;
+  if (masterId != null) {
+    final cutMs = e.originalStart ?? occurrenceStartMs ?? e.startUtc;
+    if (cutMs == null) return;
+    final pending = ref.read(pendingOperationsProvider);
+    final opId = await pending.scheduleEventDeleteOccurrence(
+      masterId,
+      DateTime.fromMillisecondsSinceEpoch(cutMs, isUtc: true),
+      scope: EditScope.single,
+    );
+    if (context.mounted) {
+      AppFeedback.warning();
+      showUndoSnackBar(
+        context,
+        'Event deleted',
+        onUndo: () => pending.cancel(opId),
+      );
+      Navigator.of(context).pop();
+    }
+    return;
+  }
   final recurring =
       e.rrule != null && e.rrule!.isNotEmpty && e.recurringMasterId == null;
   EditScope scope = EditScope.all;
@@ -10,7 +50,12 @@ Future<void> _delete(BuildContext context, WidgetRef ref, Event e) async {
     final s = await showScopeSheet(context);
     if (s == null) return;
     scope = s;
-    orig = DateTime.fromMillisecondsSinceEpoch(e.startUtc ?? 0, isUtc: true);
+    final originalStart = e.originalStart;
+    orig = originalStart != null
+        ? DateTime.fromMillisecondsSinceEpoch(originalStart, isUtc: true)
+        : occurrenceStartMs != null
+        ? DateTime.fromMillisecondsSinceEpoch(occurrenceStartMs, isUtc: true)
+        : DateTime.fromMillisecondsSinceEpoch(e.startUtc ?? 0, isUtc: true);
     if (!context.mounted) return;
     if (scope == EditScope.single || scope == EditScope.following) {
       final pending = ref.read(pendingOperationsProvider);

@@ -7,6 +7,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
     required EditScope scope,
   }) async {
     final master = await _master(masterId);
+    await _assertEventWritable(master);
     final cutMs = originalStartUtc.toUtc().millisecondsSinceEpoch;
     switch (scope) {
       case EditScope.single:
@@ -40,6 +41,9 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
     String? startDate,
     String? endDate,
     String? location,
+    String? meetUrl,
+    String? visibility,
+    String? transparency,
     String? colorId,
     String? tzId,
     bool? createMeet,
@@ -50,6 +54,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
     String? Function()? notes,
   }) async {
     final master = await _master(masterId);
+    await _assertEventWritable(master);
     final cutMs = originalStartUtc.toUtc().millisecondsSinceEpoch;
     final notePatch = notes == null
         ? const Value<String?>.absent()
@@ -73,11 +78,24 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
                 : Value(startDate),
             endDate: endDate == null ? const Value.absent() : Value(endDate),
             location: location == null ? const Value.absent() : Value(location),
+            meetUrl: meetUrl == null ? const Value.absent() : Value(meetUrl),
+            visibility: visibility == null
+                ? const Value.absent()
+                : Value(visibility),
+            transparency: transparency == null
+                ? const Value.absent()
+                : Value(transparency),
             colorId: colorId == null ? const Value.absent() : Value(colorId),
             tzId: tzId == null ? const Value.absent() : Value(tzId),
             createMeet: createMeet == null
                 ? const Value.absent()
                 : Value(createMeet),
+            reminders: reminders == null
+                ? const Value.absent()
+                : Value(reminders()),
+            alarmPreset: alarmPreset == null
+                ? const Value.absent()
+                : Value(alarmPreset()),
             status: const Value('confirmed'),
             deletedAt: const Value(null),
             notes: notePatch,
@@ -115,6 +133,13 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
                 : Value(startDate),
             endDate: endDate == null ? const Value.absent() : Value(endDate),
             location: location == null ? const Value.absent() : Value(location),
+            meetUrl: meetUrl == null ? const Value.absent() : Value(meetUrl),
+            visibility: visibility == null
+                ? const Value.absent()
+                : Value(visibility),
+            transparency: transparency == null
+                ? const Value.absent()
+                : Value(transparency),
             colorId: colorId == null ? const Value.absent() : Value(colorId),
             tzId: tzId == null ? const Value.absent() : Value(tzId),
             createMeet: createMeet == null
@@ -176,7 +201,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
       await _db
           .into(_db.events)
           .insert(
-            changes.copyWith(
+            _inheritExceptionFields(changes, master).copyWith(
               id: Value(id),
               calendarId: Value(master.calendarId),
               googleAccount: Value(master.googleAccount),
@@ -208,7 +233,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
                   ? changes.status
                   : const Value('confirmed'),
               isAllDay: Value(master.isAllDay),
-              tzId: Value(master.tzId),
+              tzId: changes.tzId.present ? changes.tzId : Value(master.tzId),
               dirty: const Value(true),
               createdAt: Value(now),
               updatedAt: Value(now),
@@ -220,10 +245,65 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
       await (_db.update(
         _db.events,
       )..where((e) => e.id.equals(existing.id))).write(
-        changes.copyWith(updatedAt: Value(now), dirty: const Value(true)),
+        _inheritExceptionFields(
+          changes,
+          master,
+          existing: existing,
+        ).copyWith(updatedAt: Value(now), dirty: const Value(true)),
       );
       return existing.id;
     }
+  }
+
+  /// Applies master defaults to exception fields that the edit did not
+  /// override. Existing non-null overrides are preserved on update; missing
+  /// values are filled from the master so a moved occurrence keeps its
+  /// location, Meet link, visibility, transparency, reminders, and alarm.
+  EventsCompanion _inheritExceptionFields(
+    EventsCompanion changes,
+    Event master, {
+    Event? existing,
+  }) {
+    Value<String?> fallback(
+      Value<String?> change,
+      String? current,
+      String? inherited,
+    ) {
+      if (change.present) return change;
+      return current == null ? Value(inherited) : const Value.absent();
+    }
+
+    return changes.copyWith(
+      location: fallback(changes.location, existing?.location, master.location),
+      meetUrl: fallback(changes.meetUrl, existing?.meetUrl, master.meetUrl),
+      visibility: fallback(
+        changes.visibility,
+        existing?.visibility,
+        master.visibility,
+      ),
+      transparency: fallback(
+        changes.transparency,
+        existing?.transparency,
+        master.transparency,
+      ),
+      colorId: fallback(changes.colorId, existing?.colorId, master.colorId),
+      endTzId: fallback(changes.endTzId, existing?.endTzId, master.endTzId),
+      reminders: fallback(
+        changes.reminders,
+        existing?.reminders,
+        master.reminders,
+      ),
+      alarmPreset: fallback(
+        changes.alarmPreset,
+        existing?.alarmPreset,
+        master.alarmPreset,
+      ),
+      createMeet: changes.createMeet.present
+          ? changes.createMeet
+          : existing == null
+          ? Value(master.createMeet)
+          : const Value.absent(),
+    );
   }
 
   Future<void> _truncateMaster(Event master, int cutMs) async {
@@ -306,8 +386,16 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
             endDate: Value(endDate ?? master.endDate),
             isAllDay: Value(master.isAllDay),
             tzId: Value(master.tzId),
+            endTzId: Value(master.endTzId),
             rrule: Value(rrule ?? _stripCount(master.rrule ?? '')),
             location: Value(location ?? master.location),
+            meetUrl: Value(master.meetUrl),
+            visibility: Value(master.visibility),
+            transparency: Value(master.transparency),
+            colorId: Value(master.colorId),
+            createMeet: Value(master.createMeet),
+            reminders: Value(master.reminders),
+            alarmPreset: Value(master.alarmPreset),
             notes: notes.present ? notes : Value(master.notes),
             // The split master starts with copied text but never a shared
             // canonical note: the first description save creates its own.

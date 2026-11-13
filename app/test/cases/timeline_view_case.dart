@@ -24,6 +24,7 @@ Future<void> _seed(
   String? tzId,
   String calendarName = 'c',
   String? googleAccount,
+  bool readOnly = false,
 }) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
   await db
@@ -33,6 +34,7 @@ Future<void> _seed(
           id: 'cal1',
           name: calendarName,
           googleAccount: Value(googleAccount),
+          readOnly: Value(readOnly),
           createdAt: now,
           updatedAt: now,
         ),
@@ -538,6 +540,38 @@ void main() {
     expect(_hourGap(tester), greaterThan(before + 1));
     await g1.up();
     await g2.up();
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('read-only event drag is blocked and enqueues nothing', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    await _seed(db, readOnly: true);
+    await _pump(tester, db, DateTime.now(), 1);
+    final before = await (db.select(
+      db.events,
+    )..where((e) => e.id.equals('e1'))).getSingle();
+    final target = find.text('Standup');
+    await tester.ensureVisible(target);
+    await tester.pump();
+
+    final g = await tester.startGesture(tester.getCenter(target));
+    await tester.pump(const Duration(milliseconds: 700));
+    await g.moveBy(const Offset(0, 80));
+    await tester.pump(const Duration(milliseconds: 100));
+    await g.up();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Calendar is read-only. Event not moved.'),
+      findsOneWidget,
+    );
+    expect(await db.select(db.outbox).get(), isEmpty);
+    final after = await (db.select(
+      db.events,
+    )..where((e) => e.id.equals('e1'))).getSingle();
+    expect(after.startUtc, before.startUtc);
     await _tearDown(tester, db);
   });
 }

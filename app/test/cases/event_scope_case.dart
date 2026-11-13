@@ -5,6 +5,7 @@ import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
 import 'package:ephemeron/data/repositories/note_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
+import 'package:ephemeron/domain/sources/source_move.dart';
 import 'package:ephemeron/features/calendar/presentation/event_editor_sheet.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
@@ -44,6 +45,56 @@ Future<String> _setup(
 
 Future<int> _count(AppDatabase db) async {
   return (await db.select(db.events).get()).length;
+}
+
+Future<String> _makeCalendar(
+  AppDatabase db, {
+  required String id,
+  bool readOnly = false,
+  String source = 'device',
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.calendars)
+      .insert(
+        CalendarsCompanion.insert(
+          id: id,
+          name: id,
+          source: Value(source),
+          readOnly: Value(readOnly),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+  return id;
+}
+
+Future<String> _makeEvent(
+  AppDatabase db, {
+  required String id,
+  required String calendarId,
+  String? rrule,
+  String? recurringMasterId,
+  int? originalStart,
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.events)
+      .insert(
+        EventsCompanion.insert(
+          id: id,
+          calendarId: calendarId,
+          title: const Value('Event'),
+          startUtc: Value(now),
+          endUtc: Value(now + 3600000),
+          rrule: Value(rrule),
+          recurringMasterId: Value(recurringMasterId),
+          originalStart: Value(originalStart),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+  return id;
 }
 
 Future<void> _openEventEditor(
@@ -717,5 +768,361 @@ void main() {
       'new description',
     );
     await _disposeTree(tester);
+  });
+
+  test(
+    'moved single occurrence inherits master location, Meet and alerts',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = EventRepository(db, OccurrenceRepository(db));
+      final cal = await repo.createCalendar('Work');
+      final master = await repo.createEvent(
+        calendarId: cal,
+        title: 'Series',
+        startUtc: DateTime.utc(2026, 3, 2, 9),
+        endUtc: DateTime.utc(2026, 3, 2, 10),
+        tzId: 'UTC',
+        rrule: 'FREQ=DAILY;COUNT=5',
+        location: 'Room 1',
+        colorId: '5',
+        createMeet: true,
+        reminders: '[30]',
+        alarmPreset: 'full_short',
+      );
+      await (db.update(db.events)..where((e) => e.id.equals(master))).write(
+        const EventsCompanion(
+          meetUrl: Value('https://meet.google.com/abc-defg-hij'),
+          visibility: Value('public'),
+          transparency: Value('opaque'),
+          endTzId: Value('America/New_York'),
+        ),
+      );
+
+      final exId = await repo.editOccurrence(
+        master,
+        DateTime.utc(2026, 3, 3, 9),
+        scope: EditScope.single,
+        title: 'Moved',
+        startUtc: DateTime.utc(2026, 3, 3, 11),
+        endUtc: DateTime.utc(2026, 3, 3, 11, 30),
+      );
+      final ex = await repo.getEvent(exId);
+      expect(ex!.location, 'Room 1');
+      expect(ex.meetUrl, 'https://meet.google.com/abc-defg-hij');
+      expect(ex.visibility, 'public');
+      expect(ex.transparency, 'opaque');
+      expect(ex.reminders, '[30]');
+      expect(ex.alarmPreset, 'full_short');
+      expect(ex.colorId, '5');
+      expect(ex.createMeet, isTrue);
+      expect(ex.endTzId, 'America/New_York');
+
+      final overrideId = await repo.editOccurrence(
+        master,
+        DateTime.utc(2026, 3, 4, 9),
+        scope: EditScope.single,
+        location: 'Room 2',
+        meetUrl: 'https://meet.google.com/zzz-yyyy-xxx',
+        reminders: () => '[5]',
+        alarmPreset: () => 'notification',
+      );
+      final override = await repo.getEvent(overrideId);
+      expect(override!.location, 'Room 2');
+      expect(override.meetUrl, 'https://meet.google.com/zzz-yyyy-xxx');
+      expect(override.reminders, '[5]');
+      expect(override.alarmPreset, 'notification');
+    },
+  );
+
+  test('following split carries master fields', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final cal = await repo.createCalendar('Work');
+    final master = await repo.createEvent(
+      calendarId: cal,
+      title: 'Series',
+      startUtc: DateTime.utc(2026, 3, 2, 9),
+      endUtc: DateTime.utc(2026, 3, 2, 10),
+      tzId: 'UTC',
+      rrule: 'FREQ=DAILY;COUNT=5',
+      location: 'Room 1',
+      colorId: '5',
+      createMeet: true,
+      reminders: '[30]',
+      alarmPreset: 'full_short',
+    );
+    await (db.update(db.events)..where((e) => e.id.equals(master))).write(
+      const EventsCompanion(
+        meetUrl: Value('https://meet.google.com/abc-defg-hij'),
+        visibility: Value('public'),
+        transparency: Value('opaque'),
+        endTzId: Value('America/New_York'),
+      ),
+    );
+
+    final splitId = await repo.editOccurrence(
+      master,
+      DateTime.utc(2026, 3, 4, 9),
+      scope: EditScope.following,
+      title: 'Later series',
+    );
+    final split = await repo.getEvent(splitId);
+    expect(split!.location, 'Room 1');
+    expect(split.meetUrl, 'https://meet.google.com/abc-defg-hij');
+    expect(split.visibility, 'public');
+    expect(split.transparency, 'opaque');
+    expect(split.colorId, '5');
+    expect(split.createMeet, isTrue);
+    expect(split.reminders, '[30]');
+    expect(split.alarmPreset, 'full_short');
+    expect(split.tzId, 'UTC');
+    expect(split.endTzId, 'America/New_York');
+  });
+
+  testWidgets('event editor blocks saves to read-only calendars', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
+    final id = await _makeEvent(db, id: 'e1', calendarId: 'ro');
+    final event = await repo.getEvent(id);
+    await _openEventEditor(tester, db, prefs, event!);
+
+    final save = find.widgetWithText(FilledButton, 'Save');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(find.text('This calendar is read-only.'), findsOneWidget);
+    expect((await repo.getEvent(id))!.title, 'Event');
+    await _disposeTree(tester);
+  });
+
+  testWidgets('new-event save shows read-only error instead of throwing', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
+    const systemChannel = MethodChannel('ephemeron/system');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      systemChannel,
+      (call) async => call.method == 'canPostNotifications' ? true : null,
+    );
+    addTearDown(() => messenger.setMockMethodCallHandler(systemChannel, null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWith(
+            (ref) async => SettingsRepository(prefs),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Center(
+                child: ElevatedButton(
+                  onPressed: () => showEventEditor(
+                    context,
+                    restoredDraft: {
+                      'title': 'Blocked',
+                      'calendarId': 'ro',
+                      'startMs': DateTime(2026, 3, 2, 9).millisecondsSinceEpoch,
+                      'endMs': DateTime(2026, 3, 2, 10).millisecondsSinceEpoch,
+                    },
+                  ),
+                  child: const Text('Open event'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open event'));
+    await tester.pumpAndSettle();
+
+    final create = find.widgetWithText(FilledButton, 'Create');
+    await tester.ensureVisible(create);
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+
+    expect(find.text('That calendar is read-only.'), findsOneWidget);
+    expect(await db.select(db.events).get(), isEmpty);
+    await _disposeTree(tester);
+  });
+
+  test('createEvent rejects read-only Google and local calendars', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    for (final (id, source) in [
+      ('ro-google', 'google'),
+      ('ro-local', 'device'),
+    ]) {
+      await _makeCalendar(db, id: id, readOnly: true, source: source);
+      await expectLater(
+        repo.createEvent(calendarId: id, title: 'Blocked'),
+        throwsA(isA<SourceMoveException>()),
+      );
+    }
+  });
+
+  test('moveEventToCalendar rejects read-only source and target', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
+    await _makeCalendar(db, id: 'writable');
+    await _makeEvent(db, id: 'from-ro', calendarId: 'ro');
+    await _makeEvent(db, id: 'from-w', calendarId: 'writable');
+
+    await expectLater(
+      repo.moveEventToCalendar('from-ro', 'writable'),
+      throwsA(isA<SourceMoveException>()),
+    );
+    await expectLater(
+      repo.moveEventToCalendar('from-w', 'ro'),
+      throwsA(isA<SourceMoveException>()),
+    );
+  });
+
+  test(
+    'edit/delete occurrence and delete event reject read-only source',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = EventRepository(db, OccurrenceRepository(db));
+      await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
+      final master = await _makeEvent(
+        db,
+        id: 'master',
+        calendarId: 'ro',
+        rrule: 'FREQ=DAILY;COUNT=5',
+      );
+      final cut = DateTime.utc(2026, 3, 3, 9);
+
+      await expectLater(
+        repo.editOccurrence(master, cut, scope: EditScope.single, title: 'No'),
+        throwsA(isA<SourceMoveException>()),
+      );
+      await expectLater(
+        repo.deleteOccurrence(master, cut, scope: EditScope.single),
+        throwsA(isA<SourceMoveException>()),
+      );
+      await expectLater(
+        repo.deleteEvent(master),
+        throwsA(isA<SourceMoveException>()),
+      );
+      final rows = await db.select(db.events).get();
+      expect(rows.single.deletedAt, isNull);
+    },
+  );
+
+  test(
+    'exception under a read-only master rejects edits and deletes',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = EventRepository(db, OccurrenceRepository(db));
+      await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
+      await _makeCalendar(db, id: 'writable');
+      final master = await _makeEvent(
+        db,
+        id: 'master',
+        calendarId: 'ro',
+        rrule: 'FREQ=DAILY;COUNT=5',
+      );
+      final originalStart = DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch;
+      final ex = await _makeEvent(
+        db,
+        id: 'exception',
+        calendarId: 'writable',
+        recurringMasterId: master,
+        originalStart: originalStart,
+      );
+
+      await expectLater(
+        repo.editOccurrence(
+          master,
+          DateTime.fromMillisecondsSinceEpoch(originalStart, isUtc: true),
+          scope: EditScope.single,
+          title: 'No',
+        ),
+        throwsA(isA<SourceMoveException>()),
+      );
+      await expectLater(
+        repo.deleteEvent(ex),
+        throwsA(isA<SourceMoveException>()),
+      );
+    },
+  );
+
+  test('read-only events reject attendee and RSVP updates', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
+    final event = await _makeEvent(db, id: 'master', calendarId: 'ro');
+    await db
+        .into(db.eventAttendees)
+        .insert(
+          EventAttendeesCompanion.insert(
+            id: 'att1',
+            eventId: event,
+            email: 'guest@example.com',
+            isSelf: const Value(true),
+          ),
+        );
+
+    await expectLater(
+      repo.setAttendees(event, ['other@example.com']),
+      throwsA(isA<SourceMoveException>()),
+    );
+    await expectLater(
+      repo.setRsvp('att1', 'accepted'),
+      throwsA(isA<SourceMoveException>()),
+    );
+    final attendees = await repo.attendeesOf(event);
+    expect(attendees.single.email, 'guest@example.com');
+    expect(attendees.single.rsvp, isNull);
+    final outbox = await (db.select(
+      db.outbox,
+    )..where((o) => o.entityId.equals(event))).get();
+    expect(outbox, isEmpty);
+  });
+
+  test('writable local calendars still create, edit, and delete', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final cal = await repo.createCalendar('Local');
+    final id = await repo.createEvent(
+      calendarId: cal,
+      title: 'Local event',
+      startUtc: DateTime.utc(2026, 3, 2, 9),
+      endUtc: DateTime.utc(2026, 3, 2, 10),
+      tzId: 'UTC',
+    );
+    await repo.editOccurrence(
+      id,
+      DateTime.utc(2026, 3, 2, 9),
+      scope: EditScope.all,
+      title: 'Renamed',
+    );
+    expect((await repo.getEvent(id))!.title, 'Renamed');
+    await repo.deleteEvent(id);
+    expect((await repo.getEvent(id))!.deletedAt, isNotNull);
   });
 }

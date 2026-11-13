@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../data/repositories/event_repository.dart';
+import '../../../../domain/sources/source_move.dart';
 import '../../application/calendar_providers.dart';
 import '../../../settings/application/settings_providers.dart';
 import '../event_editor_sheet.dart';
