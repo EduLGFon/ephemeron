@@ -14,6 +14,7 @@ import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/note_repository.dart';
 import 'package:ephemeron/data/repositories/pending_operations_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
+import 'package:ephemeron/domain/sources/source_move.dart';
 import 'package:ephemeron/features/calendar/application/calendar_providers.dart';
 import 'package:ephemeron/features/countdowns/application/countdowns_providers.dart';
 import 'package:ephemeron/features/focus/application/focus_providers.dart';
@@ -180,6 +181,10 @@ class PendingOperations {
     if (_disposed) return;
     try {
       await _apply(row);
+      await _repo.remove(row.id);
+    } on SourceMoveException {
+      // The source became read-only after the undo window opened. Retrying can
+      // never succeed, so drop the operation instead of keeping it forever.
       await _repo.remove(row.id);
     } catch (_) {
       // Keep the row durable so a later launch can retry it.

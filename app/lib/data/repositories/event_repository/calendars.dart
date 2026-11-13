@@ -8,6 +8,10 @@ mixin _EventCalendarOps on _EventRepositoryBase {
   }
 
   Future<void> setAttendees(String eventId, List<String> emails) async {
+    final event = await (dbSelect()..where((e) => e.id.equals(eventId)))
+        .getSingleOrNull();
+    if (event == null) return;
+    await _assertEventWritable(event);
     await _db.transaction(() async {
       await (_db.delete(
         _db.eventAttendees,
@@ -69,13 +73,16 @@ mixin _EventCalendarOps on _EventRepositoryBase {
       rsvp == 'accepted' || rsvp == 'tentative' || rsvp == 'declined',
       'invalid rsvp',
     );
-    String? eventId;
+    final attendee = await (_db.select(
+      _db.eventAttendees,
+    )..where((a) => a.id.equals(attendeeId))).getSingleOrNull();
+    if (attendee == null) return;
+    final event =
+        await (dbSelect()..where((e) => e.id.equals(attendee.eventId)))
+            .getSingleOrNull();
+    if (event == null) return;
+    await _assertEventWritable(event);
     await _db.transaction(() async {
-      final row = await (_db.select(
-        _db.eventAttendees,
-      )..where((a) => a.id.equals(attendeeId))).getSingleOrNull();
-      if (row == null) return;
-      eventId = row.eventId;
       await (_db.update(
         _db.eventAttendees,
       )..where((a) => a.id.equals(attendeeId))).write(
@@ -83,11 +90,11 @@ mixin _EventCalendarOps on _EventRepositoryBase {
       );
       await (_db.update(
         _db.events,
-      )..where((e) => e.id.equals(row.eventId))).write(
+      )..where((e) => e.id.equals(attendee.eventId))).write(
         EventsCompanion(updatedAt: Value(nowMs()), dirty: const Value(true)),
       );
     });
-    if (eventId != null) await _enqueue(eventId!, 'update');
+    await _enqueue(attendee.eventId, 'update');
   }
 
   Future<String> createCalendar(

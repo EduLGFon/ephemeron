@@ -51,11 +51,19 @@ class _EventDetailsBody extends ConsumerWidget {
                         context,
                         listen: false,
                       );
-                      final originCalendarId = e.calendarId;
+                      final repo = ref.read(eventRepositoryProvider);
+                      final masterId = e.recurringMasterId;
+                      final seriesId = masterId ?? e.id;
+                      final master = masterId == null
+                          ? null
+                          : await repo.getEvent(masterId);
+                      if (!context.mounted) return;
+                      final originCalendarId =
+                          master?.calendarId ?? e.calendarId;
                       final moved = await pickAndMoveEvent(
                         context,
                         ref,
-                        eventId: e.id,
+                        eventId: seriesId,
                         currentCalendarId: originCalendarId,
                       );
                       if (!moved || !context.mounted) return;
@@ -65,9 +73,10 @@ class _EventDetailsBody extends ConsumerWidget {
                         'Event moved',
                         onUndo: () async {
                           try {
-                            await container
-                                .read(eventRepositoryProvider)
-                                .moveEventToCalendar(e.id, originCalendarId);
+                            await repo.moveEventToCalendar(
+                              seriesId,
+                              originCalendarId,
+                            );
                             container
                                 .read(occurrenceDirtyProvider.notifier)
                                 .markDirty();

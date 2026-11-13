@@ -233,7 +233,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
                   ? changes.status
                   : const Value('confirmed'),
               isAllDay: Value(master.isAllDay),
-              tzId: Value(master.tzId),
+              tzId: changes.tzId.present ? changes.tzId : Value(master.tzId),
               dirty: const Value(true),
               createdAt: Value(now),
               updatedAt: Value(now),
@@ -286,6 +286,8 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
         existing?.transparency,
         master.transparency,
       ),
+      colorId: fallback(changes.colorId, existing?.colorId, master.colorId),
+      endTzId: fallback(changes.endTzId, existing?.endTzId, master.endTzId),
       reminders: fallback(
         changes.reminders,
         existing?.reminders,
@@ -296,6 +298,11 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
         existing?.alarmPreset,
         master.alarmPreset,
       ),
+      createMeet: changes.createMeet.present
+          ? changes.createMeet
+          : existing == null
+          ? Value(master.createMeet)
+          : const Value.absent(),
     );
   }
 
@@ -379,8 +386,16 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
             endDate: Value(endDate ?? master.endDate),
             isAllDay: Value(master.isAllDay),
             tzId: Value(master.tzId),
+            endTzId: Value(master.endTzId),
             rrule: Value(rrule ?? _stripCount(master.rrule ?? '')),
             location: Value(location ?? master.location),
+            meetUrl: Value(master.meetUrl),
+            visibility: Value(master.visibility),
+            transparency: Value(master.transparency),
+            colorId: Value(master.colorId),
+            createMeet: Value(master.createMeet),
+            reminders: Value(master.reminders),
+            alarmPreset: Value(master.alarmPreset),
             notes: notes.present ? notes : Value(master.notes),
             // The split master starts with copied text but never a shared
             // canonical note: the first description save creates its own.

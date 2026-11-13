@@ -1,16 +1,20 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/countdown_repository.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
+import 'package:ephemeron/data/repositories/focus_repository.dart';
+import 'package:ephemeron/data/repositories/habit_repository.dart';
+import 'package:ephemeron/data/repositories/note_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
+import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/features/auth/application/auth_providers.dart';
 import 'package:ephemeron/features/calendar/presentation/event_details_sheet.dart';
 import 'package:ephemeron/features/notes/presentation/markdown_preview.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
+import 'package:ephemeron/features/sync/application/pending_operations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,6 +77,7 @@ Future<void> _openEventSheet(
   SharedPreferences prefs,
   String eventId, {
   int? occurrenceStartMs,
+  PendingOperations? pendingOperations,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -83,6 +88,8 @@ Future<void> _openEventSheet(
         ),
         googleAccountProvider.overrideWith(_SignedInAccount.new),
         googleAccountsProvider.overrideWith(_Accounts.new),
+        if (pendingOperations != null)
+          pendingOperationsProvider.overrideWithValue(pendingOperations),
       ],
       child: MaterialApp(
         home: Scaffold(
@@ -122,6 +129,56 @@ class _SignedInAccount extends GoogleAccountNotifier {
 class _Accounts extends GoogleAccountsNotifier {
   @override
   List<String> build() => const ['me@x.com'];
+}
+
+/// Records destructive event actions without arming the durable undo timer.
+class _RecordingPendingOperations extends PendingOperations {
+  // The repositories need the same db instance, so a super parameter cannot
+  // be forwarded to the other constructor arguments.
+  // ignore: use_super_parameters
+  _RecordingPendingOperations(AppDatabase db)
+    : super(
+        db,
+        tasks: TaskRepository(db),
+        notes: NoteRepository(db),
+        habits: HabitRepository(db),
+        countdowns: CountdownRepository(db),
+        focus: FocusRepository(db),
+        events: EventRepository(db, OccurrenceRepository(db)),
+      );
+
+  final List<({String eventId, DateTime originalStart, EditScope scope})>
+  occurrenceDeletes = [];
+  final List<String> eventDeletes = [];
+  final List<String> cancelled = [];
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<String> scheduleEventDelete(String id) async {
+    eventDeletes.add(id);
+    return 'delete:$id';
+  }
+
+  @override
+  Future<String> scheduleEventDeleteOccurrence(
+    String id,
+    DateTime originalStartUtc, {
+    required EditScope scope,
+  }) async {
+    occurrenceDeletes.add((
+      eventId: id,
+      originalStart: originalStartUtc,
+      scope: scope,
+    ));
+    return 'occurrence:$id';
+  }
+
+  @override
+  Future<void> cancel(String id) async {
+    cancelled.add(id);
+  }
 }
 
 void main() {
@@ -369,6 +426,7 @@ void main() {
     final repo = EventRepository(db, OccurrenceRepository(db));
     final cal = await repo.createCalendar('Series calendar');
     final master = await seedSeries(db, cal);
+    final pending = _RecordingPendingOperations(db);
     final later = DateTime.utc(2026, 3, 4, 9);
     await _openEventSheet(
       tester,
@@ -376,6 +434,7 @@ void main() {
       prefs,
       master,
       occurrenceStartMs: later.millisecondsSinceEpoch,
+      pendingOperations: pending,
     );
 
     final delete = find.text('Delete');
@@ -388,13 +447,103 @@ void main() {
     await tester.tap(find.text('This event'));
     await tester.pumpAndSettle();
 
-    final ops = await db.select(db.pendingOperations).get();
-    final op = ops.singleWhere((o) => o.op == 'delete_occurrence');
-    final payload = jsonDecode(op.payload!) as Map<String, dynamic>;
-    expect(payload['originalStartMs'], later.millisecondsSinceEpoch);
-    // Let the undo timer fire so the test leaves no pending app timer.
-    await tester.pump(const Duration(seconds: 7));
+    final op = pending.occurrenceDeletes.single;
+    expect(op.eventId, master);
+    expect(op.originalStart, later);
+    expect(op.scope, EditScope.single);
+    await tester.pumpWidget(Container());
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('details delete cancels an overridden series occurrence', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final cal = await repo.createCalendar('Series calendar');
+    final master = await seedSeries(db, cal);
+    final original = DateTime.utc(2026, 3, 3, 9);
+    final moved = DateTime.utc(2026, 3, 3, 11);
+    final exId = await repo.editOccurrence(
+      master,
+      original,
+      scope: EditScope.single,
+      title: 'Moved',
+      startUtc: moved,
+      endUtc: DateTime.utc(2026, 3, 3, 11, 30),
+    );
+    final pending = _RecordingPendingOperations(db);
+    await _openEventSheet(
+      tester,
+      db,
+      prefs,
+      master,
+      occurrenceStartMs: moved.millisecondsSinceEpoch,
+      pendingOperations: pending,
+    );
+
+    final delete = find.text('Delete');
+    await tester.ensureVisible(delete);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+
+    final op = pending.occurrenceDeletes.single;
+    expect(op.eventId, master);
+    expect(op.originalStart, original);
+    expect(op.scope, EditScope.single);
+    expect(pending.eventDeletes, isEmpty);
+
+    // Apply the same operation directly; widget fake time does not advance
+    // the real clock used by the durable undo timer.
+    await repo.deleteOccurrence(master, original, scope: EditScope.single);
+    final exception = await repo.getEvent(exId);
+    expect(exception!.status, 'cancelled');
+    expect((await repo.getEvent(master))!.deletedAt, isNull);
+    final occurrences = OccurrenceRepository(db);
+    await occurrences.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 3, 1),
+      windowEndUtc: DateTime.utc(2026, 3, 8),
+    );
+    expect(await occurrences.occurrencesForDay('2026-03-03'), isEmpty);
+    await tester.pumpWidget(Container());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('details delete refuses a source that became read-only', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final cal = await repo.createCalendar('Writable');
+    final id = await repo.createEvent(
+      calendarId: cal,
+      title: 'Event',
+      startUtc: DateTime.utc(2026, 3, 3, 9),
+      endUtc: DateTime.utc(2026, 3, 3, 10),
+      tzId: 'UTC',
+    );
+    final pending = _RecordingPendingOperations(db);
+    await _openEventSheet(tester, db, prefs, id, pendingOperations: pending);
+    await (db.update(db.calendars)..where((c) => c.id.equals(cal))).write(
+      const CalendarsCompanion(readOnly: Value(true)),
+    );
+
+    final delete = find.text('Delete');
+    await tester.ensureVisible(delete);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+
+    expect(find.text('This calendar is read-only.'), findsOneWidget);
+    expect(find.text('Event deleted'), findsNothing);
+    expect(pending.occurrenceDeletes, isEmpty);
+    expect(pending.eventDeletes, isEmpty);
+    expect((await repo.getEvent(id))!.deletedAt, isNull);
     await tester.pumpWidget(Container());
     await tester.pumpAndSettle();
   });

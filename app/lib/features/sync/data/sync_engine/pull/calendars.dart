@@ -291,10 +291,16 @@ extension on SyncEngine {
             recurringMasterLocalId: masterLocalId,
           );
           if (localException == null) {
+            final companion = _inheritExceptionFields(
+              g,
+              masterRow,
+              mapped.companion,
+              isNew: true,
+            );
             await _db
                 .into(_db.events)
                 .insert(
-                  mapped.companion.copyWith(
+                  companion.copyWith(
                     googleAccount: Value(owner),
                     deletedAt: const Value(null),
                     status: const Value('cancelled'),
@@ -303,10 +309,16 @@ extension on SyncEngine {
             n++;
           } else if (!localException.dirty) {
             final current = localException;
+            final companion = _inheritExceptionFields(
+              g,
+              masterRow,
+              mapped.companion,
+              isNew: false,
+            );
             await (_db.update(
               _db.events,
             )..where((e) => e.id.equals(current.id))).write(
-              mapped.companion.copyWith(
+              companion.copyWith(
                 alarmPreset: const Value.absent(),
                 deletedAt: const Value(null),
                 status: const Value('cancelled'),

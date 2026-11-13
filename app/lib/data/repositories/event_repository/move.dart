@@ -5,8 +5,22 @@ mixin _EventMoveOps on _EventRepositoryBase {
     String eventId,
     String targetCalendarId,
   ) async {
-    final event = await _master(eventId);
-    await _assertEventWritable(event);
+    var event = await _master(eventId);
+    final exception = event.recurringMasterId == null ? null : event;
+    if (exception != null) {
+      // A lone exception must never move to another calendar by itself: its
+      // master and sibling exceptions would keep recurringMasterId pointing at
+      // a row in the old calendar. Resolve and move the series instead.
+      final master =
+          await (dbSelect()
+                ..where((e) => e.id.equals(exception.recurringMasterId!)))
+              .getSingleOrNull();
+      if (master == null) {
+        throw SourceMoveException('Series not found.');
+      }
+      event = master;
+    }
+    await _assertEventWritable(exception ?? event);
     if (event.calendarId == targetCalendarId) return;
     final sourceCal = await _calendar(event.calendarId);
     final targetCal = await _calendar(targetCalendarId);

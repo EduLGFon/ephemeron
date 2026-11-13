@@ -309,6 +309,40 @@ void main() {
     );
   });
 
+  test('moving an exception moves its master and preserves the link', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _calendar(db, id: 'c1', name: 'One', source: 'device');
+    await _calendar(db, id: 'c2', name: 'Two', source: 'device');
+    await _event(
+      db,
+      id: 'master',
+      calendarId: 'c1',
+      rrule: 'FREQ=DAILY;COUNT=3',
+    );
+    await _event(db, id: 'exception', calendarId: 'c1');
+    final now = nowMs();
+    await (db.update(db.events)..where((e) => e.id.equals('exception'))).write(
+      EventsCompanion(
+        recurringMasterId: const Value('master'),
+        originalStart: Value(now),
+      ),
+    );
+    final repo = EventRepository(db, OccurrenceRepository(db));
+
+    await repo.moveEventToCalendar('exception', 'c2');
+
+    final master = await (db.select(
+      db.events,
+    )..where((e) => e.id.equals('master'))).getSingle();
+    final exception = await (db.select(
+      db.events,
+    )..where((e) => e.id.equals('exception'))).getSingle();
+    expect(master.calendarId, 'c2');
+    expect(exception.calendarId, 'c2');
+    expect(exception.recurringMasterId, 'master');
+  });
+
   test('same-account task move keeps remote id and queues move', () async {
     final db = _db();
     addTearDown(db.close);
