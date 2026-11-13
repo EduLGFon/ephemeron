@@ -378,4 +378,40 @@ void main() {
       }
     }
   });
+
+  test(
+    'pagination cap throws instead of returning a partial listing',
+    () async {
+      var calls = 0;
+      final client = MockClient((req) async {
+        calls++;
+        return http.Response(
+          jsonEncode({
+            'value': [
+              {'id': 'c1', 'name': 'Calendar'},
+            ],
+            '@odata.nextLink': 'https://example.com/next',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final api = HttpMicrosoftGraphClient(
+        accessToken: () async => 'tok',
+        httpClient: client,
+      );
+
+      await expectLater(
+        api.listCalendars(),
+        throwsA(
+          isA<MicrosoftGraphException>().having(
+            (e) => e.isMalformed,
+            'malformed',
+            true,
+          ),
+        ),
+      );
+      expect(calls, 50);
+    },
+  );
 }
