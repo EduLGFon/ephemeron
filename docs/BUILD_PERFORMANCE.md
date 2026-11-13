@@ -12,7 +12,7 @@ optimizations.
 | RAM | 15.5 GB, 15.5 GB zram swap |
 | Disk | Seagate ST1000LM014, 5400 RPM hybrid HDD (`ROTA=1`) |
 | Flutter | 3.47.8 (Dart 3.13.7) |
-| Android | AGP 9.1.0, Gradle 9.3.1, Kotlin 2.4.0 |
+| Android | AGP 9.3.3, Gradle 9.5.1, Kotlin 2.4.0 |
 | JDK | Android Studio JBR 25.0.4 |
 
 The HDD and the two physical cores are the hard limits. No Gradle flag makes
@@ -68,6 +68,28 @@ build (which includes `integration_test`) is left in place and
 
 Use `flutter run` with hot reload for day-to-day iteration. A release APK is
 the slowest way to test a Dart change.
+
+## AGP 9.3 / Gradle 9.5 upgrade (2026-11-12)
+
+AGP 9.3.3 and Gradle 9.5.1 were applied together. Kotlin 2.4.0 and the JVM
+target 17 are unchanged. Verification used the arm64 release build from
+`app/`:
+
+```sh
+flutter build apk --release --target-platform android-arm64
+```
+
+| Build | Toolchain | APK bytes | SHA-256 |
+| --- | --- | --- | --- |
+| Baseline | AGP 9.1.0, Gradle 9.3.1 | 27,978,897 | `a25fbe0ff1cfbabf982fa272b20b371ea70bd2432a29c91e12fe3da0beffbaf9` |
+| Post-upgrade | AGP 9.3.3, Gradle 9.5.1 | 27,962,513 | `394bb1103e562b0b339915d5bf0d22e72610fdb0e9b30510ae21d629dae34c7e` |
+
+Delta: -16,384 bytes (-0.06%). Both builds succeeded. The APK badging
+(package, SDK levels, permissions, native-code list), sorted entry list, and V2
+signing certificate (SHA-256
+`a15119dbc6f3ad8019aeaf0849605512121fe2bb2d3aca291f8bfca78cff336b`) are
+identical between the two artifacts. Wall times were not compared because the
+post-upgrade build downloaded a new Gradle distribution and AGP artifacts.
 
 ## `flutter run` (dev loop)
 
@@ -162,9 +184,6 @@ then reloads the page.
 
 ## Optional, not applied
 
-- AGP 9.3 and Gradle 9.5 add build-speed work, but AGP 9.3 requires Gradle
-  9.5 and a migration. Do it as its own change, with a build-size and behavior
-  comparison.
 - R8 can run in a separate JVM (`android.settings` execution profiles). That
   helps memory-rich machines; here it would add another JVM to a machine that
   already swaps.
