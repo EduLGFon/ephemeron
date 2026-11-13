@@ -1,7 +1,7 @@
 // Month view: event rows inside day cells, overflow count, day selection
 // updating the agenda below, vertical scroll revealing it, and the empty
 // state. Tapping a day selects it without leaving the month view.
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/time/time.dart';
@@ -23,15 +23,18 @@ AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
 Future<void> _seed(
   AppDatabase db,
-  List<({String id, String title, DateTime day, int hour})> events,
-) async {
+  List<({String id, String title, DateTime day, int hour})> events, {
+  String calendarName = 'c',
+  String? googleAccount,
+}) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
   await db
       .into(db.calendars)
       .insert(
         CalendarsCompanion.insert(
           id: 'cal1',
-          name: 'c',
+          name: calendarName,
+          googleAccount: Value(googleAccount),
           createdAt: now,
           updatedAt: now,
         ),
@@ -54,6 +57,37 @@ Future<void> _seed(
           ),
         );
   }
+}
+
+Future<void> _seedTask(
+  AppDatabase db, {
+  required String title,
+  required DateTime day,
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.taskLists)
+      .insert(
+        TaskListsCompanion.insert(
+          id: 'list1',
+          name: 'Errands',
+          googleAccount: const Value('gt@example.com'),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+  await db
+      .into(db.tasks)
+      .insert(
+        TasksCompanion.insert(
+          id: 't1',
+          listId: const Value('list1'),
+          title: Value(title),
+          plannedDate: Value(dateKey(day)),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
 }
 
 class _FixedWindow extends CalendarState {
@@ -171,6 +205,54 @@ void main() {
 
     expect(find.byKey(const Key('month-agenda-title')), findsOneWidget);
     expect(find.byKey(const ValueKey('month-agenda-e1')), findsOneWidget);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('selected-day agenda labels event and task sources', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    final today = DateTime.now();
+    final day = DateTime(today.year, today.month, today.day);
+    await _seed(
+      db,
+      [(id: 'e1', title: 'Standup', day: day, hour: 10)],
+      calendarName: 'Work',
+      googleAccount: 'g@example.com',
+    );
+    await _seedTask(db, title: 'Buy milk', day: day);
+    await _pumpMonth(tester, db, today);
+    await _revealAgenda(tester);
+
+    expect(find.text('Work - g@example.com'), findsOneWidget);
+    expect(find.text('Errands - gt@example.com'), findsOneWidget);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('agenda rows without a source render no blank label', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    final today = DateTime.now();
+    final day = DateTime(today.year, today.month, today.day);
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.tasks)
+        .insert(
+          TasksCompanion.insert(
+            id: 't1',
+            title: const Value('No source task'),
+            plannedDate: Value(dateKey(day)),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await _pumpMonth(tester, db, today);
+    await _revealAgenda(tester);
+
+    expect(find.text('No source task'), findsWidgets);
+    expect(find.byIcon(Icons.swap_horiz), findsNothing);
+    expect(tester.takeException(), isNull);
     await _tearDown(tester, db);
   });
 

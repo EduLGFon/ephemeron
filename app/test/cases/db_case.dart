@@ -34,9 +34,9 @@ void main() {
     await db.close();
   });
 
-  test('schema version is 13', () async {
+  test('schema version is 14', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
-    expect(db.schemaVersion, 13);
+    expect(db.schemaVersion, 14);
     await db.close();
   });
 
@@ -88,6 +88,16 @@ void main() {
       final names = cols.map((r) => r.read<String>('name')).toSet();
       expect(names, contains('microsoft_account'));
     }
+    await db.close();
+  });
+
+  test('v14 adds occurrence source metadata columns', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final cols = await db
+        .customSelect('PRAGMA table_info(occurrence_cache)')
+        .get();
+    final names = cols.map((r) => r.read<String>('name')).toSet();
+    expect(names, containsAll(['source_label', 'source_account']));
     await db.close();
   });
 

@@ -82,6 +82,8 @@ class OccurrenceCache extends Table {
   TextColumn get dayKey => text()();
   TextColumn get sourceType =>
       text().withDefault(const Constant('event'))(); // event/task
+  TextColumn get sourceLabel => text().nullable()();
+  TextColumn get sourceAccount => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

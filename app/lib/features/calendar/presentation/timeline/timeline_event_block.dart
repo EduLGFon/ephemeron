@@ -70,9 +70,7 @@ class TimelineEventBlock extends ConsumerWidget {
 
     final rsvpAsync = ref.watch(selfRsvpForEventProvider(occurrence.eventId));
     final rsvp = rsvpAsync.maybeWhen(data: (v) => v, orElse: () => null);
-    final source = ref
-        .watch(occurrenceSourceMapProvider)
-        .maybeWhen(data: (map) => map[occurrence.eventId], orElse: () => null);
+    final sourceLabel = occurrence.sourceLabel?.trim();
     // Past = already attended/ended. Synchronous so it always shows,
     // even when attendee rows are missing.
     final isPast = timelineIsPast(occurrence);
@@ -143,9 +141,12 @@ class TimelineEventBlock extends ConsumerWidget {
             TextSpan(
               text: occurrence.title ?? '…',
               children: [
-                if (source != null && y1 - y0 >= 48 && !hollow)
+                if (sourceLabel != null &&
+                    sourceLabel.isNotEmpty &&
+                    y1 - y0 >= 48 &&
+                    !hollow)
                   TextSpan(
-                    text: '\n${source.label}',
+                    text: '\n$sourceLabel',
                     style: TextStyle(
                       color: textColor.withValues(alpha: 0.75),
                       fontSize: 9,

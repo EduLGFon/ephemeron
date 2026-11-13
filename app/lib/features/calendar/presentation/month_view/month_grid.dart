@@ -169,17 +169,15 @@ class _DayNumber extends StatelessWidget {
   }
 }
 
-class _MonthPill extends ConsumerWidget {
+class _MonthPill extends StatelessWidget {
   const _MonthPill({required this.occurrence, required this.dimmed});
 
   final OccurrenceCacheData occurrence;
   final bool dimmed;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final source = ref
-        .watch(occurrenceSourceMapProvider)
-        .maybeWhen(data: (map) => map[occurrence.eventId], orElse: () => null);
+  Widget build(BuildContext context) {
+    final sourceLabel = occurrence.sourceLabel?.trim();
     final scheme = Theme.of(context).colorScheme;
     final base = googleCalendarColor(
       occurrence.colorId ?? '',
@@ -221,6 +219,7 @@ class _MonthPill extends ConsumerWidget {
         ],
       ),
     );
-    return Tooltip(message: source?.label ?? '', child: pill);
+    if (sourceLabel == null || sourceLabel.isEmpty) return pill;
+    return Tooltip(message: sourceLabel, child: pill);
   }
 }

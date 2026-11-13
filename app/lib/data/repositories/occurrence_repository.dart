@@ -3,6 +3,7 @@ import 'package:ephemeron/core/ids/ids.dart';
 import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/domain/recurrence/recurrence_rule.dart';
+import 'package:ephemeron/domain/sources/source_label.dart';
 import 'package:ephemeron/features/calendar/presentation/google_calendar_colors.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -20,6 +21,21 @@ part 'occurrence_repository/tasks.dart';
 
 part 'occurrence_repository/queries.dart';
 
+/// Display metadata for a calendar or task list, cached on each occurrence.
+class _SourceInfo {
+  const _SourceInfo({this.name, this.account, this.isLocal = false});
+
+  final String? name;
+  final String? account;
+  final bool isLocal;
+
+  _SourceInfo withAccount(String? override) =>
+      _SourceInfo(name: name, account: override ?? account, isLocal: isLocal);
+
+  String? get label =>
+      sourceLabel(name: name, account: account, isLocal: isLocal);
+}
+
 /// Base holding database access and parsing helpers shared by all parts.
 class _OccurrenceRepositoryBase {
   _OccurrenceRepositoryBase(this._db);
@@ -34,7 +50,9 @@ class _OccurrenceRepositoryBase {
     String? title,
     String? colorId,
     String sourceType = 'event',
+    _SourceInfo source = const _SourceInfo(),
   }) {
+    final label = source.label;
     return OccurrenceCacheCompanion.insert(
       id: newId(),
       eventId: eventId,
@@ -44,6 +62,30 @@ class _OccurrenceRepositoryBase {
       endUtc: endMs,
       dayKey: dayKeyValue,
       sourceType: Value(sourceType),
+      sourceLabel: Value(label == null || label.isEmpty ? null : label),
+      sourceAccount: Value(source.account),
+    );
+  }
+
+  _SourceInfo _eventSource(Event event, Map<String, _SourceInfo> sources) {
+    final base = sources[event.calendarId] ?? const _SourceInfo();
+    return base.withAccount(
+      accountForSource(
+        googleAccount: event.googleAccount,
+        microsoftAccount: event.microsoftAccount,
+      ),
+    );
+  }
+
+  _SourceInfo _taskSource(Task task, Map<String, _SourceInfo> sources) {
+    final base = task.listId == null
+        ? const _SourceInfo()
+        : sources[task.listId] ?? const _SourceInfo();
+    return base.withAccount(
+      accountForSource(
+        googleAccount: task.googleAccount,
+        microsoftAccount: task.microsoftAccount,
+      ),
     );
   }
 

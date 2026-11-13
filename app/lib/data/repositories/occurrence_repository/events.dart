@@ -10,7 +10,9 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
     DateTime rangeStart,
     DateTime rangeEnd,
     Map<String, String?> calColors,
+    Map<String, _SourceInfo> calSources,
   ) {
+    final masterSource = _eventSource(master, calSources);
     if (master.isAllDay) {
       _collectAllDayMaster(
         rows,
@@ -19,6 +21,7 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
         rangeStart,
         rangeEnd,
         calColors,
+        calSources,
       );
       return;
     }
@@ -78,6 +81,9 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
                   calendarId: master.calendarId,
                 )
               : color,
+          source: override == null
+              ? masterSource
+              : _eventSource(override, calSources),
         ),
       );
     }
@@ -124,6 +130,7 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
                   calendarId: master.calendarId,
                 )
               : color,
+          source: _eventSource(ex, calSources),
         ),
       );
     }
@@ -136,7 +143,9 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
     DateTime rangeStart,
     DateTime rangeEnd,
     Map<String, String?> calColors,
+    Map<String, _SourceInfo> calSources,
   ) {
+    final masterSource = _eventSource(master, calSources);
     if (master.startDate == null) return;
     final cancelledKeys = <String>{
       for (final ex in exceptions)
@@ -203,6 +212,7 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
           day,
           title: master.title,
           colorId: color,
+          source: masterSource,
         ),
       );
     }
@@ -244,6 +254,7 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
               dk,
               title: ex.title,
               colorId: exColor,
+              source: _eventSource(ex, calSources),
             ),
           );
         }
@@ -258,7 +269,9 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
     DateTime rangeStart,
     DateTime rangeEnd,
     Map<String, String?> calColors,
+    Map<String, _SourceInfo> calSources,
   ) {
+    final source = _eventSource(e, calSources);
     final color = effectiveEventColor(
       eventColorId: e.colorId,
       calendarColor: calColors[e.calendarId],
@@ -293,6 +306,7 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
             dateKey(cursor),
             title: e.title,
             colorId: color,
+            source: source,
           ),
         );
         n++;
@@ -315,6 +329,7 @@ mixin _EventCacheOps on _OccurrenceRepositoryBase {
         _dayKey(e.startUtc!, e.tzId),
         title: e.title,
         colorId: color,
+        source: source,
       ),
     );
   }
