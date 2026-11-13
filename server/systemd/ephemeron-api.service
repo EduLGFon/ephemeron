@@ -1,0 +1,14 @@
+[Unit]
+Description=Ephemeron API
+After=network.target
+
+[Service]
+Type=simple
+User=ephemeron
+WorkingDirectory=/opt/ephemeron-api
+EnvironmentFile=/opt/ephemeron-api/.env
+ExecStart=/usr/local/bin/deno run --allow-all main.ts
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

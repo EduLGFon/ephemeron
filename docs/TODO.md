@@ -65,9 +65,18 @@
   app open (no headless worker).
 - `wakelock_plus` stays at 1.8.0: 1.8.2 conflicts with `battery_plus` 7.1.2
   via `dbus`. Revisit when either package relaxes.
+- Deferred: AGP 9.3 + Gradle 9.5 upgrade (needs migration and build
+  size/behavior comparison).
 - Do not run a release build while `flutter run` is active; both rewrite
   `GeneratedPluginRegistrant.java`, and the debug registrant includes
   `integration_test`, which breaks the release Java compile.
+
+## Ephemeron domains rollout (u10d, 2026-11-10)
+
+- Owner DNS + hosting steps pending (Cloudflare records, Pages custom domain, tunnel/route for api, OAuth console origins) - see report.
+- Backend hardening deferred to deploy: reverse-proxy `client_max_body_size` (~1MB), strip/overwrite `X-Forwarded-For` at proxy, run API as non-root with least-privilege deno flags.
+- Code follow-ups: wrap `server/src/jwt.ts` atob in try/catch (500-vs-401), bound or TTL-sweep `server/main.ts` rate-limit buckets, 400 on `since=NaN` in pull, rename weak `expired-refresh` test and add real-expiry case, `app/web` is gitignored so future `app/web/*` static files need `git add -f` (like CNAME), add that note to `docs/PAGES_DEPLOY.md` as one line.
+- flutter analyze/test not run locally (no SDK) - CI covers.
 
 ## Verification record (2026-11-13)
 
