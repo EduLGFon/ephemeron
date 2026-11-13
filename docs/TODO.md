@@ -1,45 +1,5 @@
 # TODO
 
-## Completion pass (2026-11-12/13)
-
-Every code-actionable item that was open in this file is closed. Summary:
-
-- Calendar and sync: Microsoft shared calendars (shared scope, owner stamping,
-  one reader per shared calendar, 403 reconsent); repeatable device-calendar
-  import with ID-only mappings, safe reconciliation, and mapping pruning;
-  Google single-occurrence push with exception outbox, generated-instance
-  lookup, etag/412 retry, and deleted-instance relink; per-account Google token
-  restore with a proactive reconnect banner; shared-calendar owner/reader
-  election; Microsoft remote calendar and windowed event deletion
-  reconciliation with tombstone revival; read-only enforcement at the
-  repository boundary and in details/timeline/editor UI; single-occurrence
-  alert, edit-target, and location/Meet inheritance integrity; sync issues
-  diagnostics with retry/discard; fail-closed shared dedupe; stale reader-key
-  and legacy token cleanup; reconnect-banner first-frame fix; startup rebuild
-  coalescing.
-- Schema and data: occurrence-cache source labels and accounts (Drift schema
-  v14) with a v13 to v14 migration; step-by-step v11/v12/v13 to v14 migration
-  replay tests; source labels rendered in timeline, agenda, and month surfaces.
-- Tasks and notes: parent moves carry the live subtask tree in one transaction;
-  projected task occurrence uncomplete has a 6-second calendar undo; Markdown
-  fenced and indented code hardening; recurring-split description-link cleanup
-  and deterministic reverse sync; duplicate description write/outbox removal;
-  dead note-overflow helpers removed.
-- UX and accessibility: 48dp habit action targets at 320dp and 2x text; shared
-  tag-limit constant and per-group search error/retry; cached alarm permission
-  futures with refresh after Settings and on resume; Done/+1 haptics after
-  action success; biometric lock screen uses the app theme; task-list chip
-  touch long-press management; coverage for habit agenda/Open habits,
-  long-press drag reorder, large accessibility text, and the sync final-status
-  matrix; all-day strip and month long-press quick create.
-- Build and refactor: AGP 9.3.3 and Gradle 9.5.1 with a recorded size and
-  behavior comparison; auth logging privacy cleanup; large UI and data modules
-  split into `part` files with behavior preserved.
-- Verification: `flutter pub get`, `flutter gen-l10n`,
-  `dart run tools/gen_test_runner.dart`, `dart format --set-exit-if-changed .`,
-  `flutter analyze`, and the full `flutter test` suite on the merged tree.
-  Arm64 release APK rebuilt and recorded below.
-
 ## Open: owner/device verification (no devices or SDKs here)
 
 - Week calendar home widget: Android native build and launcher behavior;
