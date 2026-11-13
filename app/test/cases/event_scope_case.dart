@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -444,6 +445,66 @@ void main() {
   });
 
   test(
+    'split keeps a valid description link and gives the split none',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final master = await _setup(db);
+      final repo = EventRepository(db, OccurrenceRepository(db));
+      final notesRepo = NoteRepository(db, attachmentDir: null);
+      final noteId = (await notesRepo.ensureDescriptionNote(
+        master,
+        'original',
+      ))!;
+
+      await repo.editOccurrence(
+        master,
+        DateTime.utc(2026, 3, 4, 9),
+        scope: EditScope.following,
+        notes: () => 'later',
+      );
+
+      final rows = (await db.select(db.events).get()).where(
+        (e) => e.deletedAt == null,
+      );
+      final split = rows.firstWhere((e) => e.id != master);
+      final old = await repo.getEvent(master);
+      expect(old!.notesOverflowNoteId, noteId);
+      expect(split.notesOverflowNoteId, isNull);
+
+      // Reverse sync from the old canonical note must not update the split.
+      await notesRepo.updateNote(noteId, body: () => 'updated');
+      expect((await repo.getEvent(master))!.notes, 'updated');
+      expect((await repo.getEvent(split.id))!.notes, 'later');
+    },
+  );
+
+  test('split clears a stale description link on the old master', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final master = await _setup(db);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    await (db.update(db.events)..where((e) => e.id.equals(master))).write(
+      const EventsCompanion(notesOverflowNoteId: Value('missing-note')),
+    );
+
+    await repo.editOccurrence(
+      master,
+      DateTime.utc(2026, 3, 4, 9),
+      scope: EditScope.following,
+      notes: () => 'later',
+    );
+
+    final rows = (await db.select(db.events).get()).where(
+      (e) => e.deletedAt == null,
+    );
+    final split = rows.firstWhere((e) => e.id != master);
+    final old = await repo.getEvent(master);
+    expect(old!.notesOverflowNoteId, isNull);
+    expect(split.notesOverflowNoteId, isNull);
+  });
+
+  test(
     'resolveEventForOccurrence finds exception by original start or start',
     () async {
       final db = _db();
@@ -608,6 +669,53 @@ void main() {
       'master@example.com',
     ]);
     expect(await repo.attendeesOf(exId), isEmpty);
+    await _disposeTree(tester);
+  });
+
+  testWidgets('description save enqueues one event update', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final notesRepo = NoteRepository(db, attachmentDir: null);
+    final calendarId = await repo.createCalendar('C');
+    final id = await repo.createEvent(
+      calendarId: calendarId,
+      title: 'Description',
+      startUtc: DateTime.utc(2026, 3, 3, 9),
+      endUtc: DateTime.utc(2026, 3, 3, 9, 30),
+      tzId: 'UTC',
+      notes: 'old',
+    );
+    await notesRepo.ensureDescriptionNote(id, 'old');
+    await db.delete(db.outbox).go();
+
+    final event = await repo.getEvent(id);
+    await _openEventEditor(tester, db, prefs, event!);
+    final notesField = find.byWidgetPredicate(
+      (w) => w is TextField && w.decoration?.labelText == 'Notes',
+    );
+    expect(notesField, findsOneWidget);
+    await tester.ensureVisible(notesField);
+    await tester.enterText(notesField, 'new description');
+    await _saveEvent(tester);
+
+    final updates =
+        await (db.select(db.outbox)..where(
+              (o) =>
+                  o.entity.equals('event') &
+                  o.entityId.equals(id) &
+                  o.op.equals('update'),
+            ))
+            .get();
+    expect(updates, hasLength(1));
+    final saved = await repo.getEvent(id);
+    expect(saved!.notes, 'new description');
+    expect(
+      (await notesRepo.getNote(saved.notesOverflowNoteId!))!.body,
+      'new description',
+    );
     await _disposeTree(tester);
   });
 }

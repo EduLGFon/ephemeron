@@ -216,6 +216,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
           );
       return id;
     } else {
+      await _pruneStaleDescriptionLink(existing);
       await (_db.update(
         _db.events,
       )..where((e) => e.id.equals(existing.id))).write(
@@ -241,10 +242,33 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
     for (final ex in await exceptionsOf(master.id)) {
       if ((ex.originalStart ?? 0) >= cutMs) {
         await (_db.update(_db.events)..where((e) => e.id.equals(ex.id))).write(
-          EventsCompanion(deletedAt: Value(nowMs()), updatedAt: Value(nowMs())),
+          EventsCompanion(
+            deletedAt: Value(nowMs()),
+            updatedAt: Value(nowMs()),
+            notesOverflowNoteId: const Value(null),
+          ),
         );
       }
     }
+  }
+
+  /// Drops the old master's description link when the canonical note is gone,
+  /// trashed, or already owned by another event. A valid link is kept so the
+  /// pre-split series still shows its full description.
+  Future<void> _pruneStaleDescriptionLink(Event event) async {
+    final noteId = event.notesOverflowNoteId;
+    if (noteId == null) return;
+    final note = await (_db.select(
+      _db.notes,
+    )..where((n) => n.id.equals(noteId))).getSingleOrNull();
+    final valid =
+        note != null &&
+        note.deletedAt == null &&
+        (note.linkedEventId == null || note.linkedEventId == event.id);
+    if (valid) return;
+    await (_db.update(_db.events)..where((e) => e.id.equals(event.id))).write(
+      const EventsCompanion(notesOverflowNoteId: Value(null)),
+    );
   }
 
   Future<String> _splitMaster(
@@ -259,6 +283,7 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
     String? rrule,
     Value<String?> notes = const Value.absent(),
   }) async {
+    await _pruneStaleDescriptionLink(master);
     await _truncateMaster(master, cutMs);
     final durationMs =
         (master.endUtc ?? master.startUtc ?? cutMs) -
@@ -284,6 +309,9 @@ mixin _EventOccurrenceOps on _EventRepositoryBase {
             rrule: Value(rrule ?? _stripCount(master.rrule ?? '')),
             location: Value(location ?? master.location),
             notes: notes.present ? notes : Value(master.notes),
+            // The split master starts with copied text but never a shared
+            // canonical note: the first description save creates its own.
+            notesOverflowNoteId: const Value(null),
             dirty: const Value(true),
             googleAccount: Value(master.googleAccount),
             createdAt: now,
