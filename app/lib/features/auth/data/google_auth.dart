@@ -3,6 +3,9 @@
 //
 // The implementation is split across `part` files under `google_auth/`
 // while this file stays the public entry point.
+//
+// PRIVACY: never log tokens, refresh tokens, emails, account ids,
+// authorization codes, or raw plugin/auth exception text.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
