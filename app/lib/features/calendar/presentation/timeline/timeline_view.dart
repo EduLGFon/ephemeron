@@ -16,6 +16,7 @@ import '../../application/calendar_state.dart';
 import '../../../settings/application/settings_providers.dart';
 import '../calendar_error_banner.dart';
 import '../event_details_sheet.dart';
+import '../event_editor_sheet.dart';
 import '../habit_action_sheet.dart';
 import '../task_action_sheet.dart';
 import 'habit_timeline_block.dart';

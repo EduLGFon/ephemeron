@@ -10,6 +10,7 @@ class _EventEditor extends ConsumerStatefulWidget {
     this.initialHour,
     this.initialStart,
     this.initialEnd,
+    this.initialAllDay,
     this.restoredDraft,
   });
 
@@ -18,6 +19,7 @@ class _EventEditor extends ConsumerStatefulWidget {
   final int? initialHour;
   final DateTime? initialStart;
   final DateTime? initialEnd;
+  final bool? initialAllDay;
   final Map<String, dynamic>? restoredDraft;
 
   @override
@@ -61,7 +63,8 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
       text: (d?['attendees'] as String?) ?? '',
     );
     _calendarId = (d?['calendarId'] as String?) ?? e?.calendarId;
-    _allDay = (d?['allDay'] as bool?) ?? e?.isAllDay ?? false;
+    _allDay =
+        widget.initialAllDay ?? (d?['allDay'] as bool?) ?? e?.isAllDay ?? false;
     _colorId = (d?['colorId'] as String?) ?? e?.colorId;
     _tzId = (d?['tzId'] as String?) ?? e?.tzId;
     _addMeet = (d?['addMeet'] as bool?) ?? (e?.meetUrl != null);
@@ -117,6 +120,13 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
       _start = DateTime(day.year, day.month, day.day, hour);
       _end = _start.add(const Duration(hours: 1));
     }
+    if (widget.initialAllDay == true) {
+      // Explicit all-day create: keep only the date component so the editor
+      // never shows a stale draft time for the chosen day.
+      _start = DateTime(_start.year, _start.month, _start.day);
+      _end = DateTime(_end.year, _end.month, _end.day);
+      if (_end.isBefore(_start)) _end = _start;
+    }
     _rrule = (d?['rrule'] as String?) ?? e?.rrule;
     final descriptionNoteId = e?.notesOverflowNoteId;
     if (d?['notes'] == null && descriptionNoteId != null) {
@@ -152,7 +162,8 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
       widget.initialStart != null ||
       widget.initialEnd != null ||
       widget.initialDay != null ||
-      widget.initialHour != null;
+      widget.initialHour != null ||
+      widget.initialAllDay == true;
 
   @override
   void didChangeDependencies() {

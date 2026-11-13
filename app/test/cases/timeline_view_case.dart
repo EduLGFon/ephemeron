@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/time/device_date_format.dart';
+import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
@@ -49,6 +51,29 @@ Future<void> _seed(
             start.add(const Duration(hours: 1)).millisecondsSinceEpoch,
           ),
           tzId: Value(tzId),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+}
+
+Future<void> _seedAllDay(
+  AppDatabase db, {
+  String id = 'a1',
+  String title = 'Holiday',
+  required DateTime day,
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.events)
+      .insert(
+        EventsCompanion.insert(
+          id: id,
+          calendarId: 'cal1',
+          title: Value(title),
+          isAllDay: const Value(true),
+          startDate: Value(dateKey(day)),
+          endDate: Value(dateKey(day.add(const Duration(days: 1)))),
           createdAt: now,
           updatedAt: now,
         ),
@@ -182,6 +207,52 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Edit'), findsOneWidget);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('tapping an empty all-day column opens an all-day create', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    await _seed(db);
+    final anchor = DateTime.now();
+    final day = DateTime(anchor.year, anchor.month, anchor.day);
+    final otherDay = day.add(const Duration(days: 1));
+    // The strip appears when any day has an all-day item; tomorrow's chip
+    // keeps today's empty column available as a quick-create target.
+    await _seedAllDay(db, day: otherDay);
+    await _pump(tester, db, anchor, 2);
+
+    await tester.tap(find.byKey(Key('timeline-all-day-${dateKey(day)}')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Create'), findsOneWidget);
+    final allDay = tester.widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, 'All day'),
+    );
+    expect(allDay.value, isTrue);
+    final ctx = tester.element(find.text('All day'));
+    expect(find.text(DeviceDateFormat.date(ctx, day)), findsNWidgets(2));
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('tapping an existing all-day chip opens its details', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    await _seed(db);
+    final anchor = DateTime.now();
+    final day = DateTime(anchor.year, anchor.month, anchor.day);
+    await _seedAllDay(db, day: day);
+    await _pump(tester, db, anchor, 1);
+
+    await tester.tap(find.text('Holiday'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Create'), findsNothing);
     await _tearDown(tester, db);
   });
 

@@ -4,6 +4,7 @@
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
@@ -299,6 +300,38 @@ void main() {
 
     expect(find.text('A long habit name'), findsWidgets);
     expect(tester.takeException(), null);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('long-pressing a day cell creates an event at 320dp', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _db();
+    final today = DateTime.now();
+    final target = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).add(const Duration(days: 1));
+    await _seed(db, []);
+    await _pumpMonth(tester, db, today);
+
+    await tester.longPress(find.byKey(Key('month-day-${dateKey(target)}')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Create'), findsOneWidget);
+    final allDay = tester.widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, 'All day'),
+    );
+    expect(allDay.value, isFalse);
+    final ctx = tester.element(find.text('All day'));
+    expect(find.text(DeviceDateFormat.date(ctx, target)), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
     await _tearDown(tester, db);
   });
 

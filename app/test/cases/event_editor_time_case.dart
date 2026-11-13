@@ -33,8 +33,10 @@ Future<void> _pumpHost(
   WidgetTester tester,
   AppDatabase db,
   SharedPreferences prefs, {
+  DateTime? initialDay,
   DateTime? initialStart,
   DateTime? initialEnd,
+  bool? initialAllDay,
 }) async {
   const systemChannel = MethodChannel('ephemeron/system');
   final messenger =
@@ -59,8 +61,10 @@ Future<void> _pumpHost(
               child: ElevatedButton(
                 onPressed: () => showEventEditor(
                   context,
+                  initialDay: initialDay,
                   initialStart: initialStart,
                   initialEnd: initialEnd,
+                  initialAllDay: initialAllDay,
                 ),
                 child: const Text('Open event'),
               ),
@@ -109,6 +113,35 @@ void main() {
     expect(find.text(staleDate), findsNothing);
     expect(find.text(DeviceDateFormat.time(ctx, _explicitStart)), findsOne);
     expect(find.text(DeviceDateFormat.time(ctx, _explicitEnd)), findsOne);
+    expect(find.text(DeviceDateFormat.time(ctx, _staleStart)), findsNothing);
+    expect(find.text(DeviceDateFormat.time(ctx, _staleEnd)), findsNothing);
+
+    await _disposeTree(tester);
+  });
+
+  testWidgets('explicit all-day create wins over a stale timed draft', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    addTearDown(db.close);
+    await _seedStaleDraft(db);
+    final day = DateTime(2026, 5, 14);
+    await _pumpHost(
+      tester,
+      db,
+      await SharedPreferences.getInstance(),
+      initialDay: day,
+      initialAllDay: true,
+    );
+
+    final ctx = tester.element(find.text('Open event'));
+    expect(find.text(_staleTitle), findsOne);
+    final allDay = tester.widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, 'All day'),
+    );
+    expect(allDay.value, isTrue);
+    expect(find.text(DeviceDateFormat.date(ctx, day)), findsNWidgets(2));
+    expect(find.text(DeviceDateFormat.date(ctx, _staleStart)), findsNothing);
     expect(find.text(DeviceDateFormat.time(ctx, _staleStart)), findsNothing);
     expect(find.text(DeviceDateFormat.time(ctx, _staleEnd)), findsNothing);
 

@@ -101,6 +101,11 @@ extension _TimelineViewBuild on _TimelineViewState {
                   dayCount: widget.dayCount,
                   gutterWidth: timelineGutterWidth,
                   swipeOffset: swipeOffset,
+                  onEmptyTap: (day) => showEventEditor(
+                    context,
+                    initialDay: day,
+                    initialAllDay: true,
+                  ),
                   onTap: (o) {
                     if (o.sourceType == 'task') {
                       showTaskActionSheet(
