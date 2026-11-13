@@ -8,11 +8,15 @@ import '../../../core/ui/app_sheet.dart';
 import '../../../core/ui/escape_to_close.dart';
 import '../../../core/db/db_provider.dart';
 import '../../../data/drift/app_database.dart';
+import '../../../data/repositories/task_repository.dart';
 import '../../../domain/sources/microsoft_source.dart';
 import '../../tasks/application/tasks_providers.dart';
 import '../../tasks/presentation/task_editor_sheet.dart';
 
 part 'task_action_sheet/sheet.dart';
+part 'task_action_sheet/actions.dart';
+part 'task_action_sheet/sections.dart';
+part 'task_action_sheet/view.dart';
 
 Future<void> showTaskActionSheet(
   BuildContext context, {

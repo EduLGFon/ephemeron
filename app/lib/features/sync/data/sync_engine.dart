@@ -17,9 +17,14 @@ import 'package:ephemeron/features/sync/domain/sync_issue.dart';
 
 part 'sync_engine/push.dart';
 part 'sync_engine/push_apply.dart';
+part 'sync_engine/push_apply/events.dart';
+part 'sync_engine/push_apply/exceptions.dart';
+part 'sync_engine/push_apply/tasks.dart';
 part 'sync_engine/push_error.dart';
 part 'sync_engine/pull/discovery.dart';
 part 'sync_engine/pull/calendars.dart';
+part 'sync_engine/pull/calendars/claims.dart';
+part 'sync_engine/pull/calendars/merge.dart';
 part 'sync_engine/pull/tasks.dart';
 part 'sync_engine/pull/helpers.dart';
 
