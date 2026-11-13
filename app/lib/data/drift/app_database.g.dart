@@ -3095,6 +3095,28 @@ class $OccurrenceCacheTable extends OccurrenceCache
     requiredDuringInsert: false,
     defaultValue: const Constant('event'),
   );
+  static const VerificationMeta _sourceLabelMeta = const VerificationMeta(
+    'sourceLabel',
+  );
+  @override
+  late final GeneratedColumn<String> sourceLabel = GeneratedColumn<String>(
+    'source_label',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sourceAccountMeta = const VerificationMeta(
+    'sourceAccount',
+  );
+  @override
+  late final GeneratedColumn<String> sourceAccount = GeneratedColumn<String>(
+    'source_account',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3105,6 +3127,8 @@ class $OccurrenceCacheTable extends OccurrenceCache
     endUtc,
     dayKey,
     sourceType,
+    sourceLabel,
+    sourceAccount,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3173,6 +3197,24 @@ class $OccurrenceCacheTable extends OccurrenceCache
         sourceType.isAcceptableOrUnknown(data['source_type']!, _sourceTypeMeta),
       );
     }
+    if (data.containsKey('source_label')) {
+      context.handle(
+        _sourceLabelMeta,
+        sourceLabel.isAcceptableOrUnknown(
+          data['source_label']!,
+          _sourceLabelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_account')) {
+      context.handle(
+        _sourceAccountMeta,
+        sourceAccount.isAcceptableOrUnknown(
+          data['source_account']!,
+          _sourceAccountMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3214,6 +3256,14 @@ class $OccurrenceCacheTable extends OccurrenceCache
         DriftSqlType.string,
         data['${effectivePrefix}source_type'],
       )!,
+      sourceLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_label'],
+      ),
+      sourceAccount: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_account'],
+      ),
     );
   }
 
@@ -3233,6 +3283,8 @@ class OccurrenceCacheData extends DataClass
   final int endUtc;
   final String dayKey;
   final String sourceType;
+  final String? sourceLabel;
+  final String? sourceAccount;
   const OccurrenceCacheData({
     required this.id,
     required this.eventId,
@@ -3242,6 +3294,8 @@ class OccurrenceCacheData extends DataClass
     required this.endUtc,
     required this.dayKey,
     required this.sourceType,
+    this.sourceLabel,
+    this.sourceAccount,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3258,6 +3312,12 @@ class OccurrenceCacheData extends DataClass
     map['end_utc'] = Variable<int>(endUtc);
     map['day_key'] = Variable<String>(dayKey);
     map['source_type'] = Variable<String>(sourceType);
+    if (!nullToAbsent || sourceLabel != null) {
+      map['source_label'] = Variable<String>(sourceLabel);
+    }
+    if (!nullToAbsent || sourceAccount != null) {
+      map['source_account'] = Variable<String>(sourceAccount);
+    }
     return map;
   }
 
@@ -3275,6 +3335,12 @@ class OccurrenceCacheData extends DataClass
       endUtc: Value(endUtc),
       dayKey: Value(dayKey),
       sourceType: Value(sourceType),
+      sourceLabel: sourceLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceLabel),
+      sourceAccount: sourceAccount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceAccount),
     );
   }
 
@@ -3292,6 +3358,8 @@ class OccurrenceCacheData extends DataClass
       endUtc: serializer.fromJson<int>(json['endUtc']),
       dayKey: serializer.fromJson<String>(json['dayKey']),
       sourceType: serializer.fromJson<String>(json['sourceType']),
+      sourceLabel: serializer.fromJson<String?>(json['sourceLabel']),
+      sourceAccount: serializer.fromJson<String?>(json['sourceAccount']),
     );
   }
   @override
@@ -3306,6 +3374,8 @@ class OccurrenceCacheData extends DataClass
       'endUtc': serializer.toJson<int>(endUtc),
       'dayKey': serializer.toJson<String>(dayKey),
       'sourceType': serializer.toJson<String>(sourceType),
+      'sourceLabel': serializer.toJson<String?>(sourceLabel),
+      'sourceAccount': serializer.toJson<String?>(sourceAccount),
     };
   }
 
@@ -3318,6 +3388,8 @@ class OccurrenceCacheData extends DataClass
     int? endUtc,
     String? dayKey,
     String? sourceType,
+    Value<String?> sourceLabel = const Value.absent(),
+    Value<String?> sourceAccount = const Value.absent(),
   }) => OccurrenceCacheData(
     id: id ?? this.id,
     eventId: eventId ?? this.eventId,
@@ -3327,6 +3399,10 @@ class OccurrenceCacheData extends DataClass
     endUtc: endUtc ?? this.endUtc,
     dayKey: dayKey ?? this.dayKey,
     sourceType: sourceType ?? this.sourceType,
+    sourceLabel: sourceLabel.present ? sourceLabel.value : this.sourceLabel,
+    sourceAccount: sourceAccount.present
+        ? sourceAccount.value
+        : this.sourceAccount,
   );
   OccurrenceCacheData copyWithCompanion(OccurrenceCacheCompanion data) {
     return OccurrenceCacheData(
@@ -3340,6 +3416,12 @@ class OccurrenceCacheData extends DataClass
       sourceType: data.sourceType.present
           ? data.sourceType.value
           : this.sourceType,
+      sourceLabel: data.sourceLabel.present
+          ? data.sourceLabel.value
+          : this.sourceLabel,
+      sourceAccount: data.sourceAccount.present
+          ? data.sourceAccount.value
+          : this.sourceAccount,
     );
   }
 
@@ -3353,7 +3435,9 @@ class OccurrenceCacheData extends DataClass
           ..write('startUtc: $startUtc, ')
           ..write('endUtc: $endUtc, ')
           ..write('dayKey: $dayKey, ')
-          ..write('sourceType: $sourceType')
+          ..write('sourceType: $sourceType, ')
+          ..write('sourceLabel: $sourceLabel, ')
+          ..write('sourceAccount: $sourceAccount')
           ..write(')'))
         .toString();
   }
@@ -3368,6 +3452,8 @@ class OccurrenceCacheData extends DataClass
     endUtc,
     dayKey,
     sourceType,
+    sourceLabel,
+    sourceAccount,
   );
   @override
   bool operator ==(Object other) =>
@@ -3380,7 +3466,9 @@ class OccurrenceCacheData extends DataClass
           other.startUtc == this.startUtc &&
           other.endUtc == this.endUtc &&
           other.dayKey == this.dayKey &&
-          other.sourceType == this.sourceType);
+          other.sourceType == this.sourceType &&
+          other.sourceLabel == this.sourceLabel &&
+          other.sourceAccount == this.sourceAccount);
 }
 
 class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
@@ -3392,6 +3480,8 @@ class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
   final Value<int> endUtc;
   final Value<String> dayKey;
   final Value<String> sourceType;
+  final Value<String?> sourceLabel;
+  final Value<String?> sourceAccount;
   final Value<int> rowid;
   const OccurrenceCacheCompanion({
     this.id = const Value.absent(),
@@ -3402,6 +3492,8 @@ class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
     this.endUtc = const Value.absent(),
     this.dayKey = const Value.absent(),
     this.sourceType = const Value.absent(),
+    this.sourceLabel = const Value.absent(),
+    this.sourceAccount = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OccurrenceCacheCompanion.insert({
@@ -3413,6 +3505,8 @@ class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
     required int endUtc,
     required String dayKey,
     this.sourceType = const Value.absent(),
+    this.sourceLabel = const Value.absent(),
+    this.sourceAccount = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        eventId = Value(eventId),
@@ -3428,6 +3522,8 @@ class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
     Expression<int>? endUtc,
     Expression<String>? dayKey,
     Expression<String>? sourceType,
+    Expression<String>? sourceLabel,
+    Expression<String>? sourceAccount,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3439,6 +3535,8 @@ class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
       if (endUtc != null) 'end_utc': endUtc,
       if (dayKey != null) 'day_key': dayKey,
       if (sourceType != null) 'source_type': sourceType,
+      if (sourceLabel != null) 'source_label': sourceLabel,
+      if (sourceAccount != null) 'source_account': sourceAccount,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3452,6 +3550,8 @@ class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
     Value<int>? endUtc,
     Value<String>? dayKey,
     Value<String>? sourceType,
+    Value<String?>? sourceLabel,
+    Value<String?>? sourceAccount,
     Value<int>? rowid,
   }) {
     return OccurrenceCacheCompanion(
@@ -3463,6 +3563,8 @@ class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
       endUtc: endUtc ?? this.endUtc,
       dayKey: dayKey ?? this.dayKey,
       sourceType: sourceType ?? this.sourceType,
+      sourceLabel: sourceLabel ?? this.sourceLabel,
+      sourceAccount: sourceAccount ?? this.sourceAccount,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3494,6 +3596,12 @@ class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
     if (sourceType.present) {
       map['source_type'] = Variable<String>(sourceType.value);
     }
+    if (sourceLabel.present) {
+      map['source_label'] = Variable<String>(sourceLabel.value);
+    }
+    if (sourceAccount.present) {
+      map['source_account'] = Variable<String>(sourceAccount.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3511,6 +3619,8 @@ class OccurrenceCacheCompanion extends UpdateCompanion<OccurrenceCacheData> {
           ..write('endUtc: $endUtc, ')
           ..write('dayKey: $dayKey, ')
           ..write('sourceType: $sourceType, ')
+          ..write('sourceLabel: $sourceLabel, ')
+          ..write('sourceAccount: $sourceAccount, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -17033,6 +17143,8 @@ typedef $$OccurrenceCacheTableCreateCompanionBuilder =
       required int endUtc,
       required String dayKey,
       Value<String> sourceType,
+      Value<String?> sourceLabel,
+      Value<String?> sourceAccount,
       Value<int> rowid,
     });
 typedef $$OccurrenceCacheTableUpdateCompanionBuilder =
@@ -17045,6 +17157,8 @@ typedef $$OccurrenceCacheTableUpdateCompanionBuilder =
       Value<int> endUtc,
       Value<String> dayKey,
       Value<String> sourceType,
+      Value<String?> sourceLabel,
+      Value<String?> sourceAccount,
       Value<int> rowid,
     });
 
@@ -17094,6 +17208,16 @@ class $$OccurrenceCacheTableFilterComposer
 
   ColumnFilters<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceAccount => $composableBuilder(
+    column: $table.sourceAccount,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -17146,6 +17270,16 @@ class $$OccurrenceCacheTableOrderingComposer
     column: $table.sourceType,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceAccount => $composableBuilder(
+    column: $table.sourceAccount,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$OccurrenceCacheTableAnnotationComposer
@@ -17180,6 +17314,16 @@ class $$OccurrenceCacheTableAnnotationComposer
 
   GeneratedColumn<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceAccount => $composableBuilder(
+    column: $table.sourceAccount,
     builder: (column) => column,
   );
 }
@@ -17229,6 +17373,8 @@ class $$OccurrenceCacheTableTableManager
                 Value<int> endUtc = const Value.absent(),
                 Value<String> dayKey = const Value.absent(),
                 Value<String> sourceType = const Value.absent(),
+                Value<String?> sourceLabel = const Value.absent(),
+                Value<String?> sourceAccount = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OccurrenceCacheCompanion(
                 id: id,
@@ -17239,6 +17385,8 @@ class $$OccurrenceCacheTableTableManager
                 endUtc: endUtc,
                 dayKey: dayKey,
                 sourceType: sourceType,
+                sourceLabel: sourceLabel,
+                sourceAccount: sourceAccount,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -17251,6 +17399,8 @@ class $$OccurrenceCacheTableTableManager
                 required int endUtc,
                 required String dayKey,
                 Value<String> sourceType = const Value.absent(),
+                Value<String?> sourceLabel = const Value.absent(),
+                Value<String?> sourceAccount = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OccurrenceCacheCompanion.insert(
                 id: id,
@@ -17261,6 +17411,8 @@ class $$OccurrenceCacheTableTableManager
                 endUtc: endUtc,
                 dayKey: dayKey,
                 sourceType: sourceType,
+                sourceLabel: sourceLabel,
+                sourceAccount: sourceAccount,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

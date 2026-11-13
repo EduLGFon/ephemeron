@@ -112,16 +112,6 @@ mixin _EventCalendarOps on _EventRepositoryBase {
     return id;
   }
 
-  Future<void> setNotesOverflow(String eventId, String? noteId) async {
-    await (_db.update(_db.events)..where((e) => e.id.equals(eventId))).write(
-      EventsCompanion(
-        notesOverflowNoteId: Value(noteId),
-        updatedAt: Value(nowMs()),
-        dirty: const Value(true),
-      ),
-    );
-  }
-
   Future<List<Event>> overlappingEvents({
     required String calendarId,
     required DateTime startUtc,

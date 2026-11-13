@@ -3,10 +3,13 @@ part of '../task_repository.dart';
 mixin _TaskMoveOps on _TaskRepositoryBase {
   /// Moves tasks to [listId]; returns previous list ids for undo.
   ///
-  /// Same-account Google lists use the Tasks API move endpoint. A move to
-  /// another account, to a local list, or from a local list becomes a local
-  /// copy plus a queued delete of the old remote row. A null [listId] moves
-  /// the tasks to the local unlisted bucket.
+  /// Moving a task also moves its live subtask tree (not completed or deleted
+  /// descendants) so a parent never leaves its children behind. The whole
+  /// tree is expanded inside the same transaction. Same-account Google lists
+  /// use the Tasks API move endpoint. A move to another account, to a local
+  /// list, or from a local list becomes a local copy plus a queued delete of
+  /// the old remote row. A null [listId] moves the tasks to the local unlisted
+  /// bucket.
   Future<Map<String, String?>> moveTasks(
     List<String> ids,
     String? listId,
@@ -21,7 +24,31 @@ mixin _TaskMoveOps on _TaskRepositoryBase {
     final prev = <String, String?>{};
 
     await _db.transaction(() async {
+      final orderedIds = <String>[];
+      final seen = <String>{};
+      Future<void> addTree(String id) async {
+        // A repeated id would otherwise re-walk the same subtree and could
+        // loop forever when parentId data contains a cycle.
+        if (!seen.add(id)) return;
+        orderedIds.add(id);
+        final children =
+            await (_db.select(_db.tasks)..where(
+                  (t) =>
+                      t.parentId.equals(id) &
+                      t.deletedAt.isNull() &
+                      t.completedAt.isNull(),
+                ))
+                .get();
+        for (final child in children) {
+          await addTree(child.id);
+        }
+      }
+
       for (final id in ids) {
+        await addTree(id);
+      }
+
+      for (final id in orderedIds) {
         final task = await (_db.select(
           _db.tasks,
         )..where((t) => t.id.equals(id))).getSingle();

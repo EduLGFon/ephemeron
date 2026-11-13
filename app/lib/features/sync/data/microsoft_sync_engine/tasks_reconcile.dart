@@ -42,6 +42,9 @@ extension on MicrosoftSyncEngine {
             name: Value(l.displayName.isEmpty ? existing.name : l.displayName),
             microsoftAccount: Value(account),
             dirty: const Value(false),
+            // A remote list reappeared in a complete fetch, so revive a
+            // reconciliation tombstone.
+            deletedAt: const Value(null),
             updatedAt: Value(now),
           ),
         );
@@ -132,6 +135,9 @@ extension on MicrosoftSyncEngine {
               microsoftAccount: Value(account),
               remoteId: Value(remoteId),
               dirty: const Value(false),
+              // A remote task reappeared in a complete fetch, so revive a
+              // reconciliation tombstone.
+              deletedAt: const Value(null),
               updatedAt: Value(nowMs),
               // Preserve local-only fields.
               plannedDate: Value(existing.plannedDate),

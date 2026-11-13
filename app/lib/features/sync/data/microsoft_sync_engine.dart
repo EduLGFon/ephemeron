@@ -8,6 +8,7 @@ import '../../../domain/microsoft/microsoft_graph_models.dart';
 import 'microsoft_graph_client.dart';
 
 part 'microsoft_sync_engine/calendars_events.dart';
+part 'microsoft_sync_engine/deletions_reconcile.dart';
 part 'microsoft_sync_engine/tasks_reconcile.dart';
 
 class MicrosoftSyncResult {
@@ -73,6 +74,11 @@ class MicrosoftSyncEngine {
       final calendars = await _client.listCalendars();
       final calSync = await _syncCalendars(calendars, now);
       calendarCount = calSync.count;
+      // Remote deletions: reconcile calendars only after a complete, successful
+      // `/me/calendars` listing. Soft-delete own-account, clean Microsoft
+      // calendars that disappeared from Graph. Shared/second-account rows and
+      // local-only rows are never touched.
+      await _reconcileDeletedCalendars(calendars, now);
 
       eventCount = await _syncEvents(calendars, calSync.idsByRemote);
 

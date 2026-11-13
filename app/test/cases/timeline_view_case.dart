@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -17,14 +17,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
-Future<void> _seed(AppDatabase db, {String? tzId}) async {
+Future<void> _seed(
+  AppDatabase db, {
+  String? tzId,
+  String calendarName = 'c',
+  String? googleAccount,
+}) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
   await db
       .into(db.calendars)
       .insert(
         CalendarsCompanion.insert(
           id: 'cal1',
-          name: 'c',
+          name: calendarName,
+          googleAccount: Value(googleAccount),
           createdAt: now,
           updatedAt: now,
         ),
@@ -59,8 +65,9 @@ Future<void> _pump(
   WidgetTester tester,
   AppDatabase db,
   DateTime anchor,
-  int dayCount,
-) async {
+  int dayCount, {
+  double textScale = 1,
+}) async {
   final window = _window(anchor, dayCount);
   await OccurrenceRepository(
     db,
@@ -72,6 +79,12 @@ Future<void> _pump(
         calendarStateProvider.overrideWith(() => _FixedWindow(window)),
       ],
       child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: Scaffold(
           body: TimelineView(anchor: anchor, dayCount: dayCount),
         ),
@@ -169,6 +182,42 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Edit'), findsOneWidget);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('timed blocks show the cached calendar source label', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _db();
+    await _seed(db, calendarName: 'Work', googleAccount: 'g@example.com');
+    await _pump(tester, db, DateTime.now(), 1);
+
+    expect(find.textContaining('Work - g@example.com'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('source label stays readable at 320dp and large text', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _db();
+    await _seed(
+      db,
+      calendarName: 'A very long calendar name',
+      googleAccount: 'a.long.account@example.com',
+    );
+    await _pump(tester, db, DateTime.now(), 1, textScale: 2);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
     await _tearDown(tester, db);
   });
 

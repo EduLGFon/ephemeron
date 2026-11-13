@@ -9,8 +9,10 @@ mixin _TaskCacheOps on _OccurrenceRepositoryBase {
     DateTime rangeStart,
     DateTime rangeEnd,
     Map<String, String?> listColors,
+    Map<String, _SourceInfo> listSources,
     Set<String> siblings,
   ) {
+    final source = _taskSource(t, listSources);
     final color = effectiveTaskColor(
       listColor: t.listId == null ? null : listColors[t.listId],
       seed: t.listId ?? t.id,
@@ -41,6 +43,7 @@ mixin _TaskCacheOps on _OccurrenceRepositoryBase {
             title: t.title,
             colorId: color,
             sourceType: 'task',
+            source: source,
           ),
         );
         return;
@@ -84,6 +87,7 @@ mixin _TaskCacheOps on _OccurrenceRepositoryBase {
           title: t.title,
           colorId: color,
           sourceType: 'task',
+          source: source,
         ),
       );
       return;
@@ -227,6 +231,7 @@ mixin _TaskCacheOps on _OccurrenceRepositoryBase {
           title: t.title,
           colorId: color,
           sourceType: 'task',
+          source: source,
         ),
       );
     }

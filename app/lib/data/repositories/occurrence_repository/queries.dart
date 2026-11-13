@@ -84,12 +84,29 @@ mixin _CacheQueryOps
             .get();
 
     final calColors = <String, String?>{};
+    final calSources = <String, _SourceInfo>{};
     for (final c in await _db.select(_db.calendars).get()) {
       calColors[c.id] = c.color;
+      calSources[c.id] = _SourceInfo(
+        name: c.name,
+        account: accountForSource(
+          googleAccount: c.googleAccount,
+          microsoftAccount: c.microsoftAccount,
+        ),
+        isLocal: c.source != 'google' && c.source != 'microsoft',
+      );
     }
     final listColors = <String, String?>{};
+    final listSources = <String, _SourceInfo>{};
     for (final l in await _db.select(_db.taskLists).get()) {
       listColors[l.id] = l.color;
+      listSources[l.id] = _SourceInfo(
+        name: l.name,
+        account: accountForSource(
+          googleAccount: l.googleAccount,
+          microsoftAccount: l.microsoftAccount,
+        ),
+      );
     }
 
     final rows = <OccurrenceCacheCompanion>[];
@@ -101,10 +118,18 @@ mixin _CacheQueryOps
         windowStartUtc,
         windowEndUtc,
         calColors,
+        calSources,
       );
     }
     for (final s in singles) {
-      _collectSingle(rows, s, windowStartUtc, windowEndUtc, calColors);
+      _collectSingle(
+        rows,
+        s,
+        windowStartUtc,
+        windowEndUtc,
+        calColors,
+        calSources,
+      );
     }
     final siblings = <String>{};
     final allTasks = await _db.select(_db.tasks).get();
@@ -116,7 +141,15 @@ mixin _CacheQueryOps
       }
     }
     for (final t in tasks) {
-      _collectTask(rows, t, windowStartUtc, windowEndUtc, listColors, siblings);
+      _collectTask(
+        rows,
+        t,
+        windowStartUtc,
+        windowEndUtc,
+        listColors,
+        listSources,
+        siblings,
+      );
     }
 
     // Dedupe rows before insert.

@@ -96,9 +96,10 @@ extension on MicrosoftSyncEngine {
           microsoftAccount: ownerEmail != null
               ? Value(ownerEmail)
               : (ownRow != null ? Value(account) : const Value.absent()),
-          deletedAt: sharedRow != null
-              ? const Value(null)
-              : const Value.absent(),
+          // A remote row reappeared in a complete listing, so revive a
+          // reconciliation tombstone. Only rows matched by remote id reach this
+          // path; local-only rows (null remoteId) are never updated here.
+          deletedAt: const Value(null),
         ),
       );
       final canPull = isShared
@@ -231,6 +232,10 @@ extension on MicrosoftSyncEngine {
         debugPrint('[ms-sync] calendarView failed type=${e.runtimeType}');
         continue;
       }
+      final remoteEventIds = {
+        for (final e in events)
+          if (e.id.isNotEmpty) e.id,
+      };
       for (final e in events) {
         final remoteId = e.id;
         if (remoteId.isEmpty) continue;
@@ -308,6 +313,9 @@ extension on MicrosoftSyncEngine {
               microsoftAccount: Value(eventOwner),
               remoteId: Value(remoteId),
               dirty: const Value(false),
+              // A remote event reappeared in a complete calendarView, so revive
+              // a reconciliation tombstone.
+              deletedAt: const Value(null),
               updatedAt: Value(nowMs),
               // Preserve local-only fields.
               alarmPreset: Value(existing.alarmPreset),
@@ -321,6 +329,14 @@ extension on MicrosoftSyncEngine {
         }
         // TODO(#issue): map Graph recurrence to RRULE when representable; for now store occurrence as single event.
       }
+      // Reconcile newly missing events only after a complete, successful fetch
+      // for this calendar. A failed fetch is caught above and never reaches
+      // this point, so per-calendar isolation is preserved.
+      await _reconcileDeletedEvents(
+        localCalId,
+        remoteEventIds,
+        DateTime.now().toUtc().millisecondsSinceEpoch,
+      );
     }
     return eventCount;
   }

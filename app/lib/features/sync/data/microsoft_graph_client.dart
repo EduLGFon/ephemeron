@@ -136,6 +136,11 @@ class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
       next = link is String && link.isNotEmpty ? Uri.parse(link) : null;
       pages++;
     }
+    if (next != null) {
+      // A capped listing is incomplete. Never return it as if it were complete:
+      // callers reconcile remote deletions only after a full successful fetch.
+      throw MicrosoftGraphException(0, 'pagination limit reached');
+    }
     return all;
   }
 

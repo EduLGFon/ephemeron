@@ -40,7 +40,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -128,6 +128,12 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'CREATE INDEX IF NOT EXISTS idx_task_occurrence_states_series_date ON task_occurrence_states(series_id, occurrence_date);',
         );
+      }
+      // v7/v11 recreate occurrence_cache from the current schema, so older
+      // upgrades already have the v14 columns. Only 11-13 need the ALTERs.
+      if (from < 14 && from >= 11) {
+        await m.addColumn(occurrenceCache, occurrenceCache.sourceLabel);
+        await m.addColumn(occurrenceCache, occurrenceCache.sourceAccount);
       }
     },
     beforeOpen: (details) async {

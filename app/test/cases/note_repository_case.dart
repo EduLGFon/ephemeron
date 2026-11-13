@@ -98,20 +98,6 @@ void main() {
     expect(hits.single.snippet.toLowerCase(), contains('oat'));
   });
 
-  test('overflow note for long event descriptions', () async {
-    final db = _db();
-    addTearDown(db.close);
-    final repo = NoteRepository(db, attachmentDir: null);
-    final long = 'x' * 9000;
-    final noteId = await repo.ensureOverflowNote('event1', long);
-    expect(noteId, isNotNull);
-    final note = await repo.getNote(noteId!);
-    expect(note!.body!.length, greaterThan(8000));
-    expect(note.linkedEventId, 'event1');
-    // Idempotent: same note reused.
-    expect(await repo.ensureOverflowNote('event1', long), noteId);
-  });
-
   test(
     'ensureDescriptionNote creates, updates, and clears the same note',
     () async {
@@ -179,6 +165,41 @@ void main() {
       );
     },
   );
+
+  test('reverse sync updates every event sharing a description note', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = NoteRepository(db, attachmentDir: null);
+    await _eventRow(db, id: 'ev1');
+    await _eventRow(db, id: 'ev2');
+    final noteId = await repo.createNote(
+      title: 'Event description',
+      body: 'old',
+    );
+    await (db.update(db.events)..where((e) => e.id.isIn(['ev1', 'ev2']))).write(
+      EventsCompanion(notesOverflowNoteId: Value(noteId)),
+    );
+
+    await repo.updateNote(noteId, body: () => 'shared');
+
+    expect((await _event(db, 'ev1')).notes, 'shared');
+    expect((await _event(db, 'ev2')).notes, 'shared');
+    final outbox = await db.select(db.outbox).get();
+    for (final id in ['ev1', 'ev2']) {
+      expect(
+        outbox.where(
+          (o) => o.entity == 'event' && o.entityId == id && o.op == 'update',
+        ),
+        hasLength(1),
+      );
+    }
+
+    // A soft-deleted row never wins deterministic note-to-event resolution.
+    await (db.update(db.events)..where((e) => e.id.equals('ev1'))).write(
+      EventsCompanion(deletedAt: Value(1)),
+    );
+    expect((await repo.eventForNote(noteId))!.id, 'ev2');
+  });
 
   test(
     'trashing a note keeps the event; deleting an event keeps the note',
