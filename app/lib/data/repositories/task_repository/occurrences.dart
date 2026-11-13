@@ -54,6 +54,21 @@ mixin _TaskOccurrenceOps on _TaskRepositoryBase {
         .go();
   }
 
+  /// Local per-occurrence state for [occurrenceDate], or null when the
+  /// occurrence is not suppressed.
+  Stream<TaskOccurrenceState?> watchTaskOccurrenceState(
+    Task task,
+    String occurrenceDate,
+  ) {
+    final seriesId = taskSeriesId(task);
+    return (_db.select(_db.taskOccurrenceStates)..where(
+          (s) =>
+              s.seriesId.equals(seriesId) &
+              s.occurrenceDate.equals(occurrenceDate),
+        ))
+        .watchSingleOrNull();
+  }
+
   Future<void> _setTaskOccurrenceState({
     required Task task,
     required String occurrenceDate,

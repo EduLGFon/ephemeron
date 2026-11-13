@@ -189,33 +189,87 @@ class TaskActionSheet extends ConsumerWidget {
               ),
               const Divider(height: 1),
               if (!isMs) ...[
-                if (isProjectedOccurrence) ...[
-                  ListTile(
-                    leading: const Icon(Icons.check_rounded),
-                    title: const Text('Mark as concluded'),
-                    onTap: () => _runAndClose(
-                      context,
-                      action: () =>
-                          repo.completeTaskOccurrence(task, occurrenceDate),
-                      message: 'Occurrence completed',
-                      onUndo: () =>
-                          repo.uncompleteTaskOccurrence(task, occurrenceDate),
-                    ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.block_rounded),
-                    title: const Text("Won't do"),
-                    onTap: () => _runAndClose(
-                      context,
-                      action: () =>
-                          repo.markWontDoTaskOccurrence(task, occurrenceDate),
-                      message: "Marked won't do",
-                      warning: true,
-                      onUndo: () =>
-                          repo.uncompleteTaskOccurrence(task, occurrenceDate),
-                    ),
-                  ),
-                ] else ...[
+                if (isProjectedOccurrence)
+                  StreamBuilder<TaskOccurrenceState?>(
+                    stream: repo.watchTaskOccurrenceState(task, occurrenceDate),
+                    builder: (context, stateSnap) {
+                      final state = stateSnap.data;
+                      if (state == null) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              leading: const Icon(Icons.check_rounded),
+                              title: const Text('Mark as concluded'),
+                              onTap: () => _runAndClose(
+                                context,
+                                action: () => repo.completeTaskOccurrence(
+                                  task,
+                                  occurrenceDate,
+                                ),
+                                message: 'Occurrence completed',
+                                onUndo: () => repo.uncompleteTaskOccurrence(
+                                  task,
+                                  occurrenceDate,
+                                ),
+                              ),
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.block_rounded),
+                              title: const Text("Won't do"),
+                              onTap: () => _runAndClose(
+                                context,
+                                action: () => repo.markWontDoTaskOccurrence(
+                                  task,
+                                  occurrenceDate,
+                                ),
+                                message: "Marked won't do",
+                                warning: true,
+                                onUndo: () => repo.uncompleteTaskOccurrence(
+                                  task,
+                                  occurrenceDate,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      final completedAt = state.completedAt == null
+                          ? null
+                          : DateTime.fromMillisecondsSinceEpoch(
+                              state.completedAt!,
+                              isUtc: true,
+                            );
+                      return ListTile(
+                        leading: const Icon(Icons.undo_rounded),
+                        title: const Text('Mark as not concluded'),
+                        onTap: () => _runAndClose(
+                          context,
+                          action: () => repo.uncompleteTaskOccurrence(
+                            task,
+                            occurrenceDate,
+                          ),
+                          message: 'Occurrence reopened',
+                          onUndo: () {
+                            if (state.status == 'wont_do') {
+                              repo.markWontDoTaskOccurrence(
+                                task,
+                                occurrenceDate,
+                                at: completedAt,
+                              );
+                            } else {
+                              repo.completeTaskOccurrence(
+                                task,
+                                occurrenceDate,
+                                at: completedAt,
+                              );
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  )
+                else ...[
                   ListTile(
                     leading: Icon(
                       done ? Icons.undo_rounded : Icons.check_rounded,

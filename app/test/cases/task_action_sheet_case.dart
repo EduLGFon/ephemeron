@@ -190,6 +190,58 @@ void main() {
     },
   );
 
+  testWidgets('uncompleting a suppressed projected occurrence offers undo', (
+    tester,
+  ) async {
+    final db = _db();
+    try {
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      await db
+          .into(db.tasks)
+          .insert(
+            TasksCompanion.insert(
+              id: 't1',
+              title: const Value('Recur'),
+              dueDate: const Value('2020-01-01'),
+              rrule: const Value('FREQ=DAILY'),
+              seriesId: const Value('s1'),
+              recurrenceKey: const Value('2020-01-01'),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await db
+          .into(db.taskOccurrenceStates)
+          .insert(
+            TaskOccurrenceStatesCompanion.insert(
+              seriesId: 's1',
+              occurrenceDate: '2030-01-01',
+              status: 'completed',
+              completedAt: const Value(1700000000000),
+              updatedAt: now,
+            ),
+          );
+      await _pumpSheet(tester, db, 't1', '2030-01-01');
+      expect(find.text('Mark as not concluded'), findsOneWidget);
+
+      await tester.tap(find.text('Mark as not concluded'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(await db.select(db.taskOccurrenceStates).get(), isEmpty);
+      expect(find.text('Undo'), findsOneWidget);
+
+      await tester.tap(find.text('Undo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final states = await db.select(db.taskOccurrenceStates).get();
+      expect(states, hasLength(1));
+      expect(states.single.status, 'completed');
+      expect(states.single.completedAt, 1700000000000);
+    } finally {
+      await _tearDown(tester, db);
+    }
+  });
+
   testWidgets("projected recurring occurrence won't do writes local state", (
     tester,
   ) async {

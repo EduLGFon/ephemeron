@@ -105,6 +105,86 @@ void main() {
     expect(prev[parent], l1);
   });
 
+  test(
+    'moving a parent moves live children and preserves their fields',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = TaskRepository(db);
+      final l1 = await repo.createList('L1');
+      final l2 = await repo.createList('L2');
+      final unrelated = await repo.createTask(title: 'U', listId: l1);
+      final parent = await repo.createTask(title: 'P', listId: l1);
+      final child = await repo.createTask(
+        title: 'S',
+        parentId: parent,
+        listId: l1,
+        notes: 'child notes',
+        priority: 3,
+        dueDate: '2026-03-02',
+        plannedStart: '2026-03-02T09:00',
+      );
+      final completed = await repo.createTask(
+        title: 'Done',
+        parentId: parent,
+        listId: l1,
+      );
+      await repo.completeTask(completed);
+      final deleted = await repo.createTask(
+        title: 'Deleted',
+        parentId: parent,
+        listId: l1,
+      );
+      await repo.softDeleteTasks([deleted]);
+
+      final prev = await repo.moveTasks([parent], l2);
+
+      expect(prev.keys, containsAll([parent, child]));
+      expect(prev[parent], l1);
+      expect(prev[child], l1);
+      expect(prev.keys, isNot(contains(unrelated)));
+      expect(prev.keys, isNot(contains(completed)));
+      expect(prev.keys, isNot(contains(deleted)));
+
+      final rows = await db.select(db.tasks).get();
+      final byId = {for (final row in rows) row.id: row};
+      expect(byId[parent]!.listId, l2);
+      expect(byId[child]!.listId, l2);
+      expect(byId[unrelated]!.listId, l1);
+      expect(byId[completed]!.listId, l1);
+      expect(byId[deleted]!.listId, l1);
+      expect(byId[child]!.notes, 'child notes');
+      expect(byId[child]!.priority, 3);
+      expect(byId[child]!.dueDate, '2026-03-02');
+      expect(byId[child]!.plannedStart, '2026-03-02T09:00');
+    },
+  );
+
+  test('moving a parent handles nested subtasks', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = TaskRepository(db);
+    final l1 = await repo.createList('L1');
+    final l2 = await repo.createList('L2');
+    final parent = await repo.createTask(title: 'P', listId: l1);
+    final child = await repo.createTask(
+      title: 'S',
+      parentId: parent,
+      listId: l1,
+    );
+    final grandchild = await repo.createTask(
+      title: 'G',
+      parentId: child,
+      listId: l1,
+    );
+
+    final prev = await repo.moveTasks([parent], l2);
+
+    expect(prev.keys, containsAll([parent, child, grandchild]));
+    final rows = await db.select(db.tasks).get();
+    expect(rows.every((row) => row.listId == l2), isTrue);
+  });
+
   test('move undo restores previous list', () async {
     final db = _db();
     addTearDown(db.close);
