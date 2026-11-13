@@ -21,6 +21,8 @@ part 'event_repository/helpers.dart';
 
 enum EditScope { single, following, all }
 
+const _readOnlyMessage = 'That calendar is read-only.';
+
 class _EventRepositoryBase {
   _EventRepositoryBase(this._db, this._occ);
 
@@ -65,6 +67,24 @@ class _EventRepositoryBase {
     )..where((c) => c.id.equals(calendarId))).getSingleOrNull();
   }
 
+  /// True when [event]'s source calendar, or its recurring master's calendar,
+  /// is read-only. Exceptions inherit the master's write protection.
+  Future<bool> isEventReadOnly(Event event) async {
+    if ((await _calendar(event.calendarId))?.readOnly == true) return true;
+    final masterId = event.recurringMasterId;
+    if (masterId == null) return false;
+    final master = await (dbSelect()..where((e) => e.id.equals(masterId)))
+        .getSingleOrNull();
+    if (master == null) return false;
+    return (await _calendar(master.calendarId))?.readOnly == true;
+  }
+
+  Future<void> _assertEventWritable(Event event) async {
+    if (await isEventReadOnly(event)) {
+      throw SourceMoveException(_readOnlyMessage);
+    }
+  }
+
   Future<Event> _master(String id) async {
     return (dbSelect()..where((e) => e.id.equals(id))).getSingle();
   }
@@ -81,6 +101,7 @@ class _EventRepositoryBase {
 
   /// Soft-deletes a master and its exceptions in one transaction.
   Future<void> deleteEvent(String masterId) async {
+    await _assertEventWritable(await _master(masterId));
     final now = nowMs();
     await _db.transaction(() async {
       for (final id in [

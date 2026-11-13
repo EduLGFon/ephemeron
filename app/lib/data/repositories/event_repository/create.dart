@@ -20,6 +20,9 @@ mixin _EventCreateOps on _EventRepositoryBase {
   }) async {
     final id = newId();
     final now = nowMs();
+    if ((await _calendar(calendarId))?.readOnly == true) {
+      throw SourceMoveException(_readOnlyMessage);
+    }
     final account = await _accountOfCalendar(calendarId);
     await _db
         .into(_db.events)

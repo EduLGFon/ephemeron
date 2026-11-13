@@ -6,6 +6,7 @@ mixin _EventMoveOps on _EventRepositoryBase {
     String targetCalendarId,
   ) async {
     final event = await _master(eventId);
+    await _assertEventWritable(event);
     if (event.calendarId == targetCalendarId) return;
     final sourceCal = await _calendar(event.calendarId);
     final targetCal = await _calendar(targetCalendarId);

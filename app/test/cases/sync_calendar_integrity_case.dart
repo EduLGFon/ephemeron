@@ -274,6 +274,64 @@ void main() {
     expect((await repo.occurrencesForDay('2026-03-10')).length, 1);
   });
 
+  test('remote exception omitting location/Meet keeps master values', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db, 'c1');
+    final master = {
+      'id': 'm1',
+      'etag': 'a',
+      'summary': 'Master',
+      'status': 'confirmed',
+      'start': {'dateTime': '2026-03-02T09:00:00Z'},
+      'end': {'dateTime': '2026-03-02T10:00:00Z'},
+      'recurrence': ['RRULE:FREQ=DAILY;COUNT=5'],
+      'location': 'Room 1',
+      'hangoutLink': 'https://meet.google.com/abc-defg-hij',
+      'visibility': 'public',
+      'transparency': 'opaque',
+    };
+    final exception = {
+      'id': 'exMoved',
+      'etag': 'b',
+      'summary': 'Moved',
+      'status': 'confirmed',
+      'recurringEventId': 'm1',
+      'originalStartTime': {'dateTime': '2026-03-03T09:00:00Z'},
+      'start': {'dateTime': '2026-03-04T11:00:00Z'},
+      'end': {'dateTime': '2026-03-04T12:00:00Z'},
+    };
+    final fake = _FakeGoogle()..eventsByCal['remote-c1'] = [master, exception];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    var moved = await (db.select(
+      db.events,
+    )..where((e) => e.remoteId.equals('exMoved'))).getSingle();
+    expect(moved.location, 'Room 1');
+    expect(moved.meetUrl, 'https://meet.google.com/abc-defg-hij');
+    expect(moved.visibility, 'public');
+    expect(moved.transparency, 'opaque');
+
+    // A later pull omits the same fields. It must not null or replace them.
+    fake.eventsByCal['remote-c1'] = [
+      master,
+      {
+        ...exception,
+        'etag': 'c',
+        'start': {'dateTime': '2026-03-05T11:00:00Z'},
+        'end': {'dateTime': '2026-03-05T12:00:00Z'},
+      },
+    ];
+    await engine.syncNow();
+    moved = await (db.select(
+      db.events,
+    )..where((e) => e.remoteId.equals('exMoved'))).getSingle();
+    expect(moved.location, 'Room 1');
+    expect(moved.meetUrl, 'https://meet.google.com/abc-defg-hij');
+    expect(moved.startUtc, DateTime.utc(2026, 3, 5, 11).millisecondsSinceEpoch);
+  });
+
   test('dirty local exception row is preserved', () async {
     final db = _db();
     addTearDown(db.close);

@@ -43,11 +43,16 @@ const _repeatPresets = {
   'Last day of month': 'FREQ=MONTHLY;BYMONTHDAY=-1',
 };
 
-// The series start the repository expects when editing an occurrence.
-DateTime _originalStartOf(Event event) {
+// The series start the repository expects when editing an occurrence. A later
+// occurrence opened from the timeline passes its own start; an exception's
+// originalStart always wins because that is its series slot.
+DateTime _originalStartOf(Event event, {int? occurrenceStartMs}) {
   final originalStart = event.originalStart;
   if (originalStart != null) {
     return DateTime.fromMillisecondsSinceEpoch(originalStart, isUtc: true);
+  }
+  if (occurrenceStartMs != null) {
+    return DateTime.fromMillisecondsSinceEpoch(occurrenceStartMs, isUtc: true);
   }
   if (event.startUtc != null) {
     return DateTime.fromMillisecondsSinceEpoch(event.startUtc!, isUtc: true);

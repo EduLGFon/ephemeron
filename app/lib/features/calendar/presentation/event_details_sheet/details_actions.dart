@@ -1,6 +1,11 @@
 part of '../event_details_sheet.dart';
 
-Future<void> _delete(BuildContext context, WidgetRef ref, Event e) async {
+Future<void> _delete(
+  BuildContext context,
+  WidgetRef ref,
+  Event e, {
+  int? occurrenceStartMs,
+}) async {
   final recurring =
       e.rrule != null && e.rrule!.isNotEmpty && e.recurringMasterId == null;
   EditScope scope = EditScope.all;
@@ -10,7 +15,12 @@ Future<void> _delete(BuildContext context, WidgetRef ref, Event e) async {
     final s = await showScopeSheet(context);
     if (s == null) return;
     scope = s;
-    orig = DateTime.fromMillisecondsSinceEpoch(e.startUtc ?? 0, isUtc: true);
+    final originalStart = e.originalStart;
+    orig = originalStart != null
+        ? DateTime.fromMillisecondsSinceEpoch(originalStart, isUtc: true)
+        : occurrenceStartMs != null
+        ? DateTime.fromMillisecondsSinceEpoch(occurrenceStartMs, isUtc: true)
+        : DateTime.fromMillisecondsSinceEpoch(e.startUtc ?? 0, isUtc: true);
     if (!context.mounted) return;
     if (scope == EditScope.single || scope == EditScope.following) {
       final pending = ref.read(pendingOperationsProvider);

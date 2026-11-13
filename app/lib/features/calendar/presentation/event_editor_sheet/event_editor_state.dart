@@ -6,6 +6,7 @@ part of '../event_editor_sheet.dart';
 class _EventEditor extends ConsumerStatefulWidget {
   const _EventEditor({
     this.event,
+    this.occurrenceStartMs,
     this.initialDay,
     this.initialHour,
     this.initialStart,
@@ -14,6 +15,7 @@ class _EventEditor extends ConsumerStatefulWidget {
   });
 
   final Event? event;
+  final int? occurrenceStartMs;
   final DateTime? initialDay;
   final int? initialHour;
   final DateTime? initialStart;
@@ -73,6 +75,17 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
         draftReminders ??
         parseReminderOffsets(e?.reminders, allDay: e?.isAllDay ?? false);
     _alarmPreset = (d?['alarmPreset'] as String?) ?? e?.alarmPreset;
+    final occurrenceStart = widget.occurrenceStartMs == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(
+            widget.occurrenceStartMs!,
+            isUtc: true,
+          );
+    final editSeriesOccurrence =
+        e != null &&
+        e.recurringMasterId == null &&
+        (e.rrule?.isNotEmpty ?? false) &&
+        occurrenceStart != null;
     if (e != null &&
         e.isAllDay &&
         e.startDate != null &&
@@ -86,12 +99,26 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
       // Legacy all-day rows stored endDate == startDate for one day.
       if (last.isBefore(_start)) last = _start;
       _end = DateTime(last.year, last.month, last.day);
+      if (editSeriesOccurrence) {
+        final target = DateTime(
+          occurrenceStart.year,
+          occurrenceStart.month,
+          occurrenceStart.day,
+        );
+        final shift = target.difference(_start).inDays;
+        _start = _start.add(Duration(days: shift));
+        _end = _end.add(Duration(days: shift));
+      }
     } else if (e?.startUtc != null && d?['startMs'] == null) {
-      _start = DateTime.fromMillisecondsSinceEpoch(
+      final seriesStart = DateTime.fromMillisecondsSinceEpoch(
         e!.startUtc!,
         isUtc: true,
       ).toLocal();
-      _end = e.endUtc == null
+      final durationMs = (e.endUtc ?? e.startUtc!) - e.startUtc!;
+      _start = editSeriesOccurrence ? occurrenceStart.toLocal() : seriesStart;
+      _end = editSeriesOccurrence
+          ? _start.add(Duration(milliseconds: durationMs))
+          : e.endUtc == null
           ? _start.add(const Duration(hours: 1))
           : DateTime.fromMillisecondsSinceEpoch(
               e.endUtc!,

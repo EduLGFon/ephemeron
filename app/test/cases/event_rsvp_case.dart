@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
@@ -10,6 +12,7 @@ import 'package:ephemeron/features/notes/presentation/markdown_preview.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -68,8 +71,9 @@ Future<void> _openEventSheet(
   WidgetTester tester,
   AppDatabase db,
   SharedPreferences prefs,
-  String eventId,
-) async {
+  String eventId, {
+  int? occurrenceStartMs,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -85,7 +89,11 @@ Future<void> _openEventSheet(
           body: Builder(
             builder: (context) => Center(
               child: ElevatedButton(
-                onPressed: () => showEventDetails(context, eventId),
+                onPressed: () => showEventDetails(
+                  context,
+                  eventId,
+                  occurrenceStartMs: occurrenceStartMs,
+                ),
                 child: const Text('Open event'),
               ),
             ),
@@ -276,6 +284,160 @@ void main() {
       isTrue,
     );
 
+    await tester.pumpWidget(Container());
+    await tester.pumpAndSettle();
+  });
+
+  Future<String> seedSeries(AppDatabase db, String calendarId) async {
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    return repo.createEvent(
+      calendarId: calendarId,
+      title: 'Series',
+      startUtc: DateTime.utc(2026, 3, 2, 9),
+      endUtc: DateTime.utc(2026, 3, 2, 9, 30),
+      tzId: 'UTC',
+      rrule: 'FREQ=DAILY;COUNT=5',
+    );
+  }
+
+  void stubSystemChannel() {
+    const systemChannel = MethodChannel('ephemeron/system');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      systemChannel,
+      (call) async => call.method == 'canPostNotifications' ? true : null,
+    );
+    addTearDown(() => messenger.setMockMethodCallHandler(systemChannel, null));
+  }
+
+  testWidgets('details edit on a later occurrence targets that occurrence', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    stubSystemChannel();
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final cal = await repo.createCalendar('Series calendar');
+    final master = await seedSeries(db, cal);
+    final later = DateTime.utc(2026, 3, 4, 9);
+    await _openEventSheet(
+      tester,
+      db,
+      prefs,
+      master,
+      occurrenceStartMs: later.millisecondsSinceEpoch,
+    );
+
+    final edit = find.text('Edit');
+    await tester.ensureVisible(edit);
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+
+    final save = find.widgetWithText(FilledButton, 'Save');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pump();
+    for (var i = 0; i < 40; i++) {
+      if (find.text('Which events?').evaluate().isNotEmpty) break;
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.text('Which events?'), findsOneWidget);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('This event'));
+    await tester.pump();
+    await tester.tap(find.text('This event'));
+    await tester.pumpAndSettle();
+
+    final rows = await db.select(db.events).get();
+    final ex = rows.firstWhere((e) => e.recurringMasterId == master);
+    expect(ex.originalStart, later.millisecondsSinceEpoch);
+    expect(ex.startUtc, later.millisecondsSinceEpoch);
+    await tester.pumpWidget(Container());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('details delete single on a later occurrence uses that start', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final repo = EventRepository(db, OccurrenceRepository(db));
+    final cal = await repo.createCalendar('Series calendar');
+    final master = await seedSeries(db, cal);
+    final later = DateTime.utc(2026, 3, 4, 9);
+    await _openEventSheet(
+      tester,
+      db,
+      prefs,
+      master,
+      occurrenceStartMs: later.millisecondsSinceEpoch,
+    );
+
+    final delete = find.text('Delete');
+    await tester.ensureVisible(delete);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+    expect(find.text('Which events?'), findsOneWidget);
+    await tester.ensureVisible(find.text('This event'));
+    await tester.pump();
+    await tester.tap(find.text('This event'));
+    await tester.pumpAndSettle();
+
+    final ops = await db.select(db.pendingOperations).get();
+    final op = ops.singleWhere((o) => o.op == 'delete_occurrence');
+    final payload = jsonDecode(op.payload!) as Map<String, dynamic>;
+    expect(payload['originalStartMs'], later.millisecondsSinceEpoch);
+    // Let the undo timer fire so the test leaves no pending app timer.
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(Container());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('read-only details hide move, edit and delete', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = _db();
+    addTearDown(db.close);
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.calendars)
+        .insert(
+          CalendarsCompanion.insert(
+            id: 'ro',
+            name: 'Shared',
+            source: const Value('google'),
+            readOnly: const Value(true),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final id = 'ro-event';
+    await db
+        .into(db.events)
+        .insert(
+          EventsCompanion.insert(
+            id: id,
+            calendarId: 'ro',
+            title: const Value('Shared event'),
+            startUtc: Value(DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch),
+            endUtc: Value(DateTime.utc(2026, 3, 3, 10).millisecondsSinceEpoch),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await _openEventSheet(tester, db, prefs, id);
+
+    expect(find.byKey(const Key('read-only-calendar')), findsOneWidget);
+    expect(find.text('Read-only calendar'), findsOneWidget);
+    expect(find.text('Edit'), findsNothing);
+    expect(find.text('Delete'), findsNothing);
+    expect(find.byIcon(Icons.swap_horiz), findsNothing);
     await tester.pumpWidget(Container());
     await tester.pumpAndSettle();
   });

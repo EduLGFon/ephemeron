@@ -216,8 +216,9 @@ extension on SyncEngine {
         final isException = g['recurringEventId'] != null;
         final masterRemoteId = g['recurringEventId'] as String?;
         String? masterLocalId;
+        Event? masterRow;
         if (isException && masterRemoteId != null) {
-          final masterRow =
+          masterRow =
               await (_db.select(_db.events)..where(
                     (e) =>
                         e.remoteId.equals(masterRemoteId) &
@@ -324,10 +325,16 @@ extension on SyncEngine {
             newId(),
             recurringMasterLocalId: isException ? masterLocalId : null,
           );
+          final companion = _inheritExceptionFields(
+            g,
+            masterRow,
+            mapped.companion,
+            isNew: true,
+          );
           await _db
               .into(_db.events)
               .insert(
-                mapped.companion.copyWith(
+                companion.copyWith(
                   googleAccount: Value(owner),
                   deletedAt: const Value(null),
                 ),
@@ -341,10 +348,16 @@ extension on SyncEngine {
             existing.id,
             recurringMasterLocalId: isException ? masterLocalId : null,
           );
+          final companion = _inheritExceptionFields(
+            g,
+            masterRow,
+            mapped.companion,
+            isNew: false,
+          );
           await (_db.update(
             _db.events,
           )..where((e) => e.id.equals(existing.id))).write(
-            mapped.companion.copyWith(
+            companion.copyWith(
               alarmPreset: const Value.absent(),
               // A confirmed remote event revives a previously cancelled or
               // soft-deleted local tombstone.
@@ -414,4 +427,46 @@ extension on SyncEngine {
       }
     });
   }
+}
+
+/// Keeps master-derived fields when a remote exception omits them.
+///
+/// New exception rows inherit the master's location, Meet link, visibility,
+/// transparency, and local reminder/alarm values. Updates omit fields the
+/// remote instance did not send so an existing local value is not nulled.
+EventsCompanion _inheritExceptionFields(
+  Map<String, dynamic> g,
+  Event? master,
+  EventsCompanion mapped, {
+  required bool isNew,
+}) {
+  if (master == null) return mapped;
+  var out = mapped;
+  if (g['location'] == null) {
+    out = out.copyWith(
+      location: isNew ? Value(master.location) : const Value.absent(),
+    );
+  }
+  if (g['hangoutLink'] == null) {
+    out = out.copyWith(
+      meetUrl: isNew ? Value(master.meetUrl) : const Value.absent(),
+    );
+  }
+  if (g['visibility'] == null) {
+    out = out.copyWith(
+      visibility: isNew ? Value(master.visibility) : const Value.absent(),
+    );
+  }
+  if (g['transparency'] == null) {
+    out = out.copyWith(
+      transparency: isNew ? Value(master.transparency) : const Value.absent(),
+    );
+  }
+  if (isNew) {
+    out = out.copyWith(
+      reminders: Value(master.reminders),
+      alarmPreset: Value(master.alarmPreset),
+    );
+  }
+  return out;
 }
