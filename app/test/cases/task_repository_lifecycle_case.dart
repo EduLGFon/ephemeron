@@ -1,7 +1,14 @@
 import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/countdown_repository.dart';
+import 'package:ephemeron/data/repositories/event_repository.dart';
+import 'package:ephemeron/data/repositories/focus_repository.dart';
+import 'package:ephemeron/data/repositories/habit_repository.dart';
+import 'package:ephemeron/data/repositories/note_repository.dart';
+import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/data/repositories/pending_operations_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
+import 'package:ephemeron/features/sync/application/pending_operations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
@@ -105,6 +112,86 @@ void main() {
     expect(prev[parent], l1);
   });
 
+  test(
+    'moving a parent moves live children and preserves their fields',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = TaskRepository(db);
+      final l1 = await repo.createList('L1');
+      final l2 = await repo.createList('L2');
+      final unrelated = await repo.createTask(title: 'U', listId: l1);
+      final parent = await repo.createTask(title: 'P', listId: l1);
+      final child = await repo.createTask(
+        title: 'S',
+        parentId: parent,
+        listId: l1,
+        notes: 'child notes',
+        priority: 3,
+        dueDate: '2026-03-02',
+        plannedStart: '2026-03-02T09:00',
+      );
+      final completed = await repo.createTask(
+        title: 'Done',
+        parentId: parent,
+        listId: l1,
+      );
+      await repo.completeTask(completed);
+      final deleted = await repo.createTask(
+        title: 'Deleted',
+        parentId: parent,
+        listId: l1,
+      );
+      await repo.softDeleteTasks([deleted]);
+
+      final prev = await repo.moveTasks([parent], l2);
+
+      expect(prev.keys, containsAll([parent, child]));
+      expect(prev[parent], l1);
+      expect(prev[child], l1);
+      expect(prev.keys, isNot(contains(unrelated)));
+      expect(prev.keys, isNot(contains(completed)));
+      expect(prev.keys, isNot(contains(deleted)));
+
+      final rows = await db.select(db.tasks).get();
+      final byId = {for (final row in rows) row.id: row};
+      expect(byId[parent]!.listId, l2);
+      expect(byId[child]!.listId, l2);
+      expect(byId[unrelated]!.listId, l1);
+      expect(byId[completed]!.listId, l1);
+      expect(byId[deleted]!.listId, l1);
+      expect(byId[child]!.notes, 'child notes');
+      expect(byId[child]!.priority, 3);
+      expect(byId[child]!.dueDate, '2026-03-02');
+      expect(byId[child]!.plannedStart, '2026-03-02T09:00');
+    },
+  );
+
+  test('moving a parent handles nested subtasks', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = TaskRepository(db);
+    final l1 = await repo.createList('L1');
+    final l2 = await repo.createList('L2');
+    final parent = await repo.createTask(title: 'P', listId: l1);
+    final child = await repo.createTask(
+      title: 'S',
+      parentId: parent,
+      listId: l1,
+    );
+    final grandchild = await repo.createTask(
+      title: 'G',
+      parentId: child,
+      listId: l1,
+    );
+
+    final prev = await repo.moveTasks([parent], l2);
+
+    expect(prev.keys, containsAll([parent, child, grandchild]));
+    final rows = await db.select(db.tasks).get();
+    expect(rows.every((row) => row.listId == l2), isTrue);
+  });
+
   test('move undo restores previous list', () async {
     final db = _db();
     addTearDown(db.close);
@@ -121,6 +208,39 @@ void main() {
       db.tasks,
     )..where((x) => x.id.equals(t))).getSingle();
     expect(row.listId, l1);
+  });
+
+  test('disposed pending operations ignore an in-flight schedule', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = TaskRepository(db);
+    final first = await repo.createTask(title: 'First');
+    final second = await repo.createTask(title: 'Second');
+    final pendingRepo = PendingOperationsRepository(db);
+    await pendingRepo.enqueue(
+      entity: 'task',
+      entityId: first,
+      op: 'delete',
+      delay: const Duration(milliseconds: 50),
+    );
+    final operations = PendingOperations(
+      db,
+      tasks: repo,
+      notes: NoteRepository(db),
+      habits: HabitRepository(db),
+      countdowns: CountdownRepository(db),
+      focus: FocusRepository(db),
+      events: EventRepository(db, OccurrenceRepository(db)),
+    );
+
+    final scheduled = operations.scheduleTaskDelete(second);
+    operations.dispose();
+    await scheduled;
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    final rows = await db.select(db.tasks).get();
+    expect(rows.every((row) => row.deletedAt == null), isTrue);
+    expect(await db.select(db.pendingOperations).get(), hasLength(2));
   });
 
   test('task reminders and alarm preset persist', () async {
