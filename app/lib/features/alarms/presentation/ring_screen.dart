@@ -133,6 +133,7 @@ class _RingScreenState extends ConsumerState<RingScreen> {
   /// scheduled; Snooze must not rebuild because that would cancel the snooze.
   /// [destination] replaces the ring route with a section tab (Open item);
   /// null keeps the existing pop-or-calendar behavior.
+  /// [successFeedback] fires the success haptic only after the action resolves.
   /// The rebuild is fire-and-forget so the route change lands before the
   /// biometric gate replaces the app subtree.
   Future<void> _act(
@@ -140,13 +141,17 @@ class _RingScreenState extends ConsumerState<RingScreen> {
     Future<void> Function(int requestCode) action, {
     required bool rebuild,
     String? destination,
+    bool successFeedback = false,
   }) async {
     if (_busy) return;
     _busy = true;
     _auto?.cancel();
     try {
       final requestCode = await _resolveCode(code);
-      if (requestCode != null) await action(requestCode);
+      if (requestCode != null) {
+        await action(requestCode);
+        if (successFeedback && mounted) AppFeedback.success();
+      }
     } catch (_) {
       // The native notification/ring is already stopped; never trap the
       // user on the ring screen because of a DB failure.
@@ -316,13 +321,13 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                                   ),
                                 ),
                                 onPressed: () {
-                                  AppFeedback.success();
                                   _act(
                                     _requestCode(alarm),
                                     (code) => ref
                                         .read(alarmRepositoryProvider)
                                         .markDone(code),
                                     rebuild: true,
+                                    successFeedback: true,
                                   );
                                 },
                                 child: const Text('Done'),
@@ -344,13 +349,13 @@ class _RingScreenState extends ConsumerState<RingScreen> {
                                 if (numeric)
                                   OutlinedButton(
                                     onPressed: () {
-                                      AppFeedback.success();
                                       _act(
                                         _requestCode(alarm),
                                         (code) => ref
                                             .read(alarmRepositoryProvider)
                                             .completeHabitPlusOne(code),
                                         rebuild: true,
+                                        successFeedback: true,
                                       );
                                     },
                                     child: const Text('+1'),

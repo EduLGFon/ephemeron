@@ -193,4 +193,56 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
   });
+
+  testWidgets('habit row icon actions keep 48dp targets at 320dp and 2x text', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Read a long book',
+      startDate: '2026-01-01',
+      goalAmount: 10,
+      unit: 'min',
+      increment: 2,
+    );
+    await repo.addAmount(id, habitDateKey(DateTime.now()), 10);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: const HabitsScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    for (final icon in [
+      Icons.remove,
+      Icons.add,
+      Icons.play_arrow,
+      Icons.pause_outlined,
+    ]) {
+      final target = find.widgetWithIcon(IconButton, icon);
+      expect(target, findsOneWidget, reason: 'missing action $icon');
+      final size = tester.getSize(target);
+      expect(size.width, greaterThanOrEqualTo(48), reason: 'width of $icon');
+      expect(size.height, greaterThanOrEqualTo(48), reason: 'height of $icon');
+    }
+    expect(tester.takeException(), isNull);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
 }

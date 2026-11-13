@@ -17,11 +17,23 @@ import '../application/alarm_providers.dart';
 import '../data/alarm_scheduler.dart';
 import 'alarm_settings_format.dart';
 
-class AlarmSettingsScreen extends ConsumerWidget {
+class AlarmSettingsScreen extends ConsumerStatefulWidget {
   const AlarmSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AlarmSettingsScreen> createState() =>
+      _AlarmSettingsScreenState();
+}
+
+class _AlarmSettingsScreenState extends ConsumerState<AlarmSettingsScreen> {
+  // Permission checks are platform-channel round trips. Resolve each once per
+  // screen visit so stream/provider rebuilds cannot flash the status chip.
+  Future<bool>? _exactAlarmStatus;
+  Future<bool>? _fullScreenStatus;
+
+  @override
+  void initState() {
+    super.initState();
     // Track the route so restarts return here.
     Future.microtask(() async {
       try {
@@ -31,6 +43,10 @@ class AlarmSettingsScreen extends ConsumerWidget {
         }
       } catch (_) {}
     });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     if (kIsWeb) {
       return Scaffold(
         appBar: AppBar(title: const Text('Alarms')),
@@ -127,7 +143,7 @@ class AlarmSettingsScreen extends ConsumerWidget {
             title: 'Exact alarms',
             description:
                 'Needed to ring at the exact time, including in power saving.',
-            status: AlarmScheduler.canScheduleExact(),
+            status: _exactAlarmStatus ??= AlarmScheduler.canScheduleExact(),
             onOpenSettings: () => AppPermissions.ensureExactAlarm(context),
           ),
           _PermissionTile(
@@ -135,7 +151,8 @@ class AlarmSettingsScreen extends ConsumerWidget {
             title: 'Full-screen alarms',
             description:
                 'Needed on Android 14+ to show alarms over the lock screen.',
-            status: SystemLauncher.canUseFullScreenIntent(),
+            status: _fullScreenStatus ??=
+                SystemLauncher.canUseFullScreenIntent(),
             onOpenSettings: () =>
                 AppPermissions.ensureFullScreenIntent(context, needed: true),
           ),

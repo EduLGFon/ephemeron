@@ -10,6 +10,7 @@ import 'package:home_widget/home_widget.dart';
 import 'app/router/app_router.dart';
 import 'core/platform/system_launcher.dart';
 import 'core/security/app_lock.dart';
+import 'core/security/app_lock_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_tokens.dart';
 import 'core/ui/app_feedback.dart';
@@ -100,14 +101,16 @@ class EphemeronApp extends ConsumerWidget {
       );
     });
 
+    final theme = buildTheme(
+      primary: primary,
+      background: background,
+      brightness: brightness,
+    );
+
     final app = MaterialApp.router(
       title: 'Ephemeron',
       debugShowCheckedModeBanner: false,
-      theme: buildTheme(
-        primary: primary,
-        background: background,
-        brightness: brightness,
-      ),
+      theme: theme,
       locale: localeCode == 'system' ? null : Locale(localeCode),
       localizationsDelegates: const [
         AppLocalizations.delegate,
@@ -129,17 +132,22 @@ class EphemeronApp extends ConsumerWidget {
       },
     );
     if (!locked || ringActive) return app;
-    return _LockGate(ref: ref, child: app);
+    return _LockGate(ref: ref, theme: theme, child: app);
   }
 }
 
 /// Full-screen gate shown when biometric app lock is on. Stays locked
 /// until authentication succeeds; unsupported devices pass through.
 class _LockGate extends StatefulWidget {
-  const _LockGate({required this.ref, required this.child});
+  const _LockGate({
+    required this.ref,
+    required this.child,
+    required this.theme,
+  });
 
   final Widget child;
   final WidgetRef ref;
+  final ThemeData theme;
 
   @override
   State<_LockGate> createState() => _LockGateState();
@@ -201,38 +209,11 @@ class _LockGateState extends State<_LockGate> {
   @override
   Widget build(BuildContext context) {
     if (_unlocked) return widget.child;
-    return MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.lock_outline, size: 48),
-              const SizedBox(height: 12),
-              const Text('Ephemeron is locked'),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.red),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _busy ? null : _tryUnlock,
-                icon: const Icon(Icons.fingerprint),
-                label: Text(_busy ? 'Waiting...' : 'Unlock'),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return BiometricLockScreen(
+      theme: widget.theme,
+      busy: _busy,
+      error: _error,
+      onUnlock: _tryUnlock,
     );
   }
 }
