@@ -32,6 +32,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   CalendarWindow? _persisted;
   bool _rebuilding = false;
   bool _rebuildAgain = false;
+  bool _rebuildScheduled = false;
   bool _disposed = false;
   Timer? _restoreFallback;
 
@@ -39,13 +40,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   void initState() {
     super.initState();
     _scheduleRebuild();
-    // Safety net: if session restore never reports completion, build the
-    // default window instead of leaving the calendar empty.
+    // Safety net: if session restore never reports completion, unblock the
+    // normal rebuild path instead of leaving the calendar empty. The build is
+    // scheduled (not run directly) so a restore completing in the same frame
+    // is coalesced into a single initial cache build.
     _restoreFallback = Timer(const Duration(seconds: 2), () {
       if (_disposed || !mounted) return;
       if (ref.read(initialRestoreDoneProvider)) return;
       ref.read(initialRestoreDoneProvider.notifier).markDone();
-      _maybeRebuild();
+      _scheduleRebuild();
     });
   }
 
@@ -57,8 +60,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   void _scheduleRebuild() {
-    if (_disposed) return;
+    if (_disposed || _rebuildScheduled) return;
+    _rebuildScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _rebuildScheduled = false;
       if (_disposed || !mounted) return;
       _maybeRebuild();
     });

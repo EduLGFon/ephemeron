@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
+import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/tasks/presentation/matrix_screen.dart';
 import 'package:flutter/material.dart';
@@ -84,6 +87,47 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
+    expect(_inField('p1', 'P1 task'), findsOneWidget);
+    expect(find.text('Do first'), findsNothing);
+
+    await _dispose(tester, db);
+  });
+
+  testWidgets('cold start defers the board until the saved mode loads', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'matrix.mode': 'priority',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = TaskRepository(db);
+    await repo.createTask(title: 'P1 task', priority: 4);
+
+    final settings = Completer<SettingsRepository>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWith((ref) => settings.future),
+        ],
+        child: const MaterialApp(home: MatrixScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Tasks are ready, but the saved matrix mode is still pending: the board
+    // must not fall back to Auto.
+    expect(find.byKey(const Key('matrix-mode-loading')), findsOneWidget);
+    expect(find.text('Do first'), findsNothing);
+    expect(find.text('Auto'), findsNothing);
+
+    settings.complete(SettingsRepository(prefs));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(const Key('matrix-mode-loading')), findsNothing);
     expect(_inField('p1', 'P1 task'), findsOneWidget);
     expect(find.text('Do first'), findsNothing);
 

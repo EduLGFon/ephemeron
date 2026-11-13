@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:ephemeron/app/session/session_restore.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/features/calendar/application/calendar_providers.dart';
 import 'package:ephemeron/features/calendar/application/calendar_state.dart';
 import 'package:ephemeron/features/calendar/presentation/agenda_view.dart';
@@ -168,4 +169,61 @@ void main() {
     await tester.pump();
     await db.close();
   });
+
+  testWidgets('late restore coalesces the fallback into one cache build', (
+    tester,
+  ) async {
+    final db = _db();
+    final repo = _RecordingOccurrenceRepository(db);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          occurrenceRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: const MaterialApp(home: CalendarScreen()),
+      ),
+    );
+    await tester.pump();
+    expect(repo.ranges, isEmpty);
+
+    // Fire the 2 s fallback without drawing a frame so a late restore can
+    // still land before the scheduled build runs.
+    await tester.binding.delayed(const Duration(seconds: 2));
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CalendarScreen)),
+    );
+    final restored = CalendarWindow(
+      anchor: DateTime(2020, 6, 1),
+      view: CalendarViewKind.year,
+    );
+    container
+        .read(calendarStateProvider.notifier)
+        .restore(restored.view, restored.anchor);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(repo.ranges, hasLength(1));
+    expect(repo.ranges.single, restored.cacheRange);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+    await db.close();
+  });
+}
+
+class _RecordingOccurrenceRepository extends OccurrenceRepository {
+  _RecordingOccurrenceRepository(super.db);
+
+  final List<CalendarRange> ranges = [];
+
+  @override
+  Future<int> rebuildWindow({
+    required DateTime windowStartUtc,
+    required DateTime windowEndUtc,
+  }) async {
+    ranges.add(CalendarRange(fromUtc: windowStartUtc, toUtc: windowEndUtc));
+    return 0;
+  }
 }

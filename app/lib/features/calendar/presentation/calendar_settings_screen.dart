@@ -207,8 +207,18 @@ class _CalendarSettingsScreenState
       return;
     }
     if (!mounted) return;
+    // Pre-select device calendars already mapped to the chosen target so a
+    // repeat import does not silently drop existing mappings.
+    final mappings = await service.loadMappings();
+    if (!mounted) return;
+    final visibleIds = [for (final dc in deviceCals) dc.id];
+    final targetNames = {for (final c in appCals) c.id: c.name};
     String targetId = appCals.first.id;
-    final selected = <String>{};
+    Set<String> selected = mappedDeviceCalendarIds(
+      visibleDeviceCalendarIds: visibleIds,
+      mappings: mappings,
+      targetCalendarId: targetId,
+    );
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -226,7 +236,17 @@ class _CalendarSettingsScreenState
                       for (final c in appCals)
                         DropdownMenuItem(value: c.id, child: Text(c.name)),
                     ],
-                    onChanged: (v) => setState(() => targetId = v ?? targetId),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        targetId = v;
+                        selected = mappedDeviceCalendarIds(
+                          visibleDeviceCalendarIds: visibleIds,
+                          mappings: mappings,
+                          targetCalendarId: v,
+                        );
+                      });
+                    },
                     decoration: const InputDecoration(
                       labelText: 'Target calendar',
                     ),
@@ -243,6 +263,12 @@ class _CalendarSettingsScreenState
                         }
                       }),
                       title: Text(dc.name),
+                      subtitle: targetNames[mappings[dc.id]] == null
+                          ? null
+                          : Text(
+                              'Currently imported to '
+                              '${targetNames[mappings[dc.id]]}',
+                            ),
                     ),
                 ],
               ),
@@ -274,6 +300,15 @@ class _CalendarSettingsScreenState
     }
     if (completed.isNotEmpty) {
       await service.saveMappings({for (final id in completed) id: targetId});
+    }
+    if (completed.length == selected.length) {
+      // Only prune after every selected import succeeded, so a failed read
+      // does not drop mappings for calendars the user still wants refreshed.
+      await service.pruneDeselectedMappings(
+        visibleDeviceCalendarIds: visibleIds,
+        selectedDeviceCalendarIds: selected,
+        targetCalendarId: targetId,
+      );
     }
     if (!mounted) return;
     setState(() => _hasMappings = service.hasMappings());
