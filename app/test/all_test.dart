@@ -109,6 +109,9 @@ import 'cases/timeline_multiday_overflow_case.dart'
 import 'cases/timeline_now_controller_case.dart' as timeline_now_controller;
 import 'cases/timeline_persist_case.dart' as timeline_persist;
 import 'cases/timeline_view_case.dart' as timeline_view;
+import 'cases/todo_coverage_case.dart' as todo_coverage;
+import 'cases/todo_layout_scale_case.dart' as todo_layout_scale;
+import 'cases/todo_sync_status_case.dart' as todo_sync_status;
 import 'cases/ux_alarms_case.dart' as ux_alarms;
 import 'cases/ux_calendar_case.dart' as ux_calendar;
 import 'cases/ux_foundation_case.dart' as ux_foundation;
@@ -222,6 +225,9 @@ const _included = <String>{
   'timeline_now_controller_case.dart',
   'timeline_persist_case.dart',
   'timeline_view_case.dart',
+  'todo_coverage_case.dart',
+  'todo_layout_scale_case.dart',
+  'todo_sync_status_case.dart',
   'ux_alarms_case.dart',
   'ux_calendar_case.dart',
   'ux_foundation_case.dart',
@@ -346,6 +352,9 @@ void main() {
   group('timeline_now_controller', timeline_now_controller.main);
   group('timeline_persist', timeline_persist.main);
   group('timeline_view', timeline_view.main);
+  group('todo_coverage', todo_coverage.main);
+  group('todo_layout_scale', todo_layout_scale.main);
+  group('todo_sync_status', todo_sync_status.main);
   group('ux_alarms', ux_alarms.main);
   group('ux_calendar', ux_calendar.main);
   group('ux_foundation', ux_foundation.main);
