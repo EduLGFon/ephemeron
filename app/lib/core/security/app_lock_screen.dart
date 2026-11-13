@@ -38,9 +38,9 @@ class BiometricLockScreen extends StatelessWidget {
                     child: Text(
                       error!,
                       textAlign: TextAlign.center,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.red),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ),
                 ],

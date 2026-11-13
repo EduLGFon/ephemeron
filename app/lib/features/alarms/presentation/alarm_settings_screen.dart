@@ -25,15 +25,18 @@ class AlarmSettingsScreen extends ConsumerStatefulWidget {
       _AlarmSettingsScreenState();
 }
 
-class _AlarmSettingsScreenState extends ConsumerState<AlarmSettingsScreen> {
+class _AlarmSettingsScreenState extends ConsumerState<AlarmSettingsScreen>
+    with WidgetsBindingObserver {
   // Permission checks are platform-channel round trips. Resolve each once per
-  // screen visit so stream/provider rebuilds cannot flash the status chip.
+  // build so stream/provider rebuilds cannot flash the status chip, then
+  // invalidate when the user returns from system settings.
   Future<bool>? _exactAlarmStatus;
   Future<bool>? _fullScreenStatus;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Track the route so restarts return here.
     Future.microtask(() async {
       try {
@@ -43,6 +46,32 @@ class _AlarmSettingsScreenState extends ConsumerState<AlarmSettingsScreen> {
         }
       } catch (_) {}
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Permission prompts leave the app. Re-check both tiles on return so a
+    // grant in system Settings is reflected without a manual screen reload.
+    if (state == AppLifecycleState.resumed) _refreshPermissionStatus();
+  }
+
+  void _refreshPermissionStatus() {
+    if (!mounted) return;
+    setState(() {
+      _exactAlarmStatus = null;
+      _fullScreenStatus = null;
+    });
+  }
+
+  Future<void> _openPermissionSettings(Future<bool> Function() open) async {
+    await open();
+    _refreshPermissionStatus();
   }
 
   @override
@@ -144,7 +173,9 @@ class _AlarmSettingsScreenState extends ConsumerState<AlarmSettingsScreen> {
             description:
                 'Needed to ring at the exact time, including in power saving.',
             status: _exactAlarmStatus ??= AlarmScheduler.canScheduleExact(),
-            onOpenSettings: () => AppPermissions.ensureExactAlarm(context),
+            onOpenSettings: () => _openPermissionSettings(
+              () => AppPermissions.ensureExactAlarm(context),
+            ),
           ),
           _PermissionTile(
             icon: Icons.fullscreen,
@@ -153,8 +184,10 @@ class _AlarmSettingsScreenState extends ConsumerState<AlarmSettingsScreen> {
                 'Needed on Android 14+ to show alarms over the lock screen.',
             status: _fullScreenStatus ??=
                 SystemLauncher.canUseFullScreenIntent(),
-            onOpenSettings: () =>
-                AppPermissions.ensureFullScreenIntent(context, needed: true),
+            onOpenSettings: () => _openPermissionSettings(
+              () =>
+                  AppPermissions.ensureFullScreenIntent(context, needed: true),
+            ),
           ),
           const AppSectionHeader(
             'Alarm styles',

@@ -363,10 +363,13 @@ class _TagTasksSheet extends ConsumerWidget {
                 );
               },
               loading: () => AppSkeleton.list(context, itemCount: 4),
-              error: (_, _) => const EmptyState(
+              error: (_, _) => EmptyState(
                 icon: Icons.error_outline,
                 title: 'Could not load tasks',
                 compact: true,
+                actionLabel: 'Retry',
+                onAction: () =>
+                    ref.invalidate(searchTasksForTagProvider(tag.id)),
               ),
             ),
           ),

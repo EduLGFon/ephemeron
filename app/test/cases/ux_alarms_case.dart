@@ -263,6 +263,100 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  testWidgets('permission tiles re-query after returning from settings', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    var exactCalls = 0;
+    var fullScreenCalls = 0;
+    var exactGranted = false;
+    var fullScreenGranted = false;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('ephemeron/alarms'),
+      (call) async {
+        if (call.method == 'canScheduleExact') {
+          exactCalls++;
+          return exactGranted;
+        }
+        if (call.method == 'openExactAlarmSettings') {
+          exactGranted = true;
+          return null;
+        }
+        return null;
+      },
+    );
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('ephemeron/system'),
+      (call) async {
+        if (call.method == 'canUseFullScreenIntent') {
+          fullScreenCalls++;
+          return fullScreenGranted;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('ephemeron/alarms'),
+        null,
+      );
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('ephemeron/system'),
+        null,
+      );
+    });
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final settings = SettingsRepository(await SharedPreferences.getInstance());
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        settingsRepositoryProvider.overrideWith((ref) async => settings),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const _RebuildHost(child: AlarmSettingsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(exactCalls, 1);
+    expect(find.text('Not granted'), findsNWidgets(2));
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Open settings').first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Open settings'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(exactCalls, greaterThan(1));
+    expect(find.text('Granted'), findsOneWidget);
+
+    fullScreenGranted = true;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(fullScreenCalls, greaterThan(1));
+    expect(find.text('Granted'), findsNWidgets(2));
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('Done haptic fires only after the action resolves', (
     tester,
   ) async {

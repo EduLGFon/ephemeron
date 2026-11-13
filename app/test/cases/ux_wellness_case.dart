@@ -213,6 +213,11 @@ void main() {
     );
     await repo.addAmount(id, habitDateKey(DateTime.now()), 10);
 
+    final reportedErrors = <FlutterErrorDetails>[];
+    final previousOnError = FlutterError.onError;
+    FlutterError.onError = reportedErrors.add;
+    addTearDown(() => FlutterError.onError = previousOnError);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appDatabaseProvider.overrideWithValue(db)],
@@ -240,6 +245,12 @@ void main() {
       expect(size.height, greaterThanOrEqualTo(48), reason: 'height of $icon');
     }
     expect(tester.takeException(), isNull);
+    expect(
+      reportedErrors,
+      isEmpty,
+      reason: reportedErrors.map((e) => e.exceptionAsString()).join('\n'),
+    );
+    FlutterError.onError = previousOnError;
 
     await db.close();
     await tester.pumpWidget(Container());
