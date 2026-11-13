@@ -62,6 +62,7 @@ import 'cases/matrix_planned_case.dart' as matrix_planned;
 import 'cases/microsoft_auth_case.dart' as microsoft_auth;
 import 'cases/microsoft_graph_case.dart' as microsoft_graph;
 import 'cases/microsoft_sync_engine_case.dart' as microsoft_sync_engine;
+import 'cases/migration_replay_v11_v14_case.dart' as migration_replay_v11_v14;
 import 'cases/migration_v4_v5_case.dart' as migration_v4_v5;
 import 'cases/migration_v7_v11_regression_case.dart'
     as migration_v7_v11_regression;
@@ -179,6 +180,7 @@ const _included = <String>{
   'microsoft_auth_case.dart',
   'microsoft_graph_case.dart',
   'microsoft_sync_engine_case.dart',
+  'migration_replay_v11_v14_case.dart',
   'migration_v4_v5_case.dart',
   'migration_v7_v11_regression_case.dart',
   'month_view_case.dart',
@@ -303,6 +305,7 @@ void main() {
   group('microsoft_auth', microsoft_auth.main);
   group('microsoft_graph', microsoft_graph.main);
   group('microsoft_sync_engine', microsoft_sync_engine.main);
+  group('migration_replay_v11_v14', migration_replay_v11_v14.main);
   group('migration_v4_v5', migration_v4_v5.main);
   group('migration_v7_v11_regression', migration_v7_v11_regression.main);
   group('month_view', month_view.main);

@@ -96,6 +96,19 @@ Future<void> _verifyV14(AppDatabase db, int from) async {
     from >= 12 ? 'ms@example.com' : isNull,
   );
 
+  final taskList = await db
+      .customSelect(
+        "SELECT name, google_account, microsoft_account "
+        "FROM task_lists WHERE id = 'list1'",
+      )
+      .getSingle();
+  expect(taskList.read<String>('name'), 'Inbox');
+  expect(taskList.read<String?>('google_account'), 'g@example.com');
+  expect(
+    taskList.read<String?>('microsoft_account'),
+    from >= 12 ? 'ms@example.com' : isNull,
+  );
+
   final task = await db
       .customSelect(
         "SELECT title, rrule, due_date, planned_date, planned_start, "
