@@ -1,6 +1,11 @@
 // Alarm settings: exact-alarm permission, per-preset test buttons,
 // battery guidance, upcoming + missed alarms. Web/desktop show the
 // simulation note instead of the unavailable banner.
+//
+// The screen is a single Dart library split into `part` files under
+// presentation/alarm_settings_screen/ so permission rows and alarm lists stay
+// focused while private members remain shared within the library. The entry
+// point and import path are unchanged for existing importers.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +21,9 @@ import '../../settings/application/settings_providers.dart';
 import '../application/alarm_providers.dart';
 import '../data/alarm_scheduler.dart';
 import 'alarm_settings_format.dart';
+
+part 'alarm_settings_screen/alarm_lists.dart';
+part 'alarm_settings_screen/permissions.dart';
 
 class AlarmSettingsScreen extends ConsumerStatefulWidget {
   const AlarmSettingsScreen({super.key});
@@ -239,197 +247,6 @@ class _AlarmSettingsScreenState extends ConsumerState<AlarmSettingsScreen>
           _Missed(ref),
         ],
       ),
-    );
-  }
-}
-
-/// Shared permission row: status chip always visible, settings deep link
-/// only while the privilege is missing.
-class _PermissionTile extends StatelessWidget {
-  const _PermissionTile({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.status,
-    required this.onOpenSettings,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final Future<bool> status;
-  final VoidCallback onOpenSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: status,
-      builder: (context, snap) {
-        final granted = snap.data ?? false;
-        return ListTile(
-          isThreeLine: true,
-          leading: Icon(icon),
-          title: Text(title),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppSpace.xs),
-              _PermissionStatusChip(granted: granted),
-              const SizedBox(height: AppSpace.xs),
-              Text(description),
-            ],
-          ),
-          trailing: granted
-              ? null
-              : FilledButton(
-                  onPressed: onOpenSettings,
-                  child: const Text('Open settings'),
-                ),
-        );
-      },
-    );
-  }
-}
-
-class _PermissionStatusChip extends StatelessWidget {
-  const _PermissionStatusChip({required this.granted});
-
-  final bool granted;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = granted ? scheme.primary : scheme.error;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.sm,
-        vertical: AppSpace.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            granted ? Icons.check_circle_outline : Icons.error_outline,
-            size: 14,
-            color: color,
-          ),
-          const SizedBox(width: AppSpace.xs),
-          Text(
-            granted ? 'Granted' : 'Not granted',
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PresetCards extends StatelessWidget {
-  const _PresetCards(this.ref);
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (final p in AlarmPreset.values)
-          Card(
-            child: ListTile(
-              title: Text(p.title),
-              subtitle: Text(p.description),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _Upcoming extends ConsumerWidget {
-  const _Upcoming(this.ref);
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context, WidgetRef innerRef) {
-    final upcoming = ref.watch(upcomingAlarmsProvider);
-    final count = upcoming.value?.length ?? 0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppSectionHeader('Upcoming', count: count > 0 ? count : null),
-        upcoming.maybeWhen(
-          data: (list) => Column(
-            children: [
-              if (list.isEmpty)
-                const EmptyState(
-                  compact: true,
-                  icon: Icons.schedule,
-                  title: 'No upcoming alarms',
-                  subtitle: 'Alarms you set will appear here.',
-                )
-              else
-                for (final a in list.take(20))
-                  ListTile(
-                    title: Text(a.title ?? a.sourceId),
-                    subtitle: Text(
-                      '${a.kind} - ${a.preset ?? ''} - '
-                      '${formatAlarmFireTime(a.fireAtUtc, DeviceDateFormat.yMMMd(context).add_Hm())}',
-                    ),
-                  ),
-            ],
-          ),
-          orElse: () => const SizedBox.shrink(),
-        ),
-      ],
-    );
-  }
-}
-
-class _Missed extends ConsumerWidget {
-  const _Missed(this.ref);
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context, WidgetRef innerRef) {
-    final missedAsync = ref.watch(missedAlarmsProvider);
-    final count = missedAsync.value?.length ?? 0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppSectionHeader('Missed alarms', count: count > 0 ? count : null),
-        missedAsync.maybeWhen(
-          data: (missed) => Column(
-            children: [
-              if (missed.isEmpty)
-                const EmptyState(
-                  compact: true,
-                  icon: Icons.alarm_off,
-                  title: 'No missed alarms',
-                  subtitle: 'Alarms you miss will appear here.',
-                )
-              else
-                for (final m in missed)
-                  ListTile(
-                    title: Text(m.title ?? m.sourceId),
-                    subtitle: Text(
-                      formatAlarmFireTime(
-                        m.fireAtUtc,
-                        DeviceDateFormat.yMMMd(context).add_Hm(),
-                      ),
-                    ),
-                  ),
-            ],
-          ),
-          orElse: () => const SizedBox.shrink(),
-        ),
-      ],
     );
   }
 }

@@ -29,6 +29,9 @@ import 'package:ephemeron/features/tasks/presentation/task_editor_sheet.dart';
 import '../application/search_providers.dart';
 
 part 'search_screen/results.dart';
+part 'search_screen/results/group.dart';
+part 'search_screen/results/snippet.dart';
+part 'search_screen/results/tag_tasks_sheet.dart';
 
 Map<SearchScope, String> _scopeLabels(AppLocalizations l) => {
   SearchScope.all: l.searchAll,

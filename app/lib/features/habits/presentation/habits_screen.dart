@@ -29,6 +29,7 @@ import 'habit_editor_sheet.dart';
 part 'habits_screen/day_strip.dart';
 part 'habits_screen/habit_list.dart';
 part 'habits_screen/habit_tile.dart';
+part 'habits_screen/habit_tile_status.dart';
 part 'habits_screen/habit_timer_control.dart';
 
 class HabitsScreen extends ConsumerStatefulWidget {
