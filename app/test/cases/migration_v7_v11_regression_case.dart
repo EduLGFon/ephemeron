@@ -143,7 +143,7 @@ CREATE TABLE occurrence_cache (
 
     final migrated = AppDatabase.forTesting(NativeDatabase(File(path)));
     try {
-      expect(migrated.schemaVersion, 13);
+      expect(migrated.schemaVersion, 14);
 
       final tos = await migrated
           .customSelect(
@@ -180,7 +180,10 @@ CREATE TABLE occurrence_cache (
           .customSelect('PRAGMA table_info(occurrence_cache)')
           .get();
       final occNames = occCols.map((r) => r.read<String>('name')).toSet();
-      expect(occNames, contains('source_type'));
+      expect(
+        occNames,
+        containsAll(['source_type', 'source_label', 'source_account']),
+      );
 
       final task = await migrated
           .customSelect(
@@ -196,6 +199,60 @@ CREATE TABLE occurrence_cache (
           )
           .get();
       expect(idx, isNotEmpty);
+    } finally {
+      await migrated.close();
+    }
+  });
+
+  test('migration from v13 to v14 adds source columns and keeps rows', () async {
+    final dir = Directory.systemTemp.createTempSync('ephemeron_v13mig_');
+    final path = '${dir.path}/v13.db';
+    addTearDown(() {
+      try {
+        dir.deleteSync(recursive: true);
+      } catch (_) {}
+    });
+
+    final db = sqlite3.open(path);
+    try {
+      db.execute('''
+CREATE TABLE occurrence_cache (
+  id TEXT NOT NULL PRIMARY KEY,
+  event_id TEXT NOT NULL,
+  title TEXT,
+  color_id TEXT,
+  start_utc INTEGER NOT NULL,
+  end_utc INTEGER NOT NULL,
+  day_key TEXT NOT NULL,
+  source_type TEXT NOT NULL DEFAULT 'event'
+);
+''');
+      db.execute(
+        "INSERT INTO occurrence_cache (id, event_id, title, start_utc, end_utc, day_key) "
+        "VALUES ('o1', 'e1', 'Old row', 1000, 2000, '2026-01-01');",
+      );
+      db.execute('PRAGMA user_version = 13;');
+    } finally {
+      db.close();
+    }
+
+    final migrated = AppDatabase.forTesting(NativeDatabase(File(path)));
+    try {
+      expect(migrated.schemaVersion, 14);
+      final cols = await migrated
+          .customSelect('PRAGMA table_info(occurrence_cache)')
+          .get();
+      final names = cols.map((r) => r.read<String>('name')).toSet();
+      expect(names, containsAll(['source_label', 'source_account']));
+
+      final row = await migrated
+          .customSelect(
+            "SELECT title, source_label, source_account FROM occurrence_cache WHERE id = 'o1'",
+          )
+          .getSingle();
+      expect(row.read<String>('title'), 'Old row');
+      expect(row.read<String?>('source_label'), isNull);
+      expect(row.read<String?>('source_account'), isNull);
     } finally {
       await migrated.close();
     }

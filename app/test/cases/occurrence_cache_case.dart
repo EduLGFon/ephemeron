@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
@@ -6,14 +6,46 @@ import 'package:flutter_test/flutter_test.dart';
 
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
-Future<void> _cal(AppDatabase db) async {
+Future<void> _cal(
+  AppDatabase db, {
+  String id = 'cal1',
+  String name = 'c',
+  String source = 'device',
+  String? googleAccount,
+  String? microsoftAccount,
+}) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
   await db
       .into(db.calendars)
       .insert(
         CalendarsCompanion.insert(
-          id: 'cal1',
-          name: 'c',
+          id: id,
+          name: name,
+          source: Value(source),
+          googleAccount: Value(googleAccount),
+          microsoftAccount: Value(microsoftAccount),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+}
+
+Future<void> _taskList(
+  AppDatabase db, {
+  required String id,
+  required String name,
+  String? googleAccount,
+  String? microsoftAccount,
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.taskLists)
+      .insert(
+        TaskListsCompanion.insert(
+          id: id,
+          name: name,
+          googleAccount: Value(googleAccount),
+          microsoftAccount: Value(microsoftAccount),
           createdAt: now,
           updatedAt: now,
         ),
@@ -23,6 +55,7 @@ Future<void> _cal(AppDatabase db) async {
 Future<void> _event(
   AppDatabase db, {
   required String id,
+  String calendarId = 'cal1',
   String? rrule,
   String? masterId,
   int? originalStart,
@@ -40,7 +73,7 @@ Future<void> _event(
       .insert(
         EventsCompanion.insert(
           id: id,
-          calendarId: 'cal1',
+          calendarId: calendarId,
           createdAt: now,
           updatedAt: now,
           startUtc: Value(startUtc),
@@ -384,6 +417,112 @@ void main() {
     final byTask = rows.firstWhere((r) => r.eventId == 't1');
     expect(byEvent.sourceType, 'event');
     expect(byTask.sourceType, 'task');
+  });
+
+  test('rebuild labels Google, Microsoft and local sources', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(
+      db,
+      id: 'gcal',
+      name: 'Work',
+      source: 'google',
+      googleAccount: 'g@example.com',
+    );
+    await _cal(
+      db,
+      id: 'mcal',
+      name: 'Outlook',
+      source: 'microsoft',
+      microsoftAccount: 'm@example.com',
+    );
+    await _cal(db, id: 'lcal', name: 'On device');
+    await _taskList(
+      db,
+      id: 'glist',
+      name: 'Errands',
+      googleAccount: 'gt@example.com',
+    );
+    await _taskList(
+      db,
+      id: 'mlist',
+      name: 'MS Tasks',
+      microsoftAccount: 'mt@example.com',
+    );
+
+    final day = DateTime.utc(2026, 3, 2, 9);
+    for (final (id, calendarId) in [
+      ('ge', 'gcal'),
+      ('me', 'mcal'),
+      ('le', 'lcal'),
+    ]) {
+      await _event(
+        db,
+        id: id,
+        calendarId: calendarId,
+        startUtc: day.millisecondsSinceEpoch,
+        endUtc: day.add(const Duration(hours: 1)).millisecondsSinceEpoch,
+        tzId: 'UTC',
+      );
+    }
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    for (final (id, listId) in [('gt', 'glist'), ('mt', 'mlist')]) {
+      await db
+          .into(db.tasks)
+          .insert(
+            TasksCompanion.insert(
+              id: id,
+              listId: Value(listId),
+              title: Value(id),
+              plannedDate: const Value('2026-03-02'),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+    }
+
+    final repo = OccurrenceRepository(db);
+    await repo.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 3, 1),
+      windowEndUtc: DateTime.utc(2026, 3, 5),
+    );
+    final rows = await db.select(db.occurrenceCache).get();
+    final byId = {for (final row in rows) row.eventId: row};
+    expect(byId['ge']!.sourceLabel, 'Work - g@example.com');
+    expect(byId['ge']!.sourceAccount, 'g@example.com');
+    expect(byId['me']!.sourceLabel, 'Outlook - m@example.com');
+    expect(byId['me']!.sourceAccount, 'm@example.com');
+    expect(byId['le']!.sourceLabel, 'On device - On this device');
+    expect(byId['le']!.sourceAccount, isNull);
+    expect(byId['gt']!.sourceLabel, 'Errands - gt@example.com');
+    expect(byId['gt']!.sourceAccount, 'gt@example.com');
+    expect(byId['mt']!.sourceLabel, 'MS Tasks - mt@example.com');
+    expect(byId['mt']!.sourceAccount, 'mt@example.com');
+  });
+
+  test('rebuild leaves unresolved source labels null', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.tasks)
+        .insert(
+          TasksCompanion.insert(
+            id: 't1',
+            title: const Value('No list'),
+            plannedDate: const Value('2026-03-02'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final repo = OccurrenceRepository(db);
+    await repo.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 3, 1),
+      windowEndUtc: DateTime.utc(2026, 3, 5),
+    );
+    final row = (await repo.occurrencesForDay('2026-03-02')).single;
+    expect(row.sourceLabel, isNull);
+    expect(row.sourceAccount, isNull);
   });
 
   test(

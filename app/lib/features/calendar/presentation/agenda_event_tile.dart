@@ -19,9 +19,15 @@ class AgendaEventTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final rsvpAsync = ref.watch(selfRsvpForEventProvider(occurrence.eventId));
     final rsvp = rsvpAsync.maybeWhen(data: (v) => v, orElse: () => null);
-    final source = ref
-        .watch(occurrenceSourceMapProvider)
-        .maybeWhen(data: (map) => map[occurrence.eventId], orElse: () => null);
+    final label = occurrence.sourceLabel?.trim();
+    final eventSource = occurrence.sourceType == 'event'
+        ? ref
+              .watch(occurrenceSourceMapProvider)
+              .maybeWhen(
+                data: (map) => map[occurrence.eventId],
+                orElse: () => null,
+              )
+        : null;
     final baseColor = timelineEventColor(context, occurrence.colorId);
     final isPast = timelineIsPast(occurrence);
     final scheme = Theme.of(context).colorScheme;
@@ -71,21 +77,23 @@ class AgendaEventTile extends ConsumerWidget {
         ),
       ),
       title: Text(occurrence.title ?? '…', style: titleStyle),
-      subtitle: source == null
+      subtitle: label == null || label.isEmpty
           ? null
+          : eventSource == null
+          ? Text(label, maxLines: 1, overflow: TextOverflow.ellipsis)
           : InkWell(
               onTap: () => pickAndMoveEvent(
                 context,
                 ref,
                 eventId: occurrence.eventId,
-                currentCalendarId: source.calendarId,
+                currentCalendarId: eventSource.calendarId,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible(
                     child: Text(
-                      source.label,
+                      label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
