@@ -9,6 +9,14 @@ HabitLog? _logFor(List<HabitLog> logs, String day) {
   return null;
 }
 
+/// Icon-only row actions keep their 20 dp glyph but reserve a 48 dp target so
+/// they meet the accessibility minimum at narrow widths and large text.
+ButtonStyle _habitActionStyle() => IconButton.styleFrom(
+  fixedSize: const Size.square(48),
+  padding: EdgeInsets.zero,
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+);
+
 class _HabitTile extends ConsumerWidget {
   const _HabitTile({
     required this.habit,
@@ -91,12 +99,7 @@ class _HabitTile extends ConsumerWidget {
                   children: [
                     if (hasGoal && amount > 0)
                       IconButton(
-                        visualDensity: VisualDensity.compact,
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(34, 36),
-                          padding: EdgeInsets.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
+                        style: _habitActionStyle(),
                         iconSize: 20,
                         icon: const Icon(Icons.remove),
                         tooltip: 'Subtract ${_fmt(step)}',
@@ -108,12 +111,7 @@ class _HabitTile extends ConsumerWidget {
                       ),
                     if (hasGoal)
                       IconButton(
-                        visualDensity: VisualDensity.compact,
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(34, 36),
-                          padding: EdgeInsets.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
+                        style: _habitActionStyle(),
                         iconSize: 20,
                         icon: const Icon(Icons.add),
                         tooltip: 'Add ${_fmt(step)}',
@@ -136,12 +134,7 @@ class _HabitTile extends ConsumerWidget {
                         },
                       ),
                     IconButton(
-                      visualDensity: VisualDensity.compact,
-                      style: IconButton.styleFrom(
-                        minimumSize: const Size(34, 36),
-                        padding: EdgeInsets.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
+                      style: _habitActionStyle(),
                       iconSize: 20,
                       icon: Icon(
                         skipped

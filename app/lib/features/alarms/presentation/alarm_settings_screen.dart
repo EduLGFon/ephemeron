@@ -17,11 +17,26 @@ import '../application/alarm_providers.dart';
 import '../data/alarm_scheduler.dart';
 import 'alarm_settings_format.dart';
 
-class AlarmSettingsScreen extends ConsumerWidget {
+class AlarmSettingsScreen extends ConsumerStatefulWidget {
   const AlarmSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AlarmSettingsScreen> createState() =>
+      _AlarmSettingsScreenState();
+}
+
+class _AlarmSettingsScreenState extends ConsumerState<AlarmSettingsScreen>
+    with WidgetsBindingObserver {
+  // Permission checks are platform-channel round trips. Resolve each once per
+  // build so stream/provider rebuilds cannot flash the status chip, then
+  // invalidate when the user returns from system settings.
+  Future<bool>? _exactAlarmStatus;
+  Future<bool>? _fullScreenStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Track the route so restarts return here.
     Future.microtask(() async {
       try {
@@ -31,6 +46,36 @@ class AlarmSettingsScreen extends ConsumerWidget {
         }
       } catch (_) {}
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Permission prompts leave the app. Re-check both tiles on return so a
+    // grant in system Settings is reflected without a manual screen reload.
+    if (state == AppLifecycleState.resumed) _refreshPermissionStatus();
+  }
+
+  void _refreshPermissionStatus() {
+    if (!mounted) return;
+    setState(() {
+      _exactAlarmStatus = null;
+      _fullScreenStatus = null;
+    });
+  }
+
+  Future<void> _openPermissionSettings(Future<bool> Function() open) async {
+    await open();
+    _refreshPermissionStatus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     if (kIsWeb) {
       return Scaffold(
         appBar: AppBar(title: const Text('Alarms')),
@@ -127,17 +172,22 @@ class AlarmSettingsScreen extends ConsumerWidget {
             title: 'Exact alarms',
             description:
                 'Needed to ring at the exact time, including in power saving.',
-            status: AlarmScheduler.canScheduleExact(),
-            onOpenSettings: () => AppPermissions.ensureExactAlarm(context),
+            status: _exactAlarmStatus ??= AlarmScheduler.canScheduleExact(),
+            onOpenSettings: () => _openPermissionSettings(
+              () => AppPermissions.ensureExactAlarm(context),
+            ),
           ),
           _PermissionTile(
             icon: Icons.fullscreen,
             title: 'Full-screen alarms',
             description:
                 'Needed on Android 14+ to show alarms over the lock screen.',
-            status: SystemLauncher.canUseFullScreenIntent(),
-            onOpenSettings: () =>
-                AppPermissions.ensureFullScreenIntent(context, needed: true),
+            status: _fullScreenStatus ??=
+                SystemLauncher.canUseFullScreenIntent(),
+            onOpenSettings: () => _openPermissionSettings(
+              () =>
+                  AppPermissions.ensureFullScreenIntent(context, needed: true),
+            ),
           ),
           const AppSectionHeader(
             'Alarm styles',

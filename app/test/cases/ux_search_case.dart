@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/search/limits.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/note_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
@@ -106,12 +107,34 @@ void main() {
     final tag = (await repo.searchTags('groc')).single;
 
     await repo.softDeleteTasks([softDeleted]);
-    await container
-        .read(pendingOperationsProvider)
-        .scheduleTaskDelete(pendingDeleted);
+    final pendingOps = container.read(pendingOperationsProvider);
+    final pendingOpId = await pendingOps.scheduleTaskDelete(pendingDeleted);
 
     final results = await repo.searchTasksForTag(tag.id);
     expect(results.map((t) => t.title), ['Keep']);
+
+    // Cancel the undo timer before this test's database closes; otherwise it
+    // can fire during a later test and query the closed database.
+    await pendingOps.cancel(pendingOpId);
+    pendingOps.dispose();
+  });
+
+  test('searchTasksForTag defaults to the shared tag task limit', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = TaskRepository(db);
+    final listId = await repo.createList('Inbox');
+    for (var i = 0; i < tagTaskLimit + 1; i++) {
+      await repo.createTask(
+        title: 'Tagged $i',
+        listId: listId,
+        tags: ['groceries'],
+      );
+    }
+    final tag = (await repo.searchTags('groc')).single;
+
+    final results = await repo.searchTasksForTag(tag.id);
+    expect(results, hasLength(tagTaskLimit));
   });
 
   testWidgets('empty query shows actionable example searches', (tester) async {
@@ -231,6 +254,46 @@ void main() {
 
     expect(attempts, greaterThan(1));
   });
+
+  testWidgets(
+    'a failed group surfaces retry even when other groups have rows',
+    (tester) async {
+      final db = _db();
+      addTearDown(db.close);
+      final repo = TaskRepository(db);
+      final listId = await repo.createList('Inbox');
+      await repo.createTask(title: 'Milk run', listId: listId);
+      var attempts = 0;
+      final settings = await _settings();
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWith((ref) async => settings),
+          searchEventsProvider.overrideWith((ref) async {
+            attempts++;
+            throw StateError('boom');
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(_app(container));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('search-field')), 'milk');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Milk run'), findsOneWidget);
+      expect(find.text('Events failed to load'), findsOneWidget);
+      expect(find.text('Search failed'), findsNothing);
+      expect(attempts, 1);
+
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(attempts, greaterThan(1));
+    },
+  );
 
   testWidgets('unresolved groups show the list skeleton, then no results', (
     tester,

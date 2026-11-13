@@ -3,6 +3,7 @@
 // editor or detail sheet so search is a navigation surface, not a dead end.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ephemeron/core/search/limits.dart';
 import 'package:ephemeron/core/search/sanitize.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/core/ui/app_feedback.dart';

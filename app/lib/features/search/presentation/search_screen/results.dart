@@ -3,8 +3,6 @@ part of '../search_screen.dart';
 bool _show(SearchScope scope, SearchScope s) =>
     scope == SearchScope.all || scope == s;
 
-const _tagTaskLimit = 50;
-
 class _Results extends ConsumerWidget {
   const _Results({
     required this.scope,
@@ -122,6 +120,7 @@ class _Results extends ConsumerWidget {
         _Group<Task>(
           title: l.searchTasks,
           async: tasks,
+          onRetry: () => ref.invalidate(searchTasksProvider),
           tile: (t) {
             final list = t.listId == null ? null : listsById[t.listId];
             final source = sourceLabel(
@@ -160,6 +159,7 @@ class _Results extends ConsumerWidget {
         _Group<Event>(
           title: l.searchEvents,
           async: events,
+          onRetry: () => ref.invalidate(searchEventsProvider),
           tile: (e) {
             final calendar = calendarsById[e.calendarId];
             final source = sourceLabel(
@@ -201,6 +201,7 @@ class _Results extends ConsumerWidget {
         _Group<NoteSearchHit>(
           title: l.searchNotes,
           async: notes,
+          onRetry: () => ref.invalidate(searchNotesProvider),
           tile: (h) => ListTile(
             leading: const Icon(Icons.note_outlined),
             title: Text(h.note.title.isEmpty ? '(no title)' : h.note.title),
@@ -219,6 +220,7 @@ class _Results extends ConsumerWidget {
         _Group<Habit>(
           title: l.searchHabits,
           async: habits,
+          onRetry: () => ref.invalidate(searchHabitsProvider),
           tile: (h) => ListTile(
             leading: const Icon(Icons.repeat_outlined),
             title: Text(h.name),
@@ -232,6 +234,7 @@ class _Results extends ConsumerWidget {
         _Group<Countdown>(
           title: l.searchCountdowns,
           async: countdowns,
+          onRetry: () => ref.invalidate(searchCountdownsProvider),
           tile: (c) => ListTile(
             leading: const Icon(Icons.hourglass_bottom_outlined),
             title: Text(c.title),
@@ -248,6 +251,7 @@ class _Results extends ConsumerWidget {
         _Group<Tag>(
           title: l.searchTags,
           async: tags,
+          onRetry: () => ref.invalidate(searchTagsProvider),
           tile: (t) => ListTile(
             leading: const Icon(Icons.tag),
             title: Text(t.name),
@@ -332,7 +336,7 @@ class _TagTasksSheet extends ConsumerWidget {
                     compact: true,
                   );
                 }
-                final atCap = items.length >= _tagTaskLimit;
+                final atCap = items.length >= tagTaskLimit;
                 return ListView.builder(
                   shrinkWrap: true,
                   itemCount: items.length + (atCap ? 1 : 0),
@@ -342,7 +346,7 @@ class _TagTasksSheet extends ConsumerWidget {
                       return Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                         child: Text(
-                          'Showing the first $_tagTaskLimit open tasks',
+                          'Showing the first $tagTaskLimit open tasks',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -359,10 +363,13 @@ class _TagTasksSheet extends ConsumerWidget {
                 );
               },
               loading: () => AppSkeleton.list(context, itemCount: 4),
-              error: (_, _) => const EmptyState(
+              error: (_, _) => EmptyState(
                 icon: Icons.error_outline,
                 title: 'Could not load tasks',
                 compact: true,
+                actionLabel: 'Retry',
+                onAction: () =>
+                    ref.invalidate(searchTasksForTagProvider(tag.id)),
               ),
             ),
           ),
@@ -373,10 +380,16 @@ class _TagTasksSheet extends ConsumerWidget {
 }
 
 class _Group<T> extends StatelessWidget {
-  const _Group({required this.title, required this.async, required this.tile});
+  const _Group({
+    required this.title,
+    required this.async,
+    required this.onRetry,
+    required this.tile,
+  });
 
   final String title;
   final AsyncValue<List<T>> async;
+  final VoidCallback onRetry;
   final Widget Function(T item) tile;
 
   @override
@@ -398,6 +411,11 @@ class _Group<T> extends StatelessWidget {
           ],
         );
       },
+      error: (_, _) => ListTile(
+        leading: const Icon(Icons.error_outline),
+        title: Text('$title failed to load'),
+        trailing: TextButton(onPressed: onRetry, child: const Text('Retry')),
+      ),
       orElse: () => const SizedBox.shrink(),
     );
   }

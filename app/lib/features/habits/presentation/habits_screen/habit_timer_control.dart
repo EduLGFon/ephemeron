@@ -119,12 +119,7 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
             children: [
               Text(formatElapsed(dur)),
               IconButton(
-                visualDensity: VisualDensity.compact,
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(34, 36),
-                  padding: EdgeInsets.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+                style: _habitActionStyle(),
                 iconSize: 20,
                 icon: const Icon(Icons.stop),
                 tooltip: 'Stop timer',
@@ -134,12 +129,7 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
           );
         }
         return IconButton(
-          visualDensity: VisualDensity.compact,
-          style: IconButton.styleFrom(
-            minimumSize: const Size(34, 36),
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
+          style: _habitActionStyle(),
           iconSize: 20,
           icon: const Icon(Icons.play_arrow),
           tooltip: 'Start timer',

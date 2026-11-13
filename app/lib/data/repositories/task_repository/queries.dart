@@ -55,7 +55,10 @@ mixin _TaskQueryOps on _TaskRepositoryBase {
   }
 
   /// Open, non-deleted tasks carrying [tagId], newest first.
-  Future<List<Task>> searchTasksForTag(String tagId, {int limit = 50}) async {
+  Future<List<Task>> searchTasksForTag(
+    String tagId, {
+    int limit = tagTaskLimit,
+  }) async {
     final query =
         _db.select(_db.tasks).join([
           innerJoin(_db.taskTags, _db.taskTags.taskId.equalsExp(_db.tasks.id)),
