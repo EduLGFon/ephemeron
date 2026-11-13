@@ -103,6 +103,10 @@ class TasksScreen extends ConsumerWidget {
                           ),
                         ),
                         child: Tooltip(
+                          // Long-press is the list-management gesture. Keep
+                          // hover/desktop tooltips but let touch long-press
+                          // reach the GestureDetector above the chip.
+                          triggerMode: TooltipTriggerMode.manual,
                           message:
                               taskListAccountLabel(l) ??
                               (l.remoteId == null
