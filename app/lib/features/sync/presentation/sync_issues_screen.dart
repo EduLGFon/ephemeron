@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/app_feedback.dart';
 import '../application/sync_providers.dart';
+import '../data/sync_engine.dart';
 import '../domain/sync_issue.dart';
 
 class SyncIssuesScreen extends ConsumerWidget {
@@ -24,8 +25,10 @@ class SyncIssuesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final outbox = ref.watch(syncOutboxIssuesProvider);
     final stateIssues = ref.watch(syncStateIssuesProvider);
+    // Partial data is deliberate while a single stream is still loading. Any
+    // stream error takes over so a broken diagnostics source is never hidden.
     final loading = outbox.isLoading && stateIssues.isLoading;
-    final failed = outbox.hasError && stateIssues.hasError;
+    final failed = outbox.hasError || stateIssues.hasError;
     final changes = outbox.value ?? const <SyncOutboxIssue>[];
     final calendars = stateIssues.value ?? const <SyncStateIssue>[];
 
@@ -183,10 +186,16 @@ class _OutboxIssueTile extends ConsumerWidget {
       ),
     );
     if (confirmed != true) return;
-    final removed = await ref.read(syncEngineProvider).discardFailed(issue.id);
+    final result = await ref.read(syncEngineProvider).discardFailed(issue.id);
     if (!context.mounted) return;
-    if (removed) {
+    if (result == OutboxDiscardResult.discarded) {
       showAppSnackBar(context, 'Change discarded', icon: Icons.delete_outline);
+    } else if (result == OutboxDiscardResult.missing) {
+      showAppSnackBar(
+        context,
+        'Change already handled',
+        icon: Icons.check_circle_outline,
+      );
     } else {
       showErrorSnackBar(context, 'This change still has retries left.');
     }

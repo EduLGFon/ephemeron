@@ -65,7 +65,7 @@ void backgroundSyncDispatcher() {
       }
       return true;
     } catch (e) {
-      debugPrint('[bg-sync] failed: $e');
+      debugPrint('[bg-sync] failed type=${e.runtimeType}');
       // Retry with backoff rather than dropping the schedule.
       return false;
     }
@@ -99,7 +99,7 @@ class BackgroundSync {
         existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
       );
     } catch (e) {
-      debugPrint('[bg-sync] schedule failed: $e');
+      debugPrint('[bg-sync] schedule failed type=${e.runtimeType}');
     }
   }
 }

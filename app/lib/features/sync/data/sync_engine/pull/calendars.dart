@@ -146,7 +146,7 @@ extension on SyncEngine {
     // otherwise a freeBusyReader or inaccessible entry would occupy the slot.
     if (readable == null || !readable.contains(remoteId)) return false;
     await _setSyncValue(key, account!);
-    debugPrint('[sync] claimed shared calendar reader id=$remoteId');
+    debugPrint('[sync] claimed shared calendar reader');
     return true;
   }
 
@@ -162,7 +162,7 @@ extension on SyncEngine {
       final reader = await _syncValue(key);
       if (reader != active) return;
       await (_db.delete(_db.syncState)..where((s) => s.key.equals(key))).go();
-      debugPrint('[sync] released shared calendar reader id=$remoteId');
+      debugPrint('[sync] released shared calendar reader');
     } catch (e) {
       debugPrint('[sync] reader claim cleanup failed type=${e.runtimeType}');
     }

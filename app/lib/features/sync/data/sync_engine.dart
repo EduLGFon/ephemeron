@@ -29,6 +29,10 @@ enum SyncStatus { synced, syncing, offline, error }
 /// rate/network/server failures are retried without asking for credentials.
 enum SyncErrorKind { none, auth, rateLimited, network, server, unknown }
 
+/// Result of discarding an outbox diagnostic row. Missing rows can happen when
+/// a concurrent sync already pushed the change.
+enum OutboxDiscardResult { discarded, missing, retriesLeft }
+
 class SyncEngine {
   SyncEngine(
     this._db, {
@@ -260,14 +264,16 @@ class SyncEngine {
   }
 
   /// Removes only an exhausted row. A queued row with retries left is kept so
-  /// discarding a diagnostic can never silently drop a valid user change.
-  Future<bool> discardFailed(String outboxId) async {
+  /// discarding a diagnostic can never silently drop a valid user change. A
+  /// row that vanished concurrently reports [OutboxDiscardResult.missing].
+  Future<OutboxDiscardResult> discardFailed(String outboxId) async {
     final row = await (_db.select(
       _db.outbox,
     )..where((o) => o.id.equals(outboxId))).getSingleOrNull();
-    if (row == null || row.attempts < maxAttempts) return false;
+    if (row == null) return OutboxDiscardResult.missing;
+    if (row.attempts < maxAttempts) return OutboxDiscardResult.retriesLeft;
     await (_db.delete(_db.outbox)..where((o) => o.id.equals(outboxId))).go();
-    return true;
+    return OutboxDiscardResult.discarded;
   }
 
   /// Pending/failed outbox rows for the user-facing diagnostics screen.
@@ -303,10 +309,13 @@ class SyncEngine {
   /// Per-calendar and per-task-list failures recorded in syncState. Only the
   /// non-personal error label and local metadata key leave this layer.
   Stream<List<SyncStateIssue>> watchSyncStateIssues() {
+    // Only meta keys written by _setSyncMeta: cal:<localId>:meta and
+    // tasks[:<localId>]:meta. Token and reader rows can never match, even if
+    // an old or imported row carries a non-null lastError.
     return (_db.select(_db.syncState)
           ..where(
             (s) =>
-                (s.key.like('cal:%') | s.key.like('tasks%')) &
+                (s.key.like('cal:%:meta') | s.key.like('tasks%:meta')) &
                 s.lastError.isNotNull() &
                 s.lastError.equals('').not(),
           )

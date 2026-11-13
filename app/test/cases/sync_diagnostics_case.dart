@@ -88,18 +88,33 @@ SyncOutboxIssue _outboxIssue({
   );
 }
 
-SyncStateIssue _stateIssue(
-  String key, {
-  SyncStateIssueKind kind = SyncStateIssueKind.calendar,
-  String errorLabel = 'Access denied',
-}) {
-  return SyncStateIssue(
-    key: key,
-    kind: kind,
-    errorLabel: errorLabel,
-    lastSyncAtUtc: DateTime.now().toUtc().subtract(const Duration(minutes: 5)),
-  );
+/// Checks every public string field the diagnostics UI can render. This is a
+/// structural privacy assertion: adding a payload/token/title field without
+/// checking it here makes the sensitive values fail.
+void _expectNoLeak(Iterable<String?> exposed, Iterable<String> secrets) {
+  for (final value in exposed.whereType<String>()) {
+    for (final secret in secrets) {
+      expect(value, isNot(contains(secret)));
+    }
+  }
 }
+
+Iterable<String?> _outboxFields(SyncOutboxIssue issue) => [
+  issue.id,
+  issue.operationLabel,
+  issue.entityLabel,
+  issue.errorLabel,
+  issue.attempts.toString(),
+  issue.createdAtUtc.toIso8601String(),
+  issue.failed.toString(),
+];
+
+Iterable<String?> _stateFields(SyncStateIssue issue) => [
+  issue.key,
+  issue.errorLabel,
+  issue.kind.name,
+  issue.lastSyncAtUtc?.toIso8601String(),
+];
 
 void main() {
   test('error labels use a closed allowlist', () {
@@ -150,8 +165,10 @@ void main() {
     final queued = issues.firstWhere((issue) => issue.id == 'op-queued');
     expect(queued.errorLabel, 'Rate limited');
     expect(queued.failed, isFalse);
-    expect(failed.toString(), isNot(contains('alice@example.com')));
-    expect(failed.toString(), isNot(contains('Private therapy')));
+    const secrets = ['alice@example.com', 'Private therapy', 'Secret project'];
+    for (final issue in issues) {
+      _expectNoLeak(_outboxFields(issue), secrets);
+    }
   });
 
   test(
@@ -161,12 +178,21 @@ void main() {
       addTearDown(db.close);
       await _seedSyncState(db, key: 'cal:c1:meta', lastError: 'Google 403');
       await _seedSyncState(db, key: 'tasks:l1:meta', lastError: 'rate limited');
+      await _seedSyncState(db, key: 'tasks:meta', lastError: 'sync failed');
       await _seedSyncState(db, key: 'tasks', lastError: '');
-      await _seedSyncState(db, key: 'cal:v2:c1:token', value: 'secret-token');
+      // Corrupt/imported token and reader rows with errors must still never
+      // surface: only _setSyncMeta keys are eligible.
+      await _seedSyncState(
+        db,
+        key: 'cal:v2:c1:token',
+        value: 'secret-token',
+        lastError: 'Google 500',
+      );
       await _seedSyncState(
         db,
         key: 'cal:reader:remote',
         value: 'a@example.com',
+        lastError: 'Google 403',
       );
       final engine = SyncEngine(db, clientFactory: () => null);
       final container = ProviderContainer(
@@ -189,25 +215,45 @@ void main() {
           .timeout(const Duration(seconds: 5));
 
       final byKey = {for (final issue in issues) issue.key: issue};
-      expect(byKey.keys.toSet(), {'cal:c1:meta', 'tasks:l1:meta'});
+      expect(byKey.keys.toSet(), {
+        'cal:c1:meta',
+        'tasks:l1:meta',
+        'tasks:meta',
+      });
       expect(byKey['cal:c1:meta']!.errorLabel, 'Access denied');
       expect(byKey['tasks:l1:meta']!.errorLabel, 'Rate limited');
+      expect(byKey['tasks:meta']!.kind, SyncStateIssueKind.taskList);
+      expect(byKey['tasks:meta']!.errorLabel, 'Sync failed');
       expect(issues.any((issue) => issue.key.contains('token')), isFalse);
       expect(issues.any((issue) => issue.key.contains('reader')), isFalse);
-      expect(issues.toString(), isNot(contains('secret-token')));
-      expect(issues.toString(), isNot(contains('a@example.com')));
+      for (final issue in issues) {
+        _expectNoLeak(_stateFields(issue), ['secret-token', 'a@example.com']);
+      }
     },
   );
 
-  test('discardFailed refuses a row that still has retries', () async {
-    final db = _db();
-    addTearDown(db.close);
-    await _seedOutbox(db, id: 'op1', attempts: 1, lastError: 'rate limited');
-    final engine = SyncEngine(db, clientFactory: () => null);
+  test(
+    'discardFailed distinguishes retries, missing rows and success',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      await _seedOutbox(db, id: 'op1', attempts: 1, lastError: 'rate limited');
+      await _seedOutbox(db, id: 'op2', attempts: 5, lastError: 'failed: 409');
+      final engine = SyncEngine(db, clientFactory: () => null);
 
-    expect(await engine.discardFailed('op1'), isFalse);
-    expect(await db.select(db.outbox).get(), hasLength(1));
-  });
+      expect(
+        await engine.discardFailed('op1'),
+        OutboxDiscardResult.retriesLeft,
+      );
+      expect(await db.select(db.outbox).get(), hasLength(2));
+      expect(
+        await engine.discardFailed('missing'),
+        OutboxDiscardResult.missing,
+      );
+      expect(await engine.discardFailed('op2'), OutboxDiscardResult.discarded);
+      expect(await engine.discardFailed('op2'), OutboxDiscardResult.missing);
+    },
+  );
 
   testWidgets('sync issues screen renders non-personal rows and retries', (
     tester,
@@ -227,20 +273,42 @@ void main() {
       payload: '{"summary":"Private therapy","email":"alice@example.com"}',
     );
     await _seedSyncState(db, key: 'cal:c1:meta', lastError: 'Google 403');
+    await _seedSyncState(db, key: 'tasks:l1:meta', lastError: 'rate limited');
+    await _seedSyncState(
+      db,
+      key: 'cal:v2:c1:token',
+      value: 'super-secret-token',
+      lastError: 'Google 500',
+    );
+    await _seedSyncState(
+      db,
+      key: 'cal:reader:remote',
+      value: 'a@example.com',
+      lastError: 'Google 403',
+    );
     final engine = SyncEngine(db, clientFactory: () => null);
+    final mappedChanges = await tester.runAsync(
+      () =>
+          engine.watchOutboxIssues().first.timeout(const Duration(seconds: 5)),
+    );
+    final mappedState = await tester.runAsync(
+      () => engine.watchSyncStateIssues().first.timeout(
+        const Duration(seconds: 5),
+      ),
+    );
+    expect(mappedChanges, isNotNull);
+    expect(mappedChanges, hasLength(1));
+    expect(mappedState, isNotNull);
+    expect(mappedState!.map((issue) => issue.key).toSet(), {
+      'cal:c1:meta',
+      'tasks:l1:meta',
+    });
     var synced = false;
 
     await tester.pumpWidget(
       _app(
-        changes: [_outboxIssue()],
-        stateIssues: [
-          _stateIssue('cal:c1:meta'),
-          _stateIssue(
-            'tasks:l1:meta',
-            kind: SyncStateIssueKind.taskList,
-            errorLabel: 'Rate limited',
-          ),
-        ],
+        changes: mappedChanges!,
+        stateIssues: mappedState,
         engine: engine,
         syncAll: () async => synced = true,
       ),
@@ -257,6 +325,7 @@ void main() {
     expect(find.textContaining('alice@example.com'), findsNothing);
     expect(find.textContaining('Private therapy'), findsNothing);
     expect(find.textContaining('super-secret-token'), findsNothing);
+    expect(find.textContaining('a@example.com'), findsNothing);
 
     await tester.tap(find.byKey(SyncIssuesScreen.outboxRetryKey('op1')));
     await tester.pumpAndSettle();
@@ -277,6 +346,32 @@ void main() {
       db.syncState,
     )..where((s) => s.key.equals('cal:c1:meta'))).getSingle();
     expect(cleared.lastError, isNull);
+  });
+
+  testWidgets('one stream error shows the load error state', (tester) async {
+    final db = _db();
+    addTearDown(db.close);
+    final engine = SyncEngine(db, clientFactory: () => null);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          syncOutboxIssuesProvider.overrideWith(
+            (ref) => Stream.error(StateError('outbox unavailable')),
+          ),
+          syncStateIssuesProvider.overrideWith(
+            (ref) => Stream.value(const <SyncStateIssue>[]),
+          ),
+          syncEngineProvider.overrideWithValue(engine),
+          syncAllProvider.overrideWithValue(() async {}),
+        ],
+        child: const MaterialApp(home: SyncIssuesScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not load sync issues.'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
   });
 
   testWidgets('discard requires confirmation and removes a failed row', (
@@ -306,5 +401,33 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
 
     expect(await db.select(db.outbox).get(), isEmpty);
+  });
+
+  testWidgets('discard of an already handled row stays neutral', (
+    tester,
+  ) async {
+    final db = _db();
+    addTearDown(db.close);
+    final engine = SyncEngine(db, clientFactory: () => null);
+
+    await tester.pumpWidget(
+      _app(
+        changes: [_outboxIssue(id: 'op-missing')],
+        stateIssues: const [],
+        engine: engine,
+        syncAll: () async {},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(SyncIssuesScreen.outboxDiscardKey('op-missing')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Change already handled'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
   });
 }
