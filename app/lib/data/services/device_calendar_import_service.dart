@@ -99,6 +99,21 @@ bool _preferDeviceEvent(Event candidate, Event current) {
   return candidate.startDate.isBefore(current.startDate);
 }
 
+/// Visible device calendars already mapped to [targetCalendarId].
+///
+/// Used to pre-select the checkboxes when the import dialog opens so an
+/// existing mapping is not silently dropped by a repeat import.
+Set<String> mappedDeviceCalendarIds({
+  required Iterable<String> visibleDeviceCalendarIds,
+  required Map<String, String> mappings,
+  required String targetCalendarId,
+}) {
+  return {
+    for (final id in visibleDeviceCalendarIds)
+      if (mappings[id] == targetCalendarId) id,
+  };
+}
+
 class DeviceCalendarImportService {
   DeviceCalendarImportService(this._repo, {SharedPreferences? preferences})
     : _preferences = preferences;
@@ -278,6 +293,25 @@ class DeviceCalendarImportService {
     for (final id in deviceCalendarIds) {
       await prefs.remove('$mappingKeyPrefix$id');
     }
+  }
+
+  /// Removes mappings for visible device calendars the user deselected from
+  /// [targetCalendarId]. Calendars that are no longer visible and mappings to
+  /// other targets are kept. Returns the number of pruned mappings.
+  Future<int> pruneDeselectedMappings({
+    required Iterable<String> visibleDeviceCalendarIds,
+    required Set<String> selectedDeviceCalendarIds,
+    required String targetCalendarId,
+  }) async {
+    final mappings = await loadMappings();
+    final stale = [
+      for (final id in visibleDeviceCalendarIds)
+        if (!selectedDeviceCalendarIds.contains(id) &&
+            mappings[id] == targetCalendarId)
+          id,
+    ];
+    if (stale.isNotEmpty) await removeMappings(stale);
+    return stale.length;
   }
 
   Future<bool> hasMappings() async => (await loadMappings()).isNotEmpty;

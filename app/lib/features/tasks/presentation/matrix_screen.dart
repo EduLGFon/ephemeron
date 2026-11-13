@@ -17,9 +17,12 @@ class MatrixScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tasksAsync = ref.watch(openTasksProvider(null));
-    final mode = ref
-        .watch(matrixModeProvider)
-        .maybeWhen(data: (mode) => mode, orElse: () => MatrixMode.auto);
+    final modeAsync = ref.watch(matrixModeProvider);
+    // Do not render the Auto board while the saved mode is still loading:
+    // a cold start would otherwise flash Auto before Priority arrives. Only a
+    // real error falls back to Auto.
+    final mode =
+        modeAsync.value ?? (modeAsync.hasError ? MatrixMode.auto : null);
     return Scaffold(
       appBar: AppBar(title: const SyncTitle(text: 'Matrix')),
       floatingActionButton: FloatingActionButton(
@@ -29,34 +32,38 @@ class MatrixScreen extends ConsumerWidget {
         onPressed: () => showQuickAdd(context),
         child: const Icon(Icons.add),
       ),
-      body: tasksAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(
-          icon: Icons.cloud_off_outlined,
-          title: 'Could not load matrix',
-          subtitle: 'Check your connection and try again.',
-          actionLabel: 'Retry',
-          onAction: () => ref.invalidate(openTasksProvider(null)),
-        ),
-        data: (tasks) {
-          final grouped = _groupTasks(tasks, mode);
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: _ModeSelector(mode: mode),
+      body: mode == null
+          ? const Center(
+              child: CircularProgressIndicator(key: Key('matrix-mode-loading')),
+            )
+          : tasksAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => EmptyState(
+                icon: Icons.cloud_off_outlined,
+                title: 'Could not load matrix',
+                subtitle: 'Check your connection and try again.',
+                actionLabel: 'Retry',
+                onAction: () => ref.invalidate(openTasksProvider(null)),
               ),
-              Expanded(
-                child: MatrixBoard(
-                  fields: grouped.fields,
-                  unclassified: grouped.unclassified,
-                  mode: mode,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+              data: (tasks) {
+                final grouped = _groupTasks(tasks, mode);
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                      child: _ModeSelector(mode: mode),
+                    ),
+                    Expanded(
+                      child: MatrixBoard(
+                        fields: grouped.fields,
+                        unclassified: grouped.unclassified,
+                        mode: mode,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
     );
   }
 }
