@@ -1,3 +1,4 @@
+import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/settings/presentation/settings_screen.dart';
 import 'package:ephemeron/features/sync/application/sync_providers.dart';
@@ -29,7 +30,12 @@ class _ReconnectNeededNotifier extends GoogleReconnectNeededNotifier {
   final bool _value;
 
   @override
-  bool build() => _value;
+  bool? build() => _value;
+}
+
+class _UnknownReconnectNotifier extends GoogleReconnectNeededNotifier {
+  @override
+  bool? build() => null;
 }
 
 Widget _settingsApp({List overrides = const []}) {
@@ -139,6 +145,50 @@ void main() {
     expect(find.textContaining('alice@example.com'), findsOneWidget);
     expect(find.textContaining('bob@example.com'), findsOneWidget);
     expect(find.text('Review accounts'), findsOneWidget);
+  });
+
+  testWidgets('reconnect banner seeds the persisted flag on the first frame', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sync.googleReconnectNeeded': true,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final repo = SettingsRepository(prefs);
+    await tester.pumpWidget(
+      _bannerApp(
+        overrides: [
+          settingsRepositoryProvider.overrideWith((ref) => repo),
+          googleReconsentAccountsProvider.overrideWith(
+            () => _ReconsentNotifier(const []),
+          ),
+        ],
+      ),
+    );
+
+    expect(find.byKey(SyncReconnectBanner.bannerKey), findsOneWidget);
+    expect(find.textContaining('needs permission'), findsOneWidget);
+    expect(find.textContaining('@'), findsNothing);
+  });
+
+  testWidgets('reconnect banner treats an unloaded flag as unknown', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _bannerApp(
+        overrides: [
+          googleReconsentAccountsProvider.overrideWith(
+            () => _ReconsentNotifier(const []),
+          ),
+          googleReconnectNeededProvider.overrideWith(
+            _UnknownReconnectNotifier.new,
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(SyncReconnectBanner.bannerKey), findsNothing);
   });
 
   testWidgets('reconnect banner shows generic text for persisted flag only', (

@@ -12,6 +12,7 @@ import '../../alarms/application/alarm_providers.dart';
 import '../../auth/presentation/auth_screen.dart';
 import '../../sync/application/sync_providers.dart';
 import '../../sync/data/sync_engine.dart';
+import '../../sync/presentation/sync_issues_screen.dart';
 import '../application/settings_providers.dart';
 import '../data/settings_repository.dart';
 import 'backup_section.dart';

@@ -13,6 +13,7 @@ import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/mappers/google_mappers.dart';
 import 'package:ephemeron/data/remote/google_api_client.dart';
+import 'package:ephemeron/features/sync/domain/sync_issue.dart';
 
 part 'sync_engine/push.dart';
 part 'sync_engine/push_apply.dart';
@@ -42,6 +43,10 @@ class SyncEngine {
 
   /// Accounts currently signed in. Used to avoid stealing a shared calendar
   /// stamped to another active account during discovery.
+  ///
+  /// Production callers always pass the account list. A null list fails
+  /// closed: shared calendars whose owner is not the active account are not
+  /// re-stamped or pulled, because dedupe cannot be proven without the list.
   final List<String>? signedInAccounts;
   bool _running = false;
   SyncStatus _status = SyncStatus.synced;
@@ -233,9 +238,6 @@ class SyncEngine {
     SyncErrorKind.none => 'sync failed',
   };
 
-  bool _ownerIsSignedIn(String? owner) =>
-      owner != null && (signedInAccounts?.contains(owner) ?? false);
-
   Future<int> pendingCount() async {
     final rows =
         await (_db.select(_db.outbox)..where(
@@ -257,8 +259,84 @@ class SyncEngine {
     );
   }
 
-  Future<void> discardFailed(String outboxId) async {
+  /// Removes only an exhausted row. A queued row with retries left is kept so
+  /// discarding a diagnostic can never silently drop a valid user change.
+  Future<bool> discardFailed(String outboxId) async {
+    final row = await (_db.select(
+      _db.outbox,
+    )..where((o) => o.id.equals(outboxId))).getSingleOrNull();
+    if (row == null || row.attempts < maxAttempts) return false;
     await (_db.delete(_db.outbox)..where((o) => o.id.equals(outboxId))).go();
+    return true;
+  }
+
+  /// Pending/failed outbox rows for the user-facing diagnostics screen.
+  Stream<List<SyncOutboxIssue>> watchOutboxIssues() {
+    return (_db.select(_db.outbox)
+          ..where(
+            (o) =>
+                o.lastError.isNotNull() |
+                o.attempts.isBiggerOrEqualValue(maxAttempts),
+          )
+          ..orderBy([(o) => OrderingTerm.desc(o.createdAt)]))
+        .watch()
+        .map(
+          (rows) => [
+            for (final row in rows)
+              SyncOutboxIssue(
+                id: row.id,
+                operationLabel: syncOperationLabel(row.op),
+                entityLabel: syncEntityLabel(row.entity),
+                attempts: row.attempts,
+                createdAtUtc: DateTime.fromMillisecondsSinceEpoch(
+                  row.createdAt,
+                  isUtc: true,
+                ),
+                // PRIVACY: never surface the payload or raw remote response.
+                errorLabel: syncErrorLabel(row.lastError),
+                failed: row.attempts >= maxAttempts,
+              ),
+          ],
+        );
+  }
+
+  /// Per-calendar and per-task-list failures recorded in syncState. Only the
+  /// non-personal error label and local metadata key leave this layer.
+  Stream<List<SyncStateIssue>> watchSyncStateIssues() {
+    return (_db.select(_db.syncState)
+          ..where(
+            (s) =>
+                (s.key.like('cal:%') | s.key.like('tasks%')) &
+                s.lastError.isNotNull() &
+                s.lastError.equals('').not(),
+          )
+          ..orderBy([(s) => OrderingTerm.desc(s.lastSyncAt)]))
+        .watch()
+        .map(
+          (rows) => [
+            for (final row in rows)
+              SyncStateIssue(
+                key: row.key,
+                kind: row.key.startsWith('cal:')
+                    ? SyncStateIssueKind.calendar
+                    : SyncStateIssueKind.taskList,
+                errorLabel: syncErrorLabel(row.lastError),
+                lastSyncAtUtc: row.lastSyncAt == null
+                    ? null
+                    : DateTime.fromMillisecondsSinceEpoch(
+                        row.lastSyncAt!,
+                        isUtc: true,
+                      ),
+              ),
+          ],
+        );
+  }
+
+  /// Clears a recorded per-calendar/task-list error before retrying sync.
+  Future<void> clearSyncStateError(String key) async {
+    await (_db.update(_db.syncState)..where((s) => s.key.equals(key))).write(
+      const SyncStateCompanion(lastError: Value(null)),
+    );
   }
 
   Stream<List<OutboxData>> watchFailed() {

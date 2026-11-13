@@ -88,6 +88,7 @@ import 'cases/source_picker_case.dart' as source_picker;
 import 'cases/sync_all_case.dart' as sync_all;
 import 'cases/sync_attention_case.dart' as sync_attention;
 import 'cases/sync_calendar_integrity_case.dart' as sync_calendar_integrity;
+import 'cases/sync_diagnostics_case.dart' as sync_diagnostics;
 import 'cases/sync_engine_case.dart' as sync_engine;
 import 'cases/sync_engine_errors_case.dart' as sync_engine_errors;
 import 'cases/sync_engine_ownership_case.dart' as sync_engine_ownership;
@@ -204,6 +205,7 @@ const _included = <String>{
   'sync_all_case.dart',
   'sync_attention_case.dart',
   'sync_calendar_integrity_case.dart',
+  'sync_diagnostics_case.dart',
   'sync_engine_case.dart',
   'sync_engine_errors_case.dart',
   'sync_engine_ownership_case.dart',
@@ -328,6 +330,7 @@ void main() {
   group('sync_all', sync_all.main);
   group('sync_attention', sync_attention.main);
   group('sync_calendar_integrity', sync_calendar_integrity.main);
+  group('sync_diagnostics', sync_diagnostics.main);
   group('sync_engine', sync_engine.main);
   group('sync_engine_errors', sync_engine_errors.main);
   group('sync_engine_ownership', sync_engine_ownership.main);

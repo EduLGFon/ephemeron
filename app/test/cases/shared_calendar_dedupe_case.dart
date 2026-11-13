@@ -118,6 +118,8 @@ Future<void> _seedCalendar(
   String id,
   String remoteId, {
   String? account,
+  bool enabled = true,
+  bool deleted = false,
 }) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
   await db
@@ -129,8 +131,25 @@ Future<void> _seedCalendar(
           name: 'Calendar $id',
           source: const Value('google'),
           googleAccount: Value(account),
+          enabled: Value(enabled),
           createdAt: now,
           updatedAt: now,
+          deletedAt: Value(deleted ? now : null),
+        ),
+      );
+}
+
+Future<void> _seedReaderClaim(
+  AppDatabase db,
+  String remoteId,
+  String reader,
+) async {
+  await db
+      .into(db.syncState)
+      .insert(
+        SyncStateCompanion.insert(
+          key: 'cal:reader:$remoteId',
+          value: Value(reader),
         ),
       );
 }
@@ -309,6 +328,129 @@ void main() {
 
     expect(fake.pulledCalendars, isEmpty);
     expect(await _reader(db, 'shared'), isNull);
+  });
+
+  test('owner signed in again clears a stale reader claim', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _seedCalendar(db, 'c1', 'shared', account: 'a@x');
+    await _seedReaderClaim(db, 'shared', 'b@x');
+    final fake = _FakeGoogle()..calendars = _sharedList();
+    final engine = SyncEngine(
+      db,
+      clientFactory: () => fake,
+      account: 'a@x',
+      signedInAccounts: const ['a@x', 'b@x'],
+    );
+
+    await engine.syncNow();
+
+    expect(fake.pulledCalendars, ['shared']);
+    expect(await _reader(db, 'shared'), isNull);
+  });
+
+  test('deleted or disabled calendar clears its reader claim', () async {
+    for (final (enabled, deleted) in [(false, false), (true, true)]) {
+      final db = _db();
+      addTearDown(db.close);
+      await _seedCalendar(
+        db,
+        'c1',
+        'shared',
+        account: 'a@x',
+        enabled: enabled,
+        deleted: deleted,
+      );
+      await _seedReaderClaim(db, 'shared', 'b@x');
+      final fake = _FakeGoogle()..calendars = _sharedList();
+      final engine = SyncEngine(
+        db,
+        clientFactory: () => fake,
+        account: 'b@x',
+        signedInAccounts: const ['b@x'],
+      );
+
+      await engine.syncNow();
+
+      expect(await _reader(db, 'shared'), isNull);
+    }
+  });
+
+  test('cleanup keeps a live reader claim', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _seedCalendar(db, 'c1', 'shared', account: 'a@x');
+    await _seedReaderClaim(db, 'shared', 'b@x');
+    final fake = _FakeGoogle();
+    final engine = SyncEngine(
+      db,
+      clientFactory: () => fake,
+      account: 'c@x',
+      signedInAccounts: const ['b@x', 'c@x'],
+    );
+
+    await engine.syncNow();
+
+    expect(fake.pulledCalendars, isEmpty);
+    expect(await _reader(db, 'shared'), 'b@x');
+  });
+
+  test('unknown signed-in list fails closed instead of stealing', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _seedCalendar(db, 'c1', 'shared', account: 'a@x');
+    final fake = _FakeGoogle()..calendars = _sharedList();
+    final engine = SyncEngine(db, clientFactory: () => fake, account: 'b@x');
+
+    await engine.syncNow();
+
+    expect(fake.pulledCalendars, isEmpty);
+    expect(await _reader(db, 'shared'), isNull);
+    final calendar = await (db.select(
+      db.calendars,
+    )..where((c) => c.id.equals('c1'))).getSingle();
+    expect(calendar.googleAccount, 'a@x');
+  });
+
+  test('normal pull removes legacy cal:<id>:token when v2 exists', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _seedCalendar(db, 'c1', 'shared', account: 'a@x');
+    await db
+        .into(db.syncState)
+        .insert(
+          SyncStateCompanion.insert(
+            key: 'cal:c1:token',
+            value: const Value('legacy-token'),
+          ),
+        );
+    await db
+        .into(db.syncState)
+        .insert(
+          SyncStateCompanion.insert(
+            key: 'cal:v2:c1:token',
+            value: const Value('v2-token'),
+          ),
+        );
+    final fake = _FakeGoogle()..calendars = _sharedList();
+    fake.failOnce('shared', GoogleApiException(500, 'boom'));
+    final engine = SyncEngine(
+      db,
+      clientFactory: () => fake,
+      account: 'a@x',
+      signedInAccounts: const ['a@x'],
+    );
+
+    await engine.syncNow();
+
+    final legacy = await (db.select(
+      db.syncState,
+    )..where((s) => s.key.equals('cal:c1:token'))).getSingleOrNull();
+    final v2 = await (db.select(
+      db.syncState,
+    )..where((s) => s.key.equals('cal:v2:c1:token'))).getSingleOrNull();
+    expect(legacy, isNull);
+    expect(v2?.value, 'v2-token');
   });
 
   test('owner-signed-in case does not write a reader key', () async {
