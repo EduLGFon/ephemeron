@@ -6,7 +6,8 @@ WORKDIR /app
 COPY deno.json deno.lock ./
 
 # Bake the Deno cache into the image layer (no cache mount on DENO_DIR).
-RUN printf 'import "jsr:@hono/hono@4.13.16";\nimport "jsr:@hono/hono@4.13.16/cors";\nimport "jsr:@felix/argon2@3.1.0";\nimport "jsr:@std/assert@1.0.19";\nimport "npm:pg@8.23.1";\n' > /app/warmup.ts && \
+# Bare specifiers resolve through deno.json so versions cannot drift from the lockfile.
+RUN printf 'import "hono";\nimport "hono/cors";\nimport "argon2";\nimport "@std/assert";\nimport "pg";\n' > /app/warmup.ts && \
     mkdir -p /deno-dir && \
     DENO_DIR=/deno-dir deno cache --lock=/app/deno.lock /app/warmup.ts && \
     rm -f /app/warmup.ts
