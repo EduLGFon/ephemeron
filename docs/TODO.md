@@ -171,8 +171,9 @@
 
 - `wakelock_plus` left at 1.8.0 (1.8.2 unreachable: conflict with
   `battery_plus` 7.1.2 via `dbus`). Revisit when either package relaxes.
-- Deferred: AGP 9.3 + Gradle 9.5 upgrade (needs migration and build
-  size/behavior comparison).
+- Closed (2026-11-12): AGP 9.3.3 / Gradle 9.5.1 applied; arm64 release build
+  succeeded; size delta -16,384 bytes (-0.06%); manifest, entry list, and
+  signing certificate identical; see `docs/BUILD_PERFORMANCE.md`.
 - Do not run a release build while `flutter run` is active (both rewrite
   `GeneratedPluginRegistrant.java`; debug registrant includes `integration_test`
   and release Java compile fails).
