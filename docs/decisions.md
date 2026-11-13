@@ -47,3 +47,58 @@ Decisions not covered by PLAN.md (lighter-weight option chosen by default).
 - full_long minute repeats restart `AlarmRingService` without posting a new
   notification; only the first fire notifies. The `phase` extra is carried
   through service re-posts so focus next-phase actions survive.
+- Occurrence cache source labels (schema v14): `occurrence_cache.source_label` and
+  `source_account` are filled at rebuild time from the event calendar or task
+  list using the shared source-label helpers. Rows created before the upgrade
+  keep null labels until the next rebuild; timeline, agenda, and month surfaces
+  hide empty labels and never query per row.
+- Shared calendar claims: one owner/reader election per shared calendar. When the
+  signed-in account list is unknown (`null`) the shared pull fails closed instead
+  of pulling once per account. Stale `cal:reader:<remoteId>` keys are removed only
+  when provably stale (owner signed in, calendar gone or disabled, or no live
+  reader), and legacy `cal:<id>:token` rows are deleted once the
+  `cal:v2:<id>:token` key exists.
+- Sync diagnostics: the Sync issues screen renders only allowlisted
+  operation/entity/error labels plus attempt counts and ages. Outbox payloads,
+  syncState values/tokens, account emails, titles, and raw response bodies are
+  never passed to the widgets. Discard is offered only after retries are
+  exhausted; a read-only `SourceMoveException` discards the pending operation
+  instead of retrying it forever.
+- Microsoft remote deletions: calendars absent from a complete `/me/calendars`
+  listing are soft-deleted only when owned by the account, clean, and
+  remote-backed. Events are reconciled only inside a completely fetched
+  `calendarView` window and only when clean, non-recurring, and with provable
+  overlap. Tombstones revive when the remote row reappears. The Graph paginator
+  throws instead of returning a partial listing at its page cap, so a partial
+  listing can never trigger deletion.
+- Read-only calendars: source read-only is enforced at the repository boundary
+  for create, move, edit, delete, attendee, and RSVP operations, and mirrored in
+  details, timeline, and editor UI. Moving an exception resolves to its master so
+  a series never leaves an orphan exception in another calendar.
+- Single-occurrence integrity: an exception uses its own reminders and alarm
+  preset when set, otherwise inherits the master's. Details edit and delete
+  target the exact occurrence, and a new exception inherits master
+  location/Meet/visibility/transparency/reminders/preset/color when not
+  overridden.
+- Calendar quick create: the all-day strip is always rendered with a 32dp
+  minimum empty-day target; month cells create a 09:00 timed event on long-press.
+  Explicit all-day or time intent from the gesture wins over an autosaved draft.
+- Device calendars stay a user-initiated import/refresh with a fixed
+  `[now-30d, now+365d]` window; there is no background live sync (battery and API
+  cost). Mappings are pruned only for visible calendars deselected in a completed
+  import, keeping invisible and other-target mappings.
+- Localization: the UI remains English-only by decision. `intl` is used for
+  formatting and only the existing ARB keys are localized. A full localization
+  pass is a separate owner-approved effort.
+- Startup state: the calendar rebuild fallback and session restore coalesce into
+  one scheduled build; the matrix board waits for the saved mode (Auto only after
+  a real load error); the task-chip tooltip uses manual trigger mode so touch
+  long-press reaches management while desktop hover still works.
+- File-size review: after the two split passes, the modules that remain
+  slightly above 300 lines (300-400 range, for example
+  `device_calendar_import_service.dart`, `calendar_settings_screen.dart`,
+  `sync_engine.dart`, `focus_screen_start.dart`) are cohesive
+  single-responsibility files and were kept rather than split mechanically.
+  `app_localizations.dart` follows the ARB source. The earlier outliers (570,
+  568, 456, 435, 427, 422, 414, 413, 412) are now split into `part` files under
+  300 lines.

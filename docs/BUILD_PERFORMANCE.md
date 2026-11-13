@@ -11,7 +11,7 @@ optimizations.
 | CPU | Intel i7-6500U, 2 cores / 4 threads, 15 W |
 | RAM | 15.5 GB, 15.5 GB zram swap |
 | Disk | Seagate ST1000LM014, 5400 RPM hybrid HDD (`ROTA=1`) |
-| Flutter | 3.47.8 (Dart 3.13.7) |
+| Flutter | 3.47.9 (Dart 3.13.7) |
 | Android | AGP 9.3.3, Gradle 9.5.1, Kotlin 2.4.0 |
 | JDK | Android Studio JBR 25.0.4 |
 
@@ -90,6 +90,16 @@ signing certificate (SHA-256
 `a15119dbc6f3ad8019aeaf0849605512121fe2bb2d3aca291f8bfca78cff336b`) are
 identical between the two artifacts. Wall times were not compared because the
 post-upgrade build downloaded a new Gradle distribution and AGP artifacts.
+
+## Final merged-tree release (2026-11-13)
+
+`flutter build apk --release --target-platform android-arm64` produced
+27,831,621 bytes (27.8 MB) with SHA-256
+`f52ce3b62f08a140cf16110ab6c0f65cd20f7eb48f74c36c6ab45b9c77abb92d`.
+Only `libapp.so` is arm64-specific; the remaining `.so` files are plugin
+libraries for the other ABIs. Build time was 260.9 s on the same machine. The
+existing Flutter warning about plugins applying KGP (`flutter_web_auth_2`,
+`home_widget`, `workmanager_android`) is unchanged and unrelated to this build.
 
 ## `flutter run` (dev loop)
 
