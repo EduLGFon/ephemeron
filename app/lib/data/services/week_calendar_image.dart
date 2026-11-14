@@ -4,7 +4,7 @@
 // by the launcher, so this must lay out with unbounded constraints.
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'week_calendar_data.dart';
 import 'week_widget_options.dart';

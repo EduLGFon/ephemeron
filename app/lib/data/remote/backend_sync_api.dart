@@ -32,10 +32,9 @@ class HttpBackendSyncApi implements BackendSyncApi {
   HttpBackendSyncApi({
     http.Client? httpClient,
     String? baseUrl,
-    required Future<String?> Function() accessToken,
+    required this._accessToken,
   }) : _http = httpClient ?? http.Client(),
-       _base = baseUrl ?? AppConfig.backendBaseUrl,
-       _accessToken = accessToken;
+       _base = baseUrl ?? AppConfig.backendBaseUrl;
 
   final http.Client _http;
   final String _base;

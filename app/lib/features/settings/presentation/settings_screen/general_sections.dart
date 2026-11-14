@@ -60,9 +60,8 @@ List<Widget> _accountsSection(_SettingsScreenState state) {
       title: const Text('Account and sync'),
       subtitle: const Text('Sign in to sync your custom data.'),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => Navigator.of(
-        state.context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const AuthScreen())),
+      onTap: () => Navigator.of(state.context)
+          .push(MaterialPageRoute<void>(builder: (_) => const AuthScreen())),
     ),
     const _LastSyncTile(),
     ListTile(

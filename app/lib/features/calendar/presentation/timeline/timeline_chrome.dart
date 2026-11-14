@@ -1,6 +1,6 @@
 // Static timeline chrome: hour gutter, day headers, all-day strip.
 // Pure presentation; dragging and tapping arrive via callbacks.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../domain/habits/habit_calendar_entry.dart';

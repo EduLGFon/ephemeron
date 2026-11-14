@@ -1,6 +1,6 @@
 // Wraps a widget so pressing Escape pops the nearest navigator route.
 // Used by modal bottom sheets to close on Esc.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 class EscapeToClose extends StatelessWidget {

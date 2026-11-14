@@ -187,9 +187,9 @@ MappedTask taskFromGoogle(
       dueDate: Value(dueDate),
       completedAt: g['status'] == 'completed'
           ? Value(
-              DateTime.tryParse(
-                    g['completed'] as String? ?? '',
-                  )?.toUtc().millisecondsSinceEpoch ??
+              DateTime.tryParse(g['completed'] as String? ?? '')
+                      ?.toUtc()
+                      .millisecondsSinceEpoch ??
                   now,
             )
           : const Value(null),

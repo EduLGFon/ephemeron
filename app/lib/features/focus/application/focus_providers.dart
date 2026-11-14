@@ -239,9 +239,9 @@ FutureProvider<List<(String, int)>> _timeOfDayProvider(
       if (!include(s, now)) continue;
       final end = s.endUtc ?? now;
       if (end <= s.startUtc) continue;
-      final hour = DateTime.fromMillisecondsSinceEpoch(
-        s.startUtc,
-      ).toLocal().hour;
+      final hour = DateTime.fromMillisecondsSinceEpoch(s.startUtc)
+          .toLocal()
+          .hour;
       final bucket = hour >= 5 && hour < 12
           ? 'Morning'
           : hour >= 12 && hour < 18
@@ -271,9 +271,8 @@ final linkableTasksProvider = StreamProvider<List<Task>>((ref) {
 
 /// Active habits linkable to a session.
 final linkableHabitsProvider = StreamProvider<List<Habit>>((ref) {
-  return HabitRepository(
-    ref.watch(appDatabaseProvider),
-  ).watchHabits(archived: false);
+  return HabitRepository(ref.watch(appDatabaseProvider))
+      .watchHabits(archived: false);
 });
 
 /// Pending next-session request from a notification/widget action: 'break' or

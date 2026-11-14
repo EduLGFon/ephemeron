@@ -239,9 +239,8 @@ void main() {
     await TaskRepository(
       db,
     ).createTask(title: 'Tomorrow', dueDate: _tomorrowKey(), dueTime: 23 * 60);
-    final planned = await AlarmRepository(
-      db,
-    ).rebuildWindow(dueTomorrowEnabled: false);
+    final planned = await AlarmRepository(db)
+        .rebuildWindow(dueTomorrowEnabled: false);
     expect(planned, 1);
     final preserved = await (db.select(
       db.alarmsIndex,
@@ -282,9 +281,8 @@ void main() {
         dueDate: _tomorrowKey(),
         dueTime: 23 * 60,
       );
-      final planned = await AlarmRepository(
-        db,
-      ).rebuildWindow(dueTomorrowEnabled: false);
+      final planned = await AlarmRepository(db)
+          .rebuildWindow(dueTomorrowEnabled: false);
       expect(planned, 1);
       final preserved = await (db.select(
         db.alarmsIndex,
@@ -345,9 +343,8 @@ void main() {
     await TaskRepository(
       db,
     ).createTask(title: 'Tomorrow', dueDate: _tomorrowKey(), dueTime: 23 * 60);
-    final planned = await AlarmRepository(
-      db,
-    ).rebuildWindow(dueTomorrowEnabled: false);
+    final planned = await AlarmRepository(db)
+        .rebuildWindow(dueTomorrowEnabled: false);
     expect(planned, 1);
     final stale = await (db.select(
       db.alarmsIndex,

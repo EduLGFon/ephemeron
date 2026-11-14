@@ -3,7 +3,7 @@
 //
 // Split across `part` files under `task_list_dialogs/` (U10b); this file is
 // the stable public entry point.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/theme_tokens.dart';

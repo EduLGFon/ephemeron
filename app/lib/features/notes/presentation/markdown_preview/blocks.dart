@@ -227,9 +227,9 @@ class _Blocks implements md.NodeVisitor {
           'em' || 'i' => base.copyWith(fontStyle: FontStyle.italic),
           'code' => base.copyWith(
             fontFamily: 'monospace',
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest,
+            backgroundColor: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest,
           ),
           'a' => base.copyWith(
             color: Theme.of(context).colorScheme.primary,

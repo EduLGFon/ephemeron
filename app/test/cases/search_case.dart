@@ -35,9 +35,8 @@ Future<void> _seed(AppDatabase db) async {
   await tasks.setTaskTags(taskId, ['groceries']);
   await NoteRepository(db).createNote(title: 'Shopping', body: 'milk and eggs');
   await HabitRepository(db).createHabit(name: 'Read daily');
-  await CountdownRepository(
-    db,
-  ).createCountdown(title: 'Trip to beach', targetDate: '2027-06-01');
+  await CountdownRepository(db)
+      .createCountdown(title: 'Trip to beach', targetDate: '2027-06-01');
 }
 
 void main() {
@@ -71,9 +70,8 @@ void main() {
       contains('Read daily'),
     );
     expect(
-      (await CountdownRepository(
-        db,
-      ).searchCountdowns('beach')).map((c) => c.title),
+      (await CountdownRepository(db).searchCountdowns('beach'))
+          .map((c) => c.title),
       contains('Trip to beach'),
     );
   });

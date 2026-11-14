@@ -11,7 +11,7 @@ import 'package:ephemeron/features/calendar/presentation/agenda_view.dart';
 import 'package:ephemeron/features/calendar/presentation/calendar_screen.dart';
 import 'package:ephemeron/features/calendar/presentation/month_view.dart';
 import 'package:ephemeron/features/tasks/application/tasks_providers.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

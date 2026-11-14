@@ -1,6 +1,6 @@
 // Agenda: list grouped by day over the loaded (cache) window, filtered to
 // the visible agenda range. Habit entries appear above events for each day.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/time/device_date_format.dart';

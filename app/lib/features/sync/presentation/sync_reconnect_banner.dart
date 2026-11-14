@@ -1,7 +1,7 @@
 // Global banner shown above the shell when Google sync needs renewed
 // permission. The persisted flag survives restarts; the in-memory reconsent
 // list adds account names for the current session.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/presentation/auth_screen.dart';

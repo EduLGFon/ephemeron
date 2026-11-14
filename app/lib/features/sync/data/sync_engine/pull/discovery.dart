@@ -8,9 +8,9 @@ extension on SyncEngine {
   Future<(int, int)> _syncCalendarList(GoogleApiClient client) async {
     final remote = await client.calendarList();
     debugPrint('[sync] calendarList returned ${remote.length} items');
-    _accountCalendarIds = {
-      for (final c in remote) c['id'] as String?,
-    }.whereType<String>().toSet();
+    _accountCalendarIds = {for (final c in remote) c['id'] as String?}
+        .whereType<String>()
+        .toSet();
     _readableCalendarIds = {
       for (final c in remote)
         if (c['deleted'] != true && c['accessRole'] != 'freeBusyReader')
@@ -200,9 +200,9 @@ extension on SyncEngine {
     debugPrint('[sync] taskLists returned ${remote.length} items');
     _accountListIds = account == null
         ? null
-        : {
-            for (final l in remote) l['id'] as String?,
-          }.whereType<String>().toSet();
+        : {for (final l in remote) l['id'] as String?}
+              .whereType<String>()
+              .toSet();
     final now = _now();
     var created = 0;
     for (final l in remote) {

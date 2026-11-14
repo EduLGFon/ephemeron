@@ -1,6 +1,6 @@
 // Timed habit bubble on the hourly grid. Uses the same lane placement as
 // events, keeps a fixed 30 minute height, and opens the habit action sheet.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../domain/habits/habit_calendar_entry.dart';
 import '../habit_progress.dart';

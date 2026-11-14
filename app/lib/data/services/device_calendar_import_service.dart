@@ -115,8 +115,7 @@ Set<String> mappedDeviceCalendarIds({
 }
 
 class DeviceCalendarImportService {
-  DeviceCalendarImportService(this._repo, {SharedPreferences? preferences})
-    : _preferences = preferences;
+  DeviceCalendarImportService(this._repo, {this._preferences});
 
   final EventRepository _repo;
   final SharedPreferences? _preferences;

@@ -159,9 +159,8 @@ class _DayNumber extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Text(
       '${day.day}',
-      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-        color: _isToday ? scheme.onPrimary : null,
-      ),
+      style: Theme.of(context).textTheme.labelMedium
+          ?.copyWith(color: _isToday ? scheme.onPrimary : null),
     );
     if (!_isToday) return text;
     return Container(

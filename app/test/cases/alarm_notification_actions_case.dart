@@ -151,41 +151,38 @@ void main() {
     expect(after, isEmpty);
   });
 
-  test(
-    'marking habit done cancels that day alarms so snoozed alarm does not recur',
-    () async {
-      final db = _db();
-      addTearDown(db.close);
-      final habits = HabitRepository(db);
-      final habitId = await habits.createHabit(
-        name: 'Stretch',
-        frequency: 'daily',
-      );
-      final day = habitDateKey(DateTime.now());
-      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-      // Simulate a snoozed alarm for today that would fire again.
-      await db
-          .into(db.alarmsIndex)
-          .insert(
-            AlarmsIndexCompanion.insert(
-              id: 'snoozed1',
-              sourceType: 'habit_reminder',
-              sourceId: '$habitId@$day',
-              fireAtUtc: now + 10 * 60 * 1000,
-              requestCode: const Value(4242),
-              state: const Value('scheduled'),
-              kind: const Value('reminder'),
-              title: const Value('Stretch'),
-              preset: const Value('notification'),
-            ),
-          );
-      await habits.setDone(habitId, day, true);
-      final row = await (db.select(
-        db.alarmsIndex,
-      )..where((a) => a.id.equals('snoozed1'))).getSingle();
-      expect(row.state, isNot('scheduled'));
-    },
-  );
+  test('marking habit done cancels that day alarms so snoozed alarm does not recur', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final habits = HabitRepository(db);
+    final habitId = await habits.createHabit(
+      name: 'Stretch',
+      frequency: 'daily',
+    );
+    final day = habitDateKey(DateTime.now());
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    // Simulate a snoozed alarm for today that would fire again.
+    await db
+        .into(db.alarmsIndex)
+        .insert(
+          AlarmsIndexCompanion.insert(
+            id: 'snoozed1',
+            sourceType: 'habit_reminder',
+            sourceId: '$habitId@$day',
+            fireAtUtc: now + 10 * 60 * 1000,
+            requestCode: const Value(4242),
+            state: const Value('scheduled'),
+            kind: const Value('reminder'),
+            title: const Value('Stretch'),
+            preset: const Value('notification'),
+          ),
+        );
+    await habits.setDone(habitId, day, true);
+    final row = await (db.select(
+      db.alarmsIndex,
+    )..where((a) => a.id.equals('snoozed1'))).getSingle();
+    expect(row.state, isNot('scheduled'));
+  });
 
   test('cancelForHabitDay keeps other days scheduled', () async {
     final db = _db();

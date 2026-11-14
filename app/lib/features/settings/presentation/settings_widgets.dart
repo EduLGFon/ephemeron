@@ -4,7 +4,7 @@
 //
 // Split across `part` files under `settings_widgets/` (U10b); this file is the
 // stable public entry point.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../core/theme/theme_tokens.dart';
 

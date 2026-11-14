@@ -2,7 +2,7 @@
 //
 // Menus (popup menus) are explicitly out of scope for this unit; only sheets
 // and dialogs are guarded here.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 enum DirtyChoice { discard, save, cancel }
 

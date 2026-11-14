@@ -7,7 +7,7 @@
 // focused while private members remain shared within the library. The entry
 // point and import path are unchanged for existing importers.
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/alarms/alarm_preset.dart';

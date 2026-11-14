@@ -1,7 +1,7 @@
 // Task row for the matrix board. Keeps the complete checkbox and the
 // tap-to-edit area in separate gesture regions, and wraps the row in a long
 // press draggable only when the board is in priority mode.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 

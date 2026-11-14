@@ -1,5 +1,5 @@
 // Year heat-map: 12 month cards with counts and a compact year-in-review summary.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -131,9 +131,8 @@ class YearView extends ConsumerWidget {
                 child: InkWell(
                   onTap: () => notifier.openMonth(year, month),
                   child: Card(
-                    color: Theme.of(context).colorScheme.primary.withValues(
-                      alpha: 0.1 + 0.5 * c / max,
-                    ),
+                    color: Theme.of(context).colorScheme.primary
+                        .withValues(alpha: 0.1 + 0.5 * c / max),
                     shape: isCurrentMonth
                         ? RoundedRectangleBorder(
                             side: BorderSide(

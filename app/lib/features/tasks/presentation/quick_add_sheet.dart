@@ -6,7 +6,7 @@
 // presentation/quick_add_sheet/ so shorthand helpers, lifecycle, save, and
 // view stay focused while private members remain shared within the library.
 // The entry point and import path are unchanged for existing importers.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/theme/theme_tokens.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/core/ui/app_feedback.dart';

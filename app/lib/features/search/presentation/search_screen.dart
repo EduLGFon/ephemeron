@@ -1,7 +1,7 @@
 // Global search screen: one field across tasks, events, notes,
 // habits, countdowns and tags, with type filters. Results open the matching
 // editor or detail sheet so search is a navigation surface, not a dead end.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:ephemeron/core/search/limits.dart';
 import 'package:ephemeron/core/search/sanitize.dart';

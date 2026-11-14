@@ -15,12 +15,7 @@ part 'backend_sync_engine/pull.dart';
 part 'backend_sync_engine/merge.dart';
 
 abstract class _BackendSyncEngineBase {
-  _BackendSyncEngineBase(
-    this._db,
-    this._auth, {
-    BackendSyncApi? Function(Future<String?> Function() accessToken)?
-    apiFactory,
-  }) : _apiFactory = apiFactory;
+  _BackendSyncEngineBase(this._db, this._auth, {this._apiFactory});
 
   final AppDatabase _db;
   final BackendAuth _auth;

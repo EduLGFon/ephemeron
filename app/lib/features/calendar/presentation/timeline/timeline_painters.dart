@@ -1,5 +1,5 @@
 // Timeline background painters: day grid and current-time line.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class TimelineGridPainter extends CustomPainter {
   TimelineGridPainter({

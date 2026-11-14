@@ -121,8 +121,7 @@ class _MatrixFieldState extends State<_MatrixField> {
                           child: ListView.builder(
                             key: ValueKey('matrix-list-${field.id}'),
                             controller: _controller,
-                            physics:
-                                const ClampingScrollPhysics(), // inner scroll; outer scroll reaches tray
+                            physics: const ClampingScrollPhysics(), // inner scroll; outer scroll reaches tray
                             padding: EdgeInsets.zero,
                             itemExtent: itemExtent,
                             itemCount: field.tasks.length,

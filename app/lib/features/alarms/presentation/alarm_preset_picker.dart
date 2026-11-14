@@ -1,6 +1,6 @@
 // Shared alarm preset + reminder pickers used by event, task,
 // countdown and habit editors.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../domain/alarms/alarm_preset.dart';
 import '../../../domain/alarms/reminder.dart';

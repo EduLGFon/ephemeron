@@ -11,7 +11,7 @@ import 'package:ephemeron/features/calendar/application/calendar_providers.dart'
 import 'package:ephemeron/features/calendar/application/calendar_state.dart';
 import 'package:ephemeron/features/calendar/presentation/timeline/timeline_chrome.dart';
 import 'package:ephemeron/features/calendar/presentation/timeline/timeline_view.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -107,9 +107,8 @@ Future<void> _pump(
       ],
       child: MaterialApp(
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
         home: Scaffold(

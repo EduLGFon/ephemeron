@@ -2,7 +2,7 @@
 // Permissions are explained at the moment of need, not all upfront.
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/theme/theme_tokens.dart';
 import 'package:ephemeron/core/ui/app_feedback.dart';
 import 'package:ephemeron/core/ui/app_motion.dart';

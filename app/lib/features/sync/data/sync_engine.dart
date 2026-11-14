@@ -41,10 +41,10 @@ enum OutboxDiscardResult { discarded, missing, retriesLeft }
 class SyncEngine {
   SyncEngine(
     this._db, {
-    GoogleApiClient? Function()? clientFactory,
+    this._clientFactory,
     this.account,
     this.signedInAccounts,
-  }) : _clientFactory = clientFactory;
+  });
 
   final AppDatabase _db;
   final GoogleApiClient? Function()? _clientFactory;

@@ -1,5 +1,5 @@
 // Reusable empty-state placeholder for screens with no data.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/theme_tokens.dart';
 import 'app_motion.dart';

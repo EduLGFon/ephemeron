@@ -1,7 +1,7 @@
 // User-facing sync diagnostics: exhausted/pending outbox rows and per-calendar
 // or per-task-list errors. The screen only renders non-personal labels and
 // counters; payloads, tokens, emails, titles and raw responses stay in storage.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/app_feedback.dart';

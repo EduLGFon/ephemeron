@@ -57,9 +57,8 @@ extension _CountdownEditorActions on _CountdownEditorSheetState {
   Future<void> _save() async {
     final title = _title.text.trim();
     if (title.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Title is required.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Title is required.')));
       return;
     }
     final targetDate = _date == null

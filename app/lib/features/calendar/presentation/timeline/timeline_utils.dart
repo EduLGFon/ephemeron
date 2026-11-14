@@ -1,6 +1,6 @@
 // Shared day math, occurrence filters, event colors, and per-day placements.
 // Used by the timeline view, event blocks, and interaction handling.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/time/time.dart';
 import '../../../../data/drift/app_database.dart';

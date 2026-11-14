@@ -9,6 +9,7 @@ import 'package:oauth2/oauth2.dart' as oauth2;
 
 import '../../../core/config/app_config.dart';
 import '../../../core/config/safe_storage.dart';
+
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
 class MicrosoftAuthException implements Exception {
@@ -18,8 +19,10 @@ class MicrosoftAuthException implements Exception {
   String toString() => 'MicrosoftAuthException: $message';
 }
 
-typedef MicrosoftWebLauncher =
-    Future<String> Function(String url, String callbackUrlScheme);
+typedef MicrosoftWebLauncher = Future<String> Function(
+  String url,
+  String callbackUrlScheme,
+);
 
 class MicrosoftAuth {
   MicrosoftAuth({

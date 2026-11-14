@@ -1,7 +1,7 @@
 // Section title with an optional count badge, description, and trailing
 // action. Marks itself as a semantics header so screen readers can jump
 // between sections.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/theme_tokens.dart';
 

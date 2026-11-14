@@ -1,5 +1,5 @@
 // Calendar source picker: account first, then a writable calendar.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/source_picker_sheet.dart';
@@ -63,16 +63,14 @@ Future<bool> pickAndMoveEvent(
     ref.read(occurrenceDirtyProvider.notifier).markDirty();
     ref.invalidate(occurrenceSourceMapProvider);
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Event moved.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Event moved.')));
     }
     return true;
   } on SourceMoveException catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
     }
     return false;
   }

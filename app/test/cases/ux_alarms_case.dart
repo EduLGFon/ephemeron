@@ -14,7 +14,7 @@ import 'package:ephemeron/features/alarms/presentation/ring_screen.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -437,9 +437,8 @@ void main() {
 
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    final habitId = await HabitRepository(
-      db,
-    ).createHabit(name: 'Stretch', startDate: '2026-01-01', goalAmount: 10);
+    final habitId = await HabitRepository(db)
+        .createHabit(name: 'Stretch', startDate: '2026-01-01', goalAmount: 10);
     final row = AlarmsIndexData(
       id: 'alarm-2',
       sourceType: 'habit',

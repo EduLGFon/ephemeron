@@ -179,11 +179,9 @@ mixin _GoogleAuthSignIn on _GoogleAuthBase {
     if (email == null && idToken != null) {
       final parts = idToken.split('.');
       if (parts.length == 3) {
-        final payload =
-            jsonDecode(
-                  utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
-                )
-                as Map<String, dynamic>;
+        final payload = jsonDecode(
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+        ) as Map<String, dynamic>;
         email = payload['email'] as String?;
       }
     }

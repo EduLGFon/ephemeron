@@ -1,11 +1,10 @@
 import 'dart:async';
 
 import 'package:ephemeron/l10n/src/app_localizations.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'app/router/app_router.dart';
 import 'core/platform/system_launcher.dart';
@@ -114,9 +113,7 @@ class EphemeronApp extends ConsumerWidget {
       locale: localeCode == 'system' ? null : Locale(localeCode),
       localizationsDelegates: const [
         AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,

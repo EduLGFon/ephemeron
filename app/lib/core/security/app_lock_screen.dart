@@ -1,7 +1,7 @@
 // Lock gate UI shown while biometric app lock is enabled and unauthenticated.
 // It is presentation only: the gate in main.dart owns authentication state and
 // SECURITY: this widget must never unlock on its own.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class BiometricLockScreen extends StatelessWidget {
   const BiometricLockScreen({

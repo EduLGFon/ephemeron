@@ -1,5 +1,5 @@
 // Scope sheet for recurring edits/deletes: this / following / all.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../data/repositories/event_repository.dart';
 import '../../../core/ui/app_sheet.dart';

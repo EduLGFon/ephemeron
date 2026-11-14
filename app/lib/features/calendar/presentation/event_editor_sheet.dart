@@ -6,7 +6,7 @@
 // helpers (formatting/rule summaries), the custom repeat dialog,
 // self-contained form sections, and the editor state. The public
 // entry point stays in this file so importer paths are unchanged.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/core/ui/app_sheet.dart';
 import 'package:ephemeron/core/ui/sheet_padding.dart';

@@ -2,7 +2,7 @@
 // Markers stay visible but are dimmed; storage stays plain Markdown.
 // The concatenated span text always equals [text] so cursor/IME offsets
 // remain valid.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 part 'markdown_editing_controller/segment.dart';
 part 'markdown_editing_controller/parsing.dart';

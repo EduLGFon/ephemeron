@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // 10 primary color presets (user picks one or enters a custom hex).
 const List<Color> primaryPresets = <Color>[

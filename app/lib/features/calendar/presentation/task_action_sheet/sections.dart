@@ -29,9 +29,8 @@ mixin _TaskActionSheetSections
             const SizedBox(height: 6),
             Text(
               'Future occurrence',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: Theme.of(context).colorScheme.primary),
             ),
           ],
         ],

@@ -41,19 +41,13 @@ final pendingOperationsProvider = Provider<PendingOperations>((ref) {
 class PendingOperations {
   PendingOperations(
     AppDatabase db, {
-    required TaskRepository tasks,
-    required NoteRepository notes,
-    required HabitRepository habits,
-    required CountdownRepository countdowns,
-    required FocusRepository focus,
-    required EventRepository events,
-  }) : _repo = PendingOperationsRepository(db),
-       _tasks = tasks,
-       _notes = notes,
-       _habits = habits,
-       _countdowns = countdowns,
-       _focus = focus,
-       _events = events;
+    required this._tasks,
+    required this._notes,
+    required this._habits,
+    required this._countdowns,
+    required this._focus,
+    required this._events,
+  }) : _repo = PendingOperationsRepository(db);
 
   final PendingOperationsRepository _repo;
   final TaskRepository _tasks;

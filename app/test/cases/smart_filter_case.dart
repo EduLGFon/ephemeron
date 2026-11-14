@@ -68,15 +68,13 @@ void main() {
       (from: '2026-03-15', to: '2026-03-21'),
     );
     expect(
-      const SmartFilter(
-        dueWindow: SmartDueWindow.thisMonth,
-      ).dueRange(now: DateTime(2026, 2, 10)),
+      const SmartFilter(dueWindow: SmartDueWindow.thisMonth)
+          .dueRange(now: DateTime(2026, 2, 10)),
       (from: '2026-02-01', to: '2026-02-28'),
     );
     expect(
-      const SmartFilter(
-        dueWindow: SmartDueWindow.thisMonth,
-      ).dueRange(now: DateTime(2028, 2, 10)),
+      const SmartFilter(dueWindow: SmartDueWindow.thisMonth)
+          .dueRange(now: DateTime(2028, 2, 10)),
       (from: '2028-02-01', to: '2028-02-29'),
     );
   });

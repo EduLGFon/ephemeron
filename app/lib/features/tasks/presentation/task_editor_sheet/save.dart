@@ -25,9 +25,8 @@ mixin _TaskEditorSave on _TaskEditorStateBase {
   Future<void> _save() async {
     final title = _title.text.trim();
     if (title.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Title is required.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Title is required.')));
       return;
     }
     // Moment of need, advisory only: the save always proceeds.
@@ -103,9 +102,8 @@ mixin _TaskEditorSave on _TaskEditorStateBase {
           await repo.moveTasks([existing.id], _listId);
         } on SourceMoveException catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(e.message)));
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(e.message)));
           }
           return;
         }

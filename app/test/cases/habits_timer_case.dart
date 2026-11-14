@@ -7,7 +7,7 @@ import 'package:ephemeron/domain/habits/date_key.dart';
 import 'package:ephemeron/domain/habits/habit_timer.dart';
 import 'package:ephemeron/features/habits/presentation/habits_screen.dart';
 import 'package:ephemeron/features/habits/application/habits_providers.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

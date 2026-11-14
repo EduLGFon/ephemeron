@@ -1,7 +1,7 @@
 // Two-step source picker: choose an account, then one of its calendars or
 // task lists. Returns the selected source id, or null for the allowed none
 // option / dismissal.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'app_sheet.dart';
 import 'escape_to_close.dart';

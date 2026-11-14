@@ -9,7 +9,7 @@ import 'package:ephemeron/features/notes/presentation/markdown_preview.dart';
 import 'package:ephemeron/features/notes/presentation/note_editor_screen.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -394,9 +394,8 @@ void main() {
 
   test('preprocessing keeps nested fences inside longer fences', () {
     expect(
-      prepareMarkdownForRender(
-        '````\n```dart\ncode\n```\n````\nafter\nnext',
-      ).split('\n'),
+      prepareMarkdownForRender('````\n```dart\ncode\n```\n````\nafter\nnext')
+          .split('\n'),
       ['````', '```dart', 'code', '```', '````', 'after  ', 'next  '],
     );
   });

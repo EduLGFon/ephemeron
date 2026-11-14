@@ -1,7 +1,7 @@
 // Tasks screen: list filter, overdue section, swipe actions with undo,
 // trash, completed view, quick add FAB.
 import 'package:flutter/foundation.dart' show listEquals;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/theme/theme_tokens.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 

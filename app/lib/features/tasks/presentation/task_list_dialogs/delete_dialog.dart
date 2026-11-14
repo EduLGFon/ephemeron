@@ -86,9 +86,8 @@ Future<void> showDeleteTaskListDialog(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
-            onPressed: () => Navigator.of(
-              ctx,
-            ).pop(_DeleteDecision(deleteTasks: deleteTasks, moveTo: target)),
+            onPressed: () => Navigator.of(ctx)
+                .pop(_DeleteDecision(deleteTasks: deleteTasks, moveTo: target)),
             child: const Text('Delete list'),
           ),
         ],
@@ -106,9 +105,8 @@ Future<void> showDeleteTaskListDialog(
         );
   } on SourceMoveException catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 }

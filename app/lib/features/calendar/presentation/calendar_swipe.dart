@@ -3,7 +3,7 @@
 // Multi-day views shift one day at a time; the month view shifts one month.
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../core/ui/app_feedback.dart';
 import '../../../core/ui/app_motion.dart';

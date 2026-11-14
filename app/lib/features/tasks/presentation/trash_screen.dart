@@ -1,6 +1,6 @@
 // Trash: restore, permanent delete, empty old items. Permanent deletion uses
 // the shared 6 s undo snack bar instead of a second confirmation dialog.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/app_feedback.dart';

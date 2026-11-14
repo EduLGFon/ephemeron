@@ -1,6 +1,6 @@
 // Task create/edit sheet with list, priority, due chips, tags, subtasks.
 // Unsaved input autosaves (debounced) and restores after restart.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/core/ui/app_sheet.dart';
 import 'package:ephemeron/core/ui/sheet_padding.dart';
