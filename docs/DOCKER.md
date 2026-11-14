@@ -2,6 +2,11 @@
 
 Run the Ephemeron sync API and Postgres with Docker Compose.
 
+## Images
+
+- API: denoland/deno:2.9.8.
+- DB: postgres:18.7-alpine. 18.7 is a patch within the existing 18.x data format, so no volume migration is needed for this refresh.
+
 ## Build
 ```
 cd server
