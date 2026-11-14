@@ -17,17 +17,14 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
     _accounts
       ..clear()
       ..addAll(accs);
+    _userIdsByEmail.clear();
     if (_accounts.isEmpty) return null;
     _activeEmail = _accounts.first;
     try {
       await _ensureInit();
-      // One lightweight attempt for the whole restore. Its account is stored
-      // only when it is one of the emails already known locally.
-      final lightweight = await _attemptLightweightAccount();
-      if (lightweight != null &&
-          _accounts.any((a) => isSameAccountEmail(a, lightweight.email))) {
-        _storeGoogleAccount(lightweight);
-      }
+      // Silent restore only. No lightweight authentication here: on Android
+      // it can show the Credential Manager account picker at every launch.
+      await _loadUserIds();
       final needsReconnect = <String>[];
       for (final account in _accounts) {
         String? token;
@@ -56,6 +53,7 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
     final target = account ?? _activeEmail;
     if (target == null) return;
     _clearNeedsReconnect(target);
+    _setUserId(target, null);
     if (defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.windows) {
       _accessTokens.remove(target);
@@ -107,6 +105,11 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
     );
     final token = authz.accessToken;
     _accessTokens[email] = token;
+    final userId = account.id;
+    if (userId.isNotEmpty) {
+      _setUserId(email, userId);
+      await _storage.saveGoogleUserIdFor(account: email, userId: userId);
+    }
     await _storage.saveGoogleEmail(email);
     await _storage.saveGoogleTokensFor(
       account: email,

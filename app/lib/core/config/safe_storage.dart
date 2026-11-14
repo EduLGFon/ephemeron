@@ -51,10 +51,24 @@ class SafeSecureStorage {
     return int.tryParse(v);
   }
 
+  /// Google account user id. This is an account identifier, not a secret, but
+  /// it stays beside the tokens and is never logged.
+  Future<String?> googleUserIdFor(String account) =>
+      _storage.read(key: _a(account, 'userId'));
+
+  Future<void> saveGoogleUserIdFor({
+    required String account,
+    required String userId,
+  }) async {
+    if (userId.isEmpty) return;
+    await _storage.write(key: _a(account, 'userId'), value: userId);
+  }
+
   Future<void> clearGoogleFor(String account) async {
     await _storage.delete(key: _a(account, 'accessToken'));
     await _storage.delete(key: _a(account, 'refreshToken'));
     await _storage.delete(key: _a(account, 'expiryMs'));
+    await _storage.delete(key: _a(account, 'userId'));
   }
 
   // Legacy single-account helpers (delegate to a default account key).
