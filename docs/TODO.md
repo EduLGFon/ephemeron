@@ -30,22 +30,31 @@
 - Sync diagnostics show only non-personal allowlisted labels. Outbox payloads, tokens, emails, titles, raw bodies never rendered.
 - Notes' relative "Saved Xm ago" refreshes on rebuild, not live timer, to avoid wakeups.
 - Native notification Dismiss schedules next habit occurrence on next app open (no headless worker).
-- wakelock_plus stays at 1.8.0: 1.8.2 conflicts with battery_plus 7.1.2 via dbus. Revisit when either relaxes.
-- Deferred: AGP 9.3 + Gradle 9.5 upgrade (needs migration + build size/behavior comparison).
+- wakelock_plus remains 1.8.0 because 1.8.2 requires dbus ^0.8.0 while battery_plus -> upower 0.7.0 pins dbus ^0.7.0. Revisit when either relaxes.
 - Do not run release build while flutter run active; both rewrite GeneratedPluginRegistrant.java; debug registrant includes integration_test, breaks release Java compile.
+- Docker image build unverified: docker.service failed to start here and sudo needs a password; Dockerfile cache layers and argon2 warm-up were simulated with Deno 2.9.8 in a fresh DENO_DIR.
+- Linux build blocked by missing system package webkit2gtk-4.0 (required by desktop_webview_window), not app code.
+- iOS/macOS/Windows builds not run (Linux host, no Xcode/Windows).
+- Three plugins still apply Kotlin Gradle Plugin (flutter_web_auth_2, home_widget, workmanager_android); Flutter warns this will fail in a future release. All are latest, so this is upstream.
+- Generated l10n keeps a header ignore for deprecated_member_use because Flutter gen-l10n still emits legacy delegates; app code uses material_ui delegates. Revisit when the generator migrates.
+- Release build warns the CupertinoIcons font is absent; no app code uses CupertinoIcons.
+- AGP 9.5.1, Gradle 9.9.1, Kotlin 2.4.21 are above Flutter 3.50 max-known versions but latest stable; debug and arm64 release builds pass.
 
 ## Ephemeron domains rollout (u10d, 2026-11-10)
 
 - Owner DNS + hosting steps pending (Cloudflare records, Pages custom domain, tunnel/route for api, OAuth console origins).
 - Backend hardening deferred to deploy: reverse-proxy client_max_body_size (~1MB), strip/overwrite X-Forwarded-For at proxy, run API as non-root with least-privilege deno flags.
 - Code follow-ups: wrap server/src/jwt.ts atob in try/catch (500-vs-401); bound or TTL-sweep server/main.ts rate-limit buckets; 400 on since=NaN in pull; rename weak expired-refresh test and add real-expiry case; app/web gitignored so future app/web/* static files need git add -f (like CNAME); add that note to docs/PAGES_DEPLOY.md as one line.
-- flutter analyze/test not run locally (no SDK) - CI covers.
 
 ## Verification record (2026-11-13)
 
+Dependency refresh run (Flutter 3.50.0, Dart 3.14.0):
+
 - flutter pub get, flutter gen-l10n, dart run tools/gen_test_runner.dart (116 case files) succeeded.
-- dart format --set-exit-if-changed . clean (526 files, 0 changed).
-- flutter analyze clean, no issues.
+- dart format --output=none --set-exit-if-changed . clean (526 files, 0 changed).
+- flutter analyze --fatal-infos: no issues.
 - Full flutter test passed: 773 tests.
-- Arm64 release APK: app/build/app/outputs/flutter-apk/app-release.apk, 27,831,621 bytes (27.8 MB), libapp.so only under lib/arm64-v8a, SHA-256 f52ce3b62f08a140cf16110ab6c0f65cd20f7eb48f74c36c6ab45b9c77abb92d. Built with flutter build apk --release --target-platform android-arm64 and temporary non-committed dart-defines for platform OAuth client IDs.
+- flutter build web --release passed, main.dart.js gzip 1,761,101 B (under 2 MB budget).
+- Arm64 release APK: 28,346,708 bytes, SHA-256 afc2409ee0c48bf79d6ff2cf012730a5bb438e153a9ba58d3817359d22629acd. Baseline was 27,831,621 bytes, delta +515,087 bytes (+1.85%). Built with flutter build apk --release --target-platform android-arm64 and temporary non-committed dart-defines for platform OAuth client IDs.
+- Server: deno install --frozen, deno check main.ts, deno lint pass; deno test --allow-all 10 passed, 0 failed, 1 pg-gated ignored; changed-file deno fmt passes; compose config resolves postgres:18.7-alpine.
 - Pre-existing Drift multiple-database debug warnings appear in test run and do not affect results.
