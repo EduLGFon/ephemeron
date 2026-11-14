@@ -80,9 +80,17 @@ extension on SyncEngine {
   Future<bool> _mergeTask(TaskList list, Map<String, dynamic> g) async {
     final remoteId = g['id'] as String?;
     if (remoteId == null) return false;
-    final existing = await (_db.select(
+    final matches = await (_db.select(
       _db.tasks,
-    )..where((t) => t.remoteId.equals(remoteId))).getSingleOrNull();
+    )..where((t) => t.remoteId.equals(remoteId))).get();
+    // Google task ids are unique per list, not globally. Match only a row
+    // owned by this account (or an unstamped legacy row) and never throw when
+    // stale duplicates exist. A row owned by another account is left alone so
+    // this pull cannot overwrite it.
+    final candidates = matches.where(
+      (t) => t.googleAccount == null || t.googleAccount == account,
+    );
+    final Task? existing = candidates.isEmpty ? null : candidates.first;
     if (existing == null) {
       final mapped = taskFromGoogle(g, list.id, newId());
       await _db

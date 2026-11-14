@@ -158,6 +158,11 @@ class _AppShellState extends ConsumerState<AppShell>
       await _handleRingRequest(ringRequest);
       return;
     }
+    // Trigger one startup sync after session restore when signed in. Ring
+    // handling above keeps network work away from an active alarm.
+    if (ref.read(googleAuthProvider).accounts.isNotEmpty) {
+      unawaited(ref.read(googleAutoSyncServiceProvider).syncNowAndReschedule());
+    }
     // Handle Android share-target text and launcher shortcuts once the
     // first frame is up (needs a BuildContext for sheets/navigation).
     await _handleIntents();
