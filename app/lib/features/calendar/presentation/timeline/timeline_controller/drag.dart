@@ -255,9 +255,8 @@ mixin TimelineDrag on TimelineInteraction {
     } on SourceMoveException catch (e) {
       _clearPending();
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
       return;
     }
@@ -276,9 +275,8 @@ mixin TimelineDrag on TimelineInteraction {
           dragOffset = 0;
           pendingMovedId = null;
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Event moved')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Event moved')));
       }
     }
   }

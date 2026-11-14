@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -103,9 +103,8 @@ class _BackupSectionState extends ConsumerState<BackupSection> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              AppLocalizations.of(
-                context,
-              ).backupExported(file.path.split('/').last),
+              AppLocalizations.of(context)
+                  .backupExported(file.path.split('/').last),
             ),
           ),
         );
@@ -153,9 +152,8 @@ class _BackupSectionState extends ConsumerState<BackupSection> {
       }
     } on BackupFormatException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);

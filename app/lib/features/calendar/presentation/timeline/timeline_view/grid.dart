@@ -97,9 +97,9 @@ extension _TimelineViewGrid on _TimelineViewState {
                                           anchor: stripAnchor,
                                           dayCount: stripCount,
                                           hourHeight: hourHeight,
-                                          primary: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
+                                          primary: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
                                         ),
                                       ),
                                     ),

@@ -2,7 +2,7 @@
 // scrollable command center.
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/theme_tokens.dart';
 import '../../core/ui/app_section_header.dart';

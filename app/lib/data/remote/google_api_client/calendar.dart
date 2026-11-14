@@ -10,9 +10,8 @@ mixin _GoogleApiCalendarOps on _GoogleApiBase {
       final q = <String, String>{'maxResults': '250'};
       if (pageToken != null) q['pageToken'] = pageToken;
       final r = await _http.get(
-        Uri.parse(
-          '${AppConfig.calendarApiBase}/users/me/calendarList',
-        ).replace(queryParameters: q),
+        Uri.parse('${AppConfig.calendarApiBase}/users/me/calendarList')
+            .replace(queryParameters: q),
         headers: await _headers(),
       );
       if (r.statusCode != 200) _throw(r);

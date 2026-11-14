@@ -113,8 +113,7 @@ class _UnclassifiedTrayState extends State<_UnclassifiedTray> {
                     child: ListView.builder(
                       key: const ValueKey('matrix-list-unclassified'),
                       controller: _controller,
-                      physics:
-                          const ClampingScrollPhysics(), // keep inner lists scrollable; outer scroll reaches tray
+                      physics: const ClampingScrollPhysics(), // keep inner lists scrollable; outer scroll reaches tray
                       padding: EdgeInsets.zero,
                       itemCount: tasks.length,
                       itemBuilder: (context, index) => MatrixTaskRow(

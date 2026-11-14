@@ -2,7 +2,7 @@
 // Turns occurrence-cache rows into seven day buckets with all-day and timed
 // items. Kept free of Riverpod so foreground and headless widget pushes can
 // share the exact same layout.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 
 import '../../features/calendar/presentation/google_calendar_colors.dart';

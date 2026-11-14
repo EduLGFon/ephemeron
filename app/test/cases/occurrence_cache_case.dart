@@ -575,35 +575,32 @@ void main() {
     },
   );
 
-  test(
-    'daily all-day recurring series has no duplicate (eventId,startUtc,dayKey) after shifted rebuilds',
-    () async {
-      final db = _db();
-      addTearDown(db.close);
-      await _cal(db);
-      await _event(
-        db,
-        id: 'm1',
-        rrule: 'FREQ=DAILY;COUNT=30',
-        startDate: '2026-03-01',
-        endDate: '2026-03-02',
-        isAllDay: true,
-      );
-      final repo = OccurrenceRepository(db);
-      await repo.rebuildWindow(
-        windowStartUtc: DateTime.utc(2026, 3, 5),
-        windowEndUtc: DateTime.utc(2026, 3, 10),
-      );
-      await repo.rebuildWindow(
-        windowStartUtc: DateTime.utc(2026, 3, 12),
-        windowEndUtc: DateTime.utc(2026, 3, 15),
-      );
-      final rows = await db.select(db.occurrenceCache).get();
-      // Each in-window date exactly once.
-      final days = rows.map((r) => r.dayKey).toList();
-      expect(days.toSet().length, days.length);
-    },
-  );
+  test('daily all-day recurring series has no duplicate (eventId,startUtc,dayKey) after shifted rebuilds', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db);
+    await _event(
+      db,
+      id: 'm1',
+      rrule: 'FREQ=DAILY;COUNT=30',
+      startDate: '2026-03-01',
+      endDate: '2026-03-02',
+      isAllDay: true,
+    );
+    final repo = OccurrenceRepository(db);
+    await repo.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 3, 5),
+      windowEndUtc: DateTime.utc(2026, 3, 10),
+    );
+    await repo.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 3, 12),
+      windowEndUtc: DateTime.utc(2026, 3, 15),
+    );
+    final rows = await db.select(db.occurrenceCache).get();
+    // Each in-window date exactly once.
+    final days = rows.map((r) => r.dayKey).toList();
+    expect(days.toSet().length, days.length);
+  });
 
   test(
     'multi-day all-day single rebuilt twice keeps one row per covered day',

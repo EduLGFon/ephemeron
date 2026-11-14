@@ -1,5 +1,5 @@
 // Shared dialog helpers to reduce boilerplate.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'dirty_guard.dart';
 

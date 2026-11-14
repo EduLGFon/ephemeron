@@ -1,6 +1,6 @@
 // Compact habit marker for calendar surfaces: name plus done/skipped icon.
 // Tap or long-press opens the shared habit action sheet.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../domain/habits/habit_calendar_entry.dart';
 import 'habit_action_sheet.dart';
@@ -60,10 +60,8 @@ class HabitCalendarMarker extends StatelessWidget {
                   entry.habitName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 9,
-                    color: scheme.onSurface,
-                  ),
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(fontSize: 9, color: scheme.onSurface),
                 ),
               ),
           ],

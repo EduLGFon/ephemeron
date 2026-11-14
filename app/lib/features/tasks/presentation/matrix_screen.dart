@@ -1,6 +1,6 @@
 // Eisenhower matrix screen: switches between auto classification and stored
 // priority grouping, and hosts the board plus task creation entry point.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/empty_state.dart';

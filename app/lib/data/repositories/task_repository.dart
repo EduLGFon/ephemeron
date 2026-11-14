@@ -125,9 +125,9 @@ class _TaskRepositoryBase {
   ) {
     if (plannedDate == null || dueDate == null) return plannedDate;
     final nextKey = dateKey(nextDue);
-    final deltaDays = _parseDateKey(
-      nextKey,
-    ).difference(_parseDateKey(dueDate)).inDays;
+    final deltaDays = _parseDateKey(nextKey)
+        .difference(_parseDateKey(dueDate))
+        .inDays;
     final p = plannedDate.split('-');
     return dateKey(
       DateTime.utc(
@@ -145,9 +145,9 @@ class _TaskRepositoryBase {
   ) {
     if (plannedStart == null || dueDate == null) return plannedStart;
     final nextKey = dateKey(nextDue);
-    final deltaDays = _parseDateKey(
-      nextKey,
-    ).difference(_parseDateKey(dueDate)).inDays;
+    final deltaDays = _parseDateKey(nextKey)
+        .difference(_parseDateKey(dueDate))
+        .inDays;
     final dt = DateTime.parse(plannedStart);
     final shifted = DateTime(
       dt.year,
@@ -166,9 +166,9 @@ class _TaskRepositoryBase {
   ) {
     if (plannedEnd == null || dueDate == null) return plannedEnd;
     final nextKey = dateKey(nextDue);
-    final deltaDays = _parseDateKey(
-      nextKey,
-    ).difference(_parseDateKey(dueDate)).inDays;
+    final deltaDays = _parseDateKey(nextKey)
+        .difference(_parseDateKey(dueDate))
+        .inDays;
     final dt = DateTime.parse(plannedEnd);
     final shifted = DateTime(
       dt.year,

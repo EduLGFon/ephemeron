@@ -1,6 +1,6 @@
 // Smart-list editor: name plus the supported filter fields. Saving creates or
 // updates a local SmartLists row; filterJson stays forward/backward tolerant.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/time/device_date_format.dart';

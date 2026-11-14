@@ -8,7 +8,7 @@ import 'package:ephemeron/features/calendar/application/calendar_providers.dart'
 import 'package:ephemeron/features/calendar/application/calendar_state.dart';
 import 'package:ephemeron/features/calendar/presentation/calendar_screen.dart';
 import 'package:ephemeron/features/sync/presentation/sync_title.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';

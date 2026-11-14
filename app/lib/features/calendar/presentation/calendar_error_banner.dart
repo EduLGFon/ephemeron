@@ -1,6 +1,6 @@
 // Shared inline failure state for calendar views that read the occurrence
 // and habit streams of the materialized range.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Compact banner shown above calendar content when a range stream fails.
 ///

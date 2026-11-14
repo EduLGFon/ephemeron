@@ -191,9 +191,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await _persist((r) => r.setBiometricLock(true));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(AppLock.describeError(e))));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(AppLock.describeError(e))));
     }
   }
 

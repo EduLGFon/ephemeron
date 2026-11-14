@@ -2,7 +2,7 @@
 // counts and ownership labels. Deleting always asks what happens to tasks.
 // Custom order uses long-press drag and persists only local sortOrder values.
 import 'package:flutter/foundation.dart' show listEquals;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/empty_state.dart';

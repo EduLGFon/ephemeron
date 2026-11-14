@@ -1,7 +1,7 @@
 // Two-step source picker: account first, then calendar/list, returning the
 // selected source id.
 import 'package:ephemeron/core/ui/source_picker_sheet.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

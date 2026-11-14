@@ -2,7 +2,7 @@
 //
 // The sheet implementation is split across `part` files under
 // `event_details_sheet/` while this file stays the public entry point.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

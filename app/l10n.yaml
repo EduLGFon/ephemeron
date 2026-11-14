@@ -3,3 +3,7 @@ template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
 output-dir: lib/l10n/src
 nullable-getter: false
+# The Flutter 3.50 generator still emits the legacy flutter_localizations
+# delegates, which are deprecated in favor of material_ui/cupertino_ui.
+# Suppress that info in generated files only; app code uses the new delegates.
+header: "// ignore_for_file: deprecated_member_use"

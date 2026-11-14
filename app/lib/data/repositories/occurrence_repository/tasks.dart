@@ -168,9 +168,9 @@ mixin _TaskCacheOps on _OccurrenceRepositoryBase {
       if (siblings.contains('$seriesId|$occKey')) continue;
 
       final baseKey = baseDateKey ?? occKey;
-      final dayDelta = _parseDate(
-        occKey,
-      ).difference(_parseDate(baseKey)).inDays;
+      final dayDelta = _parseDate(occKey)
+          .difference(_parseDate(baseKey))
+          .inDays;
 
       int startMs;
       int endMs;

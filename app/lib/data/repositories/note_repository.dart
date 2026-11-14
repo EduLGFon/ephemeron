@@ -24,8 +24,7 @@ class NoteSearchHit {
 }
 
 class _NoteRepositoryBase {
-  _NoteRepositoryBase(this._db, {Directory? attachmentDir})
-    : _attachmentDir = attachmentDir;
+  _NoteRepositoryBase(this._db, {this._attachmentDir});
 
   final AppDatabase _db;
   final Directory? _attachmentDir;

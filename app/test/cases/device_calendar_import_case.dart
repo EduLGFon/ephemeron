@@ -349,43 +349,40 @@ void main() {
     expect(row.dirty, isTrue);
   });
 
-  test(
-    'deselected visible calendars are pruned only for the chosen target',
-    () async {
-      final db = _db();
-      addTearDown(db.close);
-      await _seedCalendar(db);
-      final service = await _service(db);
-      await service.saveMappings({
-        'a': 'cal1',
-        'b': 'cal1',
-        'c': 'cal2',
-        'hidden': 'cal1',
-      });
+  test('deselected visible calendars are pruned only for the chosen target', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _seedCalendar(db);
+    final service = await _service(db);
+    await service.saveMappings({
+      'a': 'cal1',
+      'b': 'cal1',
+      'c': 'cal2',
+      'hidden': 'cal1',
+    });
 
-      // Dialog pre-selection: only visible calendars mapped to the chosen target.
-      expect(
-        mappedDeviceCalendarIds(
-          visibleDeviceCalendarIds: const ['a', 'b', 'c'],
-          mappings: await service.loadMappings(),
-          targetCalendarId: 'cal1',
-        ),
-        {'a', 'b'},
-      );
-
-      final pruned = await service.pruneDeselectedMappings(
+    // Dialog pre-selection: only visible calendars mapped to the chosen target.
+    expect(
+      mappedDeviceCalendarIds(
         visibleDeviceCalendarIds: const ['a', 'b', 'c'],
-        selectedDeviceCalendarIds: const {'a'},
+        mappings: await service.loadMappings(),
         targetCalendarId: 'cal1',
-      );
-      expect(pruned, 1);
-      expect(await service.loadMappings(), {
-        'a': 'cal1',
-        'c': 'cal2',
-        'hidden': 'cal1',
-      });
-    },
-  );
+      ),
+      {'a', 'b'},
+    );
+
+    final pruned = await service.pruneDeselectedMappings(
+      visibleDeviceCalendarIds: const ['a', 'b', 'c'],
+      selectedDeviceCalendarIds: const {'a'},
+      targetCalendarId: 'cal1',
+    );
+    expect(pruned, 1);
+    expect(await service.loadMappings(), {
+      'a': 'cal1',
+      'c': 'cal2',
+      'hidden': 'cal1',
+    });
+  });
 
   test('mapping persistence round-trips ids only', () async {
     final db = _db();

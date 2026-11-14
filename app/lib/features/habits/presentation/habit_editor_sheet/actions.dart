@@ -125,9 +125,8 @@ mixin _HabitEditorSheetStateActions on _HabitEditorSheetStateBase {
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Name is required.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Name is required.')));
       return;
     }
     final amount = double.tryParse(_amount.text.trim());

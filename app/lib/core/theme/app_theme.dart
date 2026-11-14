@@ -2,8 +2,9 @@
 // brightness choice. Typography pairs Fraunces (display/headline) with Inter
 // (everything else). Component themes keep surfaces flat and rounded, and the
 // AMOLED variant swaps the seeded surfaces for near-black ones.
-import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show CupertinoPageTransitionsBuilder;
+import 'package:material_ui/material_ui.dart';
 
 import 'theme_tokens.dart';
 

@@ -1,5 +1,5 @@
 import 'package:ephemeron/features/notes/presentation/markdown_editing_controller.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 List<TextSpan> _flatten(TextSpan span) {

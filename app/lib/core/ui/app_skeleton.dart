@@ -1,6 +1,6 @@
 // Loading placeholders. A single opacity pulse animates the whole block group;
 // reduce-motion stops the controller so no frame work runs while loading.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/theme_tokens.dart';
 import 'app_motion.dart';
@@ -91,9 +91,8 @@ class _SkeletonBlock extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest
+            .withValues(alpha: 0.7),
         borderRadius: borderRadius ?? BorderRadius.circular(AppRadius.sm),
       ),
     );

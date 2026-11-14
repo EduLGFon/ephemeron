@@ -3,7 +3,7 @@
 // needs it, with a one-line reason first. Denials degrade to a snackbar
 // with a one-tap link to system settings, never a crash or dead end.
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../features/alarms/data/alarm_scheduler.dart';
 import 'system_launcher.dart';

@@ -51,9 +51,8 @@ class _SearchResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final subtitleStyle = Theme.of(
-      context,
-    ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
+    final subtitleStyle = Theme.of(context).textTheme.bodyMedium
+        ?.copyWith(color: scheme.onSurfaceVariant);
     return Scaffold(
       appBar: AppBar(title: Text('Results for "$query"')),
       body: hits.isEmpty

@@ -39,10 +39,9 @@ abstract class MicrosoftGraphClient {
 
 class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
   HttpMicrosoftGraphClient({
-    required Future<String?> Function() accessToken,
+    required this._accessToken,
     http.Client? httpClient,
-  }) : _accessToken = accessToken,
-       _http = httpClient ?? http.Client();
+  }) : _http = httpClient ?? http.Client();
 
   final Future<String?> Function() _accessToken;
   final http.Client _http;
@@ -166,8 +165,7 @@ class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
     final initial = Uri.parse('${AppConfig.microsoftGraphBase}/me/calendars')
         .replace(
           queryParameters: const {
-            r'$select':
-                'id,name,color,hexColor,isDefaultCalendar,isSharedWithMe,canEdit,owner',
+            r'$select': 'id,name,color,hexColor,isDefaultCalendar,isSharedWithMe,canEdit,owner',
           },
         );
     return _paginate(initial, headers, MsCalendar.fromMap);
@@ -185,8 +183,7 @@ class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
         : '/me/calendars/${Uri.encodeComponent(calendarId)}/calendarView';
     final initial = Uri.parse('${AppConfig.microsoftGraphBase}$path').replace(
       queryParameters: {
-        r'$select':
-            'id,subject,bodyPreview,start,end,isAllDay,location,showAs,isCancelled,seriesMasterId,type,recurrence,onlineMeetingUrl,attendees,organizer,lastModifiedDateTime',
+        r'$select': 'id,subject,bodyPreview,start,end,isAllDay,location,showAs,isCancelled,seriesMasterId,type,recurrence,onlineMeetingUrl,attendees,organizer,lastModifiedDateTime',
         'startDateTime': startUtc.toUtc().toIso8601String(),
         'endDateTime': endUtc.toUtc().toIso8601String(),
       },
@@ -214,8 +211,7 @@ class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
           '${AppConfig.microsoftGraphBase}/me/todo/lists/${Uri.encodeComponent(listId)}/tasks',
         ).replace(
           queryParameters: const {
-            r'$select':
-                'id,title,body,importance,status,dueDateTime,completedDateTime,createdDateTime,lastModifiedDateTime',
+            r'$select': 'id,title,body,importance,status,dueDateTime,completedDateTime,createdDateTime,lastModifiedDateTime',
           },
         );
     return _paginate(initial, headers, MsTodoTask.fromMap);

@@ -1,11 +1,8 @@
 part of '../google_api_client.dart';
 
 abstract class _GoogleApiBase implements GoogleApiClient {
-  _GoogleApiBase({
-    required Future<String?> Function() accessToken,
-    http.Client? httpClient,
-  }) : _accessToken = accessToken,
-       _http = httpClient ?? http.Client();
+  _GoogleApiBase({required this._accessToken, http.Client? httpClient})
+    : _http = httpClient ?? http.Client();
 
   final Future<String?> Function() _accessToken;
   final http.Client _http;

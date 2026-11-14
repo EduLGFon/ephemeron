@@ -2,7 +2,7 @@
 // habit and time of day (last 30 days), and the DND-during-focus toggle.
 import 'package:flutter/foundation.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/platform/system_launcher.dart';
@@ -131,9 +131,8 @@ class _MonthGrid extends StatelessWidget {
         return Semantics(
           label: 'Day ${day + 1}: $min minutes',
           child: Card(
-            color: Theme.of(
-              context,
-            ).colorScheme.primary.withValues(alpha: intensity),
+            color: Theme.of(context).colorScheme.primary
+                .withValues(alpha: intensity),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

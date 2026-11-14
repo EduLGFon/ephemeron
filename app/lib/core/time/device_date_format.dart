@@ -1,7 +1,7 @@
 // Device/app-locale aware date formatting helpers. All user-facing dates
 // should go through these so they follow the device format instead of a
 // hard-coded pattern. Storage formats (ISO date keys) are unaffected.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 
 class DeviceDateFormat {

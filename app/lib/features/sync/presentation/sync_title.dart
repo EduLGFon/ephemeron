@@ -3,7 +3,7 @@
 // Manual taps restart the auto-sync countdown.
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/app_feedback.dart';
@@ -65,9 +65,8 @@ class _SyncTitleState extends ConsumerState<SyncTitle> {
               children: [
                 Text(
                   widget.text,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(color: color),
+                  style: Theme.of(context).textTheme.titleLarge
+                      ?.copyWith(color: color),
                 ),
                 const SizedBox(width: 6),
                 Icon(Icons.sync, size: 18, color: color),

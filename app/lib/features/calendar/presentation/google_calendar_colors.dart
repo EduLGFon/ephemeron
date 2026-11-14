@@ -5,7 +5,7 @@
 // ('#039be5') copied from the calendar's Google backgroundColor. Helpers
 // below parse both and derive a stable per-calendar fallback so distinct
 // calendars never collapse to one color.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 const Map<String, Color> googleCalendarColors = <String, Color>{
   '1': Color(0xFF7986CB),

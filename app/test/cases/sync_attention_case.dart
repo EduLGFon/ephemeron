@@ -5,7 +5,7 @@ import 'package:ephemeron/features/sync/application/sync_providers.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart';
 import 'package:ephemeron/features/sync/presentation/sync_reconnect_banner.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,7 +42,10 @@ Widget _settingsApp({List overrides = const []}) {
   return ProviderScope(
     overrides: overrides.cast(),
     child: MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
       supportedLocales: AppLocalizations.supportedLocales,
       home: const SettingsScreen(),
     ),

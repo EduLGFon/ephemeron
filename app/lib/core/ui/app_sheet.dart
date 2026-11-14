@@ -4,7 +4,7 @@
 //
 // Sheets are centrally guarded by DirtyGuard: when the sheet content reports
 // dirty state via DirtyGuard.of(context), dismissing prompts Discard/Save/Cancel.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/theme_tokens.dart';
 import 'dirty_guard.dart';

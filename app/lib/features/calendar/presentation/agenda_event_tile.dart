@@ -1,6 +1,6 @@
 // Shared agenda event tile used by the full agenda and the month agenda.
 // Styling (color bar, RSVP, past dimming) stays identical in both places.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

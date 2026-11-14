@@ -1,7 +1,7 @@
 // Motion primitives shared by screens. Every animation goes through
 // [AppMotion.duration] so the user's reduce-motion setting collapses it to
 // zero consistently instead of each widget re-checking accessibility flags.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/theme_tokens.dart';
 

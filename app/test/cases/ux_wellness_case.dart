@@ -8,7 +8,7 @@ import 'package:ephemeron/domain/habits/date_key.dart';
 import 'package:ephemeron/features/countdowns/presentation/countdowns_screen.dart';
 import 'package:ephemeron/features/focus/presentation/focus_screen.dart';
 import 'package:ephemeron/features/habits/presentation/habits_screen.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

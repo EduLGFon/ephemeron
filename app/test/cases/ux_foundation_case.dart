@@ -4,7 +4,7 @@ import 'package:ephemeron/core/ui/app_feedback.dart';
 import 'package:ephemeron/core/ui/app_motion.dart';
 import 'package:ephemeron/core/ui/app_skeleton.dart';
 import 'package:ephemeron/core/ui/empty_state.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 ThemeData _theme([AppBrightness brightness = AppBrightness.light]) {

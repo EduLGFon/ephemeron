@@ -5,7 +5,7 @@ import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/settings/presentation/settings_screen.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +27,10 @@ class _FakeAlarmRepo extends AlarmRepository {
 Widget _settingsApp() {
   return ProviderScope(
     child: MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
       supportedLocales: AppLocalizations.supportedLocales,
       home: const SettingsScreen(),
     ),
@@ -194,7 +197,10 @@ void main() {
       ProviderScope(
         overrides: [alarmRepositoryProvider.overrideWithValue(fakeAlarm)],
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
           supportedLocales: AppLocalizations.supportedLocales,
           home: const SettingsScreen(),
         ),
@@ -220,7 +226,10 @@ void main() {
       ProviderScope(
         overrides: [alarmRepositoryProvider.overrideWithValue(fakeAlarm)],
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
           supportedLocales: AppLocalizations.supportedLocales,
           home: const SettingsScreen(),
         ),

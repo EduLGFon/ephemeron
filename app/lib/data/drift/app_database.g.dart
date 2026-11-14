@@ -15351,42 +15351,40 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   ];
 }
 
-typedef $$CalendarsTableCreateCompanionBuilder =
-    CalendarsCompanion Function({
-      required String id,
-      Value<String?> remoteId,
-      required String name,
-      Value<String?> color,
-      Value<bool> enabled,
-      Value<bool> readOnly,
-      Value<String> source,
-      required int createdAt,
-      required int updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteEtag,
-      Value<String?> googleAccount,
-      Value<String?> microsoftAccount,
-      Value<int> rowid,
-    });
-typedef $$CalendarsTableUpdateCompanionBuilder =
-    CalendarsCompanion Function({
-      Value<String> id,
-      Value<String?> remoteId,
-      Value<String> name,
-      Value<String?> color,
-      Value<bool> enabled,
-      Value<bool> readOnly,
-      Value<String> source,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteEtag,
-      Value<String?> googleAccount,
-      Value<String?> microsoftAccount,
-      Value<int> rowid,
-    });
+typedef $$CalendarsTableCreateCompanionBuilder = CalendarsCompanion Function({
+  required String id,
+  Value<String?> remoteId,
+  required String name,
+  Value<String?> color,
+  Value<bool> enabled,
+  Value<bool> readOnly,
+  Value<String> source,
+  required int createdAt,
+  required int updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteEtag,
+  Value<String?> googleAccount,
+  Value<String?> microsoftAccount,
+  Value<int> rowid,
+});
+typedef $$CalendarsTableUpdateCompanionBuilder = CalendarsCompanion Function({
+  Value<String> id,
+  Value<String?> remoteId,
+  Value<String> name,
+  Value<String?> color,
+  Value<bool> enabled,
+  Value<bool> readOnly,
+  Value<String> source,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteEtag,
+  Value<String?> googleAccount,
+  Value<String?> microsoftAccount,
+  Value<int> rowid,
+});
 
 final class $$CalendarsTableReferences
     extends BaseReferences<_$AppDatabase, $CalendarsTable, Calendar> {
@@ -15827,78 +15825,76 @@ typedef $$CalendarsTableProcessedTableManager =
       Calendar,
       PrefetchHooks Function({bool eventsRefs})
     >;
-typedef $$EventsTableCreateCompanionBuilder =
-    EventsCompanion Function({
-      required String id,
-      required String calendarId,
-      Value<String> title,
-      Value<String?> notes,
-      Value<String?> notesOverflowNoteId,
-      Value<String?> location,
-      Value<int?> startUtc,
-      Value<int?> endUtc,
-      Value<String?> startDate,
-      Value<String?> endDate,
-      Value<bool> isAllDay,
-      Value<String?> tzId,
-      Value<String?> endTzId,
-      Value<String?> rrule,
-      Value<String?> recurringMasterId,
-      Value<int?> originalStart,
-      Value<String> status,
-      Value<String?> colorId,
-      Value<String?> meetUrl,
-      Value<bool> createMeet,
-      Value<String?> reminders,
-      Value<String?> alarmPreset,
-      Value<String?> visibility,
-      Value<String?> transparency,
-      required int createdAt,
-      required int updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteId,
-      Value<String?> remoteEtag,
-      Value<String?> googleAccount,
-      Value<String?> microsoftAccount,
-      Value<int> rowid,
-    });
-typedef $$EventsTableUpdateCompanionBuilder =
-    EventsCompanion Function({
-      Value<String> id,
-      Value<String> calendarId,
-      Value<String> title,
-      Value<String?> notes,
-      Value<String?> notesOverflowNoteId,
-      Value<String?> location,
-      Value<int?> startUtc,
-      Value<int?> endUtc,
-      Value<String?> startDate,
-      Value<String?> endDate,
-      Value<bool> isAllDay,
-      Value<String?> tzId,
-      Value<String?> endTzId,
-      Value<String?> rrule,
-      Value<String?> recurringMasterId,
-      Value<int?> originalStart,
-      Value<String> status,
-      Value<String?> colorId,
-      Value<String?> meetUrl,
-      Value<bool> createMeet,
-      Value<String?> reminders,
-      Value<String?> alarmPreset,
-      Value<String?> visibility,
-      Value<String?> transparency,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteId,
-      Value<String?> remoteEtag,
-      Value<String?> googleAccount,
-      Value<String?> microsoftAccount,
-      Value<int> rowid,
-    });
+typedef $$EventsTableCreateCompanionBuilder = EventsCompanion Function({
+  required String id,
+  required String calendarId,
+  Value<String> title,
+  Value<String?> notes,
+  Value<String?> notesOverflowNoteId,
+  Value<String?> location,
+  Value<int?> startUtc,
+  Value<int?> endUtc,
+  Value<String?> startDate,
+  Value<String?> endDate,
+  Value<bool> isAllDay,
+  Value<String?> tzId,
+  Value<String?> endTzId,
+  Value<String?> rrule,
+  Value<String?> recurringMasterId,
+  Value<int?> originalStart,
+  Value<String> status,
+  Value<String?> colorId,
+  Value<String?> meetUrl,
+  Value<bool> createMeet,
+  Value<String?> reminders,
+  Value<String?> alarmPreset,
+  Value<String?> visibility,
+  Value<String?> transparency,
+  required int createdAt,
+  required int updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteId,
+  Value<String?> remoteEtag,
+  Value<String?> googleAccount,
+  Value<String?> microsoftAccount,
+  Value<int> rowid,
+});
+typedef $$EventsTableUpdateCompanionBuilder = EventsCompanion Function({
+  Value<String> id,
+  Value<String> calendarId,
+  Value<String> title,
+  Value<String?> notes,
+  Value<String?> notesOverflowNoteId,
+  Value<String?> location,
+  Value<int?> startUtc,
+  Value<int?> endUtc,
+  Value<String?> startDate,
+  Value<String?> endDate,
+  Value<bool> isAllDay,
+  Value<String?> tzId,
+  Value<String?> endTzId,
+  Value<String?> rrule,
+  Value<String?> recurringMasterId,
+  Value<int?> originalStart,
+  Value<String> status,
+  Value<String?> colorId,
+  Value<String?> meetUrl,
+  Value<bool> createMeet,
+  Value<String?> reminders,
+  Value<String?> alarmPreset,
+  Value<String?> visibility,
+  Value<String?> transparency,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteId,
+  Value<String?> remoteEtag,
+  Value<String?> googleAccount,
+  Value<String?> microsoftAccount,
+  Value<int> rowid,
+});
 
 final class $$EventsTableReferences
     extends BaseReferences<_$AppDatabase, $EventsTable, Event> {
@@ -16710,17 +16706,15 @@ class $$EventsTableTableManager
                         >
                       >(state) {
                         if (calendarId) {
-                          state =
-                              state.withJoin(
-                                    currentTable: table,
-                                    currentColumn: table.calendarId,
-                                    referencedTable: $$EventsTableReferences
-                                        ._calendarIdTable(db),
-                                    referencedColumn: $$EventsTableReferences
-                                        ._calendarIdTable(db)
-                                        .id,
-                                  )
-                                  as T;
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.calendarId,
+                            referencedTable: $$EventsTableReferences
+                                ._calendarIdTable(db),
+                            referencedColumn: $$EventsTableReferences
+                                ._calendarIdTable(db)
+                                .id,
+                          ) as T;
                         }
 
                         return state;
@@ -17094,18 +17088,15 @@ class $$EventAttendeesTableTableManager
                     >
                   >(state) {
                     if (eventId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.eventId,
-                                referencedTable: $$EventAttendeesTableReferences
-                                    ._eventIdTable(db),
-                                referencedColumn:
-                                    $$EventAttendeesTableReferences
-                                        ._eventIdTable(db)
-                                        .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.eventId,
+                        referencedTable: $$EventAttendeesTableReferences
+                            ._eventIdTable(db),
+                        referencedColumn: $$EventAttendeesTableReferences
+                            ._eventIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -17455,38 +17446,36 @@ typedef $$OccurrenceCacheTableProcessedTableManager =
       OccurrenceCacheData,
       PrefetchHooks Function()
     >;
-typedef $$TaskListsTableCreateCompanionBuilder =
-    TaskListsCompanion Function({
-      required String id,
-      Value<String?> remoteId,
-      required String name,
-      Value<String?> color,
-      Value<int> sortOrder,
-      required int createdAt,
-      required int updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteEtag,
-      Value<String?> googleAccount,
-      Value<String?> microsoftAccount,
-      Value<int> rowid,
-    });
-typedef $$TaskListsTableUpdateCompanionBuilder =
-    TaskListsCompanion Function({
-      Value<String> id,
-      Value<String?> remoteId,
-      Value<String> name,
-      Value<String?> color,
-      Value<int> sortOrder,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteEtag,
-      Value<String?> googleAccount,
-      Value<String?> microsoftAccount,
-      Value<int> rowid,
-    });
+typedef $$TaskListsTableCreateCompanionBuilder = TaskListsCompanion Function({
+  required String id,
+  Value<String?> remoteId,
+  required String name,
+  Value<String?> color,
+  Value<int> sortOrder,
+  required int createdAt,
+  required int updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteEtag,
+  Value<String?> googleAccount,
+  Value<String?> microsoftAccount,
+  Value<int> rowid,
+});
+typedef $$TaskListsTableUpdateCompanionBuilder = TaskListsCompanion Function({
+  Value<String> id,
+  Value<String?> remoteId,
+  Value<String> name,
+  Value<String?> color,
+  Value<int> sortOrder,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteEtag,
+  Value<String?> googleAccount,
+  Value<String?> microsoftAccount,
+  Value<int> rowid,
+});
 
 final class $$TaskListsTableReferences
     extends BaseReferences<_$AppDatabase, $TaskListsTable, TaskList> {
@@ -17893,74 +17882,72 @@ typedef $$TaskListsTableProcessedTableManager =
       TaskList,
       PrefetchHooks Function({bool tasksRefs})
     >;
-typedef $$TasksTableCreateCompanionBuilder =
-    TasksCompanion Function({
-      required String id,
-      Value<String?> listId,
-      Value<String> title,
-      Value<String?> notes,
-      Value<int> priority,
-      Value<String?> dueDate,
-      Value<String?> plannedDate,
-      Value<String?> plannedStart,
-      Value<String?> plannedEnd,
-      Value<String?> seriesId,
-      Value<String?> recurrenceKey,
-      Value<int?> dueTime,
-      Value<int?> durationMin,
-      Value<String?> rrule,
-      Value<String?> repeatMode,
-      Value<String?> parentId,
-      Value<bool> pinned,
-      Value<bool> wontDo,
-      Value<int?> completedAt,
-      Value<int> sortOrder,
-      Value<String?> alarmPreset,
-      Value<String?> reminders,
-      required int createdAt,
-      required int updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteId,
-      Value<String?> remoteEtag,
-      Value<String?> googleAccount,
-      Value<String?> microsoftAccount,
-      Value<int> rowid,
-    });
-typedef $$TasksTableUpdateCompanionBuilder =
-    TasksCompanion Function({
-      Value<String> id,
-      Value<String?> listId,
-      Value<String> title,
-      Value<String?> notes,
-      Value<int> priority,
-      Value<String?> dueDate,
-      Value<String?> plannedDate,
-      Value<String?> plannedStart,
-      Value<String?> plannedEnd,
-      Value<String?> seriesId,
-      Value<String?> recurrenceKey,
-      Value<int?> dueTime,
-      Value<int?> durationMin,
-      Value<String?> rrule,
-      Value<String?> repeatMode,
-      Value<String?> parentId,
-      Value<bool> pinned,
-      Value<bool> wontDo,
-      Value<int?> completedAt,
-      Value<int> sortOrder,
-      Value<String?> alarmPreset,
-      Value<String?> reminders,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteId,
-      Value<String?> remoteEtag,
-      Value<String?> googleAccount,
-      Value<String?> microsoftAccount,
-      Value<int> rowid,
-    });
+typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
+  required String id,
+  Value<String?> listId,
+  Value<String> title,
+  Value<String?> notes,
+  Value<int> priority,
+  Value<String?> dueDate,
+  Value<String?> plannedDate,
+  Value<String?> plannedStart,
+  Value<String?> plannedEnd,
+  Value<String?> seriesId,
+  Value<String?> recurrenceKey,
+  Value<int?> dueTime,
+  Value<int?> durationMin,
+  Value<String?> rrule,
+  Value<String?> repeatMode,
+  Value<String?> parentId,
+  Value<bool> pinned,
+  Value<bool> wontDo,
+  Value<int?> completedAt,
+  Value<int> sortOrder,
+  Value<String?> alarmPreset,
+  Value<String?> reminders,
+  required int createdAt,
+  required int updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteId,
+  Value<String?> remoteEtag,
+  Value<String?> googleAccount,
+  Value<String?> microsoftAccount,
+  Value<int> rowid,
+});
+typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
+  Value<String> id,
+  Value<String?> listId,
+  Value<String> title,
+  Value<String?> notes,
+  Value<int> priority,
+  Value<String?> dueDate,
+  Value<String?> plannedDate,
+  Value<String?> plannedStart,
+  Value<String?> plannedEnd,
+  Value<String?> seriesId,
+  Value<String?> recurrenceKey,
+  Value<int?> dueTime,
+  Value<int?> durationMin,
+  Value<String?> rrule,
+  Value<String?> repeatMode,
+  Value<String?> parentId,
+  Value<bool> pinned,
+  Value<bool> wontDo,
+  Value<int?> completedAt,
+  Value<int> sortOrder,
+  Value<String?> alarmPreset,
+  Value<String?> reminders,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteId,
+  Value<String?> remoteEtag,
+  Value<String?> googleAccount,
+  Value<String?> microsoftAccount,
+  Value<int> rowid,
+});
 
 final class $$TasksTableReferences
     extends BaseReferences<_$AppDatabase, $TasksTable, Task> {
@@ -18737,17 +18724,16 @@ class $$TasksTableTableManager
                     >
                   >(state) {
                     if (listId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.listId,
-                                referencedTable: $$TasksTableReferences
-                                    ._listIdTable(db),
-                                referencedColumn: $$TasksTableReferences
-                                    ._listIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.listId,
+                        referencedTable: $$TasksTableReferences._listIdTable(
+                          db,
+                        ),
+                        referencedColumn: $$TasksTableReferences
+                            ._listIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -18792,24 +18778,22 @@ typedef $$TasksTableProcessedTableManager =
       Task,
       PrefetchHooks Function({bool listId, bool taskTagsRefs})
     >;
-typedef $$TagsTableCreateCompanionBuilder =
-    TagsCompanion Function({
-      required String id,
-      required String name,
-      Value<String?> color,
-      required int createdAt,
-      required int updatedAt,
-      Value<int> rowid,
-    });
-typedef $$TagsTableUpdateCompanionBuilder =
-    TagsCompanion Function({
-      Value<String> id,
-      Value<String> name,
-      Value<String?> color,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int> rowid,
-    });
+typedef $$TagsTableCreateCompanionBuilder = TagsCompanion Function({
+  required String id,
+  required String name,
+  Value<String?> color,
+  required int createdAt,
+  required int updatedAt,
+  Value<int> rowid,
+});
+typedef $$TagsTableUpdateCompanionBuilder = TagsCompanion Function({
+  Value<String> id,
+  Value<String> name,
+  Value<String?> color,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int> rowid,
+});
 
 final class $$TagsTableReferences
     extends BaseReferences<_$AppDatabase, $TagsTable, Tag> {
@@ -19180,18 +19164,16 @@ typedef $$TagsTableProcessedTableManager =
       Tag,
       PrefetchHooks Function({bool taskTagsRefs, bool tagDefaultsRefs})
     >;
-typedef $$TaskTagsTableCreateCompanionBuilder =
-    TaskTagsCompanion Function({
-      required String taskId,
-      required String tagId,
-      Value<int> rowid,
-    });
-typedef $$TaskTagsTableUpdateCompanionBuilder =
-    TaskTagsCompanion Function({
-      Value<String> taskId,
-      Value<String> tagId,
-      Value<int> rowid,
-    });
+typedef $$TaskTagsTableCreateCompanionBuilder = TaskTagsCompanion Function({
+  required String taskId,
+  required String tagId,
+  Value<int> rowid,
+});
+typedef $$TaskTagsTableUpdateCompanionBuilder = TaskTagsCompanion Function({
+  Value<String> taskId,
+  Value<String> tagId,
+  Value<int> rowid,
+});
 
 final class $$TaskTagsTableReferences
     extends BaseReferences<_$AppDatabase, $TaskTagsTable, TaskTag> {
@@ -19426,13 +19408,11 @@ class $$TaskTagsTableTableManager
               $$TaskTagsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
               $$TaskTagsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> taskId = const Value.absent(),
-                Value<String> tagId = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) =>
-                  TaskTagsCompanion(taskId: taskId, tagId: tagId, rowid: rowid),
+          updateCompanionCallback: ({
+            Value<String> taskId = const Value.absent(),
+            Value<String> tagId = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => TaskTagsCompanion(taskId: taskId, tagId: tagId, rowid: rowid),
           createCompanionCallback:
               ({
                 required String taskId,
@@ -19472,30 +19452,28 @@ class $$TaskTagsTableTableManager
                     >
                   >(state) {
                     if (taskId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.taskId,
-                                referencedTable: $$TaskTagsTableReferences
-                                    ._taskIdTable(db),
-                                referencedColumn: $$TaskTagsTableReferences
-                                    ._taskIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.taskId,
+                        referencedTable: $$TaskTagsTableReferences._taskIdTable(
+                          db,
+                        ),
+                        referencedColumn: $$TaskTagsTableReferences
+                            ._taskIdTable(db)
+                            .id,
+                      ) as T;
                     }
                     if (tagId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.tagId,
-                                referencedTable: $$TaskTagsTableReferences
-                                    ._tagIdTable(db),
-                                referencedColumn: $$TaskTagsTableReferences
-                                    ._tagIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.tagId,
+                        referencedTable: $$TaskTagsTableReferences._tagIdTable(
+                          db,
+                        ),
+                        referencedColumn: $$TaskTagsTableReferences
+                            ._tagIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -19523,24 +19501,22 @@ typedef $$TaskTagsTableProcessedTableManager =
       TaskTag,
       PrefetchHooks Function({bool taskId, bool tagId})
     >;
-typedef $$SmartListsTableCreateCompanionBuilder =
-    SmartListsCompanion Function({
-      required String id,
-      required String name,
-      Value<String> filterJson,
-      required int createdAt,
-      required int updatedAt,
-      Value<int> rowid,
-    });
-typedef $$SmartListsTableUpdateCompanionBuilder =
-    SmartListsCompanion Function({
-      Value<String> id,
-      Value<String> name,
-      Value<String> filterJson,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int> rowid,
-    });
+typedef $$SmartListsTableCreateCompanionBuilder = SmartListsCompanion Function({
+  required String id,
+  required String name,
+  Value<String> filterJson,
+  required int createdAt,
+  required int updatedAt,
+  Value<int> rowid,
+});
+typedef $$SmartListsTableUpdateCompanionBuilder = SmartListsCompanion Function({
+  Value<String> id,
+  Value<String> name,
+  Value<String> filterJson,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int> rowid,
+});
 
 class $$SmartListsTableFilterComposer
     extends Composer<_$AppDatabase, $SmartListsTable> {
@@ -19955,17 +19931,15 @@ class $$TagDefaultsTableTableManager
                     >
                   >(state) {
                     if (tagId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.tagId,
-                                referencedTable: $$TagDefaultsTableReferences
-                                    ._tagIdTable(db),
-                                referencedColumn: $$TagDefaultsTableReferences
-                                    ._tagIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.tagId,
+                        referencedTable: $$TagDefaultsTableReferences
+                            ._tagIdTable(db),
+                        referencedColumn: $$TagDefaultsTableReferences
+                            ._tagIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -20300,58 +20274,56 @@ typedef $$HabitSectionsTableProcessedTableManager =
       HabitSection,
       PrefetchHooks Function({bool habitsRefs})
     >;
-typedef $$HabitsTableCreateCompanionBuilder =
-    HabitsCompanion Function({
-      required String id,
-      Value<String?> sectionId,
-      required String name,
-      Value<String> frequency,
-      Value<int> weekdaysMask,
-      Value<int?> weeklyTarget,
-      Value<int?> intervalDays,
-      Value<String?> goalType,
-      Value<double?> goalAmount,
-      Value<String?> unit,
-      Value<double?> increment,
-      Value<int?> goalDurationDays,
-      Value<String?> startDate,
-      Value<bool> archived,
-      Value<String?> reminderTime,
-      Value<String?> alarmPreset,
-      required int createdAt,
-      required int updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteId,
-      Value<String?> remoteEtag,
-      Value<int> rowid,
-    });
-typedef $$HabitsTableUpdateCompanionBuilder =
-    HabitsCompanion Function({
-      Value<String> id,
-      Value<String?> sectionId,
-      Value<String> name,
-      Value<String> frequency,
-      Value<int> weekdaysMask,
-      Value<int?> weeklyTarget,
-      Value<int?> intervalDays,
-      Value<String?> goalType,
-      Value<double?> goalAmount,
-      Value<String?> unit,
-      Value<double?> increment,
-      Value<int?> goalDurationDays,
-      Value<String?> startDate,
-      Value<bool> archived,
-      Value<String?> reminderTime,
-      Value<String?> alarmPreset,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteId,
-      Value<String?> remoteEtag,
-      Value<int> rowid,
-    });
+typedef $$HabitsTableCreateCompanionBuilder = HabitsCompanion Function({
+  required String id,
+  Value<String?> sectionId,
+  required String name,
+  Value<String> frequency,
+  Value<int> weekdaysMask,
+  Value<int?> weeklyTarget,
+  Value<int?> intervalDays,
+  Value<String?> goalType,
+  Value<double?> goalAmount,
+  Value<String?> unit,
+  Value<double?> increment,
+  Value<int?> goalDurationDays,
+  Value<String?> startDate,
+  Value<bool> archived,
+  Value<String?> reminderTime,
+  Value<String?> alarmPreset,
+  required int createdAt,
+  required int updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteId,
+  Value<String?> remoteEtag,
+  Value<int> rowid,
+});
+typedef $$HabitsTableUpdateCompanionBuilder = HabitsCompanion Function({
+  Value<String> id,
+  Value<String?> sectionId,
+  Value<String> name,
+  Value<String> frequency,
+  Value<int> weekdaysMask,
+  Value<int?> weeklyTarget,
+  Value<int?> intervalDays,
+  Value<String?> goalType,
+  Value<double?> goalAmount,
+  Value<String?> unit,
+  Value<double?> increment,
+  Value<int?> goalDurationDays,
+  Value<String?> startDate,
+  Value<bool> archived,
+  Value<String?> reminderTime,
+  Value<String?> alarmPreset,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteId,
+  Value<String?> remoteEtag,
+  Value<int> rowid,
+});
 
 final class $$HabitsTableReferences
     extends BaseReferences<_$AppDatabase, $HabitsTable, Habit> {
@@ -20986,17 +20958,15 @@ class $$HabitsTableTableManager
                     >
                   >(state) {
                     if (sectionId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.sectionId,
-                                referencedTable: $$HabitsTableReferences
-                                    ._sectionIdTable(db),
-                                referencedColumn: $$HabitsTableReferences
-                                    ._sectionIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.sectionId,
+                        referencedTable: $$HabitsTableReferences
+                            ._sectionIdTable(db),
+                        referencedColumn: $$HabitsTableReferences
+                            ._sectionIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -21041,30 +21011,28 @@ typedef $$HabitsTableProcessedTableManager =
       Habit,
       PrefetchHooks Function({bool sectionId, bool habitLogsRefs})
     >;
-typedef $$HabitLogsTableCreateCompanionBuilder =
-    HabitLogsCompanion Function({
-      required String id,
-      required String habitId,
-      required String dayKey,
-      Value<double> amount,
-      Value<bool> done,
-      Value<bool> skipped,
-      required int createdAt,
-      required int updatedAt,
-      Value<int> rowid,
-    });
-typedef $$HabitLogsTableUpdateCompanionBuilder =
-    HabitLogsCompanion Function({
-      Value<String> id,
-      Value<String> habitId,
-      Value<String> dayKey,
-      Value<double> amount,
-      Value<bool> done,
-      Value<bool> skipped,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int> rowid,
-    });
+typedef $$HabitLogsTableCreateCompanionBuilder = HabitLogsCompanion Function({
+  required String id,
+  required String habitId,
+  required String dayKey,
+  Value<double> amount,
+  Value<bool> done,
+  Value<bool> skipped,
+  required int createdAt,
+  required int updatedAt,
+  Value<int> rowid,
+});
+typedef $$HabitLogsTableUpdateCompanionBuilder = HabitLogsCompanion Function({
+  Value<String> id,
+  Value<String> habitId,
+  Value<String> dayKey,
+  Value<double> amount,
+  Value<bool> done,
+  Value<bool> skipped,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int> rowid,
+});
 
 final class $$HabitLogsTableReferences
     extends BaseReferences<_$AppDatabase, $HabitLogsTable, HabitLog> {
@@ -21377,17 +21345,15 @@ class $$HabitLogsTableTableManager
                     >
                   >(state) {
                     if (habitId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.habitId,
-                                referencedTable: $$HabitLogsTableReferences
-                                    ._habitIdTable(db),
-                                referencedColumn: $$HabitLogsTableReferences
-                                    ._habitIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.habitId,
+                        referencedTable: $$HabitLogsTableReferences
+                            ._habitIdTable(db),
+                        referencedColumn: $$HabitLogsTableReferences
+                            ._habitIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -21415,42 +21381,40 @@ typedef $$HabitLogsTableProcessedTableManager =
       HabitLog,
       PrefetchHooks Function({bool habitId})
     >;
-typedef $$CountdownsTableCreateCompanionBuilder =
-    CountdownsCompanion Function({
-      required String id,
-      required String title,
-      Value<String?> type,
-      Value<String?> template,
-      Value<String?> targetDate,
-      Value<bool> yearlyRepeat,
-      Value<bool> showAge,
-      Value<String?> notes,
-      Value<int?> alertOffsetDays,
-      Value<int?> alertTimeMin,
-      Value<String?> alarmPreset,
-      required int createdAt,
-      required int updatedAt,
-      Value<int?> deletedAt,
-      Value<int> rowid,
-    });
-typedef $$CountdownsTableUpdateCompanionBuilder =
-    CountdownsCompanion Function({
-      Value<String> id,
-      Value<String> title,
-      Value<String?> type,
-      Value<String?> template,
-      Value<String?> targetDate,
-      Value<bool> yearlyRepeat,
-      Value<bool> showAge,
-      Value<String?> notes,
-      Value<int?> alertOffsetDays,
-      Value<int?> alertTimeMin,
-      Value<String?> alarmPreset,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int?> deletedAt,
-      Value<int> rowid,
-    });
+typedef $$CountdownsTableCreateCompanionBuilder = CountdownsCompanion Function({
+  required String id,
+  required String title,
+  Value<String?> type,
+  Value<String?> template,
+  Value<String?> targetDate,
+  Value<bool> yearlyRepeat,
+  Value<bool> showAge,
+  Value<String?> notes,
+  Value<int?> alertOffsetDays,
+  Value<int?> alertTimeMin,
+  Value<String?> alarmPreset,
+  required int createdAt,
+  required int updatedAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+typedef $$CountdownsTableUpdateCompanionBuilder = CountdownsCompanion Function({
+  Value<String> id,
+  Value<String> title,
+  Value<String?> type,
+  Value<String?> template,
+  Value<String?> targetDate,
+  Value<bool> yearlyRepeat,
+  Value<bool> showAge,
+  Value<String?> notes,
+  Value<int?> alertOffsetDays,
+  Value<int?> alertTimeMin,
+  Value<String?> alarmPreset,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
 
 class $$CountdownsTableFilterComposer
     extends Composer<_$AppDatabase, $CountdownsTable> {
@@ -22129,28 +22093,26 @@ typedef $$FocusSessionsTableProcessedTableManager =
       FocusSession,
       PrefetchHooks Function()
     >;
-typedef $$FoldersTableCreateCompanionBuilder =
-    FoldersCompanion Function({
-      required String id,
-      Value<String?> parentId,
-      required String name,
-      Value<int> sortOrder,
-      required int createdAt,
-      required int updatedAt,
-      Value<int?> deletedAt,
-      Value<int> rowid,
-    });
-typedef $$FoldersTableUpdateCompanionBuilder =
-    FoldersCompanion Function({
-      Value<String> id,
-      Value<String?> parentId,
-      Value<String> name,
-      Value<int> sortOrder,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int?> deletedAt,
-      Value<int> rowid,
-    });
+typedef $$FoldersTableCreateCompanionBuilder = FoldersCompanion Function({
+  required String id,
+  Value<String?> parentId,
+  required String name,
+  Value<int> sortOrder,
+  required int createdAt,
+  required int updatedAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+typedef $$FoldersTableUpdateCompanionBuilder = FoldersCompanion Function({
+  Value<String> id,
+  Value<String?> parentId,
+  Value<String> name,
+  Value<int> sortOrder,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
 
 final class $$FoldersTableReferences
     extends BaseReferences<_$AppDatabase, $FoldersTable, Folder> {
@@ -22515,17 +22477,15 @@ class $$FoldersTableTableManager
                     >
                   >(state) {
                     if (parentId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.parentId,
-                                referencedTable: $$FoldersTableReferences
-                                    ._parentIdTable(db),
-                                referencedColumn: $$FoldersTableReferences
-                                    ._parentIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.parentId,
+                        referencedTable: $$FoldersTableReferences
+                            ._parentIdTable(db),
+                        referencedColumn: $$FoldersTableReferences
+                            ._parentIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -22571,38 +22531,36 @@ typedef $$FoldersTableProcessedTableManager =
       Folder,
       PrefetchHooks Function({bool parentId, bool notesRefs})
     >;
-typedef $$NotesTableCreateCompanionBuilder =
-    NotesCompanion Function({
-      required String id,
-      Value<String?> folderId,
-      Value<String> title,
-      Value<String?> body,
-      Value<bool> pinned,
-      Value<String?> linkedEventId,
-      required int createdAt,
-      required int updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteId,
-      Value<String?> remoteEtag,
-      Value<int> rowid,
-    });
-typedef $$NotesTableUpdateCompanionBuilder =
-    NotesCompanion Function({
-      Value<String> id,
-      Value<String?> folderId,
-      Value<String> title,
-      Value<String?> body,
-      Value<bool> pinned,
-      Value<String?> linkedEventId,
-      Value<int> createdAt,
-      Value<int> updatedAt,
-      Value<int?> deletedAt,
-      Value<bool> dirty,
-      Value<String?> remoteId,
-      Value<String?> remoteEtag,
-      Value<int> rowid,
-    });
+typedef $$NotesTableCreateCompanionBuilder = NotesCompanion Function({
+  required String id,
+  Value<String?> folderId,
+  Value<String> title,
+  Value<String?> body,
+  Value<bool> pinned,
+  Value<String?> linkedEventId,
+  required int createdAt,
+  required int updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteId,
+  Value<String?> remoteEtag,
+  Value<int> rowid,
+});
+typedef $$NotesTableUpdateCompanionBuilder = NotesCompanion Function({
+  Value<String> id,
+  Value<String?> folderId,
+  Value<String> title,
+  Value<String?> body,
+  Value<bool> pinned,
+  Value<String?> linkedEventId,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int?> deletedAt,
+  Value<bool> dirty,
+  Value<String?> remoteId,
+  Value<String?> remoteEtag,
+  Value<int> rowid,
+});
 
 final class $$NotesTableReferences
     extends BaseReferences<_$AppDatabase, $NotesTable, Note> {
@@ -23134,17 +23092,15 @@ class $$NotesTableTableManager
                         >
                       >(state) {
                         if (folderId) {
-                          state =
-                              state.withJoin(
-                                    currentTable: table,
-                                    currentColumn: table.folderId,
-                                    referencedTable: $$NotesTableReferences
-                                        ._folderIdTable(db),
-                                    referencedColumn: $$NotesTableReferences
-                                        ._folderIdTable(db)
-                                        .id,
-                                  )
-                                  as T;
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.folderId,
+                            referencedTable: $$NotesTableReferences
+                                ._folderIdTable(db),
+                            referencedColumn: $$NotesTableReferences
+                                ._folderIdTable(db)
+                                .id,
+                          ) as T;
                         }
 
                         return state;
@@ -23217,18 +23173,16 @@ typedef $$NotesTableProcessedTableManager =
         bool incomingLinks,
       })
     >;
-typedef $$NoteLinksTableCreateCompanionBuilder =
-    NoteLinksCompanion Function({
-      required String fromNoteId,
-      required String toNoteId,
-      Value<int> rowid,
-    });
-typedef $$NoteLinksTableUpdateCompanionBuilder =
-    NoteLinksCompanion Function({
-      Value<String> fromNoteId,
-      Value<String> toNoteId,
-      Value<int> rowid,
-    });
+typedef $$NoteLinksTableCreateCompanionBuilder = NoteLinksCompanion Function({
+  required String fromNoteId,
+  required String toNoteId,
+  Value<int> rowid,
+});
+typedef $$NoteLinksTableUpdateCompanionBuilder = NoteLinksCompanion Function({
+  Value<String> fromNoteId,
+  Value<String> toNoteId,
+  Value<int> rowid,
+});
 
 final class $$NoteLinksTableReferences
     extends BaseReferences<_$AppDatabase, $NoteLinksTable, NoteLink> {
@@ -23512,30 +23466,26 @@ class $$NoteLinksTableTableManager
                     >
                   >(state) {
                     if (fromNoteId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.fromNoteId,
-                                referencedTable: $$NoteLinksTableReferences
-                                    ._fromNoteIdTable(db),
-                                referencedColumn: $$NoteLinksTableReferences
-                                    ._fromNoteIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.fromNoteId,
+                        referencedTable: $$NoteLinksTableReferences
+                            ._fromNoteIdTable(db),
+                        referencedColumn: $$NoteLinksTableReferences
+                            ._fromNoteIdTable(db)
+                            .id,
+                      ) as T;
                     }
                     if (toNoteId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.toNoteId,
-                                referencedTable: $$NoteLinksTableReferences
-                                    ._toNoteIdTable(db),
-                                referencedColumn: $$NoteLinksTableReferences
-                                    ._toNoteIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.toNoteId,
+                        referencedTable: $$NoteLinksTableReferences
+                            ._toNoteIdTable(db),
+                        referencedColumn: $$NoteLinksTableReferences
+                            ._toNoteIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -24139,32 +24089,30 @@ typedef $$AlarmsIndexTableProcessedTableManager =
       AlarmsIndexData,
       PrefetchHooks Function()
     >;
-typedef $$OutboxTableCreateCompanionBuilder =
-    OutboxCompanion Function({
-      required String id,
-      required String entity,
-      required String entityId,
-      required String op,
-      Value<String?> payload,
-      Value<int> attempts,
-      Value<int?> nextTryAt,
-      Value<String?> lastError,
-      required int createdAt,
-      Value<int> rowid,
-    });
-typedef $$OutboxTableUpdateCompanionBuilder =
-    OutboxCompanion Function({
-      Value<String> id,
-      Value<String> entity,
-      Value<String> entityId,
-      Value<String> op,
-      Value<String?> payload,
-      Value<int> attempts,
-      Value<int?> nextTryAt,
-      Value<String?> lastError,
-      Value<int> createdAt,
-      Value<int> rowid,
-    });
+typedef $$OutboxTableCreateCompanionBuilder = OutboxCompanion Function({
+  required String id,
+  required String entity,
+  required String entityId,
+  required String op,
+  Value<String?> payload,
+  Value<int> attempts,
+  Value<int?> nextTryAt,
+  Value<String?> lastError,
+  required int createdAt,
+  Value<int> rowid,
+});
+typedef $$OutboxTableUpdateCompanionBuilder = OutboxCompanion Function({
+  Value<String> id,
+  Value<String> entity,
+  Value<String> entityId,
+  Value<String> op,
+  Value<String?> payload,
+  Value<int> attempts,
+  Value<int?> nextTryAt,
+  Value<String?> lastError,
+  Value<int> createdAt,
+  Value<int> rowid,
+});
 
 class $$OutboxTableFilterComposer
     extends Composer<_$AppDatabase, $OutboxTable> {
@@ -24418,22 +24366,20 @@ typedef $$OutboxTableProcessedTableManager =
       OutboxData,
       PrefetchHooks Function()
     >;
-typedef $$SyncStateTableCreateCompanionBuilder =
-    SyncStateCompanion Function({
-      required String key,
-      Value<String?> value,
-      Value<int?> lastSyncAt,
-      Value<String?> lastError,
-      Value<int> rowid,
-    });
-typedef $$SyncStateTableUpdateCompanionBuilder =
-    SyncStateCompanion Function({
-      Value<String> key,
-      Value<String?> value,
-      Value<int?> lastSyncAt,
-      Value<String?> lastError,
-      Value<int> rowid,
-    });
+typedef $$SyncStateTableCreateCompanionBuilder = SyncStateCompanion Function({
+  required String key,
+  Value<String?> value,
+  Value<int?> lastSyncAt,
+  Value<String?> lastError,
+  Value<int> rowid,
+});
+typedef $$SyncStateTableUpdateCompanionBuilder = SyncStateCompanion Function({
+  Value<String> key,
+  Value<String?> value,
+  Value<int?> lastSyncAt,
+  Value<String?> lastError,
+  Value<int> rowid,
+});
 
 class $$SyncStateTableFilterComposer
     extends Composer<_$AppDatabase, $SyncStateTable> {
@@ -24872,24 +24818,22 @@ typedef $$PendingOperationsTableProcessedTableManager =
       PendingOperation,
       PrefetchHooks Function()
     >;
-typedef $$DraftsTableCreateCompanionBuilder =
-    DraftsCompanion Function({
-      required String id,
-      required String formType,
-      Value<String?> entityId,
-      required String json,
-      required int updatedAt,
-      Value<int> rowid,
-    });
-typedef $$DraftsTableUpdateCompanionBuilder =
-    DraftsCompanion Function({
-      Value<String> id,
-      Value<String> formType,
-      Value<String?> entityId,
-      Value<String> json,
-      Value<int> updatedAt,
-      Value<int> rowid,
-    });
+typedef $$DraftsTableCreateCompanionBuilder = DraftsCompanion Function({
+  required String id,
+  required String formType,
+  Value<String?> entityId,
+  required String json,
+  required int updatedAt,
+  Value<int> rowid,
+});
+typedef $$DraftsTableUpdateCompanionBuilder = DraftsCompanion Function({
+  Value<String> id,
+  Value<String> formType,
+  Value<String?> entityId,
+  Value<String> json,
+  Value<int> updatedAt,
+  Value<int> rowid,
+});
 
 class $$DraftsTableFilterComposer
     extends Composer<_$AppDatabase, $DraftsTable> {

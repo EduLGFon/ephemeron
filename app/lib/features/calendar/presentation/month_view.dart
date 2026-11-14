@@ -1,5 +1,5 @@
 // Month grid with per-day event rows and the selected-day agenda below.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -129,9 +129,8 @@ class _MonthViewState extends ConsumerState<MonthView> {
                                       dateKey(days[week * 7 + dow]) ==
                                       selectedKey,
                                   isPastDay:
-                                      dateKey(
-                                        days[week * 7 + dow],
-                                      ).compareTo(todayKey) <
+                                      dateKey(days[week * 7 + dow])
+                                          .compareTo(todayKey) <
                                       0,
                                   occurrences:
                                       byDay[dateKey(days[week * 7 + dow])] ??
