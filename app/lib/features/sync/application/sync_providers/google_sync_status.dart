@@ -115,14 +115,21 @@ final syncStatusProvider = NotifierProvider<SyncStatusNotifier, SyncStatus>(
 );
 
 class SyncStatusNotifier extends Notifier<SyncStatus> {
+  bool _running = false;
+
   @override
   SyncStatus build() => SyncStatus.synced;
 
   Future<void> syncNow() async {
+    if (_running) return;
+    _running = true;
     debugPrint('[sync] notifier syncNow start');
     state = SyncStatus.syncing;
     try {
       final googleAuth = ref.read(googleAuthProvider);
+      if (googleAuth.accounts.isEmpty) {
+        await googleAuth.restore();
+      }
       final googleAccounts = googleAuth.accounts;
       final msAuth = ref.read(microsoftAuthProvider);
       await msAuth.restore();
@@ -147,13 +154,12 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       if (googleAccounts.isNotEmpty) {
         for (final acct in googleAccounts) {
           try {
-            await googleAuth.setActiveAccount(acct);
             final engine = SyncEngine(
               ref.read(appDatabaseProvider),
               clientFactory: () {
                 try {
                   return HttpGoogleApiClient(
-                    accessToken: () => googleAuth.accessToken(),
+                    accessToken: () => googleAuth.accessTokenFor(acct),
                   );
                 } catch (_) {
                   return null;
@@ -289,6 +295,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       debugPrint('[sync] notifier unexpected error type=${e.runtimeType}');
       state = SyncStatus.error;
     } finally {
+      _running = false;
       if (state == SyncStatus.syncing) {
         state = SyncStatus.offline;
       }

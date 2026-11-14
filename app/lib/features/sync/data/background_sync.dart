@@ -6,6 +6,7 @@
 // Google data still never touches the backend: the two engines share only
 // the local database handle.
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../../../core/config/app_config.dart';
@@ -15,6 +16,7 @@ import '../../../data/remote/google_api_client.dart';
 import '../../../data/services/headless_widget_push.dart';
 import '../../auth/data/backend_auth.dart';
 import '../../auth/data/google_auth.dart';
+import '../../settings/data/settings_repository.dart';
 import '../data/backend_sync_engine.dart';
 import '../data/sync_engine.dart';
 
@@ -29,14 +31,14 @@ void backgroundSyncDispatcher() {
       try {
         final googleAuth = GoogleAuth();
         await googleAuth.restore();
+        var googleAuthFailure = false;
         for (final account in googleAuth.accounts) {
-          await googleAuth.setActiveAccount(account);
           final engine = SyncEngine(
             db,
             clientFactory: () {
               try {
                 return HttpGoogleApiClient(
-                  accessToken: () => googleAuth.accessToken(),
+                  accessToken: () => googleAuth.accessTokenFor(account),
                 );
               } catch (_) {
                 return null;
@@ -46,6 +48,15 @@ void backgroundSyncDispatcher() {
             signedInAccounts: googleAuth.accounts,
           );
           await engine.syncNow();
+          if (engine.authFailure) googleAuthFailure = true;
+        }
+        if (googleAuthFailure) {
+          try {
+            final settings = SettingsRepository(
+              await SharedPreferences.getInstance(),
+            );
+            await settings.setGoogleReconnectNeeded(true);
+          } catch (_) {}
         }
         final backendAuth = BackendAuth();
         await backendAuth.restore();

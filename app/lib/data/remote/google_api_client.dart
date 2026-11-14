@@ -183,5 +183,9 @@ abstract class GoogleApiClient {
 class HttpGoogleApiClient extends _GoogleApiBase
     with _GoogleApiCalendarOps, _GoogleApiTasksOps
     implements GoogleApiClient {
-  HttpGoogleApiClient({required super.accessToken, super.httpClient});
+  HttpGoogleApiClient({
+    required super.accessToken,
+    super.httpClient,
+    super.requestTimeout,
+  });
 }

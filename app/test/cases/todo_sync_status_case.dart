@@ -57,6 +57,9 @@ class _FakeGoogleAuth extends GoogleAuth {
 
   @override
   Future<String?> accessTokenFor(String account) async => tokenFor[account];
+
+  @override
+  Future<String?> restore() async => null;
 }
 
 class _FakeMicrosoftAuth extends MicrosoftAuth {

@@ -94,6 +94,7 @@ import 'cases/sync_engine_case.dart' as sync_engine;
 import 'cases/sync_engine_errors_case.dart' as sync_engine_errors;
 import 'cases/sync_engine_ownership_case.dart' as sync_engine_ownership;
 import 'cases/sync_engine_task_lists_case.dart' as sync_engine_task_lists;
+import 'cases/sync_reliability_case.dart' as sync_reliability;
 import 'cases/sync_title_case.dart' as sync_title;
 import 'cases/task_action_sheet_case.dart' as task_action_sheet;
 import 'cases/task_editor_case.dart' as task_editor;
@@ -215,6 +216,7 @@ const _included = <String>{
   'sync_engine_errors_case.dart',
   'sync_engine_ownership_case.dart',
   'sync_engine_task_lists_case.dart',
+  'sync_reliability_case.dart',
   'sync_title_case.dart',
   'task_action_sheet_case.dart',
   'task_editor_case.dart',
@@ -344,6 +346,7 @@ void main() {
   group('sync_engine_errors', sync_engine_errors.main);
   group('sync_engine_ownership', sync_engine_ownership.main);
   group('sync_engine_task_lists', sync_engine_task_lists.main);
+  group('sync_reliability', sync_reliability.main);
   group('sync_title', sync_title.main);
   group('task_action_sheet', task_action_sheet.main);
   group('task_editor', task_editor.main);
