@@ -4,6 +4,12 @@ mixin _GoogleAuthInit on _GoogleAuthBase {
   @override
   Future<void> _ensureInit() async {
     if (_initialized) return;
+    final injected = initializePlatform;
+    if (injected != null) {
+      await injected();
+      _initialized = true;
+      return;
+    }
     if (kIsWeb && AppConfig.webGoogleClientId.isEmpty) {
       throw GoogleAuthException(
         'Google sign-in is not configured for this web build.',

@@ -1,10 +1,21 @@
 part of '../google_auth.dart';
 
 abstract class _GoogleAuthBase {
-  _GoogleAuthBase({SafeSecureStorage? storage})
-    : _storage = storage ?? SafeSecureStorage();
+  _GoogleAuthBase({
+    SafeSecureStorage? storage,
+    this.silentAuthorizer,
+    this.initializePlatform,
+  }) : _storage = storage ?? SafeSecureStorage();
 
   final SafeSecureStorage _storage;
+
+  /// Test hook: replaces the platform silent-authorization call.
+  final Future<String?> Function(AuthorizationRequestDetails request)?
+  silentAuthorizer;
+
+  /// Test hook: replaces plugin initialization.
+  final Future<void> Function()? initializePlatform;
+
   bool _initialized = false;
 
   Future<void> _ensureInit();
@@ -14,6 +25,10 @@ abstract class _GoogleAuthBase {
   String? _activeEmail;
   final Map<String, String?> _accessTokens = {};
   final List<String> _accountsNeedingReconnect = [];
+
+  /// Google user id per normalized email. Android authorizes by email, but
+  /// iOS needs the user id for a silent keychain refresh.
+  final Map<String, String?> _userIdsByEmail = {};
 
   /// Normalized, de-duplicated emails that could not restore a token and need
   /// interactive reconnection.
@@ -54,26 +69,64 @@ abstract class _GoogleAuthBase {
     if (normalized.isNotEmpty) _googleAccountsByEmail.remove(normalized);
   }
 
-  /// One lightweight sign-in attempt, or null when unavailable.
-  Future<GoogleSignInAccount?> _attemptLightweightAccount() async {
-    try {
-      final future = GoogleSignIn.instance.attemptLightweightAuthentication();
-      if (future == null) return null;
-      return await future;
-    } catch (_) {
-      return null;
+  Future<void> _loadUserIds() async {
+    _userIdsByEmail.clear();
+    for (final account in _accounts) {
+      final userId = await _storage.googleUserIdFor(account);
+      if (userId != null && userId.isNotEmpty) {
+        _userIdsByEmail[normalizeAccountEmail(account)] = userId;
+      }
     }
   }
 
-  /// Returns a lightweight account only when it is the requested account.
-  Future<GoogleSignInAccount?> _lightweightAccountFor(String email) async {
-    final result = await _attemptLightweightAccount();
-    if (result == null) return null;
-    // SECURITY: Reject an account that does not match the requested email.
-    // Using its token here would fetch one account's data with another's token.
-    if (!isSameAccountEmail(result.email, email)) return null;
-    _storeGoogleAccount(result);
-    return result;
+  void _setUserId(String account, String? userId) {
+    final normalized = normalizeAccountEmail(account);
+    if (normalized.isEmpty) return;
+    if (userId == null || userId.isEmpty) {
+      _userIdsByEmail.remove(normalized);
+    } else {
+      _userIdsByEmail[normalized] = userId;
+    }
+  }
+
+  String? _userIdFor(String account) =>
+      _userIdsByEmail[normalizeAccountEmail(account)];
+
+  /// One non-interactive authorization attempt for [account].
+  ///
+  /// SECURITY: [AuthorizationRequestDetails.promptIfUnauthorized] is always
+  /// false, so the platform can never show an account picker or consent
+  /// screen. The request is bound to the stored account email/user id, so the
+  /// returned token is never used for another account.
+  Future<String?> _authorizeSilently(String account) async {
+    // Web cannot guarantee a silent token after a reload; never trigger a
+    // FedCM or popup from startup.
+    if (kIsWeb) return null;
+    final request = AuthorizationRequestDetails(
+      scopes: AppConfig.googleScopes,
+      // Android authorizes by email and ignores userId. iOS refreshes by
+      // userId. The email fallback keeps Android silent for legacy accounts
+      // that predate stored user ids.
+      userId: _userIdFor(account) ?? account,
+      email: account,
+      promptIfUnauthorized: false,
+    );
+    try {
+      final injected = silentAuthorizer;
+      if (injected != null) return await injected(request);
+      // Bounded so a slow Play Services call cannot hold session restore.
+      final data = await GoogleSignInPlatform.instance
+          .clientAuthorizationTokensForScopes(
+            ClientAuthorizationTokensForScopesParameters(request: request),
+          )
+          .timeout(const Duration(seconds: 10));
+      final token = data?.accessToken;
+      return token == null || token.isEmpty ? null : token;
+    } catch (_) {
+      // A revoked grant or a platform failure is a reconnect signal. Never
+      // log plugin error text: it may contain account identifiers.
+      return null;
+    }
   }
 
   List<String> get accounts => List.unmodifiable(_accounts);

@@ -6,6 +6,7 @@
 - Alarm ring flow on device: audio/flashlight; cold/warm notification taps open /ring; Snooze/Dismiss/Open stop native audio; Android 14+ without full-screen intent permission; alarms with notifications disabled marked missed; locked-device full-screen ring over keyguard with biometric; minute repeats do not re-alert.
 - Native notification Dismiss does not run Dart; next habit occurrence scheduled on next app open.
 - Google sign-in and runtime permissions on Android debug/release, decline path, device-calendar import/settings, first reminder/alarm prompts, exact-alarm/full-screen prompts. Google Cloud console: SHA-1 entries, Calendar/Tasks APIs, Web serverClientId match.
+- Android multi-account silent restore on a real device: restart with two or more granted accounts and confirm no account picker appears, sync uses each account's token, and a revoked grant shows the reconnect banner instead of prompting.
 - Microsoft web sign-in: Entra SPA redirect registration for http://localhost:8080/auth.html. Android primary target.
 - Real-account checks: shared Google/Microsoft calendars, freeBusyReader, recurring exceptions moved/cancelled, Google single-occurrence edit/delete, multi-account restart + reconnect banner, device-calendar refresh, force-sync error paths.
 - Visual/device checks: themes, More command center, onboarding, quick add, search, calendar, tasks, notes/auth, habits/focus/countdowns, alarm ring navigation, matrix density/peek at 2.5x/3x text, notes grid perf, 320dp large-text layouts.
@@ -24,7 +25,7 @@
 - Google has no single-token cross-account move. Moving recurring Google series to local calendar supported; cross-account copy/delete requires both accounts synced at least once.
 - Microsoft shared-primary calendars not in /me/calendars not enumerable without owner address.
 - Initial unbounded Google full sync can be heavy on very large calendars.
-- Expired Google tokens require interactive reconnect. Plugin may restore only one lightweight account at a time.
+- Google restore is silent per account: Android re-authorizes by email, iOS by stored Google user id, both with prompting disabled. A revoked grant still needs one interactive reconnect. Web cannot refresh after a reload, and legacy iOS accounts need one reconnect to capture their user id.
 - Device calendars: manual refresh, fixed [now-30d, now+365d] window. Rows drifting outside soft-deleted; no background live device sync (battery/API cost).
 - Microsoft deletion reconciliation skips recurring rows and rows with unprovable overlap; left untouched rather than guessed.
 - Sync diagnostics show only non-personal allowlisted labels. Outbox payloads, tokens, emails, titles, raw bodies never rendered.

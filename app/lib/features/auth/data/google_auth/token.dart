@@ -1,6 +1,10 @@
 part of '../google_auth.dart';
 
 mixin _GoogleAuthToken on _GoogleAuthBase {
+  /// Requests Calendar/Tasks scopes interactively for the active account.
+  ///
+  /// Only works while the account object from an interactive sign-in is still
+  /// in memory. After a restart the reconnect flow (`signIn`) is used instead.
   Future<void> ensureTasksScope() async {
     if (defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.windows) {
@@ -9,11 +13,11 @@ mixin _GoogleAuthToken on _GoogleAuthBase {
     await _ensureInit();
     final account = _activeEmail;
     if (account == null) return;
-    var googleAccount = _googleAccountFor(account);
-    if (googleAccount == null) {
-      googleAccount = await _lightweightAccountFor(account);
-      if (googleAccount == null) return;
-    }
+    final googleAccount = _googleAccountFor(account);
+    // This is only reachable from an explicit user action, and it needs a live
+    // account object to request new scopes interactively. After a restart
+    // there is no such object until the user signs in again.
+    if (googleAccount == null) return;
     // SECURITY: Authorize through the account object bound to the active
     // email. The global client may belong to another signed-in account.
     final authz = await googleAccount.authorizationClient.authorizeScopes(
@@ -29,6 +33,11 @@ mixin _GoogleAuthToken on _GoogleAuthBase {
           .add(const Duration(minutes: 50))
           .millisecondsSinceEpoch,
     );
+    final userId = googleAccount.id;
+    if (userId.isNotEmpty) {
+      _setUserId(account, userId);
+      await _storage.saveGoogleUserIdFor(account: account, userId: userId);
+    }
     _clearNeedsReconnect(account);
   }
 
@@ -42,8 +51,9 @@ mixin _GoogleAuthToken on _GoogleAuthBase {
   /// Returns an access token bound to [account].
   ///
   /// After a process restart this restores any unexpired token cached for the
-  /// account, not only the active one. When no valid token exists it uses the
-  /// account-specific GoogleSignIn object or a matching lightweight sign-in.
+  /// account, not only the active one. When no valid token exists it tries the
+  /// in-memory account authorization, then a silent platform request bound to
+  /// this account. It never prompts.
   @override
   Future<String?> accessTokenFor(String account) async {
     if (defaultTargetPlatform == TargetPlatform.linux ||
@@ -77,25 +87,39 @@ mixin _GoogleAuthToken on _GoogleAuthBase {
       return stored;
     }
     await _ensureInit();
-    final googleAccount =
-        _googleAccountFor(account) ?? await _lightweightAccountFor(account);
-    // SECURITY: Never authorize through the global GoogleSignIn client. It may
-    // belong to another signed-in account.
-    if (googleAccount == null) return null;
-    final authz = await googleAccount.authorizationClient
-        .authorizationForScopes(AppConfig.googleScopes);
-    if (authz == null) return null;
-    _accessTokens[account] = authz.accessToken;
+    final googleAccount = _googleAccountFor(account);
+    if (googleAccount != null) {
+      try {
+        final authz = await googleAccount.authorizationClient
+            .authorizationForScopes(AppConfig.googleScopes);
+        if (authz != null) {
+          await _cacheToken(account, authz.accessToken);
+          return authz.accessToken;
+        }
+      } catch (_) {
+        // Fall through to the account-bound silent request below.
+      }
+    }
+    // SECURITY: The silent request is bound to this account's email/user id.
+    // It never uses the global GoogleSignIn client, which may belong to
+    // another signed-in account.
+    final silent = await _authorizeSilently(account);
+    if (silent == null) return null;
+    await _cacheToken(account, silent);
+    return silent;
+  }
+
+  Future<void> _cacheToken(String account, String token) async {
+    _accessTokens[account] = token;
     await _storage.saveGoogleTokensFor(
       account: account,
-      accessToken: authz.accessToken,
+      accessToken: token,
       expiryMs: DateTime.now()
           .toUtc()
           .add(const Duration(minutes: 50))
           .millisecondsSinceEpoch,
     );
     _clearNeedsReconnect(account);
-    return _accessTokens[account];
   }
 
   /// Desktop keeps its stored refresh-token path; there is no GoogleSignIn
