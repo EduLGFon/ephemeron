@@ -1,0 +1,50 @@
+import 'package:ephemeron/features/stream/application/stream_theme_preferences.dart';
+import 'package:ephemeron/features/stream/application/stream_theme_provider.dart';
+import 'package:ephemeron/features/stream/design/stream_theme_mode.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  test('default system when nothing stored', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repo = StreamThemePreferences(() async => prefs);
+    expect(await repo.read(), StreamThemeMode.system);
+  });
+
+  test('write then read round-trip', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repo = StreamThemePreferences(() async => prefs);
+    await repo.write(StreamThemeMode.trueBlack);
+    expect(await repo.read(), StreamThemeMode.trueBlack);
+  });
+
+  test('bad stored value falls back to system', () async {
+    SharedPreferences.setMockInitialValues({'stream.themeMode': 'garbage'});
+    final prefs = await SharedPreferences.getInstance();
+    final repo = StreamThemePreferences(() async => prefs);
+    expect(await repo.read(), StreamThemeMode.system);
+  });
+
+  test('notifier changes state and persists', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        streamThemePreferencesProvider.overrideWithValue(
+          StreamThemePreferences(() async => prefs),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    // allow initial load
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    container.read(streamThemeProvider.notifier).setMode(StreamThemeMode.dark);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(container.read(streamThemeProvider), StreamThemeMode.dark);
+    final stored = prefs.getString('stream.themeMode');
+    expect(stored, 'dark');
+  });
+}
