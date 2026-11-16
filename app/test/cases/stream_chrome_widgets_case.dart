@@ -228,8 +228,6 @@ void main() {
 
   testWidgets('Breadcrumb focus ring and Enter activates', (tester) async {
     var taps = 0;
-    final node = FocusNode();
-    addTearDown(node.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -242,8 +240,6 @@ void main() {
       ),
     );
     // find the breadcrumb's focus node indirectly by requesting via tree
-    final breadcrumb = tester.widget<Breadcrumb>(find.byType(Breadcrumb));
-    expect(breadcrumb, isNotNull);
     final inkWell = find.descendant(
       of: find.byType(Breadcrumb),
       matching: find.byType(InkWell),
@@ -254,6 +250,8 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(taps, 1);
+    final inkWellWidget = tester.widget<InkWell>(inkWell);
+    expect(inkWellWidget.focusNode!.hasFocus, isTrue);
     final renderAfter = (tester.renderObject(inkWell) as RenderBox).size;
     expect(renderAfter, renderBefore);
   });
@@ -290,7 +288,7 @@ void main() {
               SizedBox(
                 height: 200,
                 width: 60,
-                child: Scrubber(semanticLabel: 'position', onChanged: (_) {}),
+                child: Scrubber(semanticLabel: 'position', valueFormatter: (v) => '${(v * 100).round()}%', onChanged: (_) {}),
               ),
             ],
           ),

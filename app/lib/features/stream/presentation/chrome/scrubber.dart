@@ -14,9 +14,9 @@ class Scrubber extends StatefulWidget {
     super.key,
     required this.onChanged,
     required this.semanticLabel,
+    required this.valueFormatter,
     this.onChangeEnd,
     this.value,
-    this.valueFormatter,
     this.padding = EdgeInsetsDirectional.zero,
   });
 
@@ -27,8 +27,8 @@ class Scrubber extends StatefulWidget {
   /// Optional controlled position in [0, 1].
   final double? value;
 
-  /// Optional caller-supplied formatter for the slider value string.
-  final String Function(double)? valueFormatter;
+  /// Caller-supplied formatter for the slider value string.
+  final String Function(double) valueFormatter;
 
   final EdgeInsetsDirectional padding;
 
@@ -73,13 +73,9 @@ class _ScrubberState extends State<Scrubber> {
       child: Semantics(
         label: widget.semanticLabel,
         slider: true,
-        value: widget.valueFormatter?.call(_value),
-        increasedValue: widget.valueFormatter?.call(
-          (_value + _step).clamp(0.0, 1.0),
-        ),
-        decreasedValue: widget.valueFormatter?.call(
-          (_value - _step).clamp(0.0, 1.0),
-        ),
+        value: widget.valueFormatter(_value),
+        increasedValue: widget.valueFormatter((_value + _step).clamp(0.0, 1.0)),
+        decreasedValue: widget.valueFormatter((_value - _step).clamp(0.0, 1.0)),
         onIncrease: () => _setValue(_value + _step),
         onDecrease: () => _setValue(_value - _step),
         child: ConstrainedBox(
@@ -90,6 +86,7 @@ class _ScrubberState extends State<Scrubber> {
               builder: (context, constraints) {
                 final trackHeight = constraints.maxHeight;
                 return GestureDetector(
+                  excludeFromSemantics: true,
                   behavior: HitTestBehavior.opaque,
                   onVerticalDragUpdate: (d) => _handleDrag(d, trackHeight),
                   onVerticalDragEnd: (_) => widget.onChangeEnd?.call(_value),
