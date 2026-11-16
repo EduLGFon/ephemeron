@@ -95,6 +95,7 @@ void main() {
                   CommandCandidate(
                     id: 'x',
                     label: 'A very long command label that should ellipsize',
+                    subtitle: 'subtitle text that is also long',
                   ),
                 ],
                 onSelected: (_) {},
@@ -115,7 +116,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: CommandPalette(
-            query: q,
+            queryListenable: q,
             candidates: candidates,
             onSelected: (_) {},
           ),

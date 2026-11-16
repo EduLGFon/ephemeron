@@ -37,12 +37,7 @@ int fuzzyScore(String query, String candidate) {
   return score;
 }
 
-List<T> fuzzyRank<T>(
-  String query,
-  List<T> items,
-  String Function(T) label, {
-  bool stable = true,
-}) {
+List<T> fuzzyRank<T>(String query, List<T> items, String Function(T) label) {
   final scored = <({int index, int score, T item})>[];
   for (var i = 0; i < items.length; i++) {
     final s = fuzzyScore(query, label(items[i]));
@@ -52,7 +47,6 @@ List<T> fuzzyRank<T>(
   scored.sort((a, b) {
     final cmp = b.score.compareTo(a.score);
     if (cmp != 0) return cmp;
-    if (!stable) return 0;
     return a.index.compareTo(b.index);
   });
   return scored.map((e) => e.item).toList(growable: false);

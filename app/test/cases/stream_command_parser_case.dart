@@ -62,16 +62,14 @@ void main() {
     expect(r.minutes, 25);
   });
 
-  test('focus 0', () {
+  test('focus 0 -> unknown', () {
     final r = parseCommand('focus 0', now: now);
-    expect(r.kind, CommandKind.startFocus);
-    expect(r.minutes, 0);
+    expect(r.kind, CommandKind.unknown);
   });
 
-  test('focus 999', () {
+  test('focus 999 -> unknown', () {
     final r = parseCommand('focus 999', now: now);
-    expect(r.kind, CommandKind.startFocus);
-    expect(r.minutes, 999);
+    expect(r.kind, CommandKind.unknown);
   });
 
   test('start focus', () {
