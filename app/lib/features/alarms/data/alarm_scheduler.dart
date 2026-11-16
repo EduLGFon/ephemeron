@@ -13,6 +13,13 @@ final _log = AppLogger();
 class AlarmScheduler {
   static const _channel = MethodChannel('ephemeron/alarms');
 
+  /// Request code whose long ring currently owns audio, or null.
+  /// Set by [startRing] after the native service starts and cleared by
+  /// [stopRing], [cancel] (snooze/done/dismiss), and [cancelAll]. Window
+  /// reconciliation uses it so an actively ringing row is never settled
+  /// just because its fire time is old.
+  static int? activeRingRequestCode;
+
   static Future<bool> get isSupported async {
     if (defaultTargetPlatform != TargetPlatform.android) return false;
     try {
@@ -107,24 +114,30 @@ class AlarmScheduler {
   }
 
   static Future<void> cancel(int requestCode) async {
+    if (activeRingRequestCode == requestCode) activeRingRequestCode = null;
     if (defaultTargetPlatform != TargetPlatform.android) return;
     await _channel.invokeMethod<void>('cancel', {'requestCode': requestCode});
   }
 
   static Future<void> cancelAll() async {
+    activeRingRequestCode = null;
     if (defaultTargetPlatform != TargetPlatform.android) return;
     await _channel.invokeMethod<void>('cancelAll');
   }
 
   /// Starts the native ring for a stored row. RingScreen calls this only
   /// after its first frame so sound never plays outside the visible screen.
+  /// A successful start makes [activeRingRequestCode] protect the row from
+  /// overdue reconciliation until it is stopped or resolved.
   static Future<bool> startRing(int requestCode) async {
     if (defaultTargetPlatform != TargetPlatform.android) return true;
     try {
       final v = await _channel.invokeMethod<bool>('startRing', {
         'requestCode': requestCode,
       });
-      return v ?? false;
+      final started = v ?? false;
+      if (started) activeRingRequestCode = requestCode;
+      return started;
     } catch (_) {
       return false;
     }
@@ -133,6 +146,9 @@ class AlarmScheduler {
   /// Stops the native ring without touching the scheduled registration.
   /// A null [requestCode] stops every active ring.
   static Future<void> stopRing([int? requestCode]) async {
+    if (requestCode == null || activeRingRequestCode == requestCode) {
+      activeRingRequestCode = null;
+    }
     if (defaultTargetPlatform != TargetPlatform.android) return;
     try {
       await _channel.invokeMethod<void>('stopRing', {

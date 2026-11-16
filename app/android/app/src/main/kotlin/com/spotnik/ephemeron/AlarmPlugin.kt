@@ -284,10 +284,18 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
             fireAtUtcMs: Long? = null,
         ) {
             val now = System.currentTimeMillis()
+            // Older intents may lack the extra. Fall back to the stored row
+            // so the stale guard cannot be bypassed by a pre-upgrade alarm.
+            val intendedAt = if (fireAtUtcMs != null && fireAtUtcMs > 0) {
+                fireAtUtcMs
+            } else {
+                AlarmStore.rowForRequestCode(context, requestCode)?.fireAtUtc
+            }
             // A delivery after the intended moment means the device slept
-            // through it. Record it missed and never ring or re-alert.
-            if (fireAtUtcMs != null && fireAtUtcMs > 0 &&
-                now - fireAtUtcMs > STALE_GRACE_MS
+            // through it. If even the stored time is unknown, fail safe and
+            // never ring or post a full-screen alert.
+            if (intendedAt == null || intendedAt <= 0 ||
+                now - intendedAt > STALE_GRACE_MS
             ) {
                 AlarmStore.markState(context, requestCode, "missed")
                 return
@@ -313,7 +321,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                 requestCode,
                 buildNotification(
                     context, requestCode, title, preset, body, kind, fullScreen,
-                    sourceType, sourceId, phase, fireAtUtcMs,
+                    sourceType, sourceId, phase, intendedAt,
                 )
             )
             // Sound is not started here. RingScreen calls startRing after
@@ -341,7 +349,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
             }
             AlarmRingService.start(
                 context, requestCode, row.title, row.preset, "", row.kind, true,
-                row.sourceType, row.sourceId, null,
+                row.sourceType, row.sourceId, null, row.fireAtUtc,
             )
             if (normalizePreset(row.preset) == "full_long") {
                 scheduleMinuteRepeat(

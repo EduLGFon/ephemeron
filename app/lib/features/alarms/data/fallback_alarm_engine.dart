@@ -101,10 +101,16 @@ class _AlarmListenerState extends ConsumerState<AlarmListener>
     final row = due.first;
     final kind = (row.kind ?? 'alarm') as String;
     final preset = AlarmPreset.tryParse(row.preset as String?);
+    final isFullScreen =
+        kind == 'alarm' && preset != null && preset.usesFullScreen;
     await repo.markFired(row.id as String);
-    try {
-      await playAlarmBeep(preset ?? AlarmPreset.notification);
-    } catch (_) {}
+    // Full-screen sound starts inside the dialog after its first frame.
+    // Reminders and notification presets keep the existing short beep.
+    if (!isFullScreen) {
+      try {
+        await playAlarmBeep(preset ?? AlarmPreset.notification);
+      } catch (_) {}
+    }
     if (!mounted) return;
     final title = (row.title as String?) ?? 'Alarm';
     final requestCode = (row.requestCode as int?) ?? 0;
@@ -189,17 +195,31 @@ class _FallbackRingDialogState extends ConsumerState<_FallbackRingDialog> {
     _auto = Timer(const Duration(seconds: 30), () {
       if (mounted) Navigator.of(context).pop();
     });
-    if (widget.preset == AlarmPreset.fullScreenLong) {
-      _beepLoop = Timer.periodic(const Duration(seconds: 5), (_) async {
-        _beeps++;
-        if (_beeps > 6) {
-          _beepLoop?.cancel();
-          return;
-        }
-        await playAlarmBeep(widget.preset);
-      });
-    }
+    // Sound is started only after the dialog is laid out, never before it is
+    // shown. The beep loop and one-shot beep are cancelled by dispose.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_startSound()),
+    );
     _loadNumericHabit();
+  }
+
+  Future<void> _startSound() async {
+    if (!mounted) return;
+    if (widget.preset != AlarmPreset.fullScreenLong) {
+      await playAlarmBeep(widget.preset);
+      return;
+    }
+    _beeps = 1;
+    await playAlarmBeep(widget.preset);
+    if (!mounted) return;
+    _beepLoop = Timer.periodic(const Duration(seconds: 5), (_) async {
+      _beeps++;
+      if (_beeps > 6) {
+        _beepLoop?.cancel();
+        return;
+      }
+      await playAlarmBeep(widget.preset);
+    });
   }
 
   Future<void> _loadNumericHabit() async {

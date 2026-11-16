@@ -53,7 +53,7 @@ class AlarmReceiver : BroadcastReceiver() {
         if (!AlarmRingService.isRingActiveFor(rc)) return
         AlarmRingService.start(
             context, rc, title, preset, body, kind, fullScreen,
-            sourceType, sourceId, phase,
+            sourceType, sourceId, phase, fireAtUtcMs,
         )
         AlarmPlugin.scheduleMinuteRepeat(
             context, rc, title, preset, body, kind, fullScreen, sourceType,

@@ -56,6 +56,7 @@ class AlarmRingService : Service() {
             sourceType: String = "",
             sourceId: String = "",
             phase: String? = null,
+            fireAtUtcMs: Long? = null,
         ) {
             if (!shouldRing(preset, kind)) return
             // Without notifications there is no stop affordance on the
@@ -71,6 +72,9 @@ class AlarmRingService : Service() {
                 putExtra(EXTRA_SOURCE_TYPE, sourceType)
                 putExtra(EXTRA_SOURCE_ID, sourceId)
                 if (phase != null) putExtra(EXTRA_PHASE, phase)
+                if (fireAtUtcMs != null) {
+                    putExtra(AlarmPlugin.EXTRA_FIRE_AT_UTC, fireAtUtcMs)
+                }
             }
             try {
                 ContextCompat.startForegroundService(context, intent)
@@ -150,6 +154,9 @@ class AlarmRingService : Service() {
         val sourceType = intent?.getStringExtra(EXTRA_SOURCE_TYPE) ?: ""
         val sourceId = intent?.getStringExtra(EXTRA_SOURCE_ID) ?: ""
         val phase = intent?.getStringExtra(EXTRA_PHASE)
+        val fireAtUtcMs = intent
+            ?.getLongExtra(AlarmPlugin.EXTRA_FIRE_AT_UTC, -1L)
+            ?.takeIf { it > 0 }
 
         if (!shouldRing(preset, kind)) return START_NOT_STICKY
 
@@ -161,7 +168,7 @@ class AlarmRingService : Service() {
 
         val notification = AlarmPlugin.buildNotification(
             this, rc, title, preset, body, kind, fullScreen, sourceType, sourceId,
-            phase,
+            phase, fireAtUtcMs,
         )
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
