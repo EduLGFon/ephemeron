@@ -6,7 +6,7 @@ import 'tray_panel_header.dart';
 import 'tray_panel_item.dart';
 import 'tray_panel_rows.dart';
 
-class TrayPanel extends StatefulWidget {
+class TrayPanel extends StatelessWidget {
   const TrayPanel({
     super.key,
     required this.items,
@@ -25,69 +25,46 @@ class TrayPanel extends StatefulWidget {
   final void Function(String id)? onItemTap;
 
   @override
-  State<TrayPanel> createState() => _TrayPanelState();
-}
-
-class _TrayPanelState extends State<TrayPanel> {
-  List<TrayPanelRow> _rows = const <TrayPanelRow>[];
-
-  @override
-  void initState() {
-    super.initState();
-    _rebuild();
-  }
-
-  @override
-  void didUpdateWidget(covariant TrayPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.items, widget.items)) {
-      _rebuild();
-    }
-  }
-
-  void _rebuild() {
-    _rows = buildTrayPanelRows(widget.items, widget.unnamedGroupLabel);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.items.isEmpty) {
-      return Center(child: Text(widget.emptyLabel));
+    if (items.isEmpty) {
+      return Center(child: Text(emptyLabel));
     }
+    final rows = buildTrayPanelRows(items, unnamedGroupLabel);
     return Column(
       children: [
-        if (widget.collapseLabel != null)
+        if (collapseLabel != null)
           GestureDetector(
-            onTap: widget.onCollapseRequested,
+            onTap: onCollapseRequested,
             child: Semantics(
               button: true,
-              label: widget.collapseLabel,
-              onTap: widget.onCollapseRequested,
+              label: collapseLabel,
+              onTap: onCollapseRequested,
               child: Padding(
                 padding: const EdgeInsets.all(StreamSpacing.x2),
-                child: Text(widget.collapseLabel!),
+                child: Text(collapseLabel!),
               ),
             ),
           ),
         Expanded(
           child: ListView.builder(
             itemExtent: TrayPanelRow.extent,
-            itemCount: _rows.length,
+            itemCount: rows.length,
             itemBuilder: (context, index) {
-              final row = _rows[index];
+              final row = rows[index];
               if (row is TrayPanelHeaderRow) {
                 return TrayPanelHeader(
-                  key: ValueKey('header:${row.listId}'),
+                  key: ValueKey('h:${row.listId}'),
                   row: row,
                 );
               }
               final itemRow = row as TrayPanelItemRow;
               return TrayPanelItem(
-                key: ValueKey(itemRow.item.id),
+                key: ValueKey('i:${itemRow.item.id}'),
                 item: itemRow.item,
-                onTap: widget.onItemTap == null
+                unnamedGroupLabel: unnamedGroupLabel,
+                onTap: onItemTap == null
                     ? null
-                    : () => widget.onItemTap!(itemRow.item.id),
+                    : () => onItemTap!(itemRow.item.id),
               );
             },
           ),

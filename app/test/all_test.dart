@@ -9,7 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'cases/account_email_case.dart' as account_email;
 import 'cases/alarm_migration_v4v5_case.dart' as alarm_migration_v4v5;
-import 'cases/alarm_notification_actions_case.dart' as alarm_notification_actions;
+import 'cases/alarm_notification_actions_case.dart'
+    as alarm_notification_actions;
 import 'cases/alarm_overdue_case.dart' as alarm_overdue;
 import 'cases/alarm_repository_case.dart' as alarm_repository;
 import 'cases/alarm_title_case.dart' as alarm_title;
@@ -57,7 +58,8 @@ import 'cases/home_widget_binder_case.dart' as home_widget_binder;
 import 'cases/home_widget_callback_case.dart' as home_widget_callback;
 import 'cases/home_widget_case.dart' as home_widget;
 import 'cases/l10n_case.dart' as l10n;
-import 'cases/markdown_editing_controller_case.dart' as markdown_editing_controller;
+import 'cases/markdown_editing_controller_case.dart'
+    as markdown_editing_controller;
 import 'cases/matrix_case.dart' as matrix;
 import 'cases/matrix_layout_case.dart' as matrix_layout;
 import 'cases/matrix_planned_case.dart' as matrix_planned;
@@ -66,7 +68,8 @@ import 'cases/microsoft_graph_case.dart' as microsoft_graph;
 import 'cases/microsoft_sync_engine_case.dart' as microsoft_sync_engine;
 import 'cases/migration_replay_v11_v14_case.dart' as migration_replay_v11_v14;
 import 'cases/migration_v4_v5_case.dart' as migration_v4_v5;
-import 'cases/migration_v7_v11_regression_case.dart' as migration_v7_v11_regression;
+import 'cases/migration_v7_v11_regression_case.dart'
+    as migration_v7_v11_regression;
 import 'cases/month_view_case.dart' as month_view;
 import 'cases/note_editor_case.dart' as note_editor;
 import 'cases/note_repository_case.dart' as note_repository;
@@ -95,6 +98,7 @@ import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
 import 'cases/stream_theme_case.dart' as stream_theme;
 import 'cases/stream_theme_preferences_case.dart' as stream_theme_preferences;
+import 'cases/stream_tray_chip_case.dart' as stream_tray_chip;
 import 'cases/stream_tray_panel_case.dart' as stream_tray_panel;
 import 'cases/stream_tray_strip_case.dart' as stream_tray_strip;
 import 'cases/stream_viewport_case.dart' as stream_viewport;
@@ -114,10 +118,13 @@ import 'cases/task_editor_extra_case.dart' as task_editor_extra;
 import 'cases/task_repository_crud_case.dart' as task_repository_crud;
 import 'cases/task_repository_lifecycle_case.dart' as task_repository_lifecycle;
 import 'cases/task_repository_lists_case.dart' as task_repository_lists;
-import 'cases/task_repository_recurrence_case.dart' as task_repository_recurrence;
-import 'cases/task_repository_smart_filter_case.dart' as task_repository_smart_filter;
+import 'cases/task_repository_recurrence_case.dart'
+    as task_repository_recurrence;
+import 'cases/task_repository_smart_filter_case.dart'
+    as task_repository_smart_filter;
 import 'cases/timeline_layout_case.dart' as timeline_layout;
-import 'cases/timeline_multiday_overflow_case.dart' as timeline_multiday_overflow;
+import 'cases/timeline_multiday_overflow_case.dart'
+    as timeline_multiday_overflow;
 import 'cases/timeline_now_controller_case.dart' as timeline_now_controller;
 import 'cases/timeline_persist_case.dart' as timeline_persist;
 import 'cases/timeline_title_wrap_case.dart' as timeline_title_wrap;
@@ -230,6 +237,7 @@ const _included = <String>{
   'stream_route_params_case.dart',
   'stream_theme_case.dart',
   'stream_theme_preferences_case.dart',
+  'stream_tray_chip_case.dart',
   'stream_tray_panel_case.dart',
   'stream_tray_strip_case.dart',
   'stream_viewport_case.dart',
@@ -279,9 +287,13 @@ const _included = <String>{
 
 void main() {
   test('test runner includes every case file', () {
-    expect(_caseFilesOnDisk(), _included,
-        reason: 'test/all_test.dart is stale. Run: '
-            'dart run tools/gen_test_runner.dart');
+    expect(
+      _caseFilesOnDisk(),
+      _included,
+      reason:
+          'test/all_test.dart is stale. Run: '
+          'dart run tools/gen_test_runner.dart',
+    );
   });
 
   group('account_email', account_email.main);
@@ -372,6 +384,7 @@ void main() {
   group('stream_route_params', stream_route_params.main);
   group('stream_theme', stream_theme.main);
   group('stream_theme_preferences', stream_theme_preferences.main);
+  group('stream_tray_chip', stream_tray_chip.main);
   group('stream_tray_panel', stream_tray_panel.main);
   group('stream_tray_strip', stream_tray_strip.main);
   group('stream_viewport', stream_viewport.main);
@@ -433,8 +446,12 @@ Set<String> _caseFilesOnDisk() {
       .where((path) => path.endsWith('_test.dart'))
       .where((path) => !path.endsWith('/all_test.dart'))
       .toSet();
-  expect(stray, isEmpty,
-      reason: 'Move top-level test files under test/cases/ as '
-          '*_case.dart and regenerate this runner.');
+  expect(
+    stray,
+    isEmpty,
+    reason:
+        'Move top-level test files under test/cases/ as '
+        '*_case.dart and regenerate this runner.',
+  );
   return cases;
 }

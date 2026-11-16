@@ -1,12 +1,19 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../design/stream_tokens.dart';
 import 'tray_item.dart';
 
 class TrayPanelItem extends StatefulWidget {
-  const TrayPanelItem({super.key, required this.item, this.onTap});
+  const TrayPanelItem({
+    super.key,
+    required this.item,
+    required this.unnamedGroupLabel,
+    this.onTap,
+  });
 
   final TrayItem item;
+  final String unnamedGroupLabel;
   final VoidCallback? onTap;
 
   @override
@@ -33,17 +40,31 @@ class _TrayPanelItemState extends State<TrayPanelItem> {
     super.dispose();
   }
 
+  String get _listName => widget.item.listName.isEmpty
+      ? widget.unnamedGroupLabel
+      : widget.item.listName;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = Color(widget.item.colorArgb);
+    final actionable = widget.onTap != null;
     return Semantics(
-      button: true,
+      button: actionable,
       excludeSemantics: true,
-      label: '${widget.item.title}, ${widget.item.listName}',
+      label: '${widget.item.title}, $_listName',
       onTap: widget.onTap,
       child: Focus(
         focusNode: _focusNode,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.space)) {
+            widget.onTap?.call();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
         child: MouseRegion(
           onEnter: (_) => setState(() => _hovered = true),
           onExit: (_) => setState(() => _hovered = false),
@@ -51,7 +72,10 @@ class _TrayPanelItemState extends State<TrayPanelItem> {
             onTapDown: (_) => setState(() => _pressed = true),
             onTapUp: (_) => setState(() => _pressed = false),
             onTapCancel: () => setState(() => _pressed = false),
-            onTap: widget.onTap,
+            onTap: () {
+              _focusNode.requestFocus();
+              widget.onTap?.call();
+            },
             child: Container(
               height: 48,
               padding: const EdgeInsetsDirectional.symmetric(

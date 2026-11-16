@@ -1,6 +1,7 @@
 import 'package:ephemeron/features/stream/presentation/tray/tray_item.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 
 void main() {
@@ -232,9 +233,9 @@ void main() {
     // Count built item rows by key.
     var built = 0;
     for (var i = 0; i < 500; i++) {
-      if (find.byKey(ValueKey('t$i')).evaluate().isNotEmpty) built++;
+      if (find.byKey(ValueKey('i:t$i')).evaluate().isNotEmpty) built++;
     }
-    expect(built, lessThan(40));
+    expect(built, lessThan(20));
   });
 
   testWidgets('panel stable keys per item', (tester) async {
@@ -259,7 +260,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.byKey(const ValueKey('k1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('i:k1')), findsOneWidget);
   });
 
   testWidgets('panel item tap fires onItemTap', (tester) async {
@@ -289,8 +290,146 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('k1')));
+    await tester.tap(find.byKey(const ValueKey('i:k1')));
     await tester.pump();
     expect(fired, ['k1']);
+  });
+
+  testWidgets('panel row keyboard Enter and Space activate', (tester) async {
+    final fired = <String>[];
+    final items = [
+      TrayItem(
+        id: 'k1',
+        title: 'Task',
+        listId: 'l1',
+        listName: 'Work',
+        colorArgb: 0xFF000000,
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 400,
+            width: 400,
+            child: TrayPanel(
+              items: items,
+              emptyLabel: 'Empty',
+              onItemTap: fired.add,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final row = find.byKey(const ValueKey('i:k1'));
+    await tester.tap(row);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(fired.length, 3);
+  });
+
+  testWidgets('panel item unnamed fallback label', (tester) async {
+    final items = [
+      TrayItem(
+        id: 'a',
+        title: 'Task A',
+        listId: 'l1',
+        listName: '',
+        colorArgb: 0xFF000000,
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 400,
+            width: 400,
+            child: TrayPanel(
+              items: items,
+              emptyLabel: 'Empty',
+              unnamedGroupLabel: 'Unnamed',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.bySemanticsLabel('Task A, Unnamed'), findsOneWidget);
+  });
+
+  testWidgets('panel header key collision safe', (tester) async {
+    final items = [
+      TrayItem(
+        id: 'header:l1',
+        title: 'Task',
+        listId: 'l1',
+        listName: 'Work',
+        colorArgb: 0xFF000000,
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 400,
+            width: 400,
+            child: TrayPanel(items: items, emptyLabel: 'Empty'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const ValueKey('i:header:l1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('h:l1')), findsOneWidget);
+  });
+
+  testWidgets('panel unnamedGroupLabel change updates header', (tester) async {
+    final items = [
+      TrayItem(
+        id: 'a',
+        title: 'Task A',
+        listId: 'l1',
+        listName: '',
+        colorArgb: 0xFF000000,
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 400,
+            width: 400,
+            child: TrayPanel(
+              items: items,
+              emptyLabel: 'Empty',
+              unnamedGroupLabel: 'First',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.bySemanticsLabel('First, 1'), findsOneWidget);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 400,
+            width: 400,
+            child: TrayPanel(
+              items: items,
+              emptyLabel: 'Empty',
+              unnamedGroupLabel: 'Second',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.bySemanticsLabel('Second, 1'), findsOneWidget);
   });
 }

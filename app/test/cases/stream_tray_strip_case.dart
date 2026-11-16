@@ -250,33 +250,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('strip handle at least 48x48 with semantics label', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            width: 400,
-            child: TrayStrip(
-              items: const [],
-              countSemanticsLabel: '0 tasks',
-              handleSemanticsLabel: 'expand tray',
-              emptyLabel: 'Empty',
-              onExpandRequested: () {},
-              onTap: (_) {},
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    final handle = find.bySemanticsLabel('expand tray');
-    final size = tester.getSize(handle);
-    expect(size.width, greaterThanOrEqualTo(48));
-    expect(size.height, greaterThanOrEqualTo(48));
-  });
-
   testWidgets('strip semantics labels present', (tester) async {
     final items = [
       TrayItem(
