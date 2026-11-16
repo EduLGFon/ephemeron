@@ -10,25 +10,13 @@ import 'package:ephemeron/core/ui/empty_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/drift/app_database.dart';
-import '../../../domain/countdowns/countdown.dart';
 import '../../sync/application/pending_operations.dart';
 import '../application/countdowns_providers.dart';
 import 'countdown_editor_sheet.dart';
+import 'countdown_formatters.dart';
 
-/// Large left-side badge text. Null means the countdown has no date.
-String countdownDayBadge(int? days) {
-  if (days == null) return '-';
-  if (days < 0) return 'Past';
-  return '$days';
-}
-
-String countdownRelativeLabel(int days) {
-  if (days == 0) return 'today';
-  if (days == 1) return 'tomorrow';
-  if (days > 1) return 'in $days days';
-  if (days == -1) return 'yesterday';
-  return '${-days} days ago';
-}
+export 'countdown_formatters.dart'
+    show countdownDayBadge, countdownRelativeLabel;
 
 class CountdownsScreen extends ConsumerWidget {
   const CountdownsScreen({super.key});
@@ -66,22 +54,16 @@ class CountdownsScreen extends ConsumerWidget {
           final dated = <({Countdown c, DateTime next, int days})>[];
           final undated = <Countdown>[];
           for (final c in countdowns) {
-            final parsed = _parseDate(c.targetDate);
-            if (parsed == null) {
+            final schedule = countdownSchedule(
+              targetDate: c.targetDate,
+              yearlyRepeat: c.yearlyRepeat,
+              today: today,
+            );
+            if (schedule == null) {
               undated.add(c);
               continue;
             }
-            // One-time countdowns use the full stored date; yearly ones
-            // roll to the next occurrence via the domain helper.
-            final next = c.yearlyRepeat
-                ? countdownNextDate(
-                    month: parsed.month,
-                    day: parsed.day,
-                    today: today,
-                    yearlyRepeat: true,
-                  )
-                : DateTime(parsed.year, parsed.month, parsed.day);
-            dated.add((c: c, next: next, days: daysUntil(next, today)));
+            dated.add((c: c, next: schedule.next, days: schedule.days));
           }
           dated.sort((a, b) => a.days.compareTo(b.days));
           final upcoming = dated.where((d) => d.days >= 0).toList();
@@ -127,18 +109,6 @@ class CountdownsScreen extends ConsumerWidget {
   }
 }
 
-DateTime? _parseDate(String? targetDate) {
-  if (targetDate == null || targetDate.isEmpty) return null;
-  final p = targetDate.split('-');
-  if (p.length != 3) return null;
-  final y = int.tryParse(p[0]);
-  final m = int.tryParse(p[1]);
-  final d = int.tryParse(p[2]);
-  if (y == null || m == null || d == null) return null;
-  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-  return DateTime(y, m, d);
-}
-
 enum _CountdownAction { edit, delete }
 
 class _CountdownCard extends ConsumerWidget {
@@ -162,7 +132,7 @@ class _CountdownCard extends ConsumerWidget {
     }
     String? yearlyBadge;
     if (countdown.yearlyRepeat) {
-      final birth = _parseDate(countdown.targetDate);
+      final birth = parseCountdownDate(countdown.targetDate);
       yearlyBadge = countdown.showAge && birth != null && next != null
           ? 'Turns ${next!.year - birth.year}'
           : 'Yearly';
@@ -220,15 +190,25 @@ class _CountdownCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      countdown.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: passed
-                            ? scheme.onSurfaceVariant
-                            : scheme.onSurface,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            countdown.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: passed
+                                  ? scheme.onSurfaceVariant
+                                  : scheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (countdown.linkedType != null) ...[
+                          const SizedBox(width: AppSpace.xs),
+                          _CountdownLinkBadge(type: countdown.linkedType!),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: AppSpace.xxs),
                     Text(
@@ -313,6 +293,37 @@ class _CountdownCard extends ConsumerWidget {
       context,
       'Countdown deleted.',
       onUndo: () => pending.cancel(opId),
+    );
+  }
+}
+
+class _CountdownLinkBadge extends StatelessWidget {
+  const _CountdownLinkBadge({required this.type});
+
+  final String type;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = countdownLinkedTypeLabel(type);
+    if (label == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.sm,
+        vertical: AppSpace.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: scheme.onSecondaryContainer,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

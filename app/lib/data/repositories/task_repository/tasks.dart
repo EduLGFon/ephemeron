@@ -105,12 +105,20 @@ mixin _TaskCrudOps on _TaskRepositoryBase {
     String? Function()? alarmPreset,
     String? Function()? reminders,
   }) async {
+    // Evaluate once so the stored value and the linked countdown agree.
+    String? previousDueDate;
+    if (dueDate != null) {
+      previousDueDate = (await (_db.select(
+        _db.tasks,
+      )..where((t) => t.id.equals(id))).getSingleOrNull())?.dueDate;
+    }
+    final newDueDate = dueDate == null ? null : dueDate();
     await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
       TasksCompanion(
         title: title == null ? const Value.absent() : Value(title),
         notes: notes == null ? const Value.absent() : Value(notes),
         priority: priority == null ? const Value.absent() : Value(priority),
-        dueDate: dueDate == null ? const Value.absent() : Value(dueDate()),
+        dueDate: dueDate == null ? const Value.absent() : Value(newDueDate),
         plannedDate: plannedDate == null
             ? const Value.absent()
             : Value(plannedDate()),
@@ -139,6 +147,12 @@ mixin _TaskCrudOps on _TaskRepositoryBase {
         dirty: const Value(true),
       ),
     );
+    if (newDueDate != null &&
+        newDueDate.isNotEmpty &&
+        newDueDate != previousDueDate) {
+      await CountdownRepository(_db)
+          .syncLinkedTargetDate('task', id, newDueDate);
+    }
     await _enqueue('task', id, 'update');
   }
 }

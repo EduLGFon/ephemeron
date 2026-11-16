@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../../../data/drift/app_database.dart';
+import '../../../data/repositories/countdown_repository.dart';
 
 part 'backup_service/readers.dart';
 part 'backup_service/companions.dart';

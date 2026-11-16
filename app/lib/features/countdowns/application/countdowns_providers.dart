@@ -12,3 +12,11 @@ final countdownRepositoryProvider = Provider<CountdownRepository>((ref) {
 final countdownsProvider = StreamProvider<List<Countdown>>((ref) {
   return ref.watch(countdownRepositoryProvider).watchCountdowns();
 });
+
+/// Live countdowns linked to one event/task/habit.
+final linkedCountdownsProvider = StreamProvider.autoDispose
+    .family<List<Countdown>, ({String type, String id})>(
+      (ref, link) => ref
+          .watch(countdownRepositoryProvider)
+          .watchLinkedCountdowns(link.type, link.id),
+    );

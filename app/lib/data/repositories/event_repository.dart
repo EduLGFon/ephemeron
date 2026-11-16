@@ -8,6 +8,7 @@ import 'package:ephemeron/core/ids/ids.dart';
 import 'package:ephemeron/core/search/sanitize.dart';
 import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/countdown_repository.dart';
 import 'package:ephemeron/data/repositories/outbox_helper.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/domain/sources/source_move.dart';
@@ -154,6 +155,25 @@ class _EventRepositoryBase {
     return '${d.year.toString().padLeft(4, '0')}-'
         '${d.month.toString().padLeft(2, '0')}-'
         '${d.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Keeps a linked entity countdown on the event's local start date.
+  Future<void> syncLinkedCountdownDate(String eventId) async {
+    final event = await (dbSelect()..where((e) => e.id.equals(eventId)))
+        .getSingleOrNull();
+    if (event == null) return;
+    final targetDate = event.isAllDay
+        ? event.startDate
+        : event.startUtc == null
+        ? null
+        : dateKey(
+            DateTime.fromMillisecondsSinceEpoch(
+              event.startUtc!,
+              isUtc: true,
+            ).toLocal(),
+          );
+    await CountdownRepository(_db)
+        .syncLinkedTargetDate('event', eventId, targetDate);
   }
 }
 

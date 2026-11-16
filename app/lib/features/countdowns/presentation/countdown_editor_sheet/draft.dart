@@ -7,14 +7,32 @@ extension _CountdownEditorDraft on _CountdownEditorSheetState {
     final c = widget.countdown;
     final d = widget.restoredDraft;
     _title = TextEditingController(
-      text: (d?['title'] as String?) ?? c?.title ?? '',
+      text: (d?['title'] as String?) ?? c?.title ?? widget.initialTitle ?? '',
     );
     _notes = TextEditingController(
       text: (d?['notes'] as String?) ?? c?.notes ?? '',
     );
-    _date = d?['date'] != null
-        ? _parseDate(d!['date'] as String?)
-        : _parseDate(c?.targetDate);
+    if (d?['date'] != null) {
+      _date = parseCountdownDate(d!['date'] as String?);
+    } else if (c != null) {
+      _date = parseCountdownDate(c.targetDate);
+    } else {
+      _date = widget.initialDate == null
+          ? null
+          : DateTime(
+              widget.initialDate!.year,
+              widget.initialDate!.month,
+              widget.initialDate!.day,
+            );
+    }
+    // Existing links win over caller hints; editing keeps the link unless the
+    // user explicitly unlinks it.
+    final link = normalizeCountdownLink(
+      c?.linkedType ?? widget.linkedType,
+      c?.linkedId ?? widget.linkedId,
+    );
+    _linkedType = link.type;
+    _linkedId = link.id;
     _yearlyRepeat = (d?['yearlyRepeat'] as bool?) ?? c?.yearlyRepeat ?? false;
     _showAge = (d?['showAge'] as bool?) ?? c?.showAge ?? false;
     _alertOffsetDays =

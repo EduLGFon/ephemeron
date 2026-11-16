@@ -55,6 +55,12 @@ class _TaskDetailsBody extends ConsumerWidget {
                 leading: const Icon(Icons.notes_outlined),
                 title: Text(t.notes!),
               ),
+            EntityCountdownSection(
+              linkedType: 'task',
+              linkedId: t.id,
+              initialTitle: t.title,
+              initialDate: parseCountdownDate(t.dueDate),
+            ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(

@@ -9351,6 +9351,28 @@ class $CountdownsTable extends Countdowns
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _linkedTypeMeta = const VerificationMeta(
+    'linkedType',
+  );
+  @override
+  late final GeneratedColumn<String> linkedType = GeneratedColumn<String>(
+    'linked_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _linkedIdMeta = const VerificationMeta(
+    'linkedId',
+  );
+  @override
+  late final GeneratedColumn<String> linkedId = GeneratedColumn<String>(
+    'linked_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -9397,6 +9419,8 @@ class $CountdownsTable extends Countdowns
     alertOffsetDays,
     alertTimeMin,
     alarmPreset,
+    linkedType,
+    linkedId,
     createdAt,
     updatedAt,
     deletedAt,
@@ -9492,6 +9516,18 @@ class $CountdownsTable extends Countdowns
         ),
       );
     }
+    if (data.containsKey('linked_type')) {
+      context.handle(
+        _linkedTypeMeta,
+        linkedType.isAcceptableOrUnknown(data['linked_type']!, _linkedTypeMeta),
+      );
+    }
+    if (data.containsKey('linked_id')) {
+      context.handle(
+        _linkedIdMeta,
+        linkedId.isAcceptableOrUnknown(data['linked_id']!, _linkedIdMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -9567,6 +9603,14 @@ class $CountdownsTable extends Countdowns
         DriftSqlType.string,
         data['${effectivePrefix}alarm_preset'],
       ),
+      linkedType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}linked_type'],
+      ),
+      linkedId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}linked_id'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}created_at'],
@@ -9600,6 +9644,8 @@ class Countdown extends DataClass implements Insertable<Countdown> {
   final int? alertOffsetDays;
   final int? alertTimeMin;
   final String? alarmPreset;
+  final String? linkedType;
+  final String? linkedId;
   final int createdAt;
   final int updatedAt;
   final int? deletedAt;
@@ -9615,6 +9661,8 @@ class Countdown extends DataClass implements Insertable<Countdown> {
     this.alertOffsetDays,
     this.alertTimeMin,
     this.alarmPreset,
+    this.linkedType,
+    this.linkedId,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -9646,6 +9694,12 @@ class Countdown extends DataClass implements Insertable<Countdown> {
     }
     if (!nullToAbsent || alarmPreset != null) {
       map['alarm_preset'] = Variable<String>(alarmPreset);
+    }
+    if (!nullToAbsent || linkedType != null) {
+      map['linked_type'] = Variable<String>(linkedType);
+    }
+    if (!nullToAbsent || linkedId != null) {
+      map['linked_id'] = Variable<String>(linkedId);
     }
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
@@ -9680,6 +9734,12 @@ class Countdown extends DataClass implements Insertable<Countdown> {
       alarmPreset: alarmPreset == null && nullToAbsent
           ? const Value.absent()
           : Value(alarmPreset),
+      linkedType: linkedType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedType),
+      linkedId: linkedId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedId),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent
@@ -9705,6 +9765,8 @@ class Countdown extends DataClass implements Insertable<Countdown> {
       alertOffsetDays: serializer.fromJson<int?>(json['alertOffsetDays']),
       alertTimeMin: serializer.fromJson<int?>(json['alertTimeMin']),
       alarmPreset: serializer.fromJson<String?>(json['alarmPreset']),
+      linkedType: serializer.fromJson<String?>(json['linkedType']),
+      linkedId: serializer.fromJson<String?>(json['linkedId']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deletedAt: serializer.fromJson<int?>(json['deletedAt']),
@@ -9725,6 +9787,8 @@ class Countdown extends DataClass implements Insertable<Countdown> {
       'alertOffsetDays': serializer.toJson<int?>(alertOffsetDays),
       'alertTimeMin': serializer.toJson<int?>(alertTimeMin),
       'alarmPreset': serializer.toJson<String?>(alarmPreset),
+      'linkedType': serializer.toJson<String?>(linkedType),
+      'linkedId': serializer.toJson<String?>(linkedId),
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deletedAt': serializer.toJson<int?>(deletedAt),
@@ -9743,6 +9807,8 @@ class Countdown extends DataClass implements Insertable<Countdown> {
     Value<int?> alertOffsetDays = const Value.absent(),
     Value<int?> alertTimeMin = const Value.absent(),
     Value<String?> alarmPreset = const Value.absent(),
+    Value<String?> linkedType = const Value.absent(),
+    Value<String?> linkedId = const Value.absent(),
     int? createdAt,
     int? updatedAt,
     Value<int?> deletedAt = const Value.absent(),
@@ -9760,6 +9826,8 @@ class Countdown extends DataClass implements Insertable<Countdown> {
         : this.alertOffsetDays,
     alertTimeMin: alertTimeMin.present ? alertTimeMin.value : this.alertTimeMin,
     alarmPreset: alarmPreset.present ? alarmPreset.value : this.alarmPreset,
+    linkedType: linkedType.present ? linkedType.value : this.linkedType,
+    linkedId: linkedId.present ? linkedId.value : this.linkedId,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -9787,6 +9855,10 @@ class Countdown extends DataClass implements Insertable<Countdown> {
       alarmPreset: data.alarmPreset.present
           ? data.alarmPreset.value
           : this.alarmPreset,
+      linkedType: data.linkedType.present
+          ? data.linkedType.value
+          : this.linkedType,
+      linkedId: data.linkedId.present ? data.linkedId.value : this.linkedId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -9807,6 +9879,8 @@ class Countdown extends DataClass implements Insertable<Countdown> {
           ..write('alertOffsetDays: $alertOffsetDays, ')
           ..write('alertTimeMin: $alertTimeMin, ')
           ..write('alarmPreset: $alarmPreset, ')
+          ..write('linkedType: $linkedType, ')
+          ..write('linkedId: $linkedId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -9827,6 +9901,8 @@ class Countdown extends DataClass implements Insertable<Countdown> {
     alertOffsetDays,
     alertTimeMin,
     alarmPreset,
+    linkedType,
+    linkedId,
     createdAt,
     updatedAt,
     deletedAt,
@@ -9846,6 +9922,8 @@ class Countdown extends DataClass implements Insertable<Countdown> {
           other.alertOffsetDays == this.alertOffsetDays &&
           other.alertTimeMin == this.alertTimeMin &&
           other.alarmPreset == this.alarmPreset &&
+          other.linkedType == this.linkedType &&
+          other.linkedId == this.linkedId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -9863,6 +9941,8 @@ class CountdownsCompanion extends UpdateCompanion<Countdown> {
   final Value<int?> alertOffsetDays;
   final Value<int?> alertTimeMin;
   final Value<String?> alarmPreset;
+  final Value<String?> linkedType;
+  final Value<String?> linkedId;
   final Value<int> createdAt;
   final Value<int> updatedAt;
   final Value<int?> deletedAt;
@@ -9879,6 +9959,8 @@ class CountdownsCompanion extends UpdateCompanion<Countdown> {
     this.alertOffsetDays = const Value.absent(),
     this.alertTimeMin = const Value.absent(),
     this.alarmPreset = const Value.absent(),
+    this.linkedType = const Value.absent(),
+    this.linkedId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -9896,6 +9978,8 @@ class CountdownsCompanion extends UpdateCompanion<Countdown> {
     this.alertOffsetDays = const Value.absent(),
     this.alertTimeMin = const Value.absent(),
     this.alarmPreset = const Value.absent(),
+    this.linkedType = const Value.absent(),
+    this.linkedId = const Value.absent(),
     required int createdAt,
     required int updatedAt,
     this.deletedAt = const Value.absent(),
@@ -9916,6 +10000,8 @@ class CountdownsCompanion extends UpdateCompanion<Countdown> {
     Expression<int>? alertOffsetDays,
     Expression<int>? alertTimeMin,
     Expression<String>? alarmPreset,
+    Expression<String>? linkedType,
+    Expression<String>? linkedId,
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
     Expression<int>? deletedAt,
@@ -9933,6 +10019,8 @@ class CountdownsCompanion extends UpdateCompanion<Countdown> {
       if (alertOffsetDays != null) 'alert_offset_days': alertOffsetDays,
       if (alertTimeMin != null) 'alert_time_min': alertTimeMin,
       if (alarmPreset != null) 'alarm_preset': alarmPreset,
+      if (linkedType != null) 'linked_type': linkedType,
+      if (linkedId != null) 'linked_id': linkedId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -9952,6 +10040,8 @@ class CountdownsCompanion extends UpdateCompanion<Countdown> {
     Value<int?>? alertOffsetDays,
     Value<int?>? alertTimeMin,
     Value<String?>? alarmPreset,
+    Value<String?>? linkedType,
+    Value<String?>? linkedId,
     Value<int>? createdAt,
     Value<int>? updatedAt,
     Value<int?>? deletedAt,
@@ -9969,6 +10059,8 @@ class CountdownsCompanion extends UpdateCompanion<Countdown> {
       alertOffsetDays: alertOffsetDays ?? this.alertOffsetDays,
       alertTimeMin: alertTimeMin ?? this.alertTimeMin,
       alarmPreset: alarmPreset ?? this.alarmPreset,
+      linkedType: linkedType ?? this.linkedType,
+      linkedId: linkedId ?? this.linkedId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -10012,6 +10104,12 @@ class CountdownsCompanion extends UpdateCompanion<Countdown> {
     if (alarmPreset.present) {
       map['alarm_preset'] = Variable<String>(alarmPreset.value);
     }
+    if (linkedType.present) {
+      map['linked_type'] = Variable<String>(linkedType.value);
+    }
+    if (linkedId.present) {
+      map['linked_id'] = Variable<String>(linkedId.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
@@ -10041,6 +10139,8 @@ class CountdownsCompanion extends UpdateCompanion<Countdown> {
           ..write('alertOffsetDays: $alertOffsetDays, ')
           ..write('alertTimeMin: $alertTimeMin, ')
           ..write('alarmPreset: $alarmPreset, ')
+          ..write('linkedType: $linkedType, ')
+          ..write('linkedId: $linkedId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -21393,6 +21493,8 @@ typedef $$CountdownsTableCreateCompanionBuilder = CountdownsCompanion Function({
   Value<int?> alertOffsetDays,
   Value<int?> alertTimeMin,
   Value<String?> alarmPreset,
+  Value<String?> linkedType,
+  Value<String?> linkedId,
   required int createdAt,
   required int updatedAt,
   Value<int?> deletedAt,
@@ -21410,6 +21512,8 @@ typedef $$CountdownsTableUpdateCompanionBuilder = CountdownsCompanion Function({
   Value<int?> alertOffsetDays,
   Value<int?> alertTimeMin,
   Value<String?> alarmPreset,
+  Value<String?> linkedType,
+  Value<String?> linkedId,
   Value<int> createdAt,
   Value<int> updatedAt,
   Value<int?> deletedAt,
@@ -21477,6 +21581,16 @@ class $$CountdownsTableFilterComposer
 
   ColumnFilters<String> get alarmPreset => $composableBuilder(
     column: $table.alarmPreset,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get linkedType => $composableBuilder(
+    column: $table.linkedType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get linkedId => $composableBuilder(
+    column: $table.linkedId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -21560,6 +21674,16 @@ class $$CountdownsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get linkedType => $composableBuilder(
+    column: $table.linkedType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get linkedId => $composableBuilder(
+    column: $table.linkedId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -21628,6 +21752,14 @@ class $$CountdownsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get linkedType => $composableBuilder(
+    column: $table.linkedType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get linkedId =>
+      $composableBuilder(column: $table.linkedId, builder: (column) => column);
+
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -21680,6 +21812,8 @@ class $$CountdownsTableTableManager
                 Value<int?> alertOffsetDays = const Value.absent(),
                 Value<int?> alertTimeMin = const Value.absent(),
                 Value<String?> alarmPreset = const Value.absent(),
+                Value<String?> linkedType = const Value.absent(),
+                Value<String?> linkedId = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<int?> deletedAt = const Value.absent(),
@@ -21696,6 +21830,8 @@ class $$CountdownsTableTableManager
                 alertOffsetDays: alertOffsetDays,
                 alertTimeMin: alertTimeMin,
                 alarmPreset: alarmPreset,
+                linkedType: linkedType,
+                linkedId: linkedId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -21714,6 +21850,8 @@ class $$CountdownsTableTableManager
                 Value<int?> alertOffsetDays = const Value.absent(),
                 Value<int?> alertTimeMin = const Value.absent(),
                 Value<String?> alarmPreset = const Value.absent(),
+                Value<String?> linkedType = const Value.absent(),
+                Value<String?> linkedId = const Value.absent(),
                 required int createdAt,
                 required int updatedAt,
                 Value<int?> deletedAt = const Value.absent(),
@@ -21730,6 +21868,8 @@ class $$CountdownsTableTableManager
                 alertOffsetDays: alertOffsetDays,
                 alertTimeMin: alertTimeMin,
                 alarmPreset: alarmPreset,
+                linkedType: linkedType,
+                linkedId: linkedId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
