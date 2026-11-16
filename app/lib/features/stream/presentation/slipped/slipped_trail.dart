@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../design/stream_tokens.dart';
 
-/// A stack of small pills that cling to the Now line when tasks have slipped.
+/// A single pill that clings to the Now line when tasks have slipped.
 ///
 /// Presentation only: count and label are supplied by the caller.
 class SlippedTrail extends StatelessWidget {
@@ -22,68 +22,45 @@ class SlippedTrail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (count <= 0) return const SizedBox.shrink();
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final scheme = Theme.of(context).colorScheme;
     final warm = color ?? scheme.tertiary;
-    final pillCount = count.clamp(1, 3);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final duration = reduceMotion ? Duration.zero : StreamMotion.fast;
     return Semantics(
       button: true,
       label: label,
       onTap: onOpenTriage,
       child: GestureDetector(
         onTap: onOpenTriage,
-        child: AnimatedOpacity(
-          opacity: 1,
-          duration: reduceMotion ? Duration.zero : StreamMotion.fast,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: duration,
+          curve: StreamMotion.standard,
+          builder: (context, value, child) {
+            return Opacity(opacity: value, child: child);
+          },
           child: SizedBox(
             height: StreamSpacing.x12,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (int i = 0; i < pillCount; i++)
-                  Positioned(
-                    left: i * 6.0,
-                    top: i * 2.0,
-                    child: _Pill(
-                      text: (i == pillCount - 1 && count > 3)
-                          ? '+${count - 2}'
-                          : label,
-                      color: warm,
-                    ),
-                  ),
-              ],
+            child: Container(
+              padding: const EdgeInsetsDirectional.symmetric(
+                horizontal: StreamSpacing.x2,
+                vertical: StreamSpacing.x1,
+              ),
+              decoration: BoxDecoration(
+                color: warm.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(StreamRadii.full),
+                border: Border.all(color: warm.withValues(alpha: 0.45)),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: StreamTypeScale.xs,
+                  color: warm,
+                  fontWeight: FontWeight(StreamFontWeight.medium),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsetsDirectional.symmetric(
-        horizontal: StreamSpacing.x2,
-        vertical: StreamSpacing.x1,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(StreamRadii.full),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: StreamTypeScale.xs,
-          color: color,
-          fontWeight: FontWeight(StreamFontWeight.medium),
         ),
       ),
     );
