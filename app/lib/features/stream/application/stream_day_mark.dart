@@ -2,10 +2,10 @@
 //
 // Pure Dart: no Flutter, no Drift. Units are epoch milliseconds in local
 // time (see stream_mark_mapper.dart for the conversion contract).
-enum StreamMarkKind { event, task }
+enum StreamDayMarkKind { event, task }
 
-class StreamMark {
-  const StreamMark({
+class StreamDayMark {
+  const StreamDayMark({
     required this.id,
     required this.kind,
     required this.startMs,
@@ -17,7 +17,7 @@ class StreamMark {
   });
 
   final String id;
-  final StreamMarkKind kind;
+  final StreamDayMarkKind kind;
   final int startMs;
   final int endMs;
   final String title;
@@ -28,7 +28,7 @@ class StreamMark {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is StreamMark &&
+      other is StreamDayMark &&
           other.id == id &&
           other.kind == kind &&
           other.startMs == startMs &&

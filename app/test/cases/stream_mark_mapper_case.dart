@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ephemeron/features/stream/application/stream_mark.dart';
+import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_mark_mapper.dart';
 
 void main() {
@@ -24,7 +24,7 @@ void main() {
       expect(result.marks.length, 1);
       final m = result.marks.first;
       expect(m.id, 'o1');
-      expect(m.kind, StreamMarkKind.event);
+      expect(m.kind, StreamDayMarkKind.event);
       expect(m.title, 'Meeting');
       expect(m.sourceTaskOrEventId, 'e1');
       expect(m.isAllDay, false);
@@ -34,7 +34,9 @@ void main() {
       expect(m.endMs, expectedEnd);
     });
 
-    test('all-day occurrence uses local midnight span', () {
+    test('all-day occurrence derives day from dayKey (west-of-UTC safe)', () {
+      // Stored UTC instant resolves to the previous local day, but dayKey
+      // names the correct day.
       final baseUtc = DateTime.utc(2025, 1, 15, 0, 0);
       final endUtc = baseUtc.add(const Duration(hours: 24));
       final result = mapOccurrencesToMarks([
@@ -51,13 +53,33 @@ void main() {
       expect(result.skipped, 0);
       final m = result.marks.first;
       expect(m.isAllDay, true);
-      final local = baseUtc.toLocal();
-      final midnight = DateTime(local.year, local.month, local.day);
-      expect(m.startMs, midnight.millisecondsSinceEpoch);
-      expect(
-        m.endMs,
-        midnight.add(const Duration(days: 1)).millisecondsSinceEpoch,
-      );
+      // Expected from the dayKey, not from startUtc.toLocal().
+      final expectedStart = DateTime(2025, 1, 15).millisecondsSinceEpoch;
+      final expectedEnd = DateTime(2025, 1, 16).millisecondsSinceEpoch;
+      expect(m.startMs, expectedStart);
+      expect(m.endMs, expectedEnd);
+    });
+
+    test('multi-day all-day row covers all days', () {
+      final baseUtc = DateTime.utc(2025, 1, 15, 0, 0);
+      final endUtc = baseUtc.add(
+        const Duration(days: 2, hours: -1, minutes: 1),
+      ); // ~2 days
+      final result = mapOccurrencesToMarks([
+        OccurrenceRow(
+          id: 'o2b',
+          eventId: 'e2b',
+          sourceType: 'event',
+          startUtc: baseUtc.millisecondsSinceEpoch,
+          endUtc: endUtc.millisecondsSinceEpoch,
+          dayKey: '2025-01-15',
+          title: 'Trip',
+        ),
+      ]);
+      final m = result.marks.first;
+      expect(m.isAllDay, true);
+      expect(m.startMs, DateTime(2025, 1, 15).millisecondsSinceEpoch);
+      expect(m.endMs, DateTime(2025, 1, 17).millisecondsSinceEpoch);
     });
 
     test('zero duration gets minimum visible length', () {
@@ -74,7 +96,7 @@ void main() {
         ),
       ]);
       final m = result.marks.first;
-      expect(m.kind, StreamMarkKind.task);
+      expect(m.kind, StreamDayMarkKind.task);
       expect(m.endMs - m.startMs, 15 * 60 * 1000);
     });
 
@@ -95,7 +117,7 @@ void main() {
       expect(m.endMs - m.startMs, 15 * 60 * 1000);
     });
 
-    test('empty title kept as given (empty)', () {
+    test('empty title kept as empty string', () {
       final baseUtc = DateTime.utc(2025, 1, 15, 10, 0);
       final result = mapOccurrencesToMarks([
         OccurrenceRow(
@@ -107,10 +129,28 @@ void main() {
               .add(const Duration(minutes: 30))
               .millisecondsSinceEpoch,
           dayKey: '2025-01-15',
-          title: null,
+          title: '',
         ),
       ]);
       expect(result.marks.first.title, '');
+    });
+
+    test('all-day end uses next local midnight not +24h', () {
+      // Ensures DST-unsafe 24h addition is not used: day end is computed via
+      // DateTime(y, m, d + 1).
+      final result = mapOccurrencesToMarks([
+        OccurrenceRow(
+          id: 'o6',
+          eventId: 'e6',
+          sourceType: 'event',
+          startUtc: DateTime.utc(2025, 1, 15).millisecondsSinceEpoch,
+          endUtc: DateTime.utc(2025, 1, 16).millisecondsSinceEpoch - 1,
+          dayKey: '2025-01-15',
+          title: 'DST-ish',
+        ),
+      ]);
+      final m = result.marks.first;
+      expect(m.endMs, DateTime(2025, 1, 16).millisecondsSinceEpoch);
     });
 
     test('unsorted input is sorted by startMs', () {
@@ -168,6 +208,23 @@ void main() {
       expect(result.skipped, 1);
       expect(result.marks.length, 1);
       expect(result.marks.first.id, 'ok');
+    });
+
+    test('bad dayKey row is skipped', () {
+      final baseUtc = DateTime.utc(2025, 1, 15, 0, 0);
+      final result = mapOccurrencesToMarks([
+        OccurrenceRow(
+          id: 'bad',
+          eventId: 'e',
+          sourceType: 'event',
+          startUtc: baseUtc.millisecondsSinceEpoch,
+          endUtc: baseUtc.add(const Duration(hours: 24)).millisecondsSinceEpoch,
+          dayKey: 'not-a-date',
+          title: 'bad',
+        ),
+      ]);
+      expect(result.skipped, 1);
+      expect(result.marks, isEmpty);
     });
   });
 }

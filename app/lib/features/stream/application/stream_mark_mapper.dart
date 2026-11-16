@@ -1,13 +1,11 @@
-// Pure mapping from calendar occurrence rows to Stream marks.
+// Pure mapping from calendar occurrence rows to Stream day marks.
 //
 // Units: occurrence timestamps are stored as UTC epoch milliseconds
-// (startUtc/endUtc). StreamMark.startMs/endMs are epoch milliseconds in
-// LOCAL time, so a mark can be positioned on a local-day axis without
-// extra conversion at render time.
-import 'stream_mark.dart';
+// (startUtc/endUtc). StreamDayMark.startMs/endMs are epoch milliseconds in
+// LOCAL time. All-day rows use their dayKey (a local date string) rather
+// than startUtc.toLocal(), because the row is stored at UTC midnight.
+import 'stream_day_mark.dart';
 
-/// Minimal occurrence-row shape used by [mapOccurrencesToMarks]. Keeps the
-/// mapper free of Drift so it can be unit-tested with plain values.
 class OccurrenceRow {
   const OccurrenceRow({
     required this.id,
@@ -30,91 +28,97 @@ class OccurrenceRow {
   final String? colorId;
 }
 
-/// Result of [mapOccurrencesToMarks]: the sorted marks plus how many input
-/// rows were skipped because they were malformed or of an unsupported kind.
-class StreamMarkMappingResult {
-  const StreamMarkMappingResult({required this.marks, required this.skipped});
+class StreamDayMarkMappingResult {
+  const StreamDayMarkMappingResult({
+    required this.marks,
+    required this.skipped,
+  });
 
-  final List<StreamMark> marks;
+  final List<StreamDayMark> marks;
   final int skipped;
 }
 
-const int _minVisibleDurationMs = 15 * 60 * 1000; // 15 minutes
-const int _allDayThresholdMs = 23 * 60 * 60 * 1000; // >= 23 hours
+const int _minVisibleDurationMs = 15 * 60 * 1000;
 
-StreamMarkMappingResult mapOccurrencesToMarks(List<OccurrenceRow> rows) {
-  final marks = <StreamMark>[];
+StreamDayMarkMappingResult mapOccurrencesToMarks(List<OccurrenceRow> rows) {
+  final marks = <StreamDayMark>[];
   var skipped = 0;
   for (final row in rows) {
-    if (row.id.isEmpty ||
-        row.eventId.isEmpty ||
-        row.dayKey.isEmpty ||
-        (row.sourceType != 'event' && row.sourceType != 'task')) {
+    if (!_valid(row)) {
       skipped++;
       continue;
     }
-    if (row.startUtc < 0 || row.endUtc < row.startUtc) {
-      // Negative durations are repaired below; a missing/invalid start is
-      // the only hard failure here.
-      if (row.startUtc < 0) {
-        skipped++;
-        continue;
-      }
+    final mark = _mapRow(row);
+    if (mark == null) {
+      skipped++;
+      continue;
     }
-
-    final kind = row.sourceType == 'task'
-        ? StreamMarkKind.task
-        : StreamMarkKind.event;
-
-    final allDay = (row.endUtc - row.startUtc) >= _allDayThresholdMs;
-
-    // Convert UTC epoch ms to local epoch ms.
-    final startLocal = DateTime.fromMillisecondsSinceEpoch(
-      row.startUtc,
-      isUtc: true,
-    ).toLocal();
-    final endLocal = DateTime.fromMillisecondsSinceEpoch(
-      row.endUtc,
-      isUtc: true,
-    ).toLocal();
-
-    int startMs;
-    int endMs;
-    if (allDay) {
-      final midnight = DateTime(
-        startLocal.year,
-        startLocal.month,
-        startLocal.day,
-      );
-      startMs = midnight.millisecondsSinceEpoch;
-      endMs = midnight.add(const Duration(days: 1)).millisecondsSinceEpoch;
-    } else {
-      startMs = startLocal.millisecondsSinceEpoch;
-      endMs = endLocal.millisecondsSinceEpoch;
-      if (endMs <= startMs) {
-        endMs = startMs + _minVisibleDurationMs;
-      } else if (endMs - startMs < _minVisibleDurationMs) {
-        endMs = startMs + _minVisibleDurationMs;
-      }
-    }
-
-    final colorArgb = _colorArgb(row.colorId);
-
-    marks.add(
-      StreamMark(
-        id: row.id,
-        kind: kind,
-        startMs: startMs,
-        endMs: endMs,
-        title: row.title ?? '',
-        colorArgb: colorArgb,
-        sourceTaskOrEventId: row.eventId,
-        isAllDay: allDay,
-      ),
-    );
+    marks.add(mark);
   }
   marks.sort((a, b) => a.startMs.compareTo(b.startMs));
-  return StreamMarkMappingResult(marks: marks, skipped: skipped);
+  return StreamDayMarkMappingResult(marks: marks, skipped: skipped);
+}
+
+bool _valid(OccurrenceRow row) {
+  if (row.id.isEmpty || row.eventId.isEmpty || row.dayKey.isEmpty) return false;
+  if (row.sourceType != 'event' && row.sourceType != 'task') return false;
+  if (row.startUtc < 0) return false;
+  return true;
+}
+
+StreamDayMark? _mapRow(OccurrenceRow row) {
+  final kind = row.sourceType == 'task'
+      ? StreamDayMarkKind.task
+      : StreamDayMarkKind.event;
+  final allDay =
+      (row.endUtc - row.startUtc) >= const Duration(hours: 23).inMilliseconds;
+  if (allDay) {
+    final parts = row.dayKey.split('-');
+    if (parts.length != 3) return null;
+    final y = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final d = int.tryParse(parts[2]);
+    if (y == null || m == null || d == null) return null;
+    final spanMs = row.endUtc - row.startUtc;
+    final days = spanMs <= 0
+        ? 1
+        : (spanMs / Duration(days: 1).inMilliseconds).ceil();
+    final start = DateTime(y, m, d);
+    final end = DateTime(y, m, d + days);
+    return StreamDayMark(
+      id: row.id,
+      kind: kind,
+      startMs: start.millisecondsSinceEpoch,
+      endMs: end.millisecondsSinceEpoch,
+      title: row.title ?? '',
+      colorArgb: _colorArgb(row.colorId),
+      sourceTaskOrEventId: row.eventId,
+      isAllDay: true,
+    );
+  }
+  final startLocal = DateTime.fromMillisecondsSinceEpoch(
+    row.startUtc,
+    isUtc: true,
+  ).toLocal();
+  final endLocal = DateTime.fromMillisecondsSinceEpoch(
+    row.endUtc,
+    isUtc: true,
+  ).toLocal();
+  var startMs = startLocal.millisecondsSinceEpoch;
+  var endMs = endLocal.millisecondsSinceEpoch;
+  if (endMs <= startMs || endMs - startMs < _minVisibleDurationMs) {
+    endMs = startMs + _minVisibleDurationMs;
+  }
+  return StreamDayMark(
+    id: row.id,
+    kind: kind,
+    startMs: startMs,
+    endMs: endMs,
+    title: row.title ?? '',
+    colorArgb: _colorArgb(row.colorId),
+    sourceTaskOrEventId: row.eventId,
+    isAllDay: false,
+  );
 }
 
 const Map<String, int> _paletteArgb = <String, int>{
@@ -135,7 +139,6 @@ int _colorArgb(String? colorId) {
   if (colorId == null || colorId.isEmpty) return 0xFF1976D2;
   final palette = _paletteArgb[colorId];
   if (palette != null) return palette;
-  // CSS hex '#rrggbb' / '#aarrggbb'.
   var hex = colorId.trim();
   if (hex.startsWith('#')) hex = hex.substring(1);
   if (hex.length == 6 || hex.length == 8) {
