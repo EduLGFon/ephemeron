@@ -48,4 +48,49 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
   });
+
+  testWidgets('habit stats screen is usable at 320dp and 3x text', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = HabitRepository(db);
+    final yesterday = habitDateKey(
+      DateTime.now().subtract(const Duration(days: 1)),
+    );
+    final id = await repo.createHabit(
+      name: 'Read',
+      startDate: yesterday,
+      goalAmount: 5,
+      unit: 'min',
+    );
+    await repo.addAmount(id, yesterday, 3);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(3.0)),
+            child: const HabitsStatsScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('60%'), findsOneWidget);
+    expect(find.text('Add 2 min'), findsOneWidget);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
 }

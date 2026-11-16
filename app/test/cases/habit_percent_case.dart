@@ -30,6 +30,12 @@ void main() {
     );
   });
 
+  test('formatHabitAmount zero minutes returns 0 min', () {
+    expect(formatHabitAmount(unit: 'min', amount: 0), '0 min');
+    expect(formatHabitAmount(unit: 'min', amount: 0.5), '30s');
+    expect(formatHabitAmount(unit: 'min', amount: 2), '2 min');
+  });
+
   test('non-minute units are unchanged', () {
     expect(
       formatHabitProgress(unit: 'count', amount: 12.333333, goal: 30),

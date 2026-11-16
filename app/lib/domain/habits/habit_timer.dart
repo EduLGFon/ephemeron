@@ -125,6 +125,9 @@ String formatHabitExact({
 String formatHabitAmount({required String? unit, required double amount}) {
   final u = unit ?? '';
   if (isMinuteUnit(unit)) {
+    if (amount == 0) {
+      return '0 min'.trim();
+    }
     final totalSeconds = (amount * 60).round();
     final mins = totalSeconds ~/ 60;
     final secs = totalSeconds % 60;

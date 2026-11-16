@@ -125,10 +125,10 @@ class _HabitStatsCard extends ConsumerWidget {
     children.add(const SizedBox(height: AppSpace.sm));
 
     // Compliance headline (last 7 days) plus secondary 30-day figure.
+    // Stacked so it never overflows at narrow widths / large text scales.
     children.add(
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             formatCompliancePercent(stats.compliance7),
@@ -137,13 +137,10 @@ class _HabitStatsCard extends ConsumerWidget {
               color: scheme.primary,
             ),
           ),
-          const SizedBox(width: AppSpace.sm),
-          Expanded(
-            child: Text(
-              'last 7 days',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+          Text(
+            'last 7 days',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
           ),
           Text(
@@ -273,8 +270,19 @@ class _HabitStatsCard extends ConsumerWidget {
                 ),
                 TextButton.icon(
                   onPressed: () async {
-                    await repo.addAmount(habit.id, day.dayKey, day.missing);
-                    ref.invalidate(habitStatsProvider(habit.id));
+                    try {
+                      await repo.addAmount(habit.id, day.dayKey, day.missing);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Could not update: $e')),
+                        );
+                      }
+                      return;
+                    }
+                    if (context.mounted) {
+                      ref.invalidate(habitStatsProvider(habit.id));
+                    }
                   },
                   icon: const Icon(Icons.add, size: 16),
                   label: Text('Add $missing'),

@@ -194,4 +194,21 @@ void main() {
     expect(stats.skippedDays, 1);
     expect(stats.compliance30, closeTo(1 / 2, 1e-9));
   });
+
+  test('weekly progress ignores future-dated logs', () {
+    final spec = HabitSpec(frequency: 'weekly', weeklyTarget: 3);
+    final stats = computeHabitStats(
+      todayKey: '2026-03-10', // Tuesday
+      spec: spec,
+      unit: null,
+      goalAmount: null,
+      logs: const [
+        HabitLogEntry(dayKey: '2026-03-09', done: true), // Monday
+        HabitLogEntry(dayKey: '2026-03-13', done: true), // future Friday
+      ],
+      rangeDays: 7,
+    );
+    expect(stats.weekly, isNotNull);
+    expect(stats.weekly!.done, 1);
+  });
 }

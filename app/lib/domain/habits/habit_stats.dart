@@ -327,6 +327,7 @@ HabitStatsSummary computeHabitStats({
     var done = 0;
     for (var i = 0; i < 7; i++) {
       final d = DateTime(monday.year, monday.month, monday.day + i);
+      if (d.isAfter(today)) break;
       if (!isHabitScheduled(spec, d)) continue;
       if (isDone(habitDateKey(d))) done++;
     }
