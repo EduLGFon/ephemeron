@@ -92,6 +92,7 @@ import 'cases/source_move_case.dart' as source_move;
 import 'cases/source_picker_case.dart' as source_picker;
 import 'cases/stream_culler_case.dart' as stream_culler;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
+import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
 import 'cases/stream_viewport_case.dart' as stream_viewport;
 import 'cases/sync_all_case.dart' as sync_all;
@@ -223,6 +224,7 @@ const _included = <String>{
   'source_picker_case.dart',
   'stream_culler_case.dart',
   'stream_layout_mode_case.dart',
+  'stream_mark_mapper_case.dart',
   'stream_route_params_case.dart',
   'stream_viewport_case.dart',
   'sync_all_case.dart',
@@ -362,6 +364,7 @@ void main() {
   group('source_picker', source_picker.main);
   group('stream_culler', stream_culler.main);
   group('stream_layout_mode', stream_layout_mode.main);
+  group('stream_mark_mapper', stream_mark_mapper.main);
   group('stream_route_params', stream_route_params.main);
   group('stream_viewport', stream_viewport.main);
   group('sync_all', sync_all.main);
