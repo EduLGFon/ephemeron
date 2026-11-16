@@ -4,6 +4,8 @@
 // The GoogleSignIn plugin is not available in unit tests. GoogleAuth accepts
 // injected platform initialization and silent authorization so restore can be
 // exercised without the plugin or any UI.
+import 'dart:async';
+
 import 'package:ephemeron/core/config/app_config.dart';
 import 'package:ephemeron/core/config/safe_storage.dart';
 import 'package:ephemeron/features/auth/data/google_auth.dart';
@@ -122,21 +124,215 @@ void main() {
     );
   });
 
-  test('restore marks only the account whose silent grant fails', () async {
+  test('restore marks only a definitive platform denial', () async {
     final storage = SafeSecureStorage();
     await storage.saveGoogleAccounts(['a@example.com', 'b@example.com']);
     final auth = GoogleAuth(
       storage: storage,
       initializePlatform: () async {},
-      silentAuthorizer: (request) async =>
-          isSameAccountEmail(request.email ?? '', 'a@example.com')
-          ? 'token-a'
-          : null,
+      silentAuthorizer: (request) async {
+        if (isSameAccountEmail(request.email ?? '', 'a@example.com')) {
+          return 'token-a';
+        }
+        throw const GoogleSignInException(
+          code: GoogleSignInExceptionCode.userMismatch,
+        );
+      },
     );
 
     await auth.restore();
+    expect(auth.accounts, ['a@example.com', 'b@example.com']);
     expect(auth.accountsNeedingReconnect, ['b@example.com']);
   });
+
+  test('transient silent failures never request reconnect', () async {
+    final storage = SafeSecureStorage();
+    await storage.saveGoogleAccounts(['a@example.com', 'b@example.com']);
+    final auth = GoogleAuth(
+      storage: storage,
+      initializePlatform: () async {},
+      silentAuthorizer: (request) async {
+        if (isSameAccountEmail(request.email ?? '', 'a@example.com')) {
+          return null;
+        }
+        throw TimeoutException('silent authorization timed out');
+      },
+    );
+
+    expect(await auth.restore(), 'a@example.com');
+    expect(auth.accounts, ['a@example.com', 'b@example.com']);
+    expect(auth.accountsNeedingReconnect, isEmpty);
+    expect(
+      await storage.googleAccessTokenFor('a@example.com'),
+      isNull,
+      reason: 'a missing token is not persisted',
+    );
+  });
+
+  test('transient plugin errors never request reconnect', () async {
+    final storage = SafeSecureStorage();
+    await storage.saveGoogleAccounts(['a@example.com']);
+    final auth = GoogleAuth(
+      storage: storage,
+      initializePlatform: () async {},
+      silentAuthorizer: (request) async {
+        throw const GoogleSignInException(
+          code: GoogleSignInExceptionCode.providerConfigurationError,
+        );
+      },
+    );
+
+    await auth.restore();
+    expect(auth.accounts, ['a@example.com']);
+    expect(auth.accountsNeedingReconnect, isEmpty);
+  });
+
+  test('transient failure keeps the active account', () async {
+    final storage = SafeSecureStorage();
+    await storage.saveGoogleAccounts(['a@example.com', 'b@example.com']);
+    final expired = DateTime.now()
+        .toUtc()
+        .subtract(const Duration(minutes: 5))
+        .millisecondsSinceEpoch;
+    await storage.saveGoogleTokensFor(
+      account: 'a@example.com',
+      accessToken: 'expired-a',
+      expiryMs: expired,
+    );
+    await storage.saveGoogleTokensFor(
+      account: 'b@example.com',
+      accessToken: 'expired-b',
+      expiryMs: expired,
+    );
+    final auth = GoogleAuth(
+      storage: storage,
+      initializePlatform: () async {},
+      silentAuthorizer: (request) async =>
+          throw TimeoutException('offline at startup'),
+    );
+
+    await auth.restore();
+    await auth.setActiveAccount('b@example.com');
+    await auth.restore();
+
+    expect(auth.accounts, ['a@example.com', 'b@example.com']);
+    expect(auth.email, 'b@example.com');
+    expect(auth.accountsNeedingReconnect, isEmpty);
+  });
+
+  test(
+    'expired stored token is refreshed silently and saved per account',
+    () async {
+      final storage = SafeSecureStorage();
+      await storage.saveGoogleAccounts(['a@example.com', 'b@example.com']);
+      final expired = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(minutes: 5))
+          .millisecondsSinceEpoch;
+      for (final account in ['a@example.com', 'b@example.com']) {
+        await storage.saveGoogleTokensFor(
+          account: account,
+          accessToken: 'expired-$account',
+          expiryMs: expired,
+        );
+      }
+      final requests = <AuthorizationRequestDetails>[];
+      final auth = GoogleAuth(
+        storage: storage,
+        initializePlatform: () async {},
+        silentAuthorizer: (request) async {
+          requests.add(request);
+          return 'fresh-${request.email}';
+        },
+      );
+
+      await auth.restore();
+
+      expect(requests.map((r) => r.email), ['a@example.com', 'b@example.com']);
+      expect(auth.accountsNeedingReconnect, isEmpty);
+      for (final account in ['a@example.com', 'b@example.com']) {
+        expect(await storage.googleAccessTokenFor(account), 'fresh-$account');
+        expect(
+          await storage.googleExpiryMsFor(account),
+          greaterThan(DateTime.now().toUtc().millisecondsSinceEpoch),
+        );
+      }
+    },
+  );
+
+  test(
+    'unexpired stored tokens are reused without silent authorization',
+    () async {
+      final storage = SafeSecureStorage();
+      await storage.saveGoogleAccounts(['a@example.com', 'b@example.com']);
+      final future = DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 30))
+          .millisecondsSinceEpoch;
+      for (final account in ['a@example.com', 'b@example.com']) {
+        await storage.saveGoogleTokensFor(
+          account: account,
+          accessToken: 'cached-$account',
+          expiryMs: future,
+        );
+      }
+      var silentCalls = 0;
+      final auth = GoogleAuth(
+        storage: storage,
+        initializePlatform: () async {},
+        silentAuthorizer: (request) async {
+          silentCalls++;
+          return 'unexpected';
+        },
+      );
+
+      await auth.restore();
+
+      expect(silentCalls, 0);
+      expect(auth.accountsNeedingReconnect, isEmpty);
+      expect(
+        await auth.accessTokenFor('b@example.com'),
+        'cached-b@example.com',
+      );
+    },
+  );
+
+  test(
+    'invalidating a rejected token keeps the account and other tokens',
+    () async {
+      final storage = SafeSecureStorage();
+      await storage.saveGoogleAccounts(['a@example.com', 'b@example.com']);
+      final future = DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 30))
+          .millisecondsSinceEpoch;
+      await storage.saveGoogleTokensFor(
+        account: 'a@example.com',
+        accessToken: 'token-a',
+        refreshToken: 'refresh-a',
+        expiryMs: future,
+      );
+      await storage.saveGoogleTokensFor(
+        account: 'b@example.com',
+        accessToken: 'token-b',
+        expiryMs: future,
+      );
+      final auth = GoogleAuth(
+        storage: storage,
+        initializePlatform: () async {},
+        silentAuthorizer: (request) async => 'unused',
+      );
+      await auth.restore();
+
+      await auth.invalidateAccessTokenFor('a@example.com');
+
+      expect(auth.accounts, ['a@example.com', 'b@example.com']);
+      expect(await storage.googleAccessTokenFor('a@example.com'), isNull);
+      expect(await storage.googleExpiryMsFor('a@example.com'), isNull);
+      expect(await storage.googleRefreshTokenFor('a@example.com'), 'refresh-a');
+      expect(await storage.googleAccessTokenFor('b@example.com'), 'token-b');
+    },
+  );
 
   test('silent authorization falls back to email without a user id', () async {
     final storage = SafeSecureStorage();

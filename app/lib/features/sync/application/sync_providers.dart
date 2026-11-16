@@ -15,8 +15,9 @@ import '../../calendar/application/calendar_providers.dart';
 import '../../settings/application/settings_providers.dart';
 import '../../settings/data/settings_repository.dart';
 import '../../../core/power/power_saving_manager.dart';
-import '../data/backend_sync_engine.dart';
 import '../data/background_sync.dart';
+import '../data/backend_sync_engine.dart';
+import '../data/google_account_sync.dart';
 import '../data/sync_engine.dart';
 
 part 'sync_providers/google_sync_status.dart';
