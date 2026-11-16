@@ -30,47 +30,35 @@ class AlarmReceiver : BroadcastReceiver() {
         val sourceId = intent.getStringExtra(AlarmPlugin.EXTRA_SOURCE_ID) ?: intent.getStringExtra("sourceId") ?: ""
         val phase = intent.getStringExtra(AlarmPlugin.EXTRA_PHASE) ?: intent.getStringExtra("phase")
         // Full-screen long preset: constant sound + vibration, repeat every
-        // minute until resolved, capped at 30 minutes.
+        // minute until resolved, capped at 30 minutes. Delivery includes the
+        // intended fire time so a late wake-up can be recorded as missed.
         val norm = AlarmPlugin.normalizePreset(preset)
         val count = intent.getIntExtra("repeatCount", 0)
         val repeats = kind == "alarm" && norm == "full_long"
-        if (!repeats || count == 0) {
-            // The first fire posts the notification (and marks the row).
-            AlarmPlugin.fire(context, rc, title, preset, body, kind, fullScreen, sourceType, sourceId, phase)
-        } else {
-            // Minute repeats keep the existing foreground ring alive without
-            // posting another notification. AlarmPlugin.fire would re-notify
-            // and could restart sound/flash on every repeat.
-            AlarmRingService.start(
-                context, rc, title, preset, body, kind, fullScreen,
-                sourceType, sourceId, phase,
+        val fireAtUtcMs = intent
+            .getLongExtra(AlarmPlugin.EXTRA_FIRE_AT_UTC, -1L)
+            .takeIf { it > 0 }
+        if (count == 0) {
+            // Mark state and post the notification/full-screen intent only;
+            // RingScreen starts audio after it is visible.
+            AlarmPlugin.fire(
+                context, rc, title, preset, body, kind, fullScreen, sourceType,
+                sourceId, phase, fireAtUtcMs,
             )
+            return
         }
-        if (repeats) {
-            val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            if (count < 30) {
-                val repeatIntent = Intent(context, AlarmReceiver::class.java).apply {
-                    putExtra(AlarmPlugin.EXTRA_REQUEST_CODE, rc)
-                    putExtra(AlarmPlugin.EXTRA_TITLE, title)
-                    putExtra(AlarmPlugin.EXTRA_PRESET, preset)
-                    putExtra(AlarmPlugin.EXTRA_BODY, body)
-                    putExtra(AlarmPlugin.EXTRA_KIND, kind)
-                    putExtra(AlarmPlugin.EXTRA_FULL_SCREEN, fullScreen)
-                    putExtra(AlarmPlugin.EXTRA_SOURCE_TYPE, sourceType)
-                    putExtra(AlarmPlugin.EXTRA_SOURCE_ID, sourceId)
-                    if (phase != null) putExtra(AlarmPlugin.EXTRA_PHASE, phase)
-                    putExtra("repeatCount", count + 1)
-                }
-                val repeat = PendingIntent.getBroadcast(
-                    context, rc,
-                    repeatIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                am.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60000, repeat
-                )
-            }
-        }
+        if (!repeats) return
+        // Repeats only refresh an already active ring. A queued repeat left
+        // after snooze/dismiss must never start sound on its own.
+        if (!AlarmRingService.isRingActiveFor(rc)) return
+        AlarmRingService.start(
+            context, rc, title, preset, body, kind, fullScreen,
+            sourceType, sourceId, phase, fireAtUtcMs,
+        )
+        AlarmPlugin.scheduleMinuteRepeat(
+            context, rc, title, preset, body, kind, fullScreen, sourceType,
+            sourceId, phase, fireAtUtcMs, count + 1,
+        )
     }
 }
 
@@ -118,6 +106,7 @@ class AlarmActionReceiver : BroadcastReceiver() {
                         putExtra(AlarmPlugin.EXTRA_SOURCE_TYPE, sourceType)
                         putExtra(AlarmPlugin.EXTRA_SOURCE_ID, sourceId)
                         if (phase != null) putExtra(AlarmPlugin.EXTRA_PHASE, phase)
+                        putExtra(AlarmPlugin.EXTRA_FIRE_AT_UTC, fireAt)
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )

@@ -19,10 +19,12 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/db/db_provider.dart';
 import '../../../core/theme/theme_tokens.dart';
 import '../../../core/ui/app_feedback.dart';
+import '../../../core/ui/app_messenger.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/alarms/alarm_preset.dart';
 import '../application/alarm_providers.dart';
 import '../data/alarm_repository.dart';
+import '../data/alarm_scheduler.dart';
 import 'alarm_preset_picker.dart';
 import 'alarm_source_route.dart';
 
@@ -37,9 +39,38 @@ class RingScreen extends ConsumerStatefulWidget {
   ConsumerState<RingScreen> createState() => _RingScreenState();
 }
 
-abstract class _RingScreenStateBase extends ConsumerState<RingScreen> {
+abstract class _RingScreenStateBase extends ConsumerState<RingScreen>
+    with WidgetsBindingObserver {
   Timer? _auto;
   bool _busy = false;
+
+  /// Set once an explicit action or an auto-snooze handles this ring, so
+  /// dispose, route changes, and lifecycle pauses cannot snooze twice.
+  bool _handled = false;
+  GoRouter? _router;
+
+  /// Implemented by the actions mixin. Declared here so the lifecycle and
+  /// view parts share one signature.
+  Future<void> _snooze({
+    int minutes,
+    int? code,
+    // ignore: unused_element_parameter
+    bool leaveRoute,
+    // ignore: unused_element_parameter
+    String? snackBarMessage,
+  });
+
+  Future<void> _act(
+    int? code,
+    Future<void> Function(int requestCode) action, {
+    required bool rebuild,
+    String? destination,
+    bool successFeedback,
+    // ignore: unused_element_parameter
+    bool leaveRoute,
+    // ignore: unused_element_parameter
+    String? snackBarMessage,
+  });
 }
 
 class _RingScreenState extends _RingScreenStateBase

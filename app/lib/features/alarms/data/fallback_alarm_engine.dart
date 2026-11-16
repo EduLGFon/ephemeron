@@ -60,7 +60,7 @@ class _AlarmListenerState extends ConsumerState<AlarmListener>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _poll = Timer.periodic(const Duration(seconds: 20), (_) => _check());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reconcileThenCheck());
   }
 
   @override
@@ -72,7 +72,20 @@ class _AlarmListenerState extends ConsumerState<AlarmListener>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _check();
+    // Reconcile before due handling: alarms that passed while the app was
+    // hibernated are missed, never rung on wake.
+    if (state == AppLifecycleState.resumed) _reconcileThenCheck();
+  }
+
+  Future<void> _reconcileThenCheck() async {
+    try {
+      await ref
+          .read(alarmRepositoryProvider)
+          .reconcileOverdue(
+            nowMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+          );
+    } catch (_) {}
+    await _check();
   }
 
   Future<void> _check() async {
@@ -88,10 +101,16 @@ class _AlarmListenerState extends ConsumerState<AlarmListener>
     final row = due.first;
     final kind = (row.kind ?? 'alarm') as String;
     final preset = AlarmPreset.tryParse(row.preset as String?);
+    final isFullScreen =
+        kind == 'alarm' && preset != null && preset.usesFullScreen;
     await repo.markFired(row.id as String);
-    try {
-      await playAlarmBeep(preset ?? AlarmPreset.notification);
-    } catch (_) {}
+    // Full-screen sound starts inside the dialog after its first frame.
+    // Reminders and notification presets keep the existing short beep.
+    if (!isFullScreen) {
+      try {
+        await playAlarmBeep(preset ?? AlarmPreset.notification);
+      } catch (_) {}
+    }
     if (!mounted) return;
     final title = (row.title as String?) ?? 'Alarm';
     final requestCode = (row.requestCode as int?) ?? 0;
@@ -176,17 +195,31 @@ class _FallbackRingDialogState extends ConsumerState<_FallbackRingDialog> {
     _auto = Timer(const Duration(seconds: 30), () {
       if (mounted) Navigator.of(context).pop();
     });
-    if (widget.preset == AlarmPreset.fullScreenLong) {
-      _beepLoop = Timer.periodic(const Duration(seconds: 5), (_) async {
-        _beeps++;
-        if (_beeps > 6) {
-          _beepLoop?.cancel();
-          return;
-        }
-        await playAlarmBeep(widget.preset);
-      });
-    }
+    // Sound is started only after the dialog is laid out, never before it is
+    // shown. The beep loop and one-shot beep are cancelled by dispose.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_startSound()),
+    );
     _loadNumericHabit();
+  }
+
+  Future<void> _startSound() async {
+    if (!mounted) return;
+    if (widget.preset != AlarmPreset.fullScreenLong) {
+      await playAlarmBeep(widget.preset);
+      return;
+    }
+    _beeps = 1;
+    await playAlarmBeep(widget.preset);
+    if (!mounted) return;
+    _beepLoop = Timer.periodic(const Duration(seconds: 5), (_) async {
+      _beeps++;
+      if (_beeps > 6) {
+        _beepLoop?.cancel();
+        return;
+      }
+      await playAlarmBeep(widget.preset);
+    });
   }
 
   Future<void> _loadNumericHabit() async {

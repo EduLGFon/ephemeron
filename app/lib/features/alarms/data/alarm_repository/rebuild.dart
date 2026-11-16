@@ -1,16 +1,24 @@
 part of '../alarm_repository.dart';
 
+/// Missed rows stay indexed long enough to populate the Missed alarms list
+/// after a normal overnight hibernation. Older settled rows are trimmed.
+const _missedRetentionMs = 24 * msPerHour;
+
 mixin _AlarmRebuildOps
     on
         _AlarmRepositoryBase,
         _AlarmEventCandidatesOps,
         _AlarmTaskCandidatesOps,
         _AlarmCountdownCandidatesOps,
-        _AlarmHabitCandidatesOps {
+        _AlarmHabitCandidatesOps,
+        _AlarmReconcileOps {
   /// Rebuilds the rolling window: next 48 h plus next 60 future alarms.
   /// Called on app open, after occurrence rebuilds, and by the daily job.
   Future<int> rebuildWindow({bool dueTomorrowEnabled = true}) async {
     final now = _now();
+    // Settle everything that came due while the app was not running before
+    // planning, so a hibernated batch can never ring on wake.
+    await reconcileOverdue(nowMs: now);
     final candidates = <AlarmCandidate>[
       ...await _eventCandidates(now),
       ...await _taskCandidates(),
@@ -19,17 +27,23 @@ mixin _AlarmRebuildOps
       ...await _habitCandidates(now),
     ];
     final existing = await _db.select(_db.alarmsIndex).get();
-    // Keep fired rows alive while they may still be ringing, and snoozed rows
-    // until they fire or are resolved, so the rebuild neither cancels their
-    // native registrations nor reuses their request codes.
-    final preserved = existing
-        .where(
-          (r) =>
-              (r.state == 'fired' || r.state == 'snoozed') &&
-              r.requestCode != null &&
-              r.fireAtUtc >= now - 24 * msPerHour,
-        )
-        .toList();
+    // Keep the active ring plus fired/snoozed rows alive while they may still
+    // ring or wait to fire, and keep recently missed rows so hibernated
+    // alarms remain visible in the Missed alarms list. Reconciliation above
+    // already settled overdue pending and stale fired rows.
+    final activeCode = AlarmScheduler.activeRingRequestCode;
+    final preserved = existing.where((r) {
+      final code = r.requestCode;
+      if (code == null) return false;
+      if (r.state == 'missed') {
+        return r.fireAtUtc >= now - _missedRetentionMs;
+      }
+      if (r.state == 'fired') {
+        // The active ring survives even when its fire time is old.
+        return code == activeCode || r.fireAtUtc >= now - _missedRetentionMs;
+      }
+      return r.state == 'snoozed' && r.fireAtUtc >= now - _missedRetentionMs;
+    }).toList();
     final preservedIds = {for (final r in preserved) r.id};
     final preservedCodes = {for (final r in preserved) r.requestCode!};
     final planned = planAlarmWindow(
