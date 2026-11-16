@@ -60,7 +60,7 @@ class _AlarmListenerState extends ConsumerState<AlarmListener>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _poll = Timer.periodic(const Duration(seconds: 20), (_) => _check());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reconcileThenCheck());
   }
 
   @override
@@ -72,7 +72,20 @@ class _AlarmListenerState extends ConsumerState<AlarmListener>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _check();
+    // Reconcile before due handling: alarms that passed while the app was
+    // hibernated are missed, never rung on wake.
+    if (state == AppLifecycleState.resumed) _reconcileThenCheck();
+  }
+
+  Future<void> _reconcileThenCheck() async {
+    try {
+      await ref
+          .read(alarmRepositoryProvider)
+          .reconcileOverdue(
+            nowMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+          );
+    } catch (_) {}
+    await _check();
   }
 
   Future<void> _check() async {

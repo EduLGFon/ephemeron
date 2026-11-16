@@ -13,6 +13,7 @@ import 'core/security/app_lock_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_tokens.dart';
 import 'core/ui/app_feedback.dart';
+import 'core/ui/app_messenger.dart';
 import 'data/services/home_widget_callback.dart';
 import 'data/services/home_widget_refresh_service.dart';
 import 'features/alarms/application/alarm_providers.dart';
@@ -109,6 +110,7 @@ class EphemeronApp extends ConsumerWidget {
     final app = MaterialApp.router(
       title: 'Ephemeron',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: appMessengerKey,
       theme: theme,
       locale: localeCode == 'system' ? null : Locale(localeCode),
       localizationsDelegates: const [

@@ -47,14 +47,43 @@ mixin _RingScreenActions on _RingScreenStateBase {
   }
 
   // ignore: unused_element
-  Future<void> _snooze({int minutes = 10, int? code}) async {
+  @override
+  Future<void> _snooze({
+    int minutes = 10,
+    int? code,
+    bool leaveRoute = true,
+    String? snackBarMessage,
+  }) async {
     await _act(
       code,
       (requestCode) => ref
           .read(alarmRepositoryProvider)
           .snoozeRequest(requestCode, minutes: minutes),
       rebuild: false,
+      leaveRoute: leaveRoute,
+      snackBarMessage: snackBarMessage,
     );
+  }
+
+  /// Starts native audio only after the ring screen's first frame. The stored
+  /// row must still be firing; notification presets never ring.
+  // ignore: unused_element
+  Future<void> _startRingSound() async {
+    if (_handled || !mounted) return;
+    try {
+      final repo = ref.read(alarmRepositoryProvider);
+      final active = ref.read(activeRingRequestProvider);
+      final row = active != null
+          ? await repo.byRequestCode(active)
+          : await repo.latestFired();
+      if (row == null || !canOpenRingScreen(row.state)) return;
+      final preset = AlarmPreset.tryParse(row.preset);
+      final code = row.requestCode;
+      if (code == null || preset == null || !preset.usesFullScreen) return;
+      await AlarmScheduler.startRing(code);
+    } catch (_) {
+      // No sound when the fired row cannot be verified.
+    }
   }
 
   /// Runs one ring action, then clears the verified ring request and leaves.
@@ -63,22 +92,31 @@ mixin _RingScreenActions on _RingScreenStateBase {
   /// [destination] replaces the ring route with a section tab (Open item);
   /// null keeps the existing pop-or-calendar behavior.
   /// [successFeedback] fires the success haptic only after the action resolves.
+  /// [leaveRoute] is false when the route already changed under the screen.
+  /// [snackBarMessage] is shown through the root messenger after a successful
+  /// auto-snooze so it survives route disposal. Explicit actions pass none.
   /// The rebuild is fire-and-forget so the route change lands before the
   /// biometric gate replaces the app subtree.
+  @override
   Future<void> _act(
     int? code,
     Future<void> Function(int requestCode) action, {
     required bool rebuild,
     String? destination,
     bool successFeedback = false,
+    bool leaveRoute = true,
+    String? snackBarMessage,
   }) async {
     if (_busy) return;
     _busy = true;
+    _handled = true;
     _auto?.cancel();
+    var acted = false;
     try {
       final requestCode = await _resolveCode(code);
       if (requestCode != null) {
         await action(requestCode);
+        acted = true;
         if (successFeedback && mounted) AppFeedback.success();
       }
     } catch (_) {
@@ -91,8 +129,9 @@ mixin _RingScreenActions on _RingScreenStateBase {
           final repo = ref.read(alarmRepositoryProvider);
           unawaited(_rebuildWindow(repo));
         }
-        _leaveRing(destination: destination);
+        if (leaveRoute) _leaveRing(destination: destination);
       }
+      if (acted && snackBarMessage != null) AppMessenger.show(snackBarMessage);
     }
   }
 

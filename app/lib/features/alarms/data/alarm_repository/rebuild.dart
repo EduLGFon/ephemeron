@@ -6,11 +6,15 @@ mixin _AlarmRebuildOps
         _AlarmEventCandidatesOps,
         _AlarmTaskCandidatesOps,
         _AlarmCountdownCandidatesOps,
-        _AlarmHabitCandidatesOps {
+        _AlarmHabitCandidatesOps,
+        _AlarmReconcileOps {
   /// Rebuilds the rolling window: next 48 h plus next 60 future alarms.
   /// Called on app open, after occurrence rebuilds, and by the daily job.
   Future<int> rebuildWindow({bool dueTomorrowEnabled = true}) async {
     final now = _now();
+    // Settle everything that came due while the app was not running before
+    // planning, so a hibernated batch can never ring on wake.
+    await reconcileOverdue(nowMs: now);
     final candidates = <AlarmCandidate>[
       ...await _eventCandidates(now),
       ...await _taskCandidates(),
@@ -21,7 +25,9 @@ mixin _AlarmRebuildOps
     final existing = await _db.select(_db.alarmsIndex).get();
     // Keep fired rows alive while they may still be ringing, and snoozed rows
     // until they fire or are resolved, so the rebuild neither cancels their
-    // native registrations nor reuses their request codes.
+    // native registrations nor reuses their request codes. Reconciliation
+    // above already dropped overdue and stale fired rows.
+
     final preserved = existing
         .where(
           (r) =>

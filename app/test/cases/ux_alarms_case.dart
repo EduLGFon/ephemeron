@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/ui/app_feedback.dart';
+import 'package:ephemeron/core/ui/app_messenger.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/features/alarms/application/alarm_providers.dart';
@@ -61,6 +62,8 @@ class _GatedAlarmRepository extends AlarmRepository {
   final plusGate = Completer<void>();
   bool doneStarted = false;
   bool plusStarted = false;
+  int? snoozedCode;
+  int? snoozedMinutes;
 
   @override
   Future<AlarmsIndexData?> byRequestCode(int requestCode) async => row;
@@ -78,6 +81,12 @@ class _GatedAlarmRepository extends AlarmRepository {
   Future<void> completeHabitPlusOne(int requestCode) async {
     plusStarted = true;
     await plusGate.future;
+  }
+
+  @override
+  Future<void> snoozeRequest(int requestCode, {int minutes = 10}) async {
+    snoozedCode = requestCode;
+    snoozedMinutes = minutes;
   }
 
   @override
@@ -119,7 +128,10 @@ Widget _ringApp(ProviderContainer container) {
   );
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp.router(routerConfig: router),
+    child: MaterialApp.router(
+      scaffoldMessengerKey: appMessengerKey,
+      routerConfig: router,
+    ),
   );
 }
 
@@ -415,6 +427,8 @@ void main() {
 
     expect(haptics, isNotEmpty);
     expect(haptics.single, contains('mediumImpact'));
+    expect(repo.snoozedCode, isNull);
+    expect(find.text('Alarm snoozed for 10 min'), findsNothing);
   });
 
   testWidgets('+1 haptic fires only after the action resolves', (tester) async {
@@ -475,5 +489,93 @@ void main() {
 
     expect(haptics, isNotEmpty);
     expect(haptics.single, contains('mediumImpact'));
+  });
+
+  testWidgets('leaving the ring screen snoozes 10 min and shows a toast', (
+    tester,
+  ) async {
+    _mockPlatformChannels();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final row = AlarmsIndexData(
+      id: 'alarm-leave',
+      sourceType: 'task',
+      sourceId: 'task-leave',
+      fireAtUtc: 0,
+      requestCode: 44,
+      state: 'fired',
+      kind: 'alarm',
+      title: 'Leave alarm',
+      preset: 'full_short',
+    );
+    final repo = _GatedAlarmRepository(db, row);
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        alarmRepositoryProvider.overrideWithValue(repo),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(activeRingRequestProvider.notifier).set(44);
+
+    await tester.pumpWidget(_ringApp(container));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Leave alarm'), findsOneWidget);
+    expect(repo.snoozedCode, isNull);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(repo.snoozedCode, 44);
+    expect(repo.snoozedMinutes, 10);
+
+    // Snack bars paint once the app can draw again.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alarm snoozed for 10 min'), findsOneWidget);
+    expect(find.text('calendar'), findsOneWidget);
+  });
+
+  testWidgets('30 s auto-snooze reschedules 10 min and shows a toast', (
+    tester,
+  ) async {
+    _mockPlatformChannels();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final row = AlarmsIndexData(
+      id: 'alarm-timeout',
+      sourceType: 'task',
+      sourceId: 'task-timeout',
+      fireAtUtc: 0,
+      requestCode: 45,
+      state: 'fired',
+      kind: 'alarm',
+      title: 'Timeout alarm',
+      preset: 'full_long',
+    );
+    final repo = _GatedAlarmRepository(db, row);
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        alarmRepositoryProvider.overrideWithValue(repo),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(activeRingRequestProvider.notifier).set(45);
+
+    await tester.pumpWidget(_ringApp(container));
+    await tester.pump();
+    expect(repo.snoozedCode, isNull);
+
+    await tester.pump(const Duration(seconds: 31));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(repo.snoozedCode, 45);
+    expect(repo.snoozedMinutes, 10);
+    expect(find.text('Alarm snoozed for 10 min'), findsOneWidget);
   });
 }

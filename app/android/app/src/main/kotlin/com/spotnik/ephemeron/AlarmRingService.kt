@@ -30,6 +30,16 @@ class AlarmRingService : Service() {
 
         const val ACTION_STOP = "com.spotnik.ephemeron.ALARM_RING_STOP"
 
+        // Request code currently producing audio. Set on start and cleared
+        // when the service stops; receivers use it to refuse stale repeats.
+        @Volatile
+        private var activeRequestCode: Int? = null
+
+        fun isAnyRingActive(): Boolean = activeRequestCode != null
+
+        fun isRingActiveFor(requestCode: Int): Boolean =
+            activeRequestCode == requestCode
+
         fun shouldRing(preset: String, kind: String): Boolean {
             if (kind == "reminder") return false
             return AlarmPlugin.normalizePreset(preset) != "notification"
@@ -143,6 +153,10 @@ class AlarmRingService : Service() {
 
         if (!shouldRing(preset, kind)) return START_NOT_STICKY
 
+        // At most one ring at a time. A second full-screen delivery must not
+        // stack audio; AlarmPlugin.startRing also rejects it before this call.
+        if (actives.isNotEmpty() && !actives.containsKey(rc)) return START_NOT_STICKY
+
         val norm = AlarmPlugin.normalizePreset(preset)
 
         val notification = AlarmPlugin.buildNotification(
@@ -233,6 +247,7 @@ class AlarmRingService : Service() {
         }
 
         actives[rc] = Active(player, handler, blink, torchOff, cameraId)
+        activeRequestCode = rc
         return START_NOT_STICKY
     }
 
@@ -255,10 +270,12 @@ class AlarmRingService : Service() {
             } catch (_: Exception) {
             }
         }
+        if (actives.isEmpty()) activeRequestCode = null
     }
 
     override fun onDestroy() {
         for (key in ArrayList(actives.keys)) stopRing(key)
+        activeRequestCode = null
         super.onDestroy()
     }
 }

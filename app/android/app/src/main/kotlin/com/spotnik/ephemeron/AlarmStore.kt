@@ -14,6 +14,7 @@ data class AlarmIndexRow(
     val sourceId: String,
     val kind: String,
     val preset: String,
+    val state: String,
 )
 
 object AlarmStore {
@@ -83,7 +84,7 @@ object AlarmStore {
         val db = openOrNull(context, true) ?: return null
         try {
             val c = db.rawQuery(
-                "SELECT request_code, fire_at_utc, title, source_type, source_id, kind, preset FROM alarms_index WHERE request_code = ? LIMIT 1",
+                "SELECT request_code, fire_at_utc, title, source_type, source_id, kind, preset, state FROM alarms_index WHERE request_code = ? LIMIT 1",
                 arrayOf(requestCode.toString())
             )
             val row = if (c.moveToNext()) {
@@ -95,6 +96,7 @@ object AlarmStore {
                     sourceId = c.getString(4) ?: "",
                     kind = c.getString(5) ?: "alarm",
                     preset = c.getString(6) ?: "notification",
+                    state = c.getString(7) ?: "scheduled",
                 )
             } else null
             c.close()
@@ -147,7 +149,7 @@ object AlarmStore {
         val db = openOrNull(context, true) ?: return out
         try {
             val c = db.rawQuery(
-                "SELECT request_code, fire_at_utc, title, source_type, source_id, kind, preset FROM alarms_index WHERE state IN ('scheduled','snoozed') AND request_code IS NOT NULL",
+                "SELECT request_code, fire_at_utc, title, source_type, source_id, kind, preset, state FROM alarms_index WHERE state IN ('scheduled','snoozed') AND request_code IS NOT NULL",
                 null
             )
             while (c.moveToNext()) {
@@ -160,6 +162,7 @@ object AlarmStore {
                         sourceId = c.getString(4) ?: "",
                         kind = c.getString(5) ?: "alarm",
                         preset = c.getString(6) ?: "notification",
+                        state = c.getString(7) ?: "scheduled",
                     )
                 )
             }
@@ -192,6 +195,7 @@ object AlarmStore {
                         putExtra(AlarmPlugin.EXTRA_FULL_SCREEN, fullScreen)
                         putExtra(AlarmPlugin.EXTRA_SOURCE_TYPE, row.sourceType)
                         putExtra(AlarmPlugin.EXTRA_SOURCE_ID, row.sourceId)
+                        putExtra(AlarmPlugin.EXTRA_FIRE_AT_UTC, row.fireAtUtc)
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )

@@ -26,6 +26,10 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
         const val EXTRA_SOURCE_TYPE = "sourceType"
         const val EXTRA_SOURCE_ID = "sourceId"
         const val EXTRA_PHASE = "phase"
+        const val EXTRA_FIRE_AT_UTC = "fireAtUtcMs"
+
+        /** Delivery later than this after the intended time is stale. */
+        const val STALE_GRACE_MS = 2 * 60 * 1000L
 
         fun normalizePreset(raw: String): String {
             return when (raw) {
@@ -105,6 +109,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
             sourceType: String = "",
             sourceId: String = "",
             phase: String? = null,
+            fireAtUtcMs: Long? = null,
         ) {
             intent.putExtra(EXTRA_REQUEST_CODE, requestCode)
             intent.putExtra(EXTRA_TITLE, title)
@@ -115,6 +120,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
             intent.putExtra(EXTRA_SOURCE_TYPE, sourceType)
             intent.putExtra(EXTRA_SOURCE_ID, sourceId)
             if (phase != null) intent.putExtra(EXTRA_PHASE, phase)
+            if (fireAtUtcMs != null) intent.putExtra(EXTRA_FIRE_AT_UTC, fireAtUtcMs)
         }
 
         private fun isNumericGoalHabit(context: Context, sourceType: String, sourceId: String): Boolean {
@@ -135,6 +141,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
             sourceType: String = "",
             sourceId: String = "",
             phase: String? = null,
+            fireAtUtcMs: Long? = null,
         ): android.app.Notification {
             val norm = normalizePreset(preset)
             val contentIntent = PendingIntent.getActivity(
@@ -147,6 +154,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                     putExtra(EXTRA_SOURCE_ID, sourceId)
                     putExtra(EXTRA_KIND, kind)
                     if (phase != null) putExtra(EXTRA_PHASE, phase)
+                    if (fireAtUtcMs != null) putExtra(EXTRA_FIRE_AT_UTC, fireAtUtcMs)
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
@@ -156,7 +164,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                     context, requestCode + codeOffset,
                     Intent(context, AlarmActionReceiver::class.java).apply {
                         this.action = action
-                        putAlarmExtras(this, requestCode, title, preset, body, kind, fullScreen, sourceType, sourceId, phase)
+                        putAlarmExtras(this, requestCode, title, preset, body, kind, fullScreen, sourceType, sourceId, phase, fireAtUtcMs)
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
@@ -168,7 +176,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                     Intent(context, MainActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                         putExtra("alarm_action", action)
-                        putAlarmExtras(this, requestCode, title, preset, body, kind, fullScreen, sourceType, sourceId, phase)
+                        putAlarmExtras(this, requestCode, title, preset, body, kind, fullScreen, sourceType, sourceId, phase, fireAtUtcMs)
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
@@ -273,12 +281,31 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
             sourceType: String = "",
             sourceId: String = "",
             phase: String? = null,
+            fireAtUtcMs: Long? = null,
         ) {
+            val now = System.currentTimeMillis()
+            // A delivery after the intended moment means the device slept
+            // through it. Record it missed and never ring or re-alert.
+            if (fireAtUtcMs != null && fireAtUtcMs > 0 &&
+                now - fireAtUtcMs > STALE_GRACE_MS
+            ) {
+                AlarmStore.markState(context, requestCode, "missed")
+                return
+            }
+            val wantsFull = kind == "alarm" && fullScreen && usesFullScreen(preset)
+            // One ring at a time: concurrent full-screen alarms become
+            // missed notification-less rows instead of stacking audio.
+            if (wantsFull && AlarmRingService.isAnyRingActive() &&
+                !AlarmRingService.isRingActiveFor(requestCode)
+            ) {
+                AlarmStore.markState(context, requestCode, "missed")
+                return
+            }
             notifyChannels(context)
             // Notifications disabled means no visible alarm with stop
-            // actions: record it as missed instead of starting a looping
-            // ring that the user cannot dismiss. Mark before posting so a
-            // tap on the full-screen intent always sees the firing state.
+            // actions: record it as missed instead of starting a ring the
+            // user cannot dismiss. Mark before posting so a tap on the
+            // full-screen intent always sees the firing state.
             val enabled = notificationsEnabled(context)
             AlarmStore.markState(context, requestCode, if (enabled) "fired" else "missed")
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -286,15 +313,76 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                 requestCode,
                 buildNotification(
                     context, requestCode, title, preset, body, kind, fullScreen,
-                    sourceType, sourceId, phase,
+                    sourceType, sourceId, phase, fireAtUtcMs,
                 )
             )
-            if (enabled) {
-                AlarmRingService.start(
-                    context, requestCode, title, preset, body, kind, fullScreen,
-                    sourceType, sourceId, phase,
+            // Sound is not started here. RingScreen calls startRing after
+            // its first laid-out frame, so audio never plays outside it.
+        }
+
+        /** Starts audio for a stored firing row; called from RingScreen. */
+        fun startRing(context: Context, requestCode: Int): Boolean {
+            val row = AlarmStore.rowForRequestCode(context, requestCode) ?: return false
+            if (row.state != "fired") return false
+            if (row.kind != "alarm" || !usesFullScreen(row.preset)) return false
+            if (System.currentTimeMillis() - row.fireAtUtc > STALE_GRACE_MS) {
+                AlarmStore.markState(context, requestCode, "missed")
+                return false
+            }
+            if (!notificationsEnabled(context)) {
+                AlarmStore.markState(context, requestCode, "missed")
+                return false
+            }
+            if (AlarmRingService.isAnyRingActive() &&
+                !AlarmRingService.isRingActiveFor(requestCode)
+            ) {
+                AlarmStore.markState(context, requestCode, "missed")
+                return false
+            }
+            AlarmRingService.start(
+                context, requestCode, row.title, row.preset, "", row.kind, true,
+                row.sourceType, row.sourceId, null,
+            )
+            if (normalizePreset(row.preset) == "full_long") {
+                scheduleMinuteRepeat(
+                    context, requestCode, row.title, row.preset, "", row.kind, true,
+                    row.sourceType, row.sourceId, null, row.fireAtUtc, 1,
                 )
             }
+            return true
+        }
+
+        /** Queues the next long-preset repeat only while that ring is active. */
+        fun scheduleMinuteRepeat(
+            context: Context,
+            requestCode: Int,
+            title: String,
+            preset: String,
+            body: String,
+            kind: String,
+            fullScreen: Boolean,
+            sourceType: String,
+            sourceId: String,
+            phase: String?,
+            fireAtUtcMs: Long?,
+            nextCount: Int,
+        ) {
+            if (nextCount > 30) return
+            val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val repeatIntent = Intent(context, AlarmReceiver::class.java).apply {
+                putAlarmExtras(
+                    this, requestCode, title, preset, body, kind, fullScreen,
+                    sourceType, sourceId, phase, fireAtUtcMs,
+                )
+                putExtra("repeatCount", nextCount)
+            }
+            val repeat = PendingIntent.getBroadcast(
+                context, requestCode, repeatIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            am.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60000, repeat
+            )
         }
     }
 
@@ -326,6 +414,17 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
             "cancelAll" -> {
                 val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 for (rc in AlarmStore.requestCodes(context)) cancel(rc)
+                result.success(null)
+            }
+            "startRing" -> {
+                val rc = call.argument<Int>("requestCode")
+                    ?: return result.error("ARG", "no code", null)
+                result.success(startRing(context, rc))
+            }
+            "stopRing" -> {
+                val rc = call.argument<Int>("requestCode") ?: -1
+                if (rc >= 0) AlarmRingService.stop(context, rc)
+                else AlarmRingService.stopAll(context)
                 result.success(null)
             }
             "canScheduleExact" -> {
@@ -363,7 +462,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
         val intent = PendingIntent.getBroadcast(
             context, rc,
             Intent(context, AlarmReceiver::class.java).apply {
-                putAlarmExtras(this, rc, title, preset, body, kind, fullScreen, sourceType, sourceId, phase)
+                putAlarmExtras(this, rc, title, preset, body, kind, fullScreen, sourceType, sourceId, phase, at)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -378,6 +477,7 @@ class AlarmPlugin(private val context: Context) : MethodChannel.MethodCallHandle
                     putExtra(EXTRA_SOURCE_ID, sourceId)
                     putExtra(EXTRA_KIND, kind)
                     if (phase != null) putExtra(EXTRA_PHASE, phase)
+                    putExtra(EXTRA_FIRE_AT_UTC, at)
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )

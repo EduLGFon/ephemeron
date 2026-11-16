@@ -2,14 +2,6 @@ part of '../ring_screen.dart';
 
 mixin _RingScreenView on _RingScreenStateBase {
   void _startAutoSnooze();
-  Future<void> _snooze({int minutes, int? code});
-  Future<void> _act(
-    int? code,
-    Future<void> Function(int requestCode) action, {
-    required bool rebuild,
-    String? destination,
-    bool successFeedback,
-  });
   int? _requestCode(AlarmsIndexData? alarm);
   Future<AlarmsIndexData?> _loadAlarm(int? requestCode);
   Future<bool> _isNumericHabit(String? sourceType, String? sourceId);

@@ -116,6 +116,31 @@ class AlarmScheduler {
     await _channel.invokeMethod<void>('cancelAll');
   }
 
+  /// Starts the native ring for a stored row. RingScreen calls this only
+  /// after its first frame so sound never plays outside the visible screen.
+  static Future<bool> startRing(int requestCode) async {
+    if (defaultTargetPlatform != TargetPlatform.android) return true;
+    try {
+      final v = await _channel.invokeMethod<bool>('startRing', {
+        'requestCode': requestCode,
+      });
+      return v ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Stops the native ring without touching the scheduled registration.
+  /// A null [requestCode] stops every active ring.
+  static Future<void> stopRing([int? requestCode]) async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _channel.invokeMethod<void>('stopRing', {
+        'requestCode': requestCode,
+      });
+    } catch (_) {}
+  }
+
   /// Test button: rings in 10 seconds with the given preset.
   static Future<void> testAlarm([
     AlarmPreset preset = AlarmPreset.notification,

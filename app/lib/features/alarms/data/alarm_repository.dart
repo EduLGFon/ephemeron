@@ -23,6 +23,7 @@ part 'alarm_repository/tasks.dart';
 part 'alarm_repository/countdowns.dart';
 part 'alarm_repository/habits.dart';
 part 'alarm_repository/management.dart';
+part 'alarm_repository/reconcile.dart';
 
 class _AlarmRepositoryBase {
   _AlarmRepositoryBase(this._db);
@@ -84,6 +85,7 @@ class AlarmRepository extends _AlarmRepositoryBase
         _AlarmTaskCandidatesOps,
         _AlarmCountdownCandidatesOps,
         _AlarmHabitCandidatesOps,
+        _AlarmReconcileOps,
         _AlarmRebuildOps,
         _AlarmManagementOps {
   AlarmRepository(super._db);
