@@ -10,6 +10,7 @@ import 'package:ephemeron/data/services/alarm_cancel.dart';
 import 'package:ephemeron/domain/habits/date_key.dart';
 import 'package:ephemeron/domain/habits/habit_calendar_entry.dart';
 import 'package:ephemeron/domain/habits/streaks.dart';
+import 'package:ephemeron/domain/habits/habit_stats.dart';
 
 part 'habit_repository/sections.dart';
 part 'habit_repository/habits.dart';

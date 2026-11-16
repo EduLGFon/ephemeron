@@ -6,6 +6,7 @@ import '../../../core/db/db_provider.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../data/repositories/habit_repository.dart';
 import '../../../domain/habits/date_key.dart';
+import '../../../domain/habits/habit_stats.dart';
 import '../../settings/application/settings_providers.dart';
 import '../../../data/services/habit_timer_store.dart';
 
@@ -43,6 +44,15 @@ final habitStreakProvider =
           .watch(habitRepositoryProvider)
           .streaks(habitId, habitTodayKey());
     });
+
+final habitStatsProvider = StreamProvider.family<HabitStatsSummary?, String>((
+  ref,
+  habitId,
+) {
+  return ref
+      .watch(habitRepositoryProvider)
+      .watchHabitStats(habitId, habitTodayKey());
+});
 
 /// Day the habit list acts on (backfill past days). Defaults to today.
 final selectedHabitDayProvider = NotifierProvider<SelectedHabitDay, String>(
