@@ -3,8 +3,6 @@
 // mode rows can be long-pressed and dragged between fields and the tray, and
 // every row carries a circular complete checkbox.
 
-import 'dart:math' as math;
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

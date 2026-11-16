@@ -83,58 +83,25 @@ class _MatrixFieldState extends State<_MatrixField> {
                         ),
                       ),
                     )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        // Rows keep a compact natural height derived from the
-                        // scaled title and meta lines. The list shows as many
-                        // full rows as fit plus a thin peek of the next row;
-                        // rows never stretch to fill the field.
-                        final scaler = MediaQuery.textScalerOf(context);
-                        final baseRow =
-                            (scaler.scale(
-                                      theme.textTheme.bodySmall?.fontSize ??
-                                          12.0,
-                                    ) +
-                                    scaler.scale(
-                                      theme.textTheme.labelSmall?.fontSize ??
-                                          11.0,
-                                    ) +
-                                    8.0)
-                                .clamp(40.0, 100.0);
-                        const peek = 12.0;
-                        final viewport = constraints.maxHeight;
-                        final n = math.max(
-                          1,
-                          ((viewport - peek) / baseRow).floor(),
-                        );
-                        final itemExtent = math.min(
-                          (viewport - peek) / n,
-                          baseRow + 6,
-                        );
-                        return Scrollbar(
-                          key: ValueKey('matrix-scrollbar-${field.id}'),
-                          controller: _controller,
-                          thickness: 2.5,
-                          radius: const Radius.circular(2),
-                          thumbVisibility: true,
-                          interactive: false,
-                          child: ListView.builder(
-                            key: ValueKey('matrix-list-${field.id}'),
-                            controller: _controller,
-                            physics: const ClampingScrollPhysics(), // inner scroll; outer scroll reaches tray
-                            padding: EdgeInsets.zero,
-                            itemExtent: itemExtent,
-                            itemCount: field.tasks.length,
-                            itemBuilder: (context, index) => MatrixTaskRow(
-                              key: ValueKey(
-                                'matrix-task-${field.tasks[index].id}',
-                              ),
-                              task: field.tasks[index],
-                              draggable: widget.dragEnabled,
-                            ),
-                          ),
-                        );
-                      },
+                  : Scrollbar(
+                      key: ValueKey('matrix-scrollbar-${field.id}'),
+                      controller: _controller,
+                      thickness: 2.5,
+                      radius: const Radius.circular(2),
+                      thumbVisibility: true,
+                      interactive: false,
+                      child: ListView.builder(
+                        key: ValueKey('matrix-list-${field.id}'),
+                        controller: _controller,
+                        physics: const ClampingScrollPhysics(), // inner scroll; outer scroll reaches tray
+                        padding: EdgeInsets.zero,
+                        itemCount: field.tasks.length,
+                        itemBuilder: (context, index) => MatrixTaskRow(
+                          key: ValueKey('matrix-task-${field.tasks[index].id}'),
+                          task: field.tasks[index],
+                          draggable: widget.dragEnabled,
+                        ),
+                      ),
                     ),
             ),
           ],
