@@ -252,6 +252,12 @@ void main() {
     expect(taps, 1);
     final inkWellWidget = tester.widget<InkWell>(inkWell);
     expect(inkWellWidget.focusNode!.hasFocus, isTrue);
+    final containerFinder = find.descendant(
+      of: inkWell,
+      matching: find.byType(Container),
+    );
+    final container = tester.widget<Container>(containerFinder);
+    expect(container.foregroundDecoration, isNotNull);
     final renderAfter = (tester.renderObject(inkWell) as RenderBox).size;
     expect(renderAfter, renderBefore);
   });
@@ -268,14 +274,20 @@ void main() {
         ),
       ),
     );
+    final containerFinder = find.descendant(
+      of: find.byType(Breadcrumb),
+      matching: find.byType(Container),
+    );
+    final before = tester.widget<Container>(containerFinder).decoration;
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: Offset.zero);
     await tester.pump();
     await gesture.moveTo(tester.getCenter(find.byType(Breadcrumb)));
     await tester.pump();
+    final after = tester.widget<Container>(containerFinder).decoration;
     await gesture.removePointer();
     await tester.pump();
-    expect(tester.takeException(), isNull);
+    expect(after, isNot(equals(before)));
   });
 
   testWidgets('Breadcrumb and Scrubber 48dp targets', (tester) async {
@@ -288,7 +300,11 @@ void main() {
               SizedBox(
                 height: 200,
                 width: 60,
-                child: Scrubber(semanticLabel: 'position', valueFormatter: (v) => '${(v * 100).round()}%', onChanged: (_) {}),
+                child: Scrubber(
+                  semanticLabel: 'position',
+                  valueFormatter: (v) => '${(v * 100).round()}%',
+                  onChanged: (_) {},
+                ),
               ),
             ],
           ),
@@ -304,5 +320,97 @@ void main() {
     expect(bSize.height, greaterThanOrEqualTo(48));
     expect(sSize.width, greaterThanOrEqualTo(48));
     expect(sSize.height, greaterThanOrEqualTo(48));
+  });
+  testWidgets('Breadcrumb semantics single node with tap', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Breadcrumb(
+            dateLabel: 'Mon 16 Nov',
+            levelLabel: 'Day',
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    final data = tester
+        .getSemantics(find.byType(Breadcrumb))
+        .getSemanticsData();
+    expect(data.label, 'Mon 16 Nov, Day');
+    expect(data.hasAction(SemanticsAction.tap), isTrue);
+  });
+
+  testWidgets('Breadcrumb disabled no tap action', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Breadcrumb(dateLabel: 'Mon 16 Nov', levelLabel: 'Day'),
+        ),
+      ),
+    );
+    final data = tester
+        .getSemantics(find.byType(Breadcrumb))
+        .getSemanticsData();
+    expect(data.hasAction(SemanticsAction.tap), isFalse);
+  });
+
+  testWidgets('Breadcrumb slipped count appended', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Breadcrumb(
+            dateLabel: 'Mon 16 Nov',
+            levelLabel: 'Day',
+            slippedCount: 3,
+            slippedSemanticLabel: 'slipped',
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    final data = tester
+        .getSemantics(find.byType(Breadcrumb))
+        .getSemanticsData();
+    expect(data.label, contains('slipped'));
+    expect(data.label, contains('3'));
+  });
+
+  testWidgets('Breadcrumb slipped count zero not appended', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Breadcrumb(
+            dateLabel: 'Mon 16 Nov',
+            levelLabel: 'Day',
+            slippedCount: 0,
+            slippedSemanticLabel: 'slipped',
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    final data = tester
+        .getSemantics(find.byType(Breadcrumb))
+        .getSemanticsData();
+    expect(data.label, 'Mon 16 Nov, Day');
+  });
+
+  testWidgets('Breadcrumb slipped null label appends number', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Breadcrumb(
+            dateLabel: 'Mon 16 Nov',
+            levelLabel: 'Day',
+            slippedCount: 2,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    final data = tester
+        .getSemantics(find.byType(Breadcrumb))
+        .getSemanticsData();
+    expect(data.label, contains('2'));
   });
 }
