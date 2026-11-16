@@ -151,41 +151,45 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       // Google
       final needReconnectGoogle = <String>[];
       bool googleAttempted = false;
+      bool googleUnavailable = false;
       if (googleAccounts.isNotEmpty) {
+        final db = ref.read(appDatabaseProvider);
         for (final acct in googleAccounts) {
           try {
-            final engine = SyncEngine(
-              ref.read(appDatabaseProvider),
-              clientFactory: () {
-                try {
-                  return HttpGoogleApiClient(
-                    accessToken: () => googleAuth.accessTokenFor(acct),
-                  );
-                } catch (_) {
-                  return null;
-                }
-              },
+            // Acquire the token before building the engine. A missing token
+            // is transient: skip this account and retry later instead of
+            // turning it into a 401 auth failure.
+            final result = await syncGoogleAccount(
+              db: db,
+              auth: googleAuth,
               account: acct,
               signedInAccounts: googleAccounts,
             );
-            debugPrint('[sync] signed in, calling engine');
-            await engine.syncNow();
-            if (engine.skipped) continue;
-            googleAttempted = true;
-            anyAttempted = true;
-            if (engine.authFailure) {
+            if (result.skipped) continue;
+            if (result.authFailure) {
+              // Definitive platform denial or repeated Google auth response.
               needReconnectGoogle.add(acct);
               hasAuthFailure = true;
+              googleAttempted = true;
+              anyAttempted = true;
               googleIssue = _higherGoogleIssue(googleIssue, SyncErrorKind.auth);
-            } else if (engine.status == SyncStatus.synced) {
+              continue;
+            }
+            if (!result.attempted) {
+              googleUnavailable = true;
+              continue;
+            }
+            googleAttempted = true;
+            anyAttempted = true;
+            if (result.status == SyncStatus.synced) {
               anyPulled = true;
-            } else if (engine.status == SyncStatus.error) {
+            } else if (result.status == SyncStatus.error) {
               hasRealError = true;
               googleIssue = _higherGoogleIssue(
                 googleIssue,
-                engine.errorKind == SyncErrorKind.none
+                result.errorKind == SyncErrorKind.none
                     ? SyncErrorKind.unknown
-                    : engine.errorKind,
+                    : result.errorKind,
               );
             }
           } catch (e) {
@@ -206,6 +210,12 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         }
         final reconsent = ref.read(googleReconsentAccountsProvider);
         if (reconsent.isNotEmpty) googleIssue = SyncErrorKind.auth;
+        if (!anyPulled &&
+            !hasAuthFailure &&
+            !hasRealError &&
+            googleUnavailable) {
+          googleIssue = _higherGoogleIssue(googleIssue, SyncErrorKind.network);
+        }
         ref
             .read(syncIssueProvider.notifier)
             .set(googleIssue == SyncErrorKind.none ? null : googleIssue);

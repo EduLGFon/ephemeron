@@ -4,7 +4,9 @@
 // Startup restore is silent. It reuses unexpired stored tokens and asks the
 // platform for a token bound to each stored account with prompting disabled.
 // It never calls attemptLightweightAuthentication, which on Android can show
-// the Credential Manager account picker at every launch.
+// the Credential Manager account picker at every launch. A missing or
+// transient token keeps the account and raises no reconnect banner; only a
+// real Google auth rejection or a definitive platform denial does.
 //
 // The implementation is split across `part` files under `google_auth/`
 // while this file stays the public entry point.

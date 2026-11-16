@@ -64,6 +64,15 @@ class SafeSecureStorage {
     await _storage.write(key: _a(account, 'userId'), value: userId);
   }
 
+  /// Clears only the cached access token and its expiry for [account].
+  ///
+  /// Used after Google rejects a token (401). The account, refresh token, and
+  /// user id stay so a rejected access token can never disconnect an account.
+  Future<void> clearGoogleAccessTokenFor(String account) async {
+    await _storage.delete(key: _a(account, 'accessToken'));
+    await _storage.delete(key: _a(account, 'expiryMs'));
+  }
+
   Future<void> clearGoogleFor(String account) async {
     await _storage.delete(key: _a(account, 'accessToken'));
     await _storage.delete(key: _a(account, 'refreshToken'));

@@ -18,35 +18,41 @@ mixin _GoogleAuthAccount on _GoogleAuthBase {
       ..clear()
       ..addAll(accs);
     _userIdsByEmail.clear();
-    if (_accounts.isEmpty) return null;
-    _activeEmail = _accounts.first;
+    if (_accounts.isEmpty) {
+      _activeEmail = null;
+      return null;
+    }
+    // Restoring the stored account list is independent of token acquisition.
+    // Keep the current account when it is still stored so a transient token
+    // failure can never change the active account.
+    final previousActive = _activeEmail;
+    if (previousActive == null || !_accounts.contains(previousActive)) {
+      _activeEmail = _accounts.first;
+    }
     try {
       await _ensureInit();
       // Silent restore only. No lightweight authentication here: on Android
       // it can show the Credential Manager account picker at every launch.
       await _loadUserIds();
-      final needsReconnect = <String>[];
       for (final account in _accounts) {
-        String? token;
         try {
-          token = await accessTokenFor(account);
+          // Purely non-interactive. Only a definitive platform denial marks
+          // this account for reconnection; transient failures leave the
+          // account list and banner state untouched.
+          await accessTokenFor(account);
         } catch (_) {
-          // One account's plugin failure must not block the others.
-          token = null;
+          // One account's plugin/storage failure must not block the others.
         }
-        if (token == null) needsReconnect.add(account);
       }
-      _setAccountsNeedingReconnect(needsReconnect);
-      return _activeEmail;
     } catch (e) {
       // Log only the type: plugin error text may contain account identifiers.
       // PRIVACY: never interpolate the exception or account data here.
-      debugPrint('GoogleAuth.restore failed: ${e.runtimeType}');
-      // A failed outer restore cannot prove any account is usable. Warn for
-      // every stored account instead of failing silently.
-      if (_accounts.isNotEmpty) _setAccountsNeedingReconnect(_accounts);
-      return _activeEmail;
+      debugPrint('GoogleAuth.restore token refresh failed: ${e.runtimeType}');
+      // Initialization/token acquisition failing is not proof that the stored
+      // grants are invalid. Keep the accounts and never raise the reconnect
+      // banner from a transient startup failure.
     }
+    return _activeEmail;
   }
 
   Future<void> signOut([String? account]) async {

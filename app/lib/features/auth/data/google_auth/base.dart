@@ -45,6 +45,16 @@ abstract class _GoogleAuthBase {
     _accountsNeedingReconnect.removeWhere((a) => isSameAccountEmail(a, email));
   }
 
+  /// Marks [email] for interactive reconnection after a definitive auth
+  /// failure. Transient token failures must not call this.
+  void _markNeedsReconnect(String email) {
+    final normalized = normalizeAccountEmail(email);
+    if (normalized.isEmpty || _accountsNeedingReconnect.contains(normalized)) {
+      return;
+    }
+    _accountsNeedingReconnect.add(normalized);
+  }
+
   // Signed-in account objects keyed by normalized email. Tokens must come from
   // the matching account's authorization client, never the global one.
   final Map<String, GoogleSignInAccount> _googleAccountsByEmail = {};
@@ -98,10 +108,10 @@ abstract class _GoogleAuthBase {
   /// false, so the platform can never show an account picker or consent
   /// screen. The request is bound to the stored account email/user id, so the
   /// returned token is never used for another account.
-  Future<String?> _authorizeSilently(String account) async {
+  Future<_SilentAuthResult> _authorizeSilently(String account) async {
     // Web cannot guarantee a silent token after a reload; never trigger a
     // FedCM or popup from startup.
-    if (kIsWeb) return null;
+    if (kIsWeb) return const _SilentAuthResult.unavailable();
     final request = AuthorizationRequestDetails(
       scopes: AppConfig.googleScopes,
       // Android authorizes by email and ignores userId. iOS refreshes by
@@ -113,19 +123,32 @@ abstract class _GoogleAuthBase {
     );
     try {
       final injected = silentAuthorizer;
-      if (injected != null) return await injected(request);
-      // Bounded so a slow Play Services call cannot hold session restore.
-      final data = await GoogleSignInPlatform.instance
-          .clientAuthorizationTokensForScopes(
-            ClientAuthorizationTokensForScopesParameters(request: request),
-          )
-          .timeout(const Duration(seconds: 10));
-      final token = data?.accessToken;
-      return token == null || token.isEmpty ? null : token;
+      final token = injected != null
+          ? await injected(request)
+          : (await GoogleSignInPlatform.instance
+                    .clientAuthorizationTokensForScopes(
+                      ClientAuthorizationTokensForScopesParameters(
+                        request: request,
+                      ),
+                    )
+                    .timeout(const Duration(seconds: 10)))
+                ?.accessToken;
+      if (token == null || token.isEmpty) {
+        return const _SilentAuthResult.unavailable();
+      }
+      return _SilentAuthResult.token(token);
+    } on GoogleSignInException catch (e) {
+      // Only a definitive account mismatch needs interactive reconnection.
+      // Timeouts, offline/plugin errors, and a missing token are transient:
+      // they must not raise the reconnect banner.
+      if (e.code == GoogleSignInExceptionCode.userMismatch) {
+        return const _SilentAuthResult.unauthorized();
+      }
+      return const _SilentAuthResult.unavailable();
     } catch (_) {
-      // A revoked grant or a platform failure is a reconnect signal. Never
-      // log plugin error text: it may contain account identifiers.
-      return null;
+      // PRIVACY: never log plugin error text: it may contain account
+      // identifiers.
+      return const _SilentAuthResult.unavailable();
     }
   }
 
@@ -150,3 +173,23 @@ abstract class _GoogleAuthBase {
     ).join();
   }
 }
+
+/// Outcome of one silent authorization attempt.
+///
+/// [unavailable] covers transient conditions (timeout, offline, plugin not
+/// ready, no token yet) and must never request reconnection. [unauthorized]
+/// is reserved for a definitive platform verdict about this account.
+class _SilentAuthResult {
+  const _SilentAuthResult.token(this.token) : status = _SilentAuthStatus.token;
+  const _SilentAuthResult.unavailable()
+    : status = _SilentAuthStatus.unavailable,
+      token = null;
+  const _SilentAuthResult.unauthorized()
+    : status = _SilentAuthStatus.unauthorized,
+      token = null;
+
+  final _SilentAuthStatus status;
+  final String? token;
+}
+
+enum _SilentAuthStatus { token, unavailable, unauthorized }

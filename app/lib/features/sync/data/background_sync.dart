@@ -12,13 +12,12 @@ import 'package:workmanager/workmanager.dart';
 import '../../../core/config/app_config.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../data/remote/backend_sync_api.dart';
-import '../../../data/remote/google_api_client.dart';
 import '../../../data/services/headless_widget_push.dart';
 import '../../auth/data/backend_auth.dart';
 import '../../auth/data/google_auth.dart';
 import '../../settings/data/settings_repository.dart';
-import '../data/backend_sync_engine.dart';
-import '../data/sync_engine.dart';
+import 'backend_sync_engine.dart';
+import 'google_account_sync.dart';
 
 const _taskName = 'ephemeron-periodic-sync';
 
@@ -32,23 +31,15 @@ void backgroundSyncDispatcher() {
         final googleAuth = GoogleAuth();
         await googleAuth.restore();
         var googleAuthFailure = false;
-        for (final account in googleAuth.accounts) {
-          final engine = SyncEngine(
-            db,
-            clientFactory: () {
-              try {
-                return HttpGoogleApiClient(
-                  accessToken: () => googleAuth.accessTokenFor(account),
-                );
-              } catch (_) {
-                return null;
-              }
-            },
+        final googleAccounts = googleAuth.accounts;
+        for (final account in googleAccounts) {
+          final result = await syncGoogleAccount(
+            db: db,
+            auth: googleAuth,
             account: account,
-            signedInAccounts: googleAuth.accounts,
+            signedInAccounts: googleAccounts,
           );
-          await engine.syncNow();
-          if (engine.authFailure) googleAuthFailure = true;
+          if (result.authFailure) googleAuthFailure = true;
         }
         if (googleAuthFailure) {
           try {

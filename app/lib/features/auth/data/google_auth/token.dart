@@ -96,6 +96,11 @@ mixin _GoogleAuthToken on _GoogleAuthBase {
           await _cacheToken(account, authz.accessToken);
           return authz.accessToken;
         }
+      } on GoogleSignInException catch (e) {
+        if (e.code == GoogleSignInExceptionCode.userMismatch) {
+          _markNeedsReconnect(account);
+        }
+        // Otherwise fall through to the account-bound silent request below.
       } catch (_) {
         // Fall through to the account-bound silent request below.
       }
@@ -104,9 +109,44 @@ mixin _GoogleAuthToken on _GoogleAuthBase {
     // It never uses the global GoogleSignIn client, which may belong to
     // another signed-in account.
     final silent = await _authorizeSilently(account);
-    if (silent == null) return null;
-    await _cacheToken(account, silent);
-    return silent;
+    switch (silent.status) {
+      case _SilentAuthStatus.token:
+        final token = silent.token!;
+        await _cacheToken(account, token);
+        return token;
+      case _SilentAuthStatus.unauthorized:
+        _markNeedsReconnect(account);
+        return null;
+      case _SilentAuthStatus.unavailable:
+        // Transient: keep the account and any existing banner state, and let
+        // the next sync retry.
+        return null;
+    }
+  }
+
+  /// Forgets a token that Google rejected (an HTTP 401/403 auth response).
+  ///
+  /// SECURITY: Only the cached access token and expiry for this exact account
+  /// are cleared. The account entry, refresh token, user id, and every other
+  /// account stay untouched, so a rejected token can never disconnect an
+  /// account. The platform cache is cleared too when available.
+  Future<void> invalidateAccessTokenFor(String account) async {
+    final cached = _accessTokens.remove(account);
+    String? token = cached;
+    try {
+      token ??= await _storage.googleAccessTokenFor(account);
+      await _storage.clearGoogleAccessTokenFor(account);
+    } catch (_) {
+      // Storage unavailable: the in-memory token was still dropped.
+    }
+    if (token == null || token.isEmpty) return;
+    try {
+      await GoogleSignInPlatform.instance.clearAuthorizationToken(
+        ClearAuthorizationTokenParams(accessToken: token),
+      );
+    } catch (_) {
+      // Best effort: web/desktop/test platforms may not implement it.
+    }
   }
 
   Future<void> _cacheToken(String account, String token) async {

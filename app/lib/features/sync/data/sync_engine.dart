@@ -61,6 +61,7 @@ class SyncEngine {
   SyncStatus _status = SyncStatus.synced;
   String? _lastError;
   bool _authFailure = false;
+  int? _authStatus;
   bool _skipped = false;
   bool _hadFailure = false;
   SyncErrorKind _errorKind = SyncErrorKind.none;
@@ -68,6 +69,11 @@ class SyncEngine {
   /// Set when any op in the last run failed with an auth/permission error.
   /// Drives the reconnect banner; reset on every [syncNow].
   bool get authFailure => _authFailure;
+
+  /// First HTTP status that caused [authFailure] (401 or 403). A 401 can mean
+  /// a stale cached token and is worth a silent refresh; a 403 is a
+  /// definitive authorization verdict for the current grant.
+  int? get authStatus => _authStatus;
 
   /// Classified failure of the last run. Reset to [SyncErrorKind.none] on a
   /// fully successful sync.
@@ -114,6 +120,7 @@ class SyncEngine {
     _busy = true;
     _status = SyncStatus.syncing;
     _authFailure = false;
+    _authStatus = null;
     _errorKind = SyncErrorKind.none;
     _hadFailure = false;
     _lastError = null;
@@ -203,7 +210,10 @@ class SyncEngine {
   /// priority kind wins. Never stores tokens, emails, or event content.
   void _recordFailure(Object error) {
     final kind = _classifyError(error);
-    if (kind == SyncErrorKind.auth) _authFailure = true;
+    if (kind == SyncErrorKind.auth) {
+      _authFailure = true;
+      if (error is GoogleApiException) _authStatus ??= error.status;
+    }
     _hadFailure = true;
     if (_errorPriority(kind) >= _errorPriority(_errorKind)) {
       _errorKind = kind;
