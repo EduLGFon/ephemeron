@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/logger/logger.dart' show AppLogger;
 import 'stream_theme_preferences.dart';
 import '../design/stream_theme_mode.dart';
 
@@ -8,40 +9,41 @@ final streamThemePreferencesProvider = Provider<StreamThemePreferences>((ref) {
   return StreamThemePreferences(() => SharedPreferences.getInstance());
 });
 
-// Override in tests with an injected getter.
 final streamThemeProvider =
     NotifierProvider<StreamThemeNotifier, StreamThemeMode>(
       StreamThemeNotifier.new,
     );
 
 class StreamThemeNotifier extends Notifier<StreamThemeMode> {
+  final AppLogger _log = AppLogger();
   bool _userChanged = false;
+  bool _disposed = false;
+  Object? lastPersistError;
 
   @override
   StreamThemeMode build() {
+    ref.onDispose(() => _disposed = true);
     _load();
     return StreamThemeMode.system;
   }
 
   Future<void> _load() async {
-    final prefs = _preferences();
+    final prefs = ref.read(streamThemePreferencesProvider);
     final mode = await prefs.read();
-    if (!_userChanged) state = mode;
-  }
-
-  StreamThemePreferences _preferences() {
-    try {
-      return ref.read(streamThemePreferencesProvider);
-    } catch (_) {
-      return StreamThemePreferences(() => SharedPreferences.getInstance());
-    }
+    if (!_disposed && !_userChanged) state = mode;
   }
 
   Future<void> setMode(StreamThemeMode mode) async {
     _userChanged = true;
-    state = mode; // optimistic
-    final prefs = _preferences();
-    // ignore: unawaited_futures
-    prefs.write(mode);
+    state = mode;
+    final prefs = ref.read(streamThemePreferencesProvider);
+    try {
+      await prefs.write(mode);
+      lastPersistError = null;
+    } catch (e) {
+      _log.error('stream theme persist failed', e);
+      lastPersistError = e;
+      // keep optimistic state
+    }
   }
 }

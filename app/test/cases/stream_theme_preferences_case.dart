@@ -2,6 +2,9 @@ import 'package:ephemeron/features/stream/application/stream_theme_preferences.d
 import 'package:ephemeron/features/stream/application/stream_theme_provider.dart';
 import 'package:ephemeron/features/stream/design/stream_theme_mode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,7 +25,9 @@ void main() {
   });
 
   test('bad stored value falls back to system', () async {
-    SharedPreferences.setMockInitialValues({'stream.themeMode': 'garbage'});
+    SharedPreferences.setMockInitialValues({
+      StreamThemePreferences.storageKey: 'garbage',
+    });
     final prefs = await SharedPreferences.getInstance();
     final repo = StreamThemePreferences(() async => prefs);
     expect(await repo.read(), StreamThemeMode.system);
@@ -39,12 +44,27 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    // allow initial load
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await pumpEventQueue();
     container.read(streamThemeProvider.notifier).setMode(StreamThemeMode.dark);
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await pumpEventQueue();
     expect(container.read(streamThemeProvider), StreamThemeMode.dark);
-    final stored = prefs.getString('stream.themeMode');
+    final stored = prefs.getString(StreamThemePreferences.storageKey);
     expect(stored, 'dark');
+  });
+
+  test('dispose before load completes does not throw', () async {
+    final completer = Completer<SharedPreferences>();
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        streamThemePreferencesProvider.overrideWithValue(
+          StreamThemePreferences(() => completer.future),
+        ),
+      ],
+    );
+    container.dispose();
+    completer.complete(prefs);
+    await pumpEventQueue();
   });
 }

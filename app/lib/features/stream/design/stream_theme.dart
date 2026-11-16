@@ -4,45 +4,29 @@ import 'stream_palette.dart';
 import 'stream_theme_mode.dart';
 import 'stream_tokens.dart';
 
-/// Build a Stream-scoped [ThemeData]. App-wide theme is untouched.
 ThemeData streamThemeData(StreamThemeMode mode, Brightness platformBrightness) {
-  final resolved = mode == StreamThemeMode.system
-      ? (platformBrightness == Brightness.dark
-            ? StreamThemeMode.dark
-            : StreamThemeMode.light)
-      : mode;
-
+  final resolved = _resolveMode(mode, platformBrightness);
   final isDark =
       resolved == StreamThemeMode.dark || resolved == StreamThemeMode.trueBlack;
   final isTrueBlack = resolved == StreamThemeMode.trueBlack;
 
-  final surface = isTrueBlack
-      ? StreamSurfaces.trueBlack
-      : (isDark ? StreamSurfaces.dark : StreamSurfaces.light);
-  final onSurface = isTrueBlack
-      ? StreamTextColors.trueBlack
-      : (isDark ? StreamTextColors.dark : StreamTextColors.light);
-  final hairline = isTrueBlack
-      ? StreamHairlines.trueBlack
-      : (isDark ? StreamHairlines.dark : StreamHairlines.light);
-
+  final surface = _surfaceFor(isDark, isTrueBlack);
+  final onSurface = _textFor(isDark, isTrueBlack);
+  final hairline = _hairlineFor(isDark, isTrueBlack);
+  final error = _errorFor(isDark, isTrueBlack);
+  final onError = _onErrorFor(isDark, isTrueBlack);
   final accent = isDark ? streamAccents.first.dark : streamAccents.first.light;
 
   final brightness = isDark ? Brightness.dark : Brightness.light;
-  final scheme = ColorScheme(
+  final scheme = _colorScheme(
     brightness: brightness,
-    primary: accent,
-    onPrimary: isDark ? Colors.black : Colors.white,
-    secondary: accent,
-    onSecondary: isDark ? Colors.black : Colors.white,
-    error: const Color(0xFFB00020),
-    onError: Colors.white,
+    accent: accent,
     surface: surface,
     onSurface: onSurface,
-    outline: hairline,
-    outlineVariant: hairline,
+    hairline: hairline,
+    error: error,
+    onError: onError,
   );
-
   final textTheme = _streamTextTheme(brightness, onSurface);
 
   return ThemeData(
@@ -54,6 +38,65 @@ ThemeData streamThemeData(StreamThemeMode mode, Brightness platformBrightness) {
     fontFamily: streamFontFamily,
     textTheme: textTheme,
     dividerColor: hairline,
+  );
+}
+
+StreamThemeMode _resolveMode(
+  StreamThemeMode mode,
+  Brightness platformBrightness,
+) {
+  if (mode != StreamThemeMode.system) return mode;
+  return platformBrightness == Brightness.dark
+      ? StreamThemeMode.dark
+      : StreamThemeMode.light;
+}
+
+Color _surfaceFor(bool isDark, bool isTrueBlack) {
+  if (isTrueBlack) return StreamSurfaces.trueBlack;
+  return isDark ? StreamSurfaces.dark : StreamSurfaces.light;
+}
+
+Color _textFor(bool isDark, bool isTrueBlack) {
+  if (isTrueBlack) return StreamTextColors.trueBlack;
+  return isDark ? StreamTextColors.dark : StreamTextColors.light;
+}
+
+Color _hairlineFor(bool isDark, bool isTrueBlack) {
+  if (isTrueBlack) return StreamHairlines.trueBlack;
+  return isDark ? StreamHairlines.dark : StreamHairlines.light;
+}
+
+Color _errorFor(bool isDark, bool isTrueBlack) {
+  if (isTrueBlack) return StreamErrorColors.trueBlack;
+  return isDark ? StreamErrorColors.dark : StreamErrorColors.light;
+}
+
+Color _onErrorFor(bool isDark, bool isTrueBlack) {
+  if (isTrueBlack) return StreamOnErrorColors.trueBlack;
+  return isDark ? StreamOnErrorColors.dark : StreamOnErrorColors.light;
+}
+
+ColorScheme _colorScheme({
+  required Brightness brightness,
+  required Color accent,
+  required Color surface,
+  required Color onSurface,
+  required Color hairline,
+  required Color error,
+  required Color onError,
+}) {
+  return ColorScheme(
+    brightness: brightness,
+    primary: accent,
+    onPrimary: brightness == Brightness.dark ? Colors.black : Colors.white,
+    secondary: accent,
+    onSecondary: brightness == Brightness.dark ? Colors.black : Colors.white,
+    error: error,
+    onError: onError,
+    surface: surface,
+    onSurface: onSurface,
+    outline: hairline,
+    outlineVariant: hairline,
   );
 }
 
