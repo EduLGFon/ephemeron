@@ -41,6 +41,7 @@
 - Full-screen alarm audio is confined to the visible RingScreen on Android and to the in-app fallback dialog on web/desktop/iOS. If the screen cannot open, the alarm becomes missed rather than ringing in the background.
 - Linked countdowns are local-only; they are not sent to the backend. Event/task date changes update linked target dates, but a countdown can still be edited independently afterward.
 - Habit statistics use local logs and existing streak rules; weekly-target stats show the current week only. No schema or backend change was added.
+- `todo_coverage` long-press task reorder is timing-flaky in the combined 849-test suite: it passed alone and in subsequent full runs, but failed once during this pass. Follow-up: stabilize the gesture timing in that widget test.
 - Three plugins still apply Kotlin Gradle Plugin (flutter_web_auth_2, home_widget, workmanager_android); Flutter warns this will fail in a future release. All are latest, so this is upstream.
 - Generated l10n keeps a header ignore for deprecated_member_use because Flutter gen-l10n still emits legacy delegates; app code uses material_ui delegates. Revisit when the generator migrates.
 - Release build warns the CupertinoIcons font is absent; no app code uses CupertinoIcons.
