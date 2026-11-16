@@ -56,6 +56,7 @@ mixin _EventOccurrenceOps
     String? Function()? reminders,
     String? Function()? alarmPreset,
     String? Function()? notes,
+    bool syncLinkedDate = true,
   }) async {
     final master = await _master(masterId);
     await _assertEventWritable(master);
@@ -183,6 +184,11 @@ mixin _EventOccurrenceOps
         affectedId = masterId;
     }
     await _occ.invalidateEvent(masterId);
+    // Date edits keep a linked countdown in step; title/notes-only edits do not
+    // reset a user-chosen countdown target date.
+    if (syncLinkedDate && (startUtc != null || startDate != null)) {
+      await syncLinkedCountdownDate(affectedId);
+    }
     return affectedId;
   }
 }

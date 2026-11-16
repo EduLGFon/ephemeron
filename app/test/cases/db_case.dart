@@ -34,9 +34,9 @@ void main() {
     await db.close();
   });
 
-  test('schema version is 14', () async {
+  test('schema version is 15', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
-    expect(db.schemaVersion, 14);
+    expect(db.schemaVersion, 15);
     await db.close();
   });
 
@@ -98,6 +98,23 @@ void main() {
         .get();
     final names = cols.map((r) => r.read<String>('name')).toSet();
     expect(names, containsAll(['source_label', 'source_account']));
+    await db.close();
+  });
+
+  test('v15 adds nullable countdown link columns and index', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final cols = await db.customSelect('PRAGMA table_info(countdowns)').get();
+    final byName = {for (final row in cols) row.read<String>('name'): row};
+    for (final name in const ['linked_type', 'linked_id']) {
+      expect(byName.keys, contains(name));
+      expect(byName[name]!.read<int>('notnull'), 0);
+    }
+    final idx = await db
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_countdowns_linked'",
+        )
+        .get();
+    expect(idx, isNotEmpty);
     await db.close();
   });
 

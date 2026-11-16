@@ -12,6 +12,9 @@ class Countdowns extends Table {
   IntColumn get alertOffsetDays => integer().nullable()();
   IntColumn get alertTimeMin => integer().nullable()();
   TextColumn get alarmPreset => text().nullable()();
+  // Optional local link to an event/task/habit row. Both are null or both set.
+  TextColumn get linkedType => text().nullable()();
+  TextColumn get linkedId => text().nullable()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
   IntColumn get deletedAt => integer().nullable()();

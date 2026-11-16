@@ -132,6 +132,12 @@ class _EventDetailsBody extends ConsumerWidget {
               ),
             _Attendees(eventId: e.id),
             _LinkedNotes(eventId: e.id, excludeNoteId: e.notesOverflowNoteId),
+            EntityCountdownSection(
+              linkedType: 'event',
+              linkedId: e.id,
+              initialTitle: e.title,
+              initialDate: _countdownInitialDate(e, occurrenceStartMs),
+            ),
             if (!locked)
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -191,6 +197,26 @@ class _EventDetailsBody extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Initial countdown date: occurrence date when opened from the calendar,
+/// otherwise the event's own local start date. All-day cache timestamps are
+/// UTC date keys, so they are not converted to device-local time.
+DateTime? _countdownInitialDate(Event e, int? occurrenceStartMs) {
+  if (e.isAllDay) {
+    if (occurrenceStartMs != null) {
+      final d = DateTime.fromMillisecondsSinceEpoch(
+        occurrenceStartMs,
+        isUtc: true,
+      );
+      return DateTime(d.year, d.month, d.day);
+    }
+    return parseCountdownDate(e.startDate);
+  }
+  final ms = occurrenceStartMs ?? e.startUtc;
+  if (ms == null) return null;
+  final local = DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
+  return DateTime(local.year, local.month, local.day);
 }
 
 Future<void> _openLocation(BuildContext context, String location) async {

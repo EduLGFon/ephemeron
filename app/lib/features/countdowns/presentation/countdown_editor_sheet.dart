@@ -9,11 +9,13 @@ import '../../../core/time/picker_memory.dart';
 import '../../../core/ui/app_sheet.dart';
 import '../../../core/ui/escape_to_close.dart';
 import '../../../data/drift/app_database.dart';
+import '../../../data/repositories/countdown_repository.dart';
 import '../../../domain/alarms/alarm_preset.dart';
 import '../../alarms/presentation/alarm_preset_picker.dart';
 import '../../settings/application/settings_providers.dart';
 import '../../settings/data/settings_repository.dart';
 import '../application/countdowns_providers.dart';
+import 'countdown_formatters.dart';
 
 part 'countdown_editor_sheet/draft.dart';
 part 'countdown_editor_sheet/form.dart';
@@ -23,6 +25,10 @@ Future<void> showCountdownEditor(
   BuildContext context, {
   Countdown? countdown,
   Map<String, dynamic>? restoredDraft,
+  String? linkedType,
+  String? linkedId,
+  String? initialTitle,
+  DateTime? initialDate,
 }) {
   return showAppSheet<void>(
     context,
@@ -30,16 +36,31 @@ Future<void> showCountdownEditor(
       child: _CountdownEditorSheet(
         countdown: countdown,
         restoredDraft: restoredDraft,
+        linkedType: linkedType,
+        linkedId: linkedId,
+        initialTitle: initialTitle,
+        initialDate: initialDate,
       ),
     ),
   );
 }
 
 class _CountdownEditorSheet extends ConsumerStatefulWidget {
-  const _CountdownEditorSheet({this.countdown, this.restoredDraft});
+  const _CountdownEditorSheet({
+    this.countdown,
+    this.restoredDraft,
+    this.linkedType,
+    this.linkedId,
+    this.initialTitle,
+    this.initialDate,
+  });
 
   final Countdown? countdown;
   final Map<String, dynamic>? restoredDraft;
+  final String? linkedType;
+  final String? linkedId;
+  final String? initialTitle;
+  final DateTime? initialDate;
 
   @override
   ConsumerState<_CountdownEditorSheet> createState() =>
@@ -56,6 +77,8 @@ class _CountdownEditorSheetState extends ConsumerState<_CountdownEditorSheet> {
   int _alertHour = 9;
   int _alertMinute = 0;
   String? _alarmPreset;
+  String? _linkedType;
+  String? _linkedId;
   DraftAutosaver? _saver;
   bool _saved = false;
   SettingsRepository? _settings;
@@ -125,15 +148,4 @@ class _CountdownEditorSheetState extends ConsumerState<_CountdownEditorSheet> {
       child: SingleChildScrollView(child: _buildForm(context)),
     );
   }
-}
-
-DateTime? _parseDate(String? targetDate) {
-  if (targetDate == null || targetDate.isEmpty) return null;
-  final p = targetDate.split('-');
-  if (p.length != 3) return null;
-  final y = int.tryParse(p[0]);
-  final m = int.tryParse(p[1]);
-  final d = int.tryParse(p[2]);
-  if (y == null || m == null || d == null) return null;
-  return DateTime(y, m, d);
 }

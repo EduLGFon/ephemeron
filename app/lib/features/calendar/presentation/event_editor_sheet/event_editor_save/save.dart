@@ -156,6 +156,11 @@ extension on _EventEditorState {
           return;
         }
       } else {
+        final datesChanged = existing.isAllDay
+            ? startDateKey != existing.startDate ||
+                  endDateKey != existing.endDate
+            : _start.toUtc().millisecondsSinceEpoch != existing.startUtc ||
+                  _end.toUtc().millisecondsSinceEpoch != existing.endUtc;
         final eventId = await repo.editOccurrence(
           existing.id,
           _originalStartOf(
@@ -177,6 +182,7 @@ extension on _EventEditorState {
           reminders: () => encodeReminderOffsets(_reminders),
           alarmPreset: () => _alarmPreset,
           notes: () => notesPayload.stored,
+          syncLinkedDate: datesChanged,
         );
         await _syncDescription(eventId, notesPayload.full);
         await repo.setAttendees(
@@ -240,6 +246,7 @@ extension on _EventEditorState {
         reminders: () => encodeReminderOffsets(_reminders),
         alarmPreset: () => _alarmPreset,
         notes: () => notesPayload.stored,
+        syncLinkedDate: datesChanged,
       );
       await _syncDescription(eventId, notesPayload.full);
       await repo.setAttendees(seriesId, _attendees.text.split(','));
@@ -264,6 +271,7 @@ extension on _EventEditorState {
       reminders: () => encodeReminderOffsets(_reminders),
       alarmPreset: () => _alarmPreset,
       notes: () => notesPayload.stored,
+      syncLinkedDate: datesChanged,
     );
     if (mounted) {
       await _syncDescription(eventId, notesPayload.full);

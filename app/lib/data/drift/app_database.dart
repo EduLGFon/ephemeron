@@ -40,7 +40,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -135,6 +135,13 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(occurrenceCache, occurrenceCache.sourceLabel);
         await m.addColumn(occurrenceCache, occurrenceCache.sourceAccount);
       }
+      if (from < 15) {
+        await m.addColumn(countdowns, countdowns.linkedType);
+        await m.addColumn(countdowns, countdowns.linkedId);
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_countdowns_linked ON countdowns(linked_type, linked_id);',
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON;');
@@ -187,6 +194,9 @@ Future<void> _createIndexesAndFts(AppDatabase db) async {
   );
   await db.customStatement(
     'CREATE INDEX IF NOT EXISTS idx_task_occurrence_states_series_date ON task_occurrence_states(series_id, occurrence_date);',
+  );
+  await db.customStatement(
+    'CREATE INDEX IF NOT EXISTS idx_countdowns_linked ON countdowns(linked_type, linked_id);',
   );
 
   await db.customStatement(

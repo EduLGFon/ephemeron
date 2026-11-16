@@ -6,34 +6,35 @@ import 'package:flutter_test/flutter_test.dart';
 // ignore: depend_on_referenced_packages
 import 'package:sqlite3/sqlite3.dart';
 
-// Test-only Drift schema replay for the v11 -> v14 migration chain.
+// Test-only Drift schema replay for the v11 -> v15 migration chain.
 //
 // The repository has no `drift_schemas/` snapshots (drift_dev schema export is
 // not configured), so historical schemas are reconstructed from the migration
 // code in `app_database.dart`:
 //   v11 = current schema minus the v12 microsoft_account columns, the v13
-//         task_occurrence_states table/index, and the v14 occurrence source
-//         columns.
+//         task_occurrence_states table/index, the v14 occurrence source
+//         columns, and the v15 countdown link columns.
 //   v12 = v11 + microsoft_account columns.
 //   v13 = v12 + task_occurrence_states and its index.
+//   v14 = v13 + occurrence source columns.
 //
 // v11 is the earliest replayed version: v7 and v11 both recreate
 // occurrence_cache, so occurrence cache rows cannot survive a pre-v11 replay by
 // design. v4->v5 is covered by migration_v4_v5_case.dart and v6->current by
-// migration_v7_v11_regression_case.dart. A full v1->v14 replay needs historical
+// migration_v7_v11_regression_case.dart. A full v1->v15 replay needs historical
 // snapshots the repository does not keep, so the gap is v1->v11 plus the
 // destructive occurrence_cache rebuilds in v7/v11.
 //
-// The fixture creates the v11 tables touched by v12-v14 and the tables whose
-// rows are asserted. Migrations v12-v14 touch no other v11 table, so omitted
+// The fixture creates the v11 tables touched by v12-v15 and the tables whose
+// rows are asserted. Migrations v12-v15 touch no other v11 table, so omitted
 // tables cannot change the migration outcome.
 void main() {
   for (final from in const [11, 12, 13]) {
     test(
-      'replay v$from -> v14 adds later columns and preserves rows',
+      'replay v$from -> v15 adds later columns and preserves rows',
       () async {
         final dir = Directory.systemTemp.createTempSync(
-          'ephemeron_v${from}_v14_',
+          'ephemeron_v${from}_v15_',
         );
         final path = '${dir.path}/v$from.db';
         addTearDown(() {
@@ -55,8 +56,8 @@ void main() {
 
         final db = AppDatabase.forTesting(NativeDatabase(File(path)));
         try {
-          expect(db.schemaVersion, 14);
-          await _verifyV14(db, from);
+          expect(db.schemaVersion, 15);
+          await _verifyV15(db, from);
         } finally {
           await db.close();
         }
@@ -65,7 +66,7 @@ void main() {
   }
 }
 
-Future<void> _verifyV14(AppDatabase db, int from) async {
+Future<void> _verifyV15(AppDatabase db, int from) async {
   final calendar = await db
       .customSelect(
         "SELECT name, source, google_account, microsoft_account "
@@ -147,6 +148,36 @@ Future<void> _verifyV14(AppDatabase db, int from) async {
       .getSingle();
   expect(habitLog.read<int>('done'), 1);
   expect(habitLog.read<double>('amount'), 1.0);
+
+  final countdown = await db
+      .customSelect(
+        "SELECT title, target_date, yearly_repeat, linked_type, linked_id "
+        "FROM countdowns WHERE id = 'cd1'",
+      )
+      .getSingle();
+  expect(countdown.read<String>('title'), 'Old countdown');
+  expect(countdown.read<String?>('target_date'), '2027-01-01');
+  expect(countdown.read<int>('yearly_repeat'), 1);
+  expect(countdown.read<String?>('linked_type'), isNull);
+  expect(countdown.read<String?>('linked_id'), isNull);
+
+  final countdownColumns = await db
+      .customSelect('PRAGMA table_info(countdowns)')
+      .get();
+  final countdownByName = {
+    for (final row in countdownColumns) row.read<String>('name'): row,
+  };
+  for (final name in const ['linked_type', 'linked_id']) {
+    expect(countdownByName.keys, contains(name));
+    expect(countdownByName[name]!.read<int>('notnull'), 0);
+  }
+  final countdownIndex = await db
+      .customSelect(
+        "SELECT name FROM sqlite_master WHERE type='index' "
+        "AND name='idx_countdowns_linked'",
+      )
+      .get();
+  expect(countdownIndex, isNotEmpty);
 
   final occurrence = await db
       .customSelect(
@@ -315,6 +346,11 @@ INSERT INTO habits (
 INSERT INTO habit_logs (
   id, habit_id, day_key, amount, done, skipped, created_at, updated_at
 ) VALUES ('log1', 'habit1', '2026-01-05', 1.0, 1, 0, 1, 2);
+''');
+  db.execute('''
+INSERT INTO countdowns (
+  id, title, target_date, yearly_repeat, show_age, created_at, updated_at
+) VALUES ('cd1', 'Old countdown', '2027-01-01', 1, 0, 1, 2);
 ''');
   db.execute('''
 INSERT INTO pending_operations (
@@ -530,6 +566,24 @@ CREATE TABLE habit_logs (
   skipped INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
+);
+''',
+  '''
+CREATE TABLE countdowns (
+  id TEXT NOT NULL PRIMARY KEY,
+  title TEXT NOT NULL,
+  type TEXT,
+  template TEXT,
+  target_date TEXT,
+  yearly_repeat INTEGER NOT NULL DEFAULT 0,
+  show_age INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  alert_offset_days INTEGER,
+  alert_time_min INTEGER,
+  alarm_preset TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  deleted_at INTEGER
 );
 ''',
   '''

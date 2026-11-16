@@ -29,6 +29,23 @@ extension _CountdownEditorForm on _CountdownEditorSheetState {
             TextButton(onPressed: _pickDate, child: const Text('Pick date')),
           ],
         ),
+        if (_linkedType != null && _linkedId != null)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            leading: const Icon(Icons.link),
+            title: Text(
+              'Linked to ${countdownLinkedTypeLabel(_linkedType) ?? 'item'}',
+            ),
+            subtitle: const Text('Stored locally on this item.'),
+            trailing: TextButton(
+              onPressed: () => _changed(() {
+                _linkedType = null;
+                _linkedId = null;
+              }),
+              child: const Text('Unlink'),
+            ),
+          ),
         SwitchListTile(
           title: const Text('Repeats yearly'),
           value: _yearlyRepeat,

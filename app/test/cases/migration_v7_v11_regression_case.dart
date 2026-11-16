@@ -118,6 +118,25 @@ CREATE TABLE tasks (
   remote_etag TEXT
 );
 ''');
+      // v6 countdowns: alarm_preset was added in v5; no v15 link columns.
+      db.execute('''
+CREATE TABLE countdowns (
+  id TEXT NOT NULL PRIMARY KEY,
+  title TEXT NOT NULL,
+  type TEXT,
+  template TEXT,
+  target_date TEXT,
+  yearly_repeat INTEGER NOT NULL DEFAULT 0,
+  show_age INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  alert_offset_days INTEGER,
+  alert_time_min INTEGER,
+  alarm_preset TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  deleted_at INTEGER
+);
+''');
       // Pre-v7 occurrence_cache (no source_type).
       db.execute('''
 CREATE TABLE occurrence_cache (
@@ -136,6 +155,9 @@ CREATE TABLE occurrence_cache (
       db.execute(
         "INSERT INTO tasks (id, title, rrule, due_date, created_at, updated_at) VALUES ('t1','Task','FREQ=DAILY','2026-01-01',1,1);",
       );
+      db.execute(
+        "INSERT INTO countdowns (id, title, target_date, created_at, updated_at) VALUES ('cd1','Old countdown','2027-01-01',1,1);",
+      );
       db.execute('PRAGMA user_version = 6;');
     } finally {
       db.close();
@@ -143,7 +165,7 @@ CREATE TABLE occurrence_cache (
 
     final migrated = AppDatabase.forTesting(NativeDatabase(File(path)));
     try {
-      expect(migrated.schemaVersion, 14);
+      expect(migrated.schemaVersion, 15);
 
       final tos = await migrated
           .customSelect(
@@ -199,13 +221,36 @@ CREATE TABLE occurrence_cache (
           )
           .get();
       expect(idx, isNotEmpty);
+
+      final countdownCols = await migrated
+          .customSelect('PRAGMA table_info(countdowns)')
+          .get();
+      final countdownNames = countdownCols
+          .map((r) => r.read<String>('name'))
+          .toSet();
+      expect(countdownNames, containsAll(['linked_type', 'linked_id']));
+      final countdown = await migrated
+          .customSelect(
+            "SELECT title, target_date, linked_type, linked_id FROM countdowns WHERE id = 'cd1'",
+          )
+          .getSingle();
+      expect(countdown.read<String>('title'), 'Old countdown');
+      expect(countdown.read<String?>('target_date'), '2027-01-01');
+      expect(countdown.read<String?>('linked_type'), isNull);
+      expect(countdown.read<String?>('linked_id'), isNull);
+      final countdownIdx = await migrated
+          .customSelect(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_countdowns_linked'",
+          )
+          .get();
+      expect(countdownIdx, isNotEmpty);
     } finally {
       await migrated.close();
     }
   });
 
   test(
-    'migration from v13 to v14 adds source columns and keeps rows',
+    'migration from v13 to v15 adds source and link columns and keeps rows',
     () async {
       final dir = Directory.systemTemp.createTempSync('ephemeron_v13mig_');
       final path = '${dir.path}/v13.db';
@@ -229,9 +274,31 @@ CREATE TABLE occurrence_cache (
   source_type TEXT NOT NULL DEFAULT 'event'
 );
 ''');
+        db.execute('''
+CREATE TABLE countdowns (
+  id TEXT NOT NULL PRIMARY KEY,
+  title TEXT NOT NULL,
+  type TEXT,
+  template TEXT,
+  target_date TEXT,
+  yearly_repeat INTEGER NOT NULL DEFAULT 0,
+  show_age INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  alert_offset_days INTEGER,
+  alert_time_min INTEGER,
+  alarm_preset TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  deleted_at INTEGER
+);
+''');
         db.execute(
           "INSERT INTO occurrence_cache (id, event_id, title, start_utc, end_utc, day_key) "
           "VALUES ('o1', 'e1', 'Old row', 1000, 2000, '2026-01-01');",
+        );
+        db.execute(
+          "INSERT INTO countdowns (id, title, target_date, created_at, updated_at) "
+          "VALUES ('cd1', 'Old countdown', '2027-01-01', 1, 1);",
         );
         db.execute('PRAGMA user_version = 13;');
       } finally {
@@ -240,7 +307,7 @@ CREATE TABLE occurrence_cache (
 
       final migrated = AppDatabase.forTesting(NativeDatabase(File(path)));
       try {
-        expect(migrated.schemaVersion, 14);
+        expect(migrated.schemaVersion, 15);
         final cols = await migrated
             .customSelect('PRAGMA table_info(occurrence_cache)')
             .get();
@@ -255,9 +322,96 @@ CREATE TABLE occurrence_cache (
         expect(row.read<String>('title'), 'Old row');
         expect(row.read<String?>('source_label'), isNull);
         expect(row.read<String?>('source_account'), isNull);
+
+        final countdown = await migrated
+            .customSelect(
+              "SELECT title, target_date, linked_type, linked_id FROM countdowns WHERE id = 'cd1'",
+            )
+            .getSingle();
+        expect(countdown.read<String>('title'), 'Old countdown');
+        expect(countdown.read<String?>('target_date'), '2027-01-01');
+        expect(countdown.read<String?>('linked_type'), isNull);
+        expect(countdown.read<String?>('linked_id'), isNull);
       } finally {
         await migrated.close();
       }
     },
   );
+
+  test('migration from v14 to v15 adds nullable link columns and keeps rows', () async {
+    final dir = Directory.systemTemp.createTempSync('ephemeron_v14mig_');
+    final path = '${dir.path}/v14.db';
+    addTearDown(() {
+      try {
+        dir.deleteSync(recursive: true);
+      } catch (_) {}
+    });
+
+    final db = sqlite3.open(path);
+    try {
+      db.execute('''
+CREATE TABLE countdowns (
+  id TEXT NOT NULL PRIMARY KEY,
+  title TEXT NOT NULL,
+  type TEXT,
+  template TEXT,
+  target_date TEXT,
+  yearly_repeat INTEGER NOT NULL DEFAULT 0,
+  show_age INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  alert_offset_days INTEGER,
+  alert_time_min INTEGER,
+  alarm_preset TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  deleted_at INTEGER
+);
+''');
+      db.execute('''
+INSERT INTO countdowns (
+  id, title, target_date, yearly_repeat, show_age, alarm_preset,
+  created_at, updated_at
+) VALUES ('cd1', 'Launch', '2026-12-31', 1, 1, 'gentle', 1000, 2000);
+''');
+      db.execute('PRAGMA user_version = 14;');
+    } finally {
+      db.close();
+    }
+
+    final migrated = AppDatabase.forTesting(NativeDatabase(File(path)));
+    try {
+      expect(migrated.schemaVersion, 15);
+      final cols = await migrated
+          .customSelect('PRAGMA table_info(countdowns)')
+          .get();
+      final byName = {for (final row in cols) row.read<String>('name'): row};
+      for (final name in const ['linked_type', 'linked_id']) {
+        expect(byName.keys, contains(name));
+        expect(byName[name]!.read<int>('notnull'), 0);
+      }
+
+      final row = await migrated
+          .customSelect(
+            "SELECT title, target_date, yearly_repeat, show_age, alarm_preset, "
+            "linked_type, linked_id FROM countdowns WHERE id = 'cd1'",
+          )
+          .getSingle();
+      expect(row.read<String>('title'), 'Launch');
+      expect(row.read<String?>('target_date'), '2026-12-31');
+      expect(row.read<int>('yearly_repeat'), 1);
+      expect(row.read<int>('show_age'), 1);
+      expect(row.read<String?>('alarm_preset'), 'gentle');
+      expect(row.read<String?>('linked_type'), isNull);
+      expect(row.read<String?>('linked_id'), isNull);
+
+      final idx = await migrated
+          .customSelect(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_countdowns_linked'",
+          )
+          .get();
+      expect(idx, isNotEmpty);
+    } finally {
+      await migrated.close();
+    }
+  });
 }

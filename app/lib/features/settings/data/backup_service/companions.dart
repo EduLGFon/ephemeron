@@ -205,6 +205,8 @@ CountdownsCompanion _countdownOf(Map<String, dynamic> m) =>
       alertOffsetDays: Value(_optInt(m, 'alertOffsetDays')),
       alertTimeMin: Value(_optInt(m, 'alertTimeMin')),
       alarmPreset: Value(_optStr(m, 'alarmPreset')),
+      linkedType: Value(_optStr(m, 'linkedType')),
+      linkedId: Value(_optStr(m, 'linkedId')),
       createdAt: _reqInt(m, 'createdAt'),
       updatedAt: _reqInt(m, 'updatedAt'),
       deletedAt: Value(_optInt(m, 'deletedAt')),

@@ -87,6 +87,8 @@ extension _CountdownEditorActions on _CountdownEditorSheetState {
         alertOffsetDays: _alertOffsetDays,
         alertTimeMin: _alertHour * 60 + _alertMinute,
         alarmPreset: _alarmPreset,
+        linkedType: _linkedType,
+        linkedId: _linkedId,
       );
     } else {
       await repo.updateCountdown(
@@ -99,6 +101,9 @@ extension _CountdownEditorActions on _CountdownEditorSheetState {
         alertOffsetDays: () => _alertOffsetDays,
         alertTimeMin: () => _alertHour * 60 + _alertMinute,
         alarmPreset: () => _alarmPreset,
+        // Always rewrite the pair so Unlink persists null/null.
+        linkedType: () => _linkedType,
+        linkedId: () => _linkedId,
       );
     }
     _saved = true;

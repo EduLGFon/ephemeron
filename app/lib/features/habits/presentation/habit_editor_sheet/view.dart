@@ -162,6 +162,16 @@ mixin _HabitEditorSheetStateView on _HabitEditorSheetStateWithActions {
               style: TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 12),
+            if (widget.habit != null) ...[
+              const Divider(),
+              EntityCountdownSection(
+                linkedType: 'habit',
+                linkedId: widget.habit!.id,
+                initialTitle: _name.text.trim().isEmpty
+                    ? widget.habit!.name
+                    : _name.text.trim(),
+              ),
+            ],
             if (widget.habit != null)
               OutlinedButton(
                 onPressed: _deleteHabit,
