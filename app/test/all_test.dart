@@ -91,6 +91,7 @@ import 'cases/source_label_case.dart' as source_label;
 import 'cases/source_move_case.dart' as source_move;
 import 'cases/source_picker_case.dart' as source_picker;
 import 'cases/stream_culler_case.dart' as stream_culler;
+import 'cases/stream_viewport_case.dart' as stream_viewport;
 import 'cases/sync_all_case.dart' as sync_all;
 import 'cases/sync_attention_case.dart' as sync_attention;
 import 'cases/sync_calendar_integrity_case.dart' as sync_calendar_integrity;
@@ -219,6 +220,7 @@ const _included = <String>{
   'source_move_case.dart',
   'source_picker_case.dart',
   'stream_culler_case.dart',
+  'stream_viewport_case.dart',
   'sync_all_case.dart',
   'sync_attention_case.dart',
   'sync_calendar_integrity_case.dart',
@@ -355,6 +357,7 @@ void main() {
   group('source_move', source_move.main);
   group('source_picker', source_picker.main);
   group('stream_culler', stream_culler.main);
+  group('stream_viewport', stream_viewport.main);
   group('sync_all', sync_all.main);
   group('sync_attention', sync_attention.main);
   group('sync_calendar_integrity', sync_calendar_integrity.main);

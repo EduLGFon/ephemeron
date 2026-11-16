@@ -74,6 +74,8 @@ class TimeViewport extends ChangeNotifier {
   }
 
   // Helpers for painters.
-  double timeToPx(int epochMs) => (epochMs - baseEpochMs) / _msPerPixel;
-  int pxToTime(double px) => baseEpochMs + (px * _msPerPixel).round();
+  double timeToPx(int epochMs) =>
+      (epochMs - baseEpochMs) / _msPerPixel - _offsetPx;
+  int pxToTime(double px) =>
+      baseEpochMs + ((px + _offsetPx) * _msPerPixel).round();
 }
