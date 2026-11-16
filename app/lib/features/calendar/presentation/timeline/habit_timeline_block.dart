@@ -83,28 +83,41 @@ class HabitTimelineBlock extends StatelessWidget {
                 const SizedBox(width: 3),
               ],
               Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    text: entry.habitName,
-                    children: [
-                      if (progress != null && width >= 40)
-                        TextSpan(
-                          text: '  $progress',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  softWrap: true,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 10,
-                    color: scheme.onSurface,
-                    decoration: done ? TextDecoration.lineThrough : null,
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final textScaler = MediaQuery.textScalerOf(context);
+                    final baseStyle = Theme.of(context).textTheme.labelSmall
+                        ?.copyWith(
+                          fontSize: 10,
+                          color: scheme.onSurface,
+                          decoration: done ? TextDecoration.lineThrough : null,
+                        );
+                    final maxLines = timelineTitleMaxLines(
+                      availableHeight: constraints.maxHeight,
+                      style: baseStyle ?? const TextStyle(fontSize: 10),
+                      textScaler: textScaler,
+                      verticalPadding: 0,
+                    );
+                    return Text.rich(
+                      TextSpan(
+                        text: entry.habitName,
+                        children: [
+                          if (progress != null && width >= 40)
+                            TextSpan(
+                              text: '  $progress',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                      maxLines: maxLines,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
+                      style: baseStyle,
+                    );
+                  },
                 ),
               ),
             ],

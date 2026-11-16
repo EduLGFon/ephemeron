@@ -191,3 +191,35 @@ Map<String, TimelinePlacement> timelinePlacementsFor({
   }
   return out;
 }
+
+/// Computes how many title lines fit in [availableHeight] (the full block
+/// height) given the actual text [style] and [textScaler], accounting for
+/// container [verticalPadding] and an optional reserved source-label line.
+///
+/// Returns at least 1 so a short block still shows a single (ellipsized) line.
+/// Pure and deterministic so it can be unit-tested without a widget tree.
+int timelineTitleMaxLines({
+  required double availableHeight,
+  required TextStyle style,
+  required TextScaler textScaler,
+  double verticalPadding = 4.0,
+  bool reserveSourceLabel = false,
+  double sourceLabelFontSize = 9.0,
+}) {
+  if (availableHeight <= 0) return 1;
+  final fontSize = textScaler.scale(style.fontSize ?? 12.0);
+  if (fontSize <= 0) return 1;
+  final lineHeight = fontSize * (style.height ?? 1.2);
+  if (lineHeight <= 0) return 1;
+
+  var usable = availableHeight - verticalPadding;
+  if (reserveSourceLabel) {
+    final labelSize = textScaler.scale(sourceLabelFontSize);
+    usable -= labelSize * 1.2 + 2.0;
+  }
+  if (usable <= 0) return 1;
+  final lines = (usable / lineHeight).floor();
+  if (lines < 1) return 1;
+  if (lines > 99) return 99;
+  return lines;
+}
