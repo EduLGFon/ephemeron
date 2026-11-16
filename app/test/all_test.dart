@@ -11,6 +11,7 @@ import 'cases/account_email_case.dart' as account_email;
 import 'cases/alarm_migration_v4v5_case.dart' as alarm_migration_v4v5;
 import 'cases/alarm_notification_actions_case.dart'
     as alarm_notification_actions;
+import 'cases/alarm_overdue_case.dart' as alarm_overdue;
 import 'cases/alarm_repository_case.dart' as alarm_repository;
 import 'cases/alarm_title_case.dart' as alarm_title;
 import 'cases/alarm_window_case.dart' as alarm_window;
@@ -27,6 +28,7 @@ import 'cases/calendar_perf_case.dart' as calendar_perf;
 import 'cases/calendar_swipe_case.dart' as calendar_swipe;
 import 'cases/calendar_ux_source_case.dart' as calendar_ux_source;
 import 'cases/calendar_week_nav_case.dart' as calendar_week_nav;
+import 'cases/countdown_link_case.dart' as countdown_link;
 import 'cases/countdowns_screen_case.dart' as countdowns_screen;
 import 'cases/db_case.dart' as db;
 import 'cases/device_calendar_import_case.dart' as device_calendar_import;
@@ -46,6 +48,8 @@ import 'cases/habit_delete_case.dart' as habit_delete;
 import 'cases/habit_focus_case.dart' as habit_focus;
 import 'cases/habit_percent_case.dart' as habit_percent;
 import 'cases/habit_schedule_case.dart' as habit_schedule;
+import 'cases/habit_stats_case.dart' as habit_stats;
+import 'cases/habit_stats_screen_case.dart' as habit_stats_screen;
 import 'cases/habit_streak_case.dart' as habit_streak;
 import 'cases/habits_screen_case.dart' as habits_screen;
 import 'cases/habits_timer_case.dart' as habits_timer;
@@ -111,6 +115,7 @@ import 'cases/timeline_multiday_overflow_case.dart'
     as timeline_multiday_overflow;
 import 'cases/timeline_now_controller_case.dart' as timeline_now_controller;
 import 'cases/timeline_persist_case.dart' as timeline_persist;
+import 'cases/timeline_title_wrap_case.dart' as timeline_title_wrap;
 import 'cases/timeline_view_case.dart' as timeline_view;
 import 'cases/todo_coverage_case.dart' as todo_coverage;
 import 'cases/todo_layout_scale_case.dart' as todo_layout_scale;
@@ -135,6 +140,7 @@ const _included = <String>{
   'account_email_case.dart',
   'alarm_migration_v4v5_case.dart',
   'alarm_notification_actions_case.dart',
+  'alarm_overdue_case.dart',
   'alarm_repository_case.dart',
   'alarm_title_case.dart',
   'alarm_window_case.dart',
@@ -151,6 +157,7 @@ const _included = <String>{
   'calendar_swipe_case.dart',
   'calendar_ux_source_case.dart',
   'calendar_week_nav_case.dart',
+  'countdown_link_case.dart',
   'countdowns_screen_case.dart',
   'db_case.dart',
   'device_calendar_import_case.dart',
@@ -170,6 +177,8 @@ const _included = <String>{
   'habit_focus_case.dart',
   'habit_percent_case.dart',
   'habit_schedule_case.dart',
+  'habit_stats_case.dart',
+  'habit_stats_screen_case.dart',
   'habit_streak_case.dart',
   'habits_screen_case.dart',
   'habits_timer_case.dart',
@@ -230,6 +239,7 @@ const _included = <String>{
   'timeline_multiday_overflow_case.dart',
   'timeline_now_controller_case.dart',
   'timeline_persist_case.dart',
+  'timeline_title_wrap_case.dart',
   'timeline_view_case.dart',
   'todo_coverage_case.dart',
   'todo_layout_scale_case.dart',
@@ -265,6 +275,7 @@ void main() {
   group('account_email', account_email.main);
   group('alarm_migration_v4v5', alarm_migration_v4v5.main);
   group('alarm_notification_actions', alarm_notification_actions.main);
+  group('alarm_overdue', alarm_overdue.main);
   group('alarm_repository', alarm_repository.main);
   group('alarm_title', alarm_title.main);
   group('alarm_window', alarm_window.main);
@@ -281,6 +292,7 @@ void main() {
   group('calendar_swipe', calendar_swipe.main);
   group('calendar_ux_source', calendar_ux_source.main);
   group('calendar_week_nav', calendar_week_nav.main);
+  group('countdown_link', countdown_link.main);
   group('countdowns_screen', countdowns_screen.main);
   group('db', db.main);
   group('device_calendar_import', device_calendar_import.main);
@@ -300,6 +312,8 @@ void main() {
   group('habit_focus', habit_focus.main);
   group('habit_percent', habit_percent.main);
   group('habit_schedule', habit_schedule.main);
+  group('habit_stats', habit_stats.main);
+  group('habit_stats_screen', habit_stats_screen.main);
   group('habit_streak', habit_streak.main);
   group('habits_screen', habits_screen.main);
   group('habits_timer', habits_timer.main);
@@ -360,6 +374,7 @@ void main() {
   group('timeline_multiday_overflow', timeline_multiday_overflow.main);
   group('timeline_now_controller', timeline_now_controller.main);
   group('timeline_persist', timeline_persist.main);
+  group('timeline_title_wrap', timeline_title_wrap.main);
   group('timeline_view', timeline_view.main);
   group('todo_coverage', todo_coverage.main);
   group('todo_layout_scale', todo_layout_scale.main);
