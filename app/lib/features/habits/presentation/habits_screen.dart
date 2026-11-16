@@ -25,6 +25,7 @@ import '../application/habits_providers.dart';
 import '../../../data/repositories/habit_repository.dart';
 import '../../../data/services/habit_timer_store.dart';
 import 'habit_editor_sheet.dart';
+import 'habits_stats_screen.dart';
 
 part 'habits_screen/day_strip.dart';
 part 'habits_screen/habit_list.dart';
@@ -277,6 +278,13 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     return AppBar(
       title: const Text('Habits'),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.bar_chart_outlined),
+          tooltip: 'Habit statistics',
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const HabitsStatsScreen()),
+          ),
+        ),
         IconButton(
           visualDensity: VisualDensity.compact,
           iconSize: 20,

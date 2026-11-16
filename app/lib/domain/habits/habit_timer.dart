@@ -119,3 +119,25 @@ String formatHabitExact({
   }
   return '${_fmtNumber(amount)}/${_fmtNumber(goal)} $u'.trim();
 }
+
+/// Formats a single amount (no goal) for compact UI labels such as catch-up
+/// actions. Reuses the minute/second formatting of [formatHabitExact].
+String formatHabitAmount({required String? unit, required double amount}) {
+  final u = unit ?? '';
+  if (isMinuteUnit(unit)) {
+    if (amount == 0) {
+      return '0 min'.trim();
+    }
+    final totalSeconds = (amount * 60).round();
+    final mins = totalSeconds ~/ 60;
+    final secs = totalSeconds % 60;
+    if (mins == 0) {
+      return '${secs}s'.trim();
+    }
+    if (secs == 0) {
+      return '$mins min'.trim();
+    }
+    return '${mins}m ${secs}s'.trim();
+  }
+  return '${_fmtNumber(amount)} $u'.trim();
+}
