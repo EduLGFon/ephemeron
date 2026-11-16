@@ -95,6 +95,8 @@ import 'cases/stream_culler_case.dart' as stream_culler;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
+import 'cases/stream_theme_case.dart' as stream_theme;
+import 'cases/stream_theme_preferences_case.dart' as stream_theme_preferences;
 import 'cases/stream_viewport_case.dart' as stream_viewport;
 import 'cases/sync_all_case.dart' as sync_all;
 import 'cases/sync_attention_case.dart' as sync_attention;
@@ -228,6 +230,8 @@ const _included = <String>{
   'stream_layout_mode_case.dart',
   'stream_mark_mapper_case.dart',
   'stream_route_params_case.dart',
+  'stream_theme_case.dart',
+  'stream_theme_preferences_case.dart',
   'stream_viewport_case.dart',
   'sync_all_case.dart',
   'sync_attention_case.dart',
@@ -369,6 +373,8 @@ void main() {
   group('stream_layout_mode', stream_layout_mode.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
   group('stream_route_params', stream_route_params.main);
+  group('stream_theme', stream_theme.main);
+  group('stream_theme_preferences', stream_theme_preferences.main);
   group('stream_viewport', stream_viewport.main);
   group('sync_all', sync_all.main);
   group('sync_attention', sync_attention.main);
