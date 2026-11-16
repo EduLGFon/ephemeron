@@ -7,7 +7,6 @@ import '../../../core/theme/theme_tokens.dart';
 import '../../../core/time/device_date_format.dart';
 import '../../../core/ui/empty_state.dart';
 import '../../../data/drift/app_database.dart';
-import '../../../data/repositories/habit_repository.dart';
 import '../../../domain/habits/date_key.dart';
 import '../../../domain/habits/habit_stats.dart';
 import '../../../domain/habits/habit_timer.dart';
@@ -60,7 +59,6 @@ class _HabitStatsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(habitStatsProvider(habit.id));
-    final repo = ref.read(habitRepositoryProvider);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -94,7 +92,7 @@ class _HabitStatsCard extends ConsumerWidget {
             if (stats == null) {
               return Text(habit.name, style: theme.textTheme.titleMedium);
             }
-            return _buildStats(context, ref, stats, repo);
+            return _buildStats(context, ref, stats);
           },
         ),
       ),
@@ -105,7 +103,6 @@ class _HabitStatsCard extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     HabitStatsSummary stats,
-    HabitRepository repo,
   ) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -268,24 +265,11 @@ class _HabitStatsCard extends ConsumerWidget {
                   '${formatHabitProgress(unit: habit.unit, amount: day.amount, goal: day.goal)}',
                   style: theme.textTheme.bodySmall,
                 ),
-                TextButton.icon(
-                  onPressed: () async {
-                    try {
-                      await repo.addAmount(habit.id, day.dayKey, day.missing);
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Could not update: $e')),
-                        );
-                      }
-                      return;
-                    }
-                    if (context.mounted) {
-                      ref.invalidate(habitStatsProvider(habit.id));
-                    }
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: Text('Add $missing'),
+                _CatchUpButton(
+                  habitId: habit.id,
+                  dayKey: day.dayKey,
+                  amount: day.missing,
+                  label: 'Add $missing',
                 ),
               ],
             ),
@@ -320,6 +304,62 @@ class _HabitStatsCard extends ConsumerWidget {
     final y = habitDateKey(DateTime.now().subtract(const Duration(days: 1)));
     if (dayKey == y) return 'Yesterday';
     return DeviceDateFormat.shortDate(context, parseKey(dayKey));
+  }
+}
+
+class _CatchUpButton extends ConsumerStatefulWidget {
+  const _CatchUpButton({
+    required this.habitId,
+    required this.dayKey,
+    required this.amount,
+    required this.label,
+  });
+
+  final String habitId;
+  final String dayKey;
+  final double amount;
+  final String label;
+
+  @override
+  ConsumerState<_CatchUpButton> createState() => _CatchUpButtonState();
+}
+
+class _CatchUpButtonState extends ConsumerState<_CatchUpButton> {
+  bool _busy = false;
+
+  Future<void> _handleTap() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    var success = false;
+    try {
+      await ref
+          .read(habitRepositoryProvider)
+          .addAmount(widget.habitId, widget.dayKey, widget.amount);
+      success = true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not update this day. Try again.'),
+          ),
+        );
+      }
+    }
+    if (success && mounted) {
+      ref.invalidate(habitStatsProvider(widget.habitId));
+    }
+    if (mounted) {
+      setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _busy ? null : _handleTap,
+      icon: const Icon(Icons.add, size: 16),
+      label: Text(widget.label),
+    );
   }
 }
 
