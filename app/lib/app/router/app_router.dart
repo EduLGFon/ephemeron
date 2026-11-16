@@ -15,6 +15,9 @@ import '../../features/notes/presentation/notes_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/stream/presentation/stream_spike_screen.dart';
+import '../../features/stream/presentation/stream_placeholder_screen.dart';
+import '../../features/stream/presentation/stream_route_params.dart';
+import '../../features/stream/stream_flags.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // A verified cold-start ring request must be the very first route; AppShell
@@ -103,12 +106,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path: '/stream-spike',
           builder: (context, state) => const StreamSpikeScreen(),
         ),
+      if (streamUiEnabled)
+        GoRoute(
+          path: '/stream/:date/:zoom',
+          builder: (context, state) => const StreamPlaceholderScreen(),
+        ),
     ],
     redirect: (context, state) {
       // Widget taps deliver ephemeron://widget/... through the platform
       // intent; if one ever reaches the router as a path, open the
       // calendar instead of showing the error page.
-      if (state.uri.path == '/') return '/tab0';
+      if (state.uri.path == '/') {
+        if (streamUiEnabled) {
+          return '/stream/${formatStreamDate(DateTime.now())}/day';
+        }
+        return '/tab0';
+      }
       if (state.uri.path == '/widget' ||
           state.uri.path.startsWith('/widget/')) {
         return '/tab0';
