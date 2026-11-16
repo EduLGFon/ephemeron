@@ -131,6 +131,7 @@ class TimelineEventBlock extends ConsumerWidget {
         onLongPressMoveUpdate: onLongPressMoveUpdate,
         onLongPressEnd: (_) => onLongPressEnd(),
         child: Container(
+          clipBehavior: Clip.antiAlias,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           decoration: BoxDecoration(
             color: base.withValues(alpha: fillAlpha),
@@ -140,52 +141,54 @@ class TimelineEventBlock extends ConsumerWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final textScaler = MediaQuery.textScalerOf(context);
-              final baseStyle = Theme.of(context).textTheme.labelSmall
-                  ?.copyWith(
+              final titleStyle =
+                  Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: textColor,
                     fontWeight: weight,
                     decoration: decoration,
-                  );
+                  ) ??
+                  const TextStyle();
+              final labelStyle = TextStyle(
+                color: textColor.withValues(alpha: 0.75),
+                fontSize: 9,
+                fontWeight: FontWeight.normal,
+                decoration: TextDecoration.none,
+              );
               final showSourceLabel =
                   sourceLabel != null &&
                   sourceLabel.isNotEmpty &&
                   !hollow &&
-                  constraints.maxHeight >= 44 &&
-                  timelineTitleMaxLines(
-                        availableHeight: constraints.maxHeight,
-                        style: baseStyle ?? const TextStyle(),
-                        textScaler: textScaler,
-                        verticalPadding: 0,
-                        reserveSourceLabel: true,
-                      ) >=
-                      1;
+                  timelineShowSourceLabel(
+                    contentHeight: constraints.maxHeight,
+                    style: titleStyle,
+                    textScaler: textScaler,
+                  );
               final maxLines = timelineTitleMaxLines(
-                availableHeight: constraints.maxHeight,
-                style: baseStyle ?? const TextStyle(),
+                contentHeight: constraints.maxHeight,
+                style: titleStyle,
                 textScaler: textScaler,
-                verticalPadding: 0,
                 reserveSourceLabel: showSourceLabel,
                 sourceLabelFontSize: 9,
               );
-              return Text.rich(
-                TextSpan(
-                  text: occurrence.title ?? '…',
-                  children: [
-                    if (showSourceLabel)
-                      TextSpan(
-                        text: '\n$sourceLabel',
-                        style: TextStyle(
-                          color: textColor.withValues(alpha: 0.75),
-                          fontSize: 9,
-                          fontWeight: FontWeight.normal,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                  ],
-                ),
-                maxLines: maxLines,
-                overflow: TextOverflow.ellipsis,
-                style: baseStyle,
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      occurrence.title ?? '…',
+                      maxLines: maxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
+                    ),
+                  ),
+                  if (showSourceLabel)
+                    Text(
+                      sourceLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: labelStyle,
+                    ),
+                ],
               );
             },
           ),

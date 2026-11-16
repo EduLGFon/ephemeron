@@ -63,6 +63,7 @@ class HabitTimelineBlock extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
+          clipBehavior: Clip.antiAlias,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           decoration: BoxDecoration(
             color: done
@@ -93,10 +94,9 @@ class HabitTimelineBlock extends StatelessWidget {
                           decoration: done ? TextDecoration.lineThrough : null,
                         );
                     final maxLines = timelineTitleMaxLines(
-                      availableHeight: constraints.maxHeight,
+                      contentHeight: constraints.maxHeight,
                       style: baseStyle ?? const TextStyle(fontSize: 10),
                       textScaler: textScaler,
-                      verticalPadding: 0,
                     );
                     return Text.rich(
                       TextSpan(
