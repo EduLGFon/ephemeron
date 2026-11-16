@@ -53,6 +53,25 @@ void main() {
     expect(withLabel, lessThanOrEqualTo(withoutLabel));
   });
 
+  test('source label reserve follows the rendered height factor', () {
+    const tightStyle = TextStyle(fontSize: 12, height: 1);
+    final compact = timelineTitleMaxLines(
+      contentHeight: 48,
+      style: tightStyle,
+      textScaler: TextScaler.noScaling,
+      reserveSourceLabel: true,
+      sourceLabelHeightFactor: 1,
+    );
+    final tallLabel = timelineTitleMaxLines(
+      contentHeight: 48,
+      style: tightStyle,
+      textScaler: TextScaler.noScaling,
+      reserveSourceLabel: true,
+      sourceLabelHeightFactor: 2,
+    );
+    expect(tallLabel, lessThan(compact));
+  });
+
   test('never returns less than one line', () {
     final lines = timelineTitleMaxLines(
       contentHeight: 1,

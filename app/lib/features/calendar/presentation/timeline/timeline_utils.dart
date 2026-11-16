@@ -197,6 +197,8 @@ Map<String, TimelinePlacement> timelinePlacementsFor({
 ///
 /// Callers pass the post-padding content height (for example
 /// `LayoutBuilder`'s `constraints.maxHeight` inside a padded `Container`).
+/// [sourceLabelHeightFactor] must match the rendered label's height factor so
+/// the reservation does not underestimate its line box.
 /// Returns at least 1 so a short block still shows a single (ellipsized) line;
 /// non-finite or invalid measurements safely fall back to 1.
 /// Pure and deterministic so it can be unit-tested without a widget tree.
@@ -206,6 +208,7 @@ int timelineTitleMaxLines({
   required TextScaler textScaler,
   bool reserveSourceLabel = false,
   double sourceLabelFontSize = 9.0,
+  double sourceLabelHeightFactor = 1.45,
 }) {
   if (!contentHeight.isFinite || contentHeight <= 0) return 1;
   final rawFontSize = style.fontSize ?? 12.0;
@@ -220,9 +223,12 @@ int timelineTitleMaxLines({
   var usable = contentHeight;
   if (reserveSourceLabel) {
     if (!sourceLabelFontSize.isFinite || sourceLabelFontSize < 0) return 1;
+    if (!sourceLabelHeightFactor.isFinite || sourceLabelHeightFactor <= 0) {
+      return 1;
+    }
     final labelSize = textScaler.scale(sourceLabelFontSize);
     if (!labelSize.isFinite || labelSize < 0) return 1;
-    usable -= labelSize * 1.2 + 2.0;
+    usable -= labelSize * sourceLabelHeightFactor;
   }
   if (!usable.isFinite || usable <= 0) return 1;
   final lines = (usable / lineHeight).floor();
@@ -240,6 +246,7 @@ bool timelineShowSourceLabel({
   required TextStyle style,
   required TextScaler textScaler,
   double sourceLabelFontSize = 9.0,
+  double sourceLabelHeightFactor = 1.45,
 }) {
   return timelineTitleMaxLines(
         contentHeight: contentHeight,
@@ -247,6 +254,7 @@ bool timelineShowSourceLabel({
         textScaler: textScaler,
         reserveSourceLabel: true,
         sourceLabelFontSize: sourceLabelFontSize,
+        sourceLabelHeightFactor: sourceLabelHeightFactor,
       ) >=
       2;
 }

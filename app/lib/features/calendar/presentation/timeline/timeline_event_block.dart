@@ -10,6 +10,11 @@ import '../../application/calendar_providers.dart';
 import 'timeline_layout.dart';
 import 'timeline_utils.dart';
 
+// Match Material's inherited label line height so the source-label reserve
+// matches what the label Text actually renders.
+const double _sourceLabelFontSize = 9;
+const double _sourceLabelHeightFactor = 1.45;
+
 class TimelineEventBlock extends ConsumerWidget {
   const TimelineEventBlock({
     super.key,
@@ -150,7 +155,8 @@ class TimelineEventBlock extends ConsumerWidget {
                   const TextStyle();
               final labelStyle = TextStyle(
                 color: textColor.withValues(alpha: 0.75),
-                fontSize: 9,
+                fontSize: _sourceLabelFontSize,
+                height: _sourceLabelHeightFactor,
                 fontWeight: FontWeight.normal,
                 decoration: TextDecoration.none,
               );
@@ -162,18 +168,21 @@ class TimelineEventBlock extends ConsumerWidget {
                     contentHeight: constraints.maxHeight,
                     style: titleStyle,
                     textScaler: textScaler,
+                    sourceLabelFontSize: _sourceLabelFontSize,
+                    sourceLabelHeightFactor: _sourceLabelHeightFactor,
                   );
               final maxLines = timelineTitleMaxLines(
                 contentHeight: constraints.maxHeight,
                 style: titleStyle,
                 textScaler: textScaler,
                 reserveSourceLabel: showSourceLabel,
-                sourceLabelFontSize: 9,
+                sourceLabelFontSize: _sourceLabelFontSize,
+                sourceLabelHeightFactor: _sourceLabelHeightFactor,
               );
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  Flexible(
                     child: Text(
                       occurrence.title ?? '…',
                       maxLines: maxLines,
