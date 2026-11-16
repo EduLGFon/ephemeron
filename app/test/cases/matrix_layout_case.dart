@@ -294,7 +294,7 @@ void main() {
     final rowHeight = tester
         .getSize(find.byKey(ValueKey('matrix-task-${ids.first}')))
         .height;
-    expect(rowHeight, inInclusiveRange(38, 48));
+    expect(rowHeight, inInclusiveRange(44, 58));
 
     await _dispose(tester, db);
   });
@@ -521,6 +521,93 @@ void main() {
       find.byKey(const ValueKey('matrix-scrollbar-unclassified')),
       findsOneWidget,
     );
+
+    await _dispose(tester, db);
+  });
+
+  testWidgets('due-date row is taller than no-due row', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = TaskRepository(db);
+    final now = DateTime.now();
+    final dueId = await repo.createTask(
+      title: 'Due task',
+      priority: 3,
+      dueDate: _date(now.add(const Duration(days: 1))),
+    );
+    final noDueId = await repo.createTask(title: 'No due task', priority: 3);
+
+    await _pumpMatrix(tester, db);
+    final dueHeight = tester
+        .getSize(find.byKey(ValueKey('matrix-task-$dueId')))
+        .height;
+    final noDueHeight = tester
+        .getSize(find.byKey(ValueKey('matrix-task-$noDueId')))
+        .height;
+    expect(dueHeight, greaterThan(noDueHeight));
+
+    await _dispose(tester, db);
+  });
+
+  testWidgets('no-due row stays compact', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = TaskRepository(db);
+    final id = await repo.createTask(title: 'No due task', priority: 3);
+
+    await _pumpMatrix(tester, db);
+    final rowHeight = tester
+        .getSize(find.byKey(ValueKey('matrix-task-$id')))
+        .height;
+    expect(rowHeight, lessThanOrEqualTo(40));
+
+    await _dispose(tester, db);
+  });
+
+  testWidgets('late task title is red, future task title is not', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = TaskRepository(db);
+    final now = DateTime.now();
+    await repo.createTask(
+      title: 'Late task',
+      priority: 3,
+      dueDate: _date(now.subtract(const Duration(days: 2))),
+    );
+    await repo.createTask(
+      title: 'Future task',
+      priority: 3,
+      dueDate: _date(now.add(const Duration(days: 2))),
+    );
+
+    await _pumpMatrix(tester, db);
+
+    final lateText = tester.widget<Text>(find.text('Late task'));
+    final futureText = tester.widget<Text>(find.text('Future task'));
+    final errorColor = Theme.of(tester.element(find.text('Late task')))
+        .colorScheme
+        .error;
+    expect(lateText.style?.color, errorColor);
+    expect(futureText.style?.color, isNot(errorColor));
 
     await _dispose(tester, db);
   });
