@@ -82,6 +82,29 @@ Future<void> _seedAllDay(
       );
 }
 
+Future<void> _seedTimedEvent(
+  AppDatabase db, {
+  required String id,
+  required String title,
+  required DateTime start,
+  required Duration duration,
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.events)
+      .insert(
+        EventsCompanion.insert(
+          id: id,
+          calendarId: 'cal1',
+          title: Value(title),
+          startUtc: Value(start.toUtc().millisecondsSinceEpoch),
+          endUtc: Value(start.add(duration).toUtc().millisecondsSinceEpoch),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+}
+
 CalendarWindow _window(DateTime anchor, int dayCount) => CalendarWindow(
   anchor: anchor,
   view: dayCount == 1 ? CalendarViewKind.day : CalendarViewKind.multiDay,
@@ -288,6 +311,48 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('tall event blocks allow more title lines than short blocks', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _db();
+    await _seed(db);
+    final day = DateTime.now();
+    await _seedTimedEvent(
+      db,
+      id: 'short',
+      title: 'Short half hour block',
+      start: DateTime(day.year, day.month, day.day, 9),
+      duration: const Duration(minutes: 30),
+    );
+    await _seedTimedEvent(
+      db,
+      id: 'tall',
+      title: 'Long four hour block',
+      start: DateTime(day.year, day.month, day.day, 12),
+      duration: const Duration(hours: 4),
+    );
+    await _pump(tester, db, DateTime.now(), 1);
+    await tester.pump();
+
+    Text titleText(String prefix) => tester
+        .widgetList<Text>(find.byType(Text))
+        .firstWhere(
+          (text) =>
+              (text.data ?? text.textSpan?.toPlainText())?.startsWith(prefix) ??
+              false,
+        );
+
+    final short = titleText('Short half hour block');
+    final tall = titleText('Long four hour block');
+    expect(short.maxLines, 1);
+    expect(tall.maxLines, greaterThan(3));
     await _tearDown(tester, db);
   });
 

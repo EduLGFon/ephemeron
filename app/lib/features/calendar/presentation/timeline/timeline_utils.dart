@@ -191,3 +191,70 @@ Map<String, TimelinePlacement> timelinePlacementsFor({
   }
   return out;
 }
+
+/// Computes how many title lines fit in [contentHeight] given the actual text
+/// [style] and [textScaler], optionally reserving a source-label line.
+///
+/// Callers pass the post-padding content height (for example
+/// `LayoutBuilder`'s `constraints.maxHeight` inside a padded `Container`).
+/// [sourceLabelHeightFactor] must match the rendered label's height factor so
+/// the reservation does not underestimate its line box.
+/// Returns at least 1 so a short block still shows a single (ellipsized) line;
+/// non-finite or invalid measurements safely fall back to 1.
+/// Pure and deterministic so it can be unit-tested without a widget tree.
+int timelineTitleMaxLines({
+  required double contentHeight,
+  required TextStyle style,
+  required TextScaler textScaler,
+  bool reserveSourceLabel = false,
+  double sourceLabelFontSize = 9.0,
+  double sourceLabelHeightFactor = 1.45,
+}) {
+  if (!contentHeight.isFinite || contentHeight <= 0) return 1;
+  final rawFontSize = style.fontSize ?? 12.0;
+  final heightFactor = style.height ?? 1.2;
+  if (!rawFontSize.isFinite || rawFontSize <= 0) return 1;
+  final fontSize = textScaler.scale(rawFontSize);
+  if (!fontSize.isFinite || fontSize <= 0) return 1;
+  if (!heightFactor.isFinite || heightFactor <= 0) return 1;
+  final lineHeight = fontSize * heightFactor;
+  if (!lineHeight.isFinite || lineHeight <= 0) return 1;
+
+  var usable = contentHeight;
+  if (reserveSourceLabel) {
+    if (!sourceLabelFontSize.isFinite || sourceLabelFontSize < 0) return 1;
+    if (!sourceLabelHeightFactor.isFinite || sourceLabelHeightFactor <= 0) {
+      return 1;
+    }
+    final labelSize = textScaler.scale(sourceLabelFontSize);
+    if (!labelSize.isFinite || labelSize < 0) return 1;
+    usable -= labelSize * sourceLabelHeightFactor;
+  }
+  if (!usable.isFinite || usable <= 0) return 1;
+  final lines = (usable / lineHeight).floor();
+  if (lines < 1) return 1;
+  if (lines > 99) return 99;
+  return lines;
+}
+
+/// Whether a source label fits without stealing the title's last usable line.
+///
+/// Requires room for at least two title lines after reserving the label, so a
+/// label is never shown when it would leave only a single title line.
+bool timelineShowSourceLabel({
+  required double contentHeight,
+  required TextStyle style,
+  required TextScaler textScaler,
+  double sourceLabelFontSize = 9.0,
+  double sourceLabelHeightFactor = 1.45,
+}) {
+  return timelineTitleMaxLines(
+        contentHeight: contentHeight,
+        style: style,
+        textScaler: textScaler,
+        reserveSourceLabel: true,
+        sourceLabelFontSize: sourceLabelFontSize,
+        sourceLabelHeightFactor: sourceLabelHeightFactor,
+      ) >=
+      2;
+}

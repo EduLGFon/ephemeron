@@ -10,6 +10,11 @@ import '../../application/calendar_providers.dart';
 import 'timeline_layout.dart';
 import 'timeline_utils.dart';
 
+// Match Material's inherited label line height so the source-label reserve
+// matches what the label Text actually renders.
+const double _sourceLabelFontSize = 9;
+const double _sourceLabelHeightFactor = 1.45;
+
 class TimelineEventBlock extends ConsumerWidget {
   const TimelineEventBlock({
     super.key,
@@ -131,38 +136,70 @@ class TimelineEventBlock extends ConsumerWidget {
         onLongPressMoveUpdate: onLongPressMoveUpdate,
         onLongPressEnd: (_) => onLongPressEnd(),
         child: Container(
+          clipBehavior: Clip.antiAlias,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           decoration: BoxDecoration(
             color: base.withValues(alpha: fillAlpha),
             borderRadius: BorderRadius.circular(4),
             border: border,
           ),
-          child: Text.rich(
-            TextSpan(
-              text: occurrence.title ?? '…',
-              children: [
-                if (sourceLabel != null &&
-                    sourceLabel.isNotEmpty &&
-                    y1 - y0 >= 48 &&
-                    !hollow)
-                  TextSpan(
-                    text: '\n$sourceLabel',
-                    style: TextStyle(
-                      color: textColor.withValues(alpha: 0.75),
-                      fontSize: 9,
-                      fontWeight: FontWeight.normal,
-                      decoration: TextDecoration.none,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final textScaler = MediaQuery.textScalerOf(context);
+              final titleStyle =
+                  Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: textColor,
+                    fontWeight: weight,
+                    decoration: decoration,
+                  ) ??
+                  const TextStyle();
+              final labelStyle = TextStyle(
+                color: textColor.withValues(alpha: 0.75),
+                fontSize: _sourceLabelFontSize,
+                height: _sourceLabelHeightFactor,
+                fontWeight: FontWeight.normal,
+                decoration: TextDecoration.none,
+              );
+              final showSourceLabel =
+                  sourceLabel != null &&
+                  sourceLabel.isNotEmpty &&
+                  !hollow &&
+                  timelineShowSourceLabel(
+                    contentHeight: constraints.maxHeight,
+                    style: titleStyle,
+                    textScaler: textScaler,
+                    sourceLabelFontSize: _sourceLabelFontSize,
+                    sourceLabelHeightFactor: _sourceLabelHeightFactor,
+                  );
+              final maxLines = timelineTitleMaxLines(
+                contentHeight: constraints.maxHeight,
+                style: titleStyle,
+                textScaler: textScaler,
+                reserveSourceLabel: showSourceLabel,
+                sourceLabelFontSize: _sourceLabelFontSize,
+                sourceLabelHeightFactor: _sourceLabelHeightFactor,
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flexible(
+                    child: Text(
+                      occurrence.title ?? '…',
+                      maxLines: maxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
                     ),
                   ),
-              ],
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: textColor,
-              fontWeight: weight,
-              decoration: decoration,
-            ),
+                  if (showSourceLabel)
+                    Text(
+                      sourceLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: labelStyle,
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
