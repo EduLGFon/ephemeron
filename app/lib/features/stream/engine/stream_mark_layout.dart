@@ -116,25 +116,3 @@ List<MarkLayout> layoutMarkColumns(
     (k) => MarkLayout(column: column[k], columnCount: columnCountPer[k]),
   );
 }
-
-/// Alias accepting dynamic input (MarkInterval or StreamDayMark-like maps).
-List<MarkLayout> layoutMarks(
-  dynamic marks, {
-  int minDurationMinutes = streamMarkMinVisualMinutes,
-}) {
-  if (marks is List<MarkInterval>) {
-    return layoutMarkColumns(marks, minDurationMinutes: minDurationMinutes);
-  }
-  // Support list of objects exposing startMs/endMs via dynamic.
-  final intervals = <MarkInterval>[];
-  for (final m in marks as List) {
-    intervals.add(
-      MarkInterval(
-        startMs: (m as dynamic).startMs as int,
-        endMs: (m as dynamic).endMs as int,
-        id: (m as dynamic).id?.toString(),
-      ),
-    );
-  }
-  return layoutMarkColumns(intervals, minDurationMinutes: minDurationMinutes);
-}

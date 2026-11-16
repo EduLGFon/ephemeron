@@ -5,7 +5,11 @@ void main() {
   test('no overlap -> one column', () {
     final marks = [
       const MarkInterval(startMs: 0, endMs: 1000, id: 'a'),
-      const MarkInterval(startMs: 10 * 60 * 1000, endMs: 11 * 60 * 1000, id: 'b'),
+      const MarkInterval(
+        startMs: 10 * 60 * 1000,
+        endMs: 11 * 60 * 1000,
+        id: 'b',
+      ),
     ];
     final r = layoutMarkColumns(marks);
     expect(r[0].column, 0);

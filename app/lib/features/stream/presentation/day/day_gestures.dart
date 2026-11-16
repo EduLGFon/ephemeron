@@ -1,15 +1,17 @@
 import 'dart:math';
 
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../engine/stream_time_viewport.dart';
 
-/// Gesture wrapper for the day canvas: vertical pan, pinch zoom anchored on
-/// the focal point, snapping to zoom presets, momentum fling, plus
-/// wheel/trackpad scroll and Ctrl/Meta+scroll zoom.
+/// Gesture wrapper for the day canvas.
+///
+/// Snap threshold 0.12 means: if the current minutes-per-pixel is within 12%
+/// of a preset's scale, snap to that preset. This keeps a pinch that lands
+/// near a preset from leaving the user at an awkward intermediate zoom.
 class DayGestureRegion extends StatefulWidget {
   const DayGestureRegion({
     super.key,
@@ -41,14 +43,17 @@ class _DayGestureRegionState extends State<DayGestureRegion>
   @override
   void initState() {
     super.initState();
-    _ticker = createTicker(_onTick)..start();
+    _ticker = createTicker(_onTick);
   }
 
   @override
   void dispose() {
+    if (_ticker.isActive) _ticker.stop();
     _ticker.dispose();
     super.dispose();
   }
+
+  bool get tickerIsActive => _ticker.isActive;
 
   void _onTick(Duration elapsed) {
     final now = elapsed.inMilliseconds;
@@ -58,10 +63,14 @@ class _DayGestureRegionState extends State<DayGestureRegion>
     }
     final dt = (now - _lastTickMs) / 1000.0;
     _lastTickMs = now;
-    if (!_momentum) return;
+    if (!_momentum) {
+      if (_ticker.isActive) _ticker.stop();
+      return;
+    }
     if (_velocity.abs() < 5) {
       _momentum = false;
       _velocity = 0;
+      if (_ticker.isActive) _ticker.stop();
       widget.onGestureEnd?.call();
       return;
     }
@@ -72,75 +81,70 @@ class _DayGestureRegionState extends State<DayGestureRegion>
   void _onScaleStart(ScaleStartDetails d) {
     _dragStartOffset = widget.viewport.offsetPx;
     _dragStartMpp = widget.viewport.minutesPerPixel;
-    _dragStartFocal = d.focalPoint;
+    _dragStartFocal = d.localFocalPoint;
     _momentum = false;
     _velocity = 0;
+    _lastTickMs = 0;
   }
 
   void _onScaleUpdate(ScaleUpdateDetails d) {
-    final focal = d.focalPoint;
+    final focal = d.localFocalPoint;
     if (d.scale == 1.0) {
       final delta = focal.dy - _dragStartFocal.dy;
-      widget.viewport.setOffset(_dragStartOffset - delta, notify: false);
+      widget.viewport.setOffset(_dragStartOffset - delta);
       return;
     }
     final newMpp = (_dragStartMpp / d.scale).clamp(
       StreamTimeViewport.hourMinutesPerPixel,
       StreamTimeViewport.dayMinutesPerPixel,
     );
-    final focalTimeMs =
-        widget.viewport.baseEpochMs +
-        (_dragStartOffset + _dragStartFocal.dy) * _dragStartMpp * 60000.0;
-    final newOffset =
-        (focalTimeMs - widget.viewport.baseEpochMs) / (newMpp * 60000.0) -
-        focal.dy;
-    widget.viewport.setZoom(newMpp, notify: false);
-    widget.viewport.setOffset(newOffset, notify: false);
+    widget.viewport.setZoom(newMpp, focalPx: focal.dy);
   }
 
   void _onScaleEnd(ScaleEndDetails d) {
-    // Snap to nearest preset if close.
-    final mpp = widget.viewport.minutesPerPixel;
-    for (final p in StreamZoomPreset.values) {
-      final target = StreamTimeViewport.minutesPerPixelFor(p);
-      final dist = (mpp - target).abs() / target;
-      if (dist <= widget.snapThreshold) {
-        widget.viewport.setZoomPreset(p, focalPx: null);
-        break;
-      }
-    }
     _velocity = d.velocity.pixelsPerSecond.dy;
-    if (_velocity.abs() > 50) _momentum = true;
-    widget.onGestureEnd?.call();
+    if (_velocity.abs() > 50) {
+      _momentum = true;
+      if (!_ticker.isActive) _ticker.start();
+    } else {
+      widget.onGestureEnd?.call();
+    }
   }
 
   void _handlePointerSignal(PointerSignalEvent event) {
     if (event is PointerScrollEvent) {
-      final keys = HardwareKeyboard.instance.logicalKeysPressed;
-      final zooming =
-          keys.contains(LogicalKeyboardKey.controlLeft) ||
-          keys.contains(LogicalKeyboardKey.controlRight) ||
-          keys.contains(LogicalKeyboardKey.metaLeft) ||
-          keys.contains(LogicalKeyboardKey.metaRight);
-      if (zooming) {
-        final delta = event.scrollDelta.dy;
-        final factor = delta > 0 ? 1.1 : 0.9;
-        widget.viewport.setZoom(
-          widget.viewport.minutesPerPixel * factor,
-          focalPx: event.localPosition.dy,
-        );
-        widget.onGestureEnd?.call();
-      } else {
-        widget.viewport.panBy(event.scrollDelta.dy);
-      }
+      GestureBinding.instance.pointerSignalResolver.register(event, (e) {
+        final pe = e as PointerScrollEvent;
+        final keys = HardwareKeyboard.instance.logicalKeysPressed;
+        final zooming =
+            keys.contains(LogicalKeyboardKey.controlLeft) ||
+            keys.contains(LogicalKeyboardKey.controlRight) ||
+            keys.contains(LogicalKeyboardKey.metaLeft) ||
+            keys.contains(LogicalKeyboardKey.metaRight);
+        if (zooming) {
+          final factor = pe.scrollDelta.dy > 0 ? 1.1 : 0.9;
+          widget.viewport.setZoom(
+            widget.viewport.minutesPerPixel * factor,
+            focalPx: pe.localPosition.dy,
+          );
+          // Wheel zoom is discrete; no onGestureEnd to avoid per-event spam.
+        } else {
+          // Scroll down (dy > 0) moves later in time.
+          widget.viewport.setOffset(
+            widget.viewport.offsetPx + pe.scrollDelta.dy,
+          );
+        }
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Listener(
+      behavior: HitTestBehavior.opaque,
       onPointerSignal: _handlePointerSignal,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onScaleStart: _onScaleStart,
         onScaleUpdate: _onScaleUpdate,
         onScaleEnd: _onScaleEnd,
