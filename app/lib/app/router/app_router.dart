@@ -14,6 +14,7 @@ import '../../features/alarms/presentation/ring_screen.dart';
 import '../../features/notes/presentation/notes_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/stream/presentation/stream_spike_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // A verified cold-start ring request must be the very first route; AppShell
@@ -97,6 +98,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
       ),
+      if (const bool.fromEnvironment('STREAM_SPIKE'))
+        GoRoute(
+          path: '/stream-spike',
+          builder: (context, state) => const StreamSpikeScreen(),
+        ),
     ],
     redirect: (context, state) {
       // Widget taps deliver ephemeron://widget/... through the platform
