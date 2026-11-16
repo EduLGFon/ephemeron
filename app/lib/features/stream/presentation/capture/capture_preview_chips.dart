@@ -40,6 +40,9 @@ class CapturePreviewChips extends StatelessWidget {
           Semantics(
             label: chip.semanticsLabel ?? chip.label,
             button: true,
+            container: true,
+            excludeSemantics: true,
+            onTap: () => onChipTapped(chip.kind),
             child: ActionChip(
               label: Text(chip.label),
               onPressed: () => onChipTapped(chip.kind),
