@@ -267,10 +267,12 @@ HabitStatsSummary computeHabitStats({
   double complianceOf(List<_DayResult> days) {
     if (days.isEmpty) return 0.0;
     if (!hasGoal) {
-      final done = days
+      final scored = days.where((d) => !d.skipped).toList();
+      if (scored.isEmpty) return 0.0;
+      final done = scored
           .where((d) => d.outcome == HabitDayOutcome.perfect)
           .length;
-      return (done / days.length).clamp(0.0, 1.0);
+      return (done / scored.length).clamp(0.0, 1.0);
     }
     var credit = 0.0, target = 0.0;
     for (final d in days) {

@@ -176,4 +176,22 @@ void main() {
     expect(stats.partialDays, 1);
     expect(stats.compliance30, closeTo(0.6, 1e-9));
   });
+
+  test('binary skipped day stays neutral in compliance', () {
+    final spec = HabitSpec(frequency: 'daily', startDate: '2026-03-07');
+    final stats = computeHabitStats(
+      todayKey: '2026-03-10',
+      spec: spec,
+      unit: null,
+      goalAmount: null,
+      logs: const [
+        HabitLogEntry(dayKey: '2026-03-09', done: true),
+        HabitLogEntry(dayKey: '2026-03-08', done: false),
+        HabitLogEntry(dayKey: '2026-03-07', skipped: true),
+      ],
+      rangeDays: 30,
+    );
+    expect(stats.skippedDays, 1);
+    expect(stats.compliance30, closeTo(1 / 2, 1e-9));
+  });
 }
