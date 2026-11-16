@@ -127,46 +127,36 @@ void main() {
     expect(r.raw, 'xyz foo');
   });
 
+  test('unknown preserves > prefix', () {
+    final r = parseCommand('> xyz foo', now: now);
+    expect(r.kind, CommandKind.unknown);
+    expect(r.raw, '> xyz foo');
+  });
+
   test('extra whitespace', () {
     final r = parseCommand('  agenda  ', now: now);
     expect(r.kind, CommandKind.agenda);
   });
 
   test('pt ir para', () {
-    final r = parseCommand(
-      'ir para hoje',
-      now: now,
-      locale: StreamLocaleOrModeResolver.pt,
-    );
+    final r = parseCommand('ir para hoje', now: now, locale: StreamLocale.pt);
     expect(r.kind, CommandKind.goToDate);
   });
 
   test('pt focar', () {
-    final r = parseCommand(
-      'focar 15',
-      now: now,
-      locale: StreamLocaleOrModeResolver.pt,
-    );
+    final r = parseCommand('focar 15', now: now, locale: StreamLocale.pt);
     expect(r.kind, CommandKind.startFocus);
     expect(r.minutes, 15);
   });
 
   test('pt tema', () {
-    final r = parseCommand(
-      'tema light',
-      now: now,
-      locale: StreamLocaleOrModeResolver.pt,
-    );
+    final r = parseCommand('tema light', now: now, locale: StreamLocale.pt);
     expect(r.kind, CommandKind.theme);
     expect(r.mode, 'light');
   });
 
   test('pt ajuda', () {
-    final r = parseCommand(
-      'ajuda',
-      now: now,
-      locale: StreamLocaleOrModeResolver.pt,
-    );
+    final r = parseCommand('ajuda', now: now, locale: StreamLocale.pt);
     expect(r.kind, CommandKind.help);
   });
 }

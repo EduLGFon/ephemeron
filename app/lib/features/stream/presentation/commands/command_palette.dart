@@ -1,7 +1,7 @@
 /// Command palette widget. Presentation only, no providers.
 library;
 
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart' show ValueListenable, listEquals;
 import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 
@@ -52,7 +52,8 @@ class _CommandPaletteState extends State<CommandPalette> {
   late final FocusNode _focusNode;
   int _selectedIndex = 0;
   int _hovered = -1;
-  List<CommandCandidate> _lastFiltered = const [];
+  String _lastQuery = '';
+  List<String> _lastIds = const <String>[];
 
   String get _queryText => widget.queryListenable?.value ?? widget.query ?? '';
 
@@ -96,8 +97,12 @@ class _CommandPaletteState extends State<CommandPalette> {
   @override
   Widget build(BuildContext context) {
     final list = _filtered;
-    if (!identical(list, _lastFiltered)) {
-      _lastFiltered = list;
+    final ids = list.map((c) => c.id).toList(growable: false);
+    final queryChanged = _queryText != _lastQuery;
+    final idsChanged = !listEquals(ids, _lastIds);
+    if (queryChanged || idsChanged) {
+      _lastQuery = _queryText;
+      _lastIds = ids;
       _hovered = -1;
       if (_selectedIndex >= list.length && list.isNotEmpty) {
         _selectedIndex = list.length - 1;
@@ -118,7 +123,7 @@ class _CommandPaletteState extends State<CommandPalette> {
                 itemCount: list.length,
                 itemExtent:
                     56 *
-                    MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 2.0),
+                    MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 3.0),
                 itemBuilder: (context, i) {
                   final c = list[i];
                   return CommandPaletteRow(

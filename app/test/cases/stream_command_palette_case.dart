@@ -1,4 +1,5 @@
 import 'package:ephemeron/features/stream/presentation/commands/command_palette.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,7 +87,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: MediaQuery(
-          data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+          data: const MediaQueryData(textScaler: TextScaler.linear(3.0)),
           child: Scaffold(
             body: SizedBox(
               width: 320,
@@ -127,6 +128,25 @@ void main() {
     q.value = 'Command 9';
     await tester.pump();
     expect(find.text('Command 9'), findsOneWidget);
+  });
+
+  testWidgets('hover highlight renders', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CommandPalette(candidates: candidates, onSelected: (_) {}),
+        ),
+      ),
+    );
+    await tester.pump();
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(find.byType(InkWell).first));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await gesture.removePointer();
+    await tester.pump();
   });
 
   testWidgets('empty state label', (tester) async {
