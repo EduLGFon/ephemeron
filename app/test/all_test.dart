@@ -90,6 +90,7 @@ import 'cases/smart_filter_case.dart' as smart_filter;
 import 'cases/source_label_case.dart' as source_label;
 import 'cases/source_move_case.dart' as source_move;
 import 'cases/source_picker_case.dart' as source_picker;
+import 'cases/stream_chrome_widgets_case.dart' as stream_chrome_widgets;
 import 'cases/stream_culler_case.dart' as stream_culler;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
@@ -221,6 +222,7 @@ const _included = <String>{
   'source_label_case.dart',
   'source_move_case.dart',
   'source_picker_case.dart',
+  'stream_chrome_widgets_case.dart',
   'stream_culler_case.dart',
   'stream_layout_mode_case.dart',
   'stream_route_params_case.dart',
@@ -360,6 +362,7 @@ void main() {
   group('source_label', source_label.main);
   group('source_move', source_move.main);
   group('source_picker', source_picker.main);
+  group('stream_chrome_widgets', stream_chrome_widgets.main);
   group('stream_culler', stream_culler.main);
   group('stream_layout_mode', stream_layout_mode.main);
   group('stream_route_params', stream_route_params.main);
