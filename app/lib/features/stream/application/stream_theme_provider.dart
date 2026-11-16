@@ -18,7 +18,6 @@ class StreamThemeNotifier extends Notifier<StreamThemeMode> {
   final AppLogger _log = AppLogger();
   bool _userChanged = false;
   bool _disposed = false;
-  Object? lastPersistError;
 
   @override
   StreamThemeMode build() {
@@ -39,10 +38,8 @@ class StreamThemeNotifier extends Notifier<StreamThemeMode> {
     final prefs = ref.read(streamThemePreferencesProvider);
     try {
       await prefs.write(mode);
-      lastPersistError = null;
     } catch (e) {
       _log.error('stream theme persist failed', e);
-      lastPersistError = e;
       // keep optimistic state
     }
   }

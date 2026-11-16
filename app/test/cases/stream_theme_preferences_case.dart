@@ -1,10 +1,9 @@
+import 'dart:async';
+
 import 'package:ephemeron/features/stream/application/stream_theme_preferences.dart';
 import 'package:ephemeron/features/stream/application/stream_theme_provider.dart';
 import 'package:ephemeron/features/stream/design/stream_theme_mode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -53,9 +52,9 @@ void main() {
   });
 
   test('dispose before load completes does not throw', () async {
-    final completer = Completer<SharedPreferences>();
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    final completer = Completer<SharedPreferences>();
     final container = ProviderContainer(
       overrides: [
         streamThemePreferencesProvider.overrideWithValue(
@@ -63,6 +62,8 @@ void main() {
         ),
       ],
     );
+    // Build the notifier so _load runs while the future is pending.
+    container.read(streamThemeProvider.notifier);
     container.dispose();
     completer.complete(prefs);
     await pumpEventQueue();

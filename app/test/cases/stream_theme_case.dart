@@ -122,7 +122,7 @@ void main() {
     }
   });
 
-  test('focus colour meets 3:1 on each surface', () {
+  test('primary (accent) meets 3:1 on each surface', () {
     expect(
       streamContrastRatio(streamAccents.first.light, StreamSurfaces.light),
       greaterThanOrEqualTo(3.0),

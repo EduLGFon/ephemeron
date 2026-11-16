@@ -75,6 +75,3 @@ double streamContrastRatio(Color a, Color b) {
   final lo = la > lb ? lb : la;
   return (hi + 0.05) / (lo + 0.05);
 }
-
-double relativeLuminance(Color color) => streamRelativeLuminance(color);
-double contrastRatio(Color a, Color b) => streamContrastRatio(a, b);
