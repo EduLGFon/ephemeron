@@ -2,168 +2,92 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../design/stream_tokens.dart';
 import 'tray_item.dart';
+import 'tray_panel_header.dart';
+import 'tray_panel_item.dart';
+import 'tray_panel_rows.dart';
 
-class TrayGroup {
-  TrayGroup({
-    required this.listId,
-    required this.listName,
-    required this.colorArgb,
-    List<TrayItem>? items,
-  }) : items = items ?? <TrayItem>[];
-
-  final String listId;
-  final String listName;
-  final int colorArgb;
-  final List<TrayItem> items;
-}
-
-typedef TrayListGroup = TrayGroup;
-typedef TrayPanelGroup = TrayGroup;
-
-/// Expanded tray panel grouped by list. Fills the height given by the caller.
-class TrayPanel extends StatelessWidget {
+class TrayPanel extends StatefulWidget {
   const TrayPanel({
     super.key,
-    this.groups,
-    this.items,
-    this.emptyLabel,
-    this.emptyStateLabel,
-    this.emptyText,
+    required this.items,
+    required this.emptyLabel,
+    this.unnamedGroupLabel = 'Unnamed',
     this.collapseLabel,
-    this.expandLabel,
     this.onCollapseRequested,
-    this.onExpandRequested,
+    this.onItemTap,
   });
 
-  final List<TrayGroup>? groups;
-  final List<TrayItem>? items;
-
-  final String? emptyLabel;
-  final String? emptyStateLabel;
-  final String? emptyText;
-
+  final List<TrayItem> items;
+  final String emptyLabel;
+  final String unnamedGroupLabel;
   final String? collapseLabel;
-  final String? expandLabel;
-
   final VoidCallback? onCollapseRequested;
-  final VoidCallback? onExpandRequested;
+  final void Function(String id)? onItemTap;
 
-  static const double itemExtent = 48;
+  @override
+  State<TrayPanel> createState() => _TrayPanelState();
+}
 
-  String get _emptyLabel => emptyLabel ?? emptyStateLabel ?? emptyText ?? '';
+class _TrayPanelState extends State<TrayPanel> {
+  List<TrayPanelRow> _rows = const <TrayPanelRow>[];
 
-  List<TrayGroup> get _groups {
-    if (groups != null) return groups!;
-    final result = <TrayGroup>[];
-    final index = <String, int>{};
-    for (final item in items ?? const <TrayItem>[]) {
-      if (!index.containsKey(item.listId)) {
-        index[item.listId] = result.length;
-        result.add(
-          TrayGroup(
-            listId: item.listId,
-            listName: item.listName,
-            colorArgb: item.colorArgb,
-            items: <TrayItem>[],
-          ),
-        );
-      }
-      result[index[item.listId]!].items.add(item);
+  @override
+  void initState() {
+    super.initState();
+    _rebuild();
+  }
+
+  @override
+  void didUpdateWidget(covariant TrayPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.items, widget.items)) {
+      _rebuild();
     }
-    return result;
+  }
+
+  void _rebuild() {
+    _rows = buildTrayPanelRows(widget.items, widget.unnamedGroupLabel);
   }
 
   @override
   Widget build(BuildContext context) {
-    final list = _groups;
-    if (list.isEmpty) {
-      return Center(child: Text(_emptyLabel));
+    if (widget.items.isEmpty) {
+      return Center(child: Text(widget.emptyLabel));
     }
     return Column(
       children: [
-        if (collapseLabel != null)
+        if (widget.collapseLabel != null)
           GestureDetector(
-            onTap: onCollapseRequested,
+            onTap: widget.onCollapseRequested,
             child: Semantics(
               button: true,
-              label: collapseLabel,
-              onTap: onCollapseRequested,
+              label: widget.collapseLabel,
+              onTap: widget.onCollapseRequested,
               child: Padding(
                 padding: const EdgeInsets.all(StreamSpacing.x2),
-                child: Text(collapseLabel!),
+                child: Text(widget.collapseLabel!),
               ),
             ),
           ),
         Expanded(
           child: ListView.builder(
-            itemCount: list.length,
-            itemBuilder: (context, gi) {
-              final group = list[gi];
-              final color = Color(group.colorArgb);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Semantics(
-                    header: true,
-                    label: '${group.listName}, ${group.items.length}',
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.symmetric(
-                        horizontal: StreamSpacing.x2,
-                        vertical: StreamSpacing.x1,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(width: 3, height: 16, color: color),
-                          const SizedBox(width: StreamSpacing.x2),
-                          Expanded(
-                            child: Text(
-                              group.listName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Text('${group.items.length}'),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    height: group.items.length * itemExtent,
-                    child: ListView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemExtent: itemExtent,
-                      itemCount: group.items.length,
-                      itemBuilder: (context, ii) {
-                        final item = group.items[ii];
-                        return Semantics(
-                          container: true,
-                          excludeSemantics: true,
-                          label: '${item.title}, ${item.listName}',
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 3,
-                                height: 20,
-                                color: Color(item.colorArgb),
-                              ),
-                              const SizedBox(width: StreamSpacing.x2),
-                              Expanded(
-                                child: Text(
-                                  item.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+            itemExtent: TrayPanelRow.extent,
+            itemCount: _rows.length,
+            itemBuilder: (context, index) {
+              final row = _rows[index];
+              if (row is TrayPanelHeaderRow) {
+                return TrayPanelHeader(
+                  key: ValueKey('header:${row.listId}'),
+                  row: row,
+                );
+              }
+              final itemRow = row as TrayPanelItemRow;
+              return TrayPanelItem(
+                key: ValueKey(itemRow.item.id),
+                item: itemRow.item,
+                onTap: widget.onItemTap == null
+                    ? null
+                    : () => widget.onItemTap!(itemRow.item.id),
               );
             },
           ),
