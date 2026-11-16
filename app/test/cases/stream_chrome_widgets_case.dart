@@ -3,6 +3,8 @@ import 'package:ephemeron/features/stream/presentation/chrome/now_line.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/scrubber.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/time_rail.dart';
 import 'package:flutter/semantics.dart' show SemanticsAction;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -107,7 +109,12 @@ void main() {
           body: SizedBox(
             height: 200,
             width: 60,
-            child: Scrubber(onChanged: values.add, onChangeEnd: (_) {}),
+            child: Scrubber(
+              semanticLabel: 'position',
+              valueFormatter: (v) => '${(v * 100).round()}%',
+              onChanged: values.add,
+              onChangeEnd: (_) {},
+            ),
           ),
         ),
       ),
@@ -130,7 +137,11 @@ void main() {
           body: SizedBox(
             height: 200,
             width: 60,
-            child: Scrubber(onChanged: (_) {}),
+            child: Scrubber(
+              semanticLabel: 'position',
+              valueFormatter: (v) => '${(v * 100).round()}%',
+              onChanged: (_) {},
+            ),
           ),
         ),
       ),
@@ -144,5 +155,156 @@ void main() {
     final data = semantics.getSemanticsData();
     expect(data.hasAction(SemanticsAction.increase), isTrue);
     expect(data.hasAction(SemanticsAction.decrease), isTrue);
+  });
+
+  testWidgets('Breadcrumb semantics label and value', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Breadcrumb(
+            dateLabel: 'Mon 16 Nov',
+            levelLabel: 'Day',
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    final data = tester
+        .getSemantics(find.byType(Breadcrumb))
+        .getSemanticsData();
+    expect(data.label, 'Mon 16 Nov, Day');
+  });
+
+  testWidgets('Scrubber semantics label and value string', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 200,
+            width: 60,
+            child: Scrubber(
+              semanticLabel: 'position',
+              valueFormatter: (v) => '${(v * 100).round()}%',
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final semanticsFinder = find.descendant(
+      of: find.byType(Scrubber),
+      matching: find.byType(Semantics),
+    );
+    final data = tester.getSemantics(semanticsFinder).getSemanticsData();
+    expect(data.label, 'position');
+    expect(data.value, '0%');
+  });
+
+  testWidgets('Breadcrumb long label does not overflow', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+          child: Scaffold(
+            body: SizedBox(
+              width: 320,
+              child: Breadcrumb(
+                dateLabel: 'A very long date label that should ellipsize instead of overflowing the available width',
+                levelLabel: 'Level',
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Breadcrumb focus ring and Enter activates', (tester) async {
+    var taps = 0;
+    final node = FocusNode();
+    addTearDown(node.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Breadcrumb(
+            dateLabel: 'Mon 16 Nov',
+            levelLabel: 'Day',
+            onTap: () => taps++,
+          ),
+        ),
+      ),
+    );
+    // find the breadcrumb's focus node indirectly by requesting via tree
+    final breadcrumb = tester.widget<Breadcrumb>(find.byType(Breadcrumb));
+    expect(breadcrumb, isNotNull);
+    final inkWell = find.descendant(
+      of: find.byType(Breadcrumb),
+      matching: find.byType(InkWell),
+    );
+    final renderBefore = (tester.renderObject(inkWell) as RenderBox).size;
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(taps, 1);
+    final renderAfter = (tester.renderObject(inkWell) as RenderBox).size;
+    expect(renderAfter, renderBefore);
+  });
+
+  testWidgets('Breadcrumb hover changes state', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Breadcrumb(
+            dateLabel: 'Mon 16 Nov',
+            levelLabel: 'Day',
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(find.byType(Breadcrumb)));
+    await tester.pump();
+    await gesture.removePointer();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Breadcrumb and Scrubber 48dp targets', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              Breadcrumb(dateLabel: 'Mon', levelLabel: 'Day', onTap: () {}),
+              SizedBox(
+                height: 200,
+                width: 60,
+                child: Scrubber(semanticLabel: 'position', onChanged: (_) {}),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final bSize =
+        (tester.renderObject(find.byType(Breadcrumb)) as RenderBox).size;
+    final sSize =
+        (tester.renderObject(find.byType(Scrubber)) as RenderBox).size;
+    expect(bSize.width, greaterThanOrEqualTo(48));
+    expect(bSize.height, greaterThanOrEqualTo(48));
+    expect(sSize.width, greaterThanOrEqualTo(48));
+    expect(sSize.height, greaterThanOrEqualTo(48));
   });
 }

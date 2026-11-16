@@ -5,23 +5,30 @@ import '../../design/stream_tokens.dart';
 /// A thin vertical draggable track on the right edge reporting a
 /// fractional position in [0, 1].
 ///
-/// The hit target is at least 48 dp wide while the track stays visually thin.
-/// [padding] lets the caller keep the widget inside the 24 dp screen margin;
-/// this widget does not enforce that margin itself.
+/// The hit target is at least 48 dp in both directions while the track
+/// stays visually thin. [padding] lets the caller keep the widget inside
+/// the 24 dp screen margin; this widget does not enforce that margin
+/// itself.
 class Scrubber extends StatefulWidget {
   const Scrubber({
     super.key,
     required this.onChanged,
+    required this.semanticLabel,
     this.onChangeEnd,
     this.value,
+    this.valueFormatter,
     this.padding = EdgeInsetsDirectional.zero,
   });
 
   final ValueChanged<double> onChanged;
+  final String semanticLabel;
   final ValueChanged<double>? onChangeEnd;
 
   /// Optional controlled position in [0, 1].
   final double? value;
+
+  /// Optional caller-supplied formatter for the slider value string.
+  final String Function(double)? valueFormatter;
 
   final EdgeInsetsDirectional padding;
 
@@ -64,47 +71,58 @@ class _ScrubberState extends State<Scrubber> {
     return Padding(
       padding: widget.padding,
       child: Semantics(
+        label: widget.semanticLabel,
         slider: true,
-        value: _value.toStringAsFixed(2),
-        increasedValue: (_value + _step).clamp(0.0, 1.0).toStringAsFixed(2),
-        decreasedValue: (_value - _step).clamp(0.0, 1.0).toStringAsFixed(2),
+        value: widget.valueFormatter?.call(_value),
+        increasedValue: widget.valueFormatter?.call(
+          (_value + _step).clamp(0.0, 1.0),
+        ),
+        decreasedValue: widget.valueFormatter?.call(
+          (_value - _step).clamp(0.0, 1.0),
+        ),
         onIncrease: () => _setValue(_value + _step),
         onDecrease: () => _setValue(_value - _step),
-        child: SizedBox(
-          width: 48,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final trackHeight = constraints.maxHeight;
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (d) => _handleDrag(d, trackHeight),
-                onVerticalDragEnd: (_) => widget.onChangeEnd?.call(_value),
-                child: Stack(
-                  alignment: AlignmentDirectional.center,
-                  children: [
-                    Container(
-                      width: 4,
-                      height: double.infinity,
-                      decoration: BoxDecoration(
-                        color: scheme.outlineVariant,
-                        borderRadius: BorderRadius.circular(StreamRadii.full),
-                      ),
-                    ),
-                    PositionedDirectional(
-                      top: _value * (trackHeight - 12).clamp(0.0, trackHeight),
-                      child: Container(
-                        width: 12,
-                        height: 12,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+          child: SizedBox(
+            width: 48,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final trackHeight = constraints.maxHeight;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (d) => _handleDrag(d, trackHeight),
+                  onVerticalDragEnd: (_) => widget.onChangeEnd?.call(_value),
+                  child: Stack(
+                    alignment: AlignmentDirectional.center,
+                    children: [
+                      Container(
+                        width: 4,
+                        height: double.infinity,
                         decoration: BoxDecoration(
-                          color: scheme.primary,
+                          color: scheme.outlineVariant,
                           borderRadius: BorderRadius.circular(StreamRadii.full),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
+                      PositionedDirectional(
+                        top:
+                            _value * (trackHeight - 12).clamp(0.0, trackHeight),
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: scheme.primary,
+                            borderRadius: BorderRadius.circular(
+                              StreamRadii.full,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
