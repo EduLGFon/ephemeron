@@ -192,25 +192,32 @@ HabitLogsCompanion _habitLogOf(Map<String, dynamic> m) =>
       updatedAt: _reqInt(m, 'updatedAt'),
     );
 
-CountdownsCompanion _countdownOf(Map<String, dynamic> m) =>
-    CountdownsCompanion.insert(
-      id: _reqStr(m, 'id'),
-      title: _reqStr(m, 'title'),
-      type: Value(_optStr(m, 'type')),
-      template: Value(_optStr(m, 'template')),
-      targetDate: Value(_optStr(m, 'targetDate')),
-      yearlyRepeat: Value(_reqBool(m, 'yearlyRepeat')),
-      showAge: Value(_reqBool(m, 'showAge')),
-      notes: Value(_optStr(m, 'notes')),
-      alertOffsetDays: Value(_optInt(m, 'alertOffsetDays')),
-      alertTimeMin: Value(_optInt(m, 'alertTimeMin')),
-      alarmPreset: Value(_optStr(m, 'alarmPreset')),
-      linkedType: Value(_optStr(m, 'linkedType')),
-      linkedId: Value(_optStr(m, 'linkedId')),
-      createdAt: _reqInt(m, 'createdAt'),
-      updatedAt: _reqInt(m, 'updatedAt'),
-      deletedAt: Value(_optInt(m, 'deletedAt')),
-    );
+CountdownsCompanion _countdownOf(Map<String, dynamic> m) {
+  // Backup JSON is untrusted: unknown link types or empty ids restore as
+  // unlinked, same as the repository boundary.
+  final link = normalizeCountdownLink(
+    _optStr(m, 'linkedType'),
+    _optStr(m, 'linkedId'),
+  );
+  return CountdownsCompanion.insert(
+    id: _reqStr(m, 'id'),
+    title: _reqStr(m, 'title'),
+    type: Value(_optStr(m, 'type')),
+    template: Value(_optStr(m, 'template')),
+    targetDate: Value(_optStr(m, 'targetDate')),
+    yearlyRepeat: Value(_reqBool(m, 'yearlyRepeat')),
+    showAge: Value(_reqBool(m, 'showAge')),
+    notes: Value(_optStr(m, 'notes')),
+    alertOffsetDays: Value(_optInt(m, 'alertOffsetDays')),
+    alertTimeMin: Value(_optInt(m, 'alertTimeMin')),
+    alarmPreset: Value(_optStr(m, 'alarmPreset')),
+    linkedType: Value(link.type),
+    linkedId: Value(link.id),
+    createdAt: _reqInt(m, 'createdAt'),
+    updatedAt: _reqInt(m, 'updatedAt'),
+    deletedAt: Value(_optInt(m, 'deletedAt')),
+  );
+}
 
 FocusSessionsCompanion _focusOf(Map<String, dynamic> m) =>
     FocusSessionsCompanion.insert(

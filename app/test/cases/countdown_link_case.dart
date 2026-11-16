@@ -176,6 +176,43 @@ void main() {
     expect((await _row(db, first)).targetDate, '2028-09-09');
   });
 
+  test('syncLinkedTargetDate updates only rows whose date changed', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final repo = CountdownRepository(db);
+    final matching = await repo.createCountdown(
+      title: 'Matching',
+      targetDate: '2028-09-09',
+      linkedType: 'event',
+      linkedId: 'ev3',
+    );
+    final differing = await repo.createCountdown(
+      title: 'Differing',
+      targetDate: '2027-01-01',
+      linkedType: 'event',
+      linkedId: 'ev3',
+    );
+    await db.customStatement(
+      'UPDATE countdowns SET updated_at = 123 WHERE id = ?',
+      [matching],
+    );
+
+    await repo.syncLinkedTargetDate('event', 'ev3', '2028-09-09');
+    var matchingRow = await _row(db, matching);
+    var differingRow = await _row(db, differing);
+    expect(matchingRow.updatedAt, 123);
+    expect(differingRow.targetDate, '2028-09-09');
+    expect(differingRow.updatedAt, isNot(123));
+
+    // A second identical call has nothing to change, so updatedAt stays put.
+    final changedAt = differingRow.updatedAt;
+    await repo.syncLinkedTargetDate('event', 'ev3', '2028-09-09');
+    matchingRow = await _row(db, matching);
+    differingRow = await _row(db, differing);
+    expect(matchingRow.updatedAt, 123);
+    expect(differingRow.updatedAt, changedAt);
+  });
+
   test('task due-date updates keep a linked countdown in step', () async {
     final db = _db();
     addTearDown(db.close);
@@ -277,6 +314,57 @@ void main() {
     expect(plain.linkedType, isNull);
     expect(plain.linkedId, isNull);
   });
+
+  test(
+    'restore rejects unusable countdown links from untrusted backup',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final service = BackupService(db);
+      await service.restoreJson({
+        'version': 1,
+        'tables': {
+          'countdowns': [
+            {
+              'id': 'bad-type',
+              'title': 'Bad type',
+              'yearlyRepeat': false,
+              'showAge': false,
+              'linkedType': 'note',
+              'linkedId': 'n1',
+              'createdAt': 1,
+              'updatedAt': 2,
+            },
+            {
+              'id': 'empty-id',
+              'title': 'Empty id',
+              'yearlyRepeat': false,
+              'showAge': false,
+              'linkedType': 'task',
+              'linkedId': '',
+              'createdAt': 1,
+              'updatedAt': 2,
+            },
+            // Older backups may omit the link keys entirely.
+            {
+              'id': 'legacy',
+              'title': 'Legacy',
+              'yearlyRepeat': false,
+              'showAge': false,
+              'createdAt': 1,
+              'updatedAt': 2,
+            },
+          ],
+        },
+      });
+
+      for (final id in const ['bad-type', 'empty-id', 'legacy']) {
+        final row = await _row(db, id);
+        expect(row.linkedType, isNull, reason: id);
+        expect(row.linkedId, isNull, reason: id);
+      }
+    },
+  );
 
   testWidgets('entity section shows linked countdowns and opens editor', (
     WidgetTester tester,

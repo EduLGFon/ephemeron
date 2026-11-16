@@ -98,6 +98,7 @@ class CountdownRepository {
 
   /// Moves every live countdown linked to [type]/[id] to [targetDate].
   /// A null/empty date is a no-op: the entity has no natural date to follow.
+  /// Rows already on [targetDate] are left untouched.
   Future<void> syncLinkedTargetDate(
     String type,
     String id,
@@ -106,18 +107,24 @@ class CountdownRepository {
     final link = normalizeCountdownLink(type, id);
     final date = targetDate?.trim();
     if (link.id == null || date == null || date.isEmpty) return;
-    await (_db.update(_db.countdowns)..where(
-          (c) =>
-              c.linkedType.equals(link.type!) &
-              c.linkedId.equals(link.id!) &
-              c.deletedAt.isNull(),
-        ))
-        .write(
-          CountdownsCompanion(
-            targetDate: Value(date),
-            updatedAt: Value(nowMs()),
-          ),
-        );
+    final rows =
+        await (_db.select(_db.countdowns)..where(
+              (c) =>
+                  c.linkedType.equals(link.type!) &
+                  c.linkedId.equals(link.id!) &
+                  c.deletedAt.isNull(),
+            ))
+            .get();
+    final changedIds = [
+      for (final row in rows)
+        if (row.targetDate != date) row.id,
+    ];
+    if (changedIds.isEmpty) return;
+    await (_db.update(
+      _db.countdowns,
+    )..where((c) => c.id.isIn(changedIds))).write(
+      CountdownsCompanion(targetDate: Value(date), updatedAt: Value(nowMs())),
+    );
   }
 
   /// Removes the entity link without touching the countdown's content.
