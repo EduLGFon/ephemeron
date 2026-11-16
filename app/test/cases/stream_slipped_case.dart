@@ -2,6 +2,7 @@ import 'package:ephemeron/features/stream/presentation/slipped/slipped_action_la
 import 'package:ephemeron/features/stream/presentation/slipped/slipped_item.dart';
 import 'package:ephemeron/features/stream/presentation/slipped/slipped_trail.dart';
 import 'package:ephemeron/features/stream/presentation/slipped/slipped_triage.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -84,7 +85,9 @@ void main() {
     expect(find.bySemanticsLabel(RegExp('2')), findsOneWidget);
   });
 
-  testWidgets('reduce-motion disables animation duration', (tester) async {
+  testWidgets('reduce-motion reaches target opacity immediately', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MediaQuery(
         data: const MediaQueryData(disableAnimations: true),
@@ -99,7 +102,9 @@ void main() {
         ),
       ),
     );
-    expect(find.text('2 slipped'), findsOneWidget);
+    await tester.pump();
+    final opacity = tester.widget<Opacity>(find.byType(Opacity));
+    expect(opacity.opacity, 1.0);
   });
 
   testWidgets('triage rows show all items', (tester) async {
@@ -138,6 +143,8 @@ void main() {
     );
     expect(find.text('A'), findsOneWidget);
     expect(find.text('B'), findsOneWidget);
+    expect(find.text('1d'), findsOneWidget);
+    expect(find.text('2d'), findsOneWidget);
   });
 
   testWidgets('tapping each action calls right callback with right id', (
@@ -277,19 +284,58 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(done, ['e']);
+
+    final tomorrow = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            height: 300,
+            child: SlippedTriage(
+              items: const [
+                SlippedItem(
+                  id: 'r',
+                  title: 'R',
+                  daysOverdue: 1,
+                  listColorArgb: 0xFF000000,
+                ),
+              ],
+              onDone: (_) {},
+              onTomorrow: tomorrow.add,
+              onPickTime: (_) {},
+              onDrop: (_) {},
+              onUndoRequested: (_) {},
+              daysOverdueLabel: (item) => '${item.daysOverdue}d',
+              actionLabels: _labels,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final yr = tester.getCenter(find.text('R')).dy;
+    await tester.dragFrom(Offset(398, yr), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(tomorrow, isEmpty);
+    await tester.dragFrom(Offset(370, yr), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(tomorrow, ['r']);
   });
 
   testWidgets('long title does not overflow at 320dp and 2.0 scale', (
     tester,
   ) async {
-    final items = [
-      const SlippedItem(
-        id: 'l',
-        title: 'A very long title that should not overflow the available width when scaled up significantly',
+    final items = List.generate(
+      30,
+      (i) => SlippedItem(
+        id: 'l$i',
+        title:
+            'A very long title that should not overflow the available width when scaled up significantly $i',
         daysOverdue: 1,
         listColorArgb: 0xFF000000,
       ),
-    ];
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: MediaQuery(
@@ -347,6 +393,11 @@ void main() {
     );
     final semantics = tester.getSemantics(find.byType(Dismissible));
     expect(semantics.getSemanticsData().customSemanticsActionIds!.length, 4);
+    final ids = semantics.getSemanticsData().customSemanticsActionIds!;
+    final labels = ids
+        .map((id) => CustomSemanticsAction.getAction(id)!.label)
+        .toList();
+    expect(labels, containsAll(['Done', 'Tomorrow', 'Pick time', 'Drop']));
   });
 
   testWidgets('keyboard shortcuts trigger callbacks with initial focus', (
@@ -428,5 +479,51 @@ void main() {
     await tester.pump();
     // no assertion on which callback; just ensure no crash
     expect(true, isTrue);
+  });
+
+  testWidgets('keyboard navigation across 30 items', (tester) async {
+    final done = <String>[];
+    final pick = <String>[];
+    final items = List.generate(
+      30,
+      (i) => SlippedItem(
+        id: 'k$i',
+        title: 'Item $i',
+        daysOverdue: 1,
+        listColorArgb: 0xFF000000,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 300,
+            child: SlippedTriage(
+              items: items,
+              onDone: done.add,
+              onTomorrow: (_) {},
+              onPickTime: pick.add,
+              onDrop: (_) {},
+              onUndoRequested: (_) {},
+              daysOverdueLabel: (item) => '${item.daysOverdue}d',
+              actionLabels: _labels,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 20; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
+    await tester.pump();
+    expect(done, ['k20']);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+    await tester.pump();
+    expect(pick, ['k19']);
   });
 }

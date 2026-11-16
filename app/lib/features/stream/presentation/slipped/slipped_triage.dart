@@ -6,6 +6,8 @@ import 'slipped_action_labels.dart';
 import 'slipped_item.dart';
 import 'slipped_triage_row.dart';
 
+const double slippedTriageItemExtent = 128;
+
 class SlippedTriage extends StatefulWidget {
   const SlippedTriage({
     super.key,
@@ -35,56 +37,53 @@ class SlippedTriage extends StatefulWidget {
 }
 
 class _SlippedTriageState extends State<SlippedTriage> {
-  late final List<FocusNode> _nodes;
+  final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _nodes = List<FocusNode>.generate(widget.items.length, (_) => FocusNode());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_nodes.isNotEmpty && mounted) _nodes.first.requestFocus();
+      if (mounted) _focusNode.requestFocus();
     });
   }
 
   @override
   void didUpdateWidget(covariant SlippedTriage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.items.length != widget.items.length) {
-      for (final n in _nodes) {
-        n.dispose();
-      }
-      _nodes
-        ..clear()
-        ..addAll(
-          List<FocusNode>.generate(widget.items.length, (_) => FocusNode()),
-        );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_nodes.isNotEmpty && mounted) _nodes.first.requestFocus();
-      });
+    if (widget.items.length != oldWidget.items.length) {
+      _selectedIndex = _selectedIndex.clamp(0, widget.items.length - 1);
+      if (widget.items.isEmpty) _selectedIndex = 0;
     }
   }
 
   @override
   void dispose() {
-    for (final n in _nodes) {
-      n.dispose();
-    }
+    _focusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  KeyEventResult _handleKey(int index, KeyEvent event) {
+  KeyEventResult _handleKey(KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (index >= widget.items.length) return KeyEventResult.ignored;
-    final id = widget.items[index].id;
+    if (widget.items.isEmpty) return KeyEventResult.ignored;
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.arrowDown) {
-      if (index + 1 < _nodes.length) _nodes[index + 1].requestFocus();
+      setState(() {
+        if (_selectedIndex < widget.items.length - 1) _selectedIndex++;
+      });
+      _scrollToSelection();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowUp) {
-      if (index - 1 >= 0) _nodes[index - 1].requestFocus();
+      setState(() {
+        if (_selectedIndex > 0) _selectedIndex--;
+      });
+      _scrollToSelection();
       return KeyEventResult.handled;
     }
+    final id = widget.items[_selectedIndex].id;
     if (key == LogicalKeyboardKey.keyD) {
       widget.onDone(id);
       widget.onUndoRequested(id);
@@ -107,32 +106,47 @@ class _SlippedTriageState extends State<SlippedTriage> {
     return KeyEventResult.ignored;
   }
 
+  void _scrollToSelection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final target = _selectedIndex * slippedTriageItemExtent;
+      _scrollController.animateTo(
+        target,
+        duration: StreamMotion.fast,
+        curve: StreamMotion.standard,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return FocusScope(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (widget.hintLabel != null)
-            Padding(
-              padding: const EdgeInsetsDirectional.all(StreamSpacing.x2),
-              child: Text(
-                widget.hintLabel!,
-                style: Theme.of(context).textTheme.bodySmall,
+      child: Focus(
+        focusNode: _focusNode,
+        onKeyEvent: (node, event) => _handleKey(event),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.hintLabel != null)
+              Padding(
+                padding: const EdgeInsetsDirectional.all(StreamSpacing.x2),
+                child: Text(
+                  widget.hintLabel!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
-            ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: widget.items.length,
-              itemBuilder: (context, index) {
-                final item = widget.items[index];
-                return Focus(
-                  focusNode: _nodes[index],
-                  onKeyEvent: (node, event) => _handleKey(index, event),
-                  child: SlippedTriageRow(
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                itemExtent: slippedTriageItemExtent,
+                itemCount: widget.items.length,
+                itemBuilder: (context, index) {
+                  final item = widget.items[index];
+                  return SlippedTriageRow(
                     item: item,
                     overdueText: widget.daysOverdueLabel(item),
                     labels: widget.actionLabels,
+                    selected: index == _selectedIndex,
                     onDone: () {
                       widget.onDone(item.id);
                       widget.onUndoRequested(item.id);
@@ -146,12 +160,12 @@ class _SlippedTriageState extends State<SlippedTriage> {
                       widget.onDrop(item.id);
                       widget.onUndoRequested(item.id);
                     },
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
