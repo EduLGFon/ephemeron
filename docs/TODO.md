@@ -3,7 +3,7 @@
 ## Owner/device verification (no devices or SDK here)
 
 - Week calendar home widget: Android build/launcher behavior; warm/cold tap navigation; Motorola One Fusion 4x2 setup dialog.
-- Alarm ring flow on device: audio/flashlight; cold/warm notification taps open /ring; Snooze/Dismiss/Open stop native audio; Android 14+ without full-screen intent permission; alarms with notifications disabled marked missed; locked-device full-screen ring over keyguard with biometric; minute repeats do not re-alert.
+- Alarm ring flow on device: audio/flashlight; cold/warm notification taps open /ring; Snooze/Dismiss/Open stop native audio; Android 14+ without full-screen intent permission; alarms with notifications disabled marked missed; locked-device full-screen ring over keyguard with biometric; minute repeats do not re-alert. Verify the 2026-11-16 changes: no multi-alarm ring after hibernation, overdue rows appear as missed, long audio starts only on the rendered RingScreen and a >2-minute active ring survives resume, leaving the screen auto-snoozes 10 min with a toast, and stale deliveries without a fire time do not ring.
 - Native notification Dismiss does not run Dart; next habit occurrence scheduled on next app open.
 - Google sign-in and runtime permissions on Android debug/release, decline path, device-calendar import/settings, first reminder/alarm prompts, exact-alarm/full-screen prompts. Google Cloud console: SHA-1 entries, Calendar/Tasks APIs, Web serverClientId match.
 - Android multi-account silent restore on a real device: restart with two or more granted accounts and confirm no account picker appears, sync uses each account's token, and a revoked grant shows the reconnect banner instead of prompting.
@@ -36,6 +36,11 @@
 - Docker image build unverified: docker.service failed to start here and sudo needs a password; Dockerfile cache layers and argon2 warm-up were simulated with Deno 2.9.8 in a fresh DENO_DIR.
 - Linux build blocked by missing system package webkit2gtk-4.0 (required by desktop_webview_window), not app code.
 - iOS/macOS/Windows builds not run (Linux host, no Xcode/Windows).
+- Alarm missed history is retained for 24 h only; older settled rows are trimmed by the next window rebuild. There is no separate missed-at timestamp.
+- Focus alarm `phase`/`body` are not stored in `alarms_index`; the foreground notification posted when the ring starts cannot carry the focus next-phase action. Ring/snooze/dismiss are unaffected.
+- Full-screen alarm audio is confined to the visible RingScreen on Android and to the in-app fallback dialog on web/desktop/iOS. If the screen cannot open, the alarm becomes missed rather than ringing in the background.
+- Linked countdowns are local-only; they are not sent to the backend. Event/task date changes update linked target dates, but a countdown can still be edited independently afterward.
+- Habit statistics use local logs and existing streak rules; weekly-target stats show the current week only. No schema or backend change was added.
 - Three plugins still apply Kotlin Gradle Plugin (flutter_web_auth_2, home_widget, workmanager_android); Flutter warns this will fail in a future release. All are latest, so this is upstream.
 - Generated l10n keeps a header ignore for deprecated_member_use because Flutter gen-l10n still emits legacy delegates; app code uses material_ui delegates. Revisit when the generator migrates.
 - Release build warns the CupertinoIcons font is absent; no app code uses CupertinoIcons.

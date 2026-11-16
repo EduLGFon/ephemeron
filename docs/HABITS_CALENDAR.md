@@ -29,6 +29,14 @@ HabitRepository.addAmount: create log if missing, increment amount, preserve don
 subtractAmount: no-op if no log; ignore zero/negative; subtract clamped at 0; clear/set done based on goal; preserve skipped; enqueue update.
 setDone(id, day, false): amount 0, done false, preserve skipped, no alarm cancel.
 
+## Statistics
+Habits app bar opens a statistics screen backed by local logs only.
+- Goal habits: compliance = sum(min(amount, goal)) / sum(goal) over scheduled past days; partial days count proportionally; skipped days are neutral; future days and days before startDate are excluded. Display is capped at 100%.
+- Binary habits (no positive goal): done days / scheduled past days. Skipped days stay neutral.
+- Each card shows 7- and 30-day compliance, current/best streak, perfect/partial/missed/skipped counts, total logged vs goal, remaining deficit, and weekly-target progress for weekly habits.
+- Recent partial/missed goal days expose a catch-up action that calls `HabitRepository.addAmount` with the exact missing amount. Catch-up is available for today and recent prior days; skipped days are excluded.
+- The screen wraps at 320 dp and 3x text; no new table, package, or timer.
+
 ## Habits list selection/bulk
 Long-press enters selection mode. AppBar: close, n selected, bulk archive/unarchive, delete (confirm). 6s undo buffer one SnackBar per action. Selection pruned when rows leave active list; bulk resolves live rows at action time. Back while selecting clears selection. Nothing hard-deleted.
 
