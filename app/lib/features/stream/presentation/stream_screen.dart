@@ -40,13 +40,12 @@ class StreamScreen extends ConsumerStatefulWidget {
 
 class _StreamScreenState extends ConsumerState<StreamScreen> {
   StreamRouteParams _resolveParams() {
-    DateTime? routeDate;
-    String? routeZoom;
-    try {
-      final gs = GoRouterState.of(context);
-      routeDate = tryParseStreamDate(gs.pathParameters['date']);
-      routeZoom = gs.pathParameters['zoom'];
-    } catch (_) {}
+    final router = GoRouter.maybeOf(context);
+    final gs = router?.state;
+    final routeDate = gs == null
+        ? null
+        : tryParseStreamDate(gs.pathParameters['date']);
+    final routeZoom = gs?.pathParameters['zoom'];
     final resolvedDate = widget.date ?? routeDate;
     final resolvedZoom = widget.zoom ?? routeZoom;
     return parseStreamRouteParams(
@@ -54,6 +53,58 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
       zoom: resolvedZoom,
     );
   }
+
+  void _openSettings() {
+    widget.onOpenSettings?.call();
+    GoRouter.maybeOf(context)?.go('/settings');
+  }
+
+  Widget _captureTray() =>
+      const SizedBox(key: Key('captureTrayPlaceholder'), height: 72);
+
+  Widget _compact(StreamHeader header, StreamDayBody body) => Column(
+    children: [
+      header,
+      Expanded(child: body),
+      _captureTray(),
+    ],
+  );
+
+  Widget _medium(StreamHeader header, StreamDayBody body) => Column(
+    children: [
+      header,
+      Expanded(
+        child: Row(
+          children: [
+            Expanded(child: body),
+            const SizedBox(key: Key('sidePanelPlaceholder'), width: 200),
+          ],
+        ),
+      ),
+      _captureTray(),
+    ],
+  );
+
+  Widget _expanded(StreamHeader header, StreamDayBody body) => Row(
+    children: [
+      const SizedBox(key: Key('leftPanelPlaceholder'), width: 240),
+      Expanded(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              children: [
+                header,
+                Expanded(child: body),
+                _captureTray(),
+              ],
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(key: Key('rightInspectorPlaceholder'), width: 320),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -66,16 +117,21 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
       dateLabel:
           '${DateFormat('EEE d MMM').format(params.date)} '
           '(${formatStreamDate(params.date)})',
-      levelLabel: params.zoom == 'day' ? l.streamDay : params.zoom,
+      levelLabel: l.streamDay,
       slippedCount: 0,
       onOpenCommand: widget.onOpenCommand,
       syncStatus: widget.syncStatus,
       syncLabel: widget.syncLabel,
-      onOpenSettings: widget.onOpenSettings,
+      settingsLabel: l.streamSettings,
+      onOpenSettings: _openSettings,
     );
+    // TODO(#stream-overlays): wire command palette overlay and openCommand.
     final body = StreamDayBody(
       date: params.date,
-      onDateChanged: widget.onDateChanged,
+      onDateChanged: (day) {
+        widget.onDateChanged?.call(day);
+        GoRouter.maybeOf(context)?.go('/stream/${formatStreamDate(day)}/day');
+      },
       onReturnToNow: widget.onReturnToNow,
     );
 
@@ -89,67 +145,11 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
               final layoutMode = streamLayoutModeForWidth(constraints.maxWidth);
               switch (layoutMode) {
                 case StreamLayoutMode.compact:
-                  return Column(
-                    children: [
-                      header,
-                      Expanded(child: body),
-                      Container(
-                        key: const Key('captureTrayPlaceholder'),
-                        height: 72,
-                      ),
-                    ],
-                  );
+                  return _compact(header, body);
                 case StreamLayoutMode.medium:
-                  return Column(
-                    children: [
-                      header,
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Expanded(child: body),
-                            Container(
-                              key: const Key('sidePanelPlaceholder'),
-                              width: 200,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        key: const Key('captureTrayPlaceholder'),
-                        height: 72,
-                      ),
-                    ],
-                  );
+                  return _medium(header, body);
                 case StreamLayoutMode.expanded:
-                  return Row(
-                    children: [
-                      Container(
-                        key: const Key('leftPanelPlaceholder'),
-                        width: 240,
-                      ),
-                      Expanded(
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1200),
-                            child: Column(
-                              children: [
-                                header,
-                                Expanded(child: body),
-                                Container(
-                                  key: const Key('captureTrayPlaceholder'),
-                                  height: 72,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Container(
-                        key: const Key('rightInspectorPlaceholder'),
-                        width: 320,
-                      ),
-                    ],
-                  );
+                  return _expanded(header, body);
               }
             },
           ),

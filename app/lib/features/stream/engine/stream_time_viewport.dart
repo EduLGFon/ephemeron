@@ -27,8 +27,10 @@ class StreamTimeViewport extends ChangeNotifier {
   double _minutesPerPixel = dayMinutesPerPixel;
   StreamZoomPreset _preset = StreamZoomPreset.day;
   double _viewportHeight = 0;
+  final ValueNotifier<double> _offsetPxListenable = ValueNotifier<double>(0);
 
   double get offsetPx => _offsetPx;
+  ValueListenable<double> get offsetPxListenable => _offsetPxListenable;
   double get minutesPerPixel => _minutesPerPixel;
   StreamZoomPreset get zoomPreset => _preset;
   double get viewportHeight => _viewportHeight;
@@ -39,16 +41,24 @@ class StreamTimeViewport extends ChangeNotifier {
 
   void notify() => notifyListeners();
 
+  @override
+  void notifyListeners() {
+    _offsetPxListenable.value = _offsetPx;
+    super.notifyListeners();
+  }
+
   bool setViewportHeight(double h, {bool notify = true}) {
     if (h == _viewportHeight) return false;
     _viewportHeight = h;
     _offsetPx = _offsetPx.clamp(0.0, _maxOffset());
+    _offsetPxListenable.value = _offsetPx;
     if (notify) notifyListeners();
     return true;
   }
 
   void setOffset(double v, {bool notify = true}) {
     _offsetPx = v.clamp(0.0, _maxOffset());
+    _offsetPxListenable.value = _offsetPx;
     if (notify) notifyListeners();
   }
 
@@ -66,6 +76,7 @@ class StreamTimeViewport extends ChangeNotifier {
       _minutesPerPixel = clamped;
     }
     _offsetPx = _offsetPx.clamp(0.0, _maxOffset());
+    _offsetPxListenable.value = _offsetPx;
     _preset = _nearestPreset(_minutesPerPixel);
     if (notify) notifyListeners();
   }

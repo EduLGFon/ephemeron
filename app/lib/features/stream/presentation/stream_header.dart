@@ -17,6 +17,8 @@ class StreamHeader extends StatelessWidget {
     this.onOpenCommand,
     this.syncStatus = StreamSyncStatus.synced,
     this.syncLabel,
+    this.settingsLabel,
+    this.settingsTooltip,
     this.onOpenSettings,
   });
 
@@ -27,12 +29,14 @@ class StreamHeader extends StatelessWidget {
   final VoidCallback? onOpenCommand;
   final StreamSyncStatus syncStatus;
   final String? syncLabel;
+  final String? settingsLabel;
+  final String? settingsTooltip;
   final VoidCallback? onOpenSettings;
 
   Color _dotColor(ColorScheme scheme) {
     switch (syncStatus) {
       case StreamSyncStatus.synced:
-        return const Color(0xFF43A047);
+        return scheme.tertiary;
       case StreamSyncStatus.syncing:
         return scheme.primary;
       case StreamSyncStatus.offline:
@@ -76,14 +80,14 @@ class StreamHeader extends StatelessWidget {
           const SizedBox(width: StreamSpacing.x2),
           Semantics(
             button: true,
-            label: syncLabel ?? '',
+            label: settingsLabel ?? '',
             child: ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               child: IconButton(
                 onPressed: onOpenSettings,
                 icon: const Icon(Icons.account_circle_outlined),
                 iconSize: StreamIconSize.lg,
-                tooltip: syncLabel,
+                tooltip: settingsTooltip ?? settingsLabel,
               ),
             ),
           ),

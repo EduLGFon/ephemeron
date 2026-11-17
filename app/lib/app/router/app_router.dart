@@ -116,6 +116,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
     ],
     redirect: (context, state) {
+      // Canonicalize unsupported stream zoom levels (such as hour) to day so
+      // the URL and the rendered level agree.
+      if (streamUiEnabled) {
+        final match = RegExp(r'^/stream/([^/]+)/([^/]+)/?$')
+            .firstMatch(state.uri.path);
+        if (match != null && match.group(2) != 'day') {
+          return '/stream/${match.group(1)}/day';
+        }
+      }
       // Widget taps deliver ephemeron://widget/... through the platform
       // intent; if one ever reaches the router as a path, open the
       // calendar instead of showing the error page.
