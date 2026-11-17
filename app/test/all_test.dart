@@ -109,9 +109,12 @@ import 'cases/stream_gesture_school_case.dart' as stream_gesture_school;
 import 'cases/stream_habit_gutter_case.dart' as stream_habit_gutter;
 import 'cases/stream_habit_streak_case.dart' as stream_habit_streak;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
+import 'cases/stream_level_data_case.dart' as stream_level_data;
+import 'cases/stream_level_transition_case.dart' as stream_level_transition;
 import 'cases/stream_mark_hit_test_case.dart' as stream_mark_hit_test;
 import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
+import 'cases/stream_month_view_case.dart' as stream_month_view;
 import 'cases/stream_peek_editor_case.dart' as stream_peek_editor;
 import 'cases/stream_peek_editor_state_case.dart' as stream_peek_editor_state;
 import 'cases/stream_peek_panel_case.dart' as stream_peek_panel;
@@ -131,6 +134,7 @@ import 'cases/stream_tray_panel_interaction_case.dart'
     as stream_tray_panel_interaction;
 import 'cases/stream_tray_strip_case.dart' as stream_tray_strip;
 import 'cases/stream_viewport_case.dart' as stream_viewport;
+import 'cases/stream_week_view_case.dart' as stream_week_view;
 import 'cases/sync_all_case.dart' as sync_all;
 import 'cases/sync_attention_case.dart' as sync_attention;
 import 'cases/sync_calendar_integrity_case.dart' as sync_calendar_integrity;
@@ -277,9 +281,12 @@ const _included = <String>{
   'stream_habit_gutter_case.dart',
   'stream_habit_streak_case.dart',
   'stream_layout_mode_case.dart',
+  'stream_level_data_case.dart',
+  'stream_level_transition_case.dart',
   'stream_mark_hit_test_case.dart',
   'stream_mark_layout_case.dart',
   'stream_mark_mapper_case.dart',
+  'stream_month_view_case.dart',
   'stream_peek_editor_case.dart',
   'stream_peek_editor_state_case.dart',
   'stream_peek_panel_case.dart',
@@ -297,6 +304,7 @@ const _included = <String>{
   'stream_tray_panel_interaction_case.dart',
   'stream_tray_strip_case.dart',
   'stream_viewport_case.dart',
+  'stream_week_view_case.dart',
   'sync_all_case.dart',
   'sync_attention_case.dart',
   'sync_calendar_integrity_case.dart',
@@ -451,9 +459,12 @@ void main() {
   group('stream_habit_gutter', stream_habit_gutter.main);
   group('stream_habit_streak', stream_habit_streak.main);
   group('stream_layout_mode', stream_layout_mode.main);
+  group('stream_level_data', stream_level_data.main);
+  group('stream_level_transition', stream_level_transition.main);
   group('stream_mark_hit_test', stream_mark_hit_test.main);
   group('stream_mark_layout', stream_mark_layout.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
+  group('stream_month_view', stream_month_view.main);
   group('stream_peek_editor', stream_peek_editor.main);
   group('stream_peek_editor_state', stream_peek_editor_state.main);
   group('stream_peek_panel', stream_peek_panel.main);
@@ -471,6 +482,7 @@ void main() {
   group('stream_tray_panel_interaction', stream_tray_panel_interaction.main);
   group('stream_tray_strip', stream_tray_strip.main);
   group('stream_viewport', stream_viewport.main);
+  group('stream_week_view', stream_week_view.main);
   group('sync_all', sync_all.main);
   group('sync_attention', sync_attention.main);
   group('sync_calendar_integrity', sync_calendar_integrity.main);
