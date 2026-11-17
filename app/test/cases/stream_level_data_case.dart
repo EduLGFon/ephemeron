@@ -126,6 +126,22 @@ void main() {
       // Adding 7 * 24h would land on 01:00 the next day in a DST zone.
       expect(range.end.difference(range.start).inHours, spansDst ? 167 : 168);
     });
+
+    test('week range honors firstDayOfWeek', () {
+      final monday = streamLevelRangeFor(
+        StreamLevel.week,
+        DateTime(2026, 11, 18),
+      );
+      final sunday = streamLevelRangeFor(
+        StreamLevel.week,
+        DateTime(2026, 11, 18),
+        firstDayOfWeek: DateTime.sunday,
+      );
+      expect(monday.start, DateTime(2026, 11, 16));
+      expect(monday.end, DateTime(2026, 11, 23));
+      expect(sunday.start, DateTime(2026, 11, 15));
+      expect(sunday.end, DateTime(2026, 11, 22));
+    });
   });
 
   group('streamMonthRange', () {

@@ -49,7 +49,11 @@ Widget _hostApp({
   double height = 400,
   double textScale = 1.0,
 }) {
-  final range = streamLevelRangeFor(level, date);
+  final range = streamLevelRangeFor(
+    level,
+    date,
+    firstDayOfWeek: firstDayOfWeek,
+  );
   return ProviderScope(
     key: UniqueKey(),
     overrides: [
@@ -137,6 +141,40 @@ void main() {
     );
     await tester.pump();
     expect(tappedDay, DateTime(2026, 11, 17));
+  });
+
+  testWidgets('week: Monday-first range starts on Monday', (tester) async {
+    await tester.pumpWidget(
+      _hostApp(
+        level: StreamLevel.week,
+        date: DateTime(2026, 11, 18),
+        firstDayOfWeek: DateTime.monday,
+        marks: _marks([_mark('a', DateTime(2026, 11, 18, 9))]),
+      ),
+    );
+    await tester.pump();
+
+    final view = tester.widget<WeekView>(find.byType(WeekView));
+    expect(view.weekStart, DateTime(2026, 11, 16));
+    expect(view.weekStart.weekday, DateTime.monday);
+    expect(view.dayMarks![2].single.id, 'a');
+  });
+
+  testWidgets('week: Sunday-first range starts on Sunday', (tester) async {
+    await tester.pumpWidget(
+      _hostApp(
+        level: StreamLevel.week,
+        date: DateTime(2026, 11, 18),
+        firstDayOfWeek: DateTime.sunday,
+        marks: _marks([_mark('a', DateTime(2026, 11, 18, 9))]),
+      ),
+    );
+    await tester.pump();
+
+    final view = tester.widget<WeekView>(find.byType(WeekView));
+    expect(view.weekStart, DateTime(2026, 11, 15));
+    expect(view.weekStart.weekday, DateTime.sunday);
+    expect(view.dayMarks![3].single.id, 'a');
   });
 
   testWidgets('week: uncovered range ensures once and shows loading', (

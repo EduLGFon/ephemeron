@@ -19,10 +19,11 @@ import '../levels/level_data.dart';
 import '../levels/month_view.dart';
 import '../levels/week_view.dart';
 
+part 'stream_level_host_views.dart';
+
 /// Renders one Week or Month level for [date] inside the available space.
 ///
-/// [firstDayOfWeek] configures the MonthView grid. The week range follows
-/// [streamLevelRangeFor], which uses a Monday-first local week.
+/// The week starts on [firstDayOfWeek]; the month grid uses the same value.
 class StreamLevelHost extends ConsumerStatefulWidget {
   const StreamLevelHost({
     super.key,
@@ -91,27 +92,34 @@ class _StreamLevelHostState extends ConsumerState<StreamLevelHost> {
 
   @override
   Widget build(BuildContext context) {
-    final range = streamLevelRangeFor(widget.level, widget.date);
+    final range = streamLevelRangeFor(
+      widget.level,
+      widget.date,
+      firstDayOfWeek: widget.firstDayOfWeek,
+    );
     final marksAsync = ref.watch(streamLevelMarksProvider(range));
     final cacheStatus = widget.ensureRange == null
         ? ref.watch(streamDayCacheControllerProvider)
         : StreamDayCacheStatus.idle;
     return marksAsync.when(
-      loading: () => _message(widget.loadingLabel),
-      error: (error, stackTrace) => _message(widget.errorLabel),
+      loading: () => _message(context, widget.loadingLabel),
+      error: (error, stackTrace) => _message(context, widget.errorLabel),
       data: (data) {
         if (!data.covered) {
           _scheduleEnsure(range);
           return _message(
+            context,
             cacheStatus == StreamDayCacheStatus.error
                 ? widget.errorLabel
                 : widget.loadingLabel,
           );
         }
-        if (data.marks.isEmpty) return _message(widget.emptyLabel);
+        if (data.marks.isEmpty) {
+          return _message(context, widget.emptyLabel);
+        }
         return widget.level == StreamLevel.week
-            ? _buildWeek(range, data.marks)
-            : _buildMonth(range, data.marks);
+            ? _weekLevelBody(host: widget, range: range, marks: data.marks)
+            : _monthLevelBody(host: widget, range: range, marks: data.marks);
       },
     );
   }
@@ -131,109 +139,5 @@ class _StreamLevelHostState extends ConsumerState<StreamLevelHost> {
         ref.read(streamDayCacheControllerProvider.notifier).ensure(query),
       );
     });
-  }
-
-  Widget _buildWeek(StreamLevelRange range, List<StreamDayMark> marks) {
-    final grouped = LevelData.groupByLocalDay(marks);
-    final dayMarks = List<List<StreamDayMark>>.generate(7, (index) {
-      final day = DateTime(
-        range.start.year,
-        range.start.month,
-        range.start.day + index,
-      );
-      return grouped[day] ?? const <StreamDayMark>[];
-    }, growable: false);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : 280.0;
-        final height = constraints.hasBoundedHeight
-            ? constraints.maxHeight
-            : 240.0;
-        return WeekView(
-          weekStart: range.start,
-          dayMarks: dayMarks,
-          cellWidth: width / 7,
-          cellHeight: height,
-          dayHeaderBuilder: widget.dayHeaderBuilder,
-          daySemanticsLabel: (index, [date]) =>
-              widget.daySemanticsLabel(index, date ?? range.start),
-          markSemanticsLabel: widget.markSemanticsLabel,
-          markActionLabels: widget.markActionLabels,
-          onDayTap: widget.onDayTap,
-          onMarkTap: widget.onMarkTap,
-        );
-      },
-    );
-  }
-
-  Widget _buildMonth(StreamLevelRange range, List<StreamDayMark> marks) {
-    final lastDay = DateTime(
-      range.end.year,
-      range.end.month,
-      range.end.day - 1,
-    );
-    final dayData =
-        LevelData.countsForRange(
-              rangeStart: range.start,
-              rangeEnd: lastDay,
-              marks: marks,
-            )
-            .map(
-              (count) => MonthDayData(
-                date: count.day,
-                count: count.count,
-                density: count.density,
-              ),
-            )
-            .toList(growable: false);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : 280.0;
-        final height = constraints.hasBoundedHeight
-            ? constraints.maxHeight
-            : 320.0;
-        final rows = _monthRows(range.start, widget.firstDayOfWeek);
-        final cellSize = math.max(1.0, math.min(width / 7, height / rows));
-        return Center(
-          child: MonthView(
-            month: range.start,
-            dayData: dayData,
-            cellSize: cellSize,
-            firstDayOfWeek: widget.firstDayOfWeek,
-            habitStreaks: widget.habitStreaks,
-            daySemanticsLabel: widget.monthDaySemanticsLabel,
-            streakSemanticsLabel: widget.streakSemanticsLabel,
-            onDateTap: widget.onDateTap,
-            onHabitTap: widget.onHabitTap,
-          ),
-        );
-      },
-    );
-  }
-
-  static int _monthRows(DateTime month, int firstDayOfWeek) {
-    final first = DateTime(month.year, month.month, 1);
-    final days = DateTime(month.year, month.month + 1, 0).day;
-    final offset = (first.weekday - firstDayOfWeek + 7) % 7;
-    return ((offset + days) / 7).ceil();
-  }
-
-  Widget _message(String label) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ),
-    );
   }
 }
