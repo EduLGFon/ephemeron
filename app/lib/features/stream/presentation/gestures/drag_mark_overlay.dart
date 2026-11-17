@@ -5,6 +5,19 @@
 
 import 'package:material_ui/material_ui.dart';
 
+/// Payload describing an in-flight drag preview.
+class DragPreviewData {
+  const DragPreviewData({
+    required this.id,
+    required this.globalPosition,
+    required this.label,
+  });
+
+  final String id;
+  final Offset globalPosition;
+  final String label;
+}
+
 class DragMarkOverlay extends StatelessWidget {
   const DragMarkOverlay({
     super.key,
@@ -62,5 +75,3 @@ class DragMarkOverlay extends StatelessWidget {
     return Positioned(left: offset!.dx, top: offset!.dy, child: chip);
   }
 }
-
-typedef DragMarkOverlayChip = DragMarkOverlay;

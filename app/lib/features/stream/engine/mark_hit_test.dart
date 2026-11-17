@@ -1,11 +1,11 @@
-// Pure, O(log n + k) spatial hit-test for Stream day marks.
+// Pure spatial hit-test for Stream day marks.
 //
 // Given marks sorted by start time, their column layout, a viewport mapping
 // pixel-y to epoch time, a focal pixel-y and the canvas width, returns the id
-// of the mark under that point, or null. Binary search narrows by time; a
-// column check resolves overlaps. Units: focalY in logical pixels measured
-// from the top of the canvas; canvasWidth in logical pixels; times in epoch
-// milliseconds.
+// of the mark under that point, or null. Timed marks are queried in
+// O(log n + k) via a cached max-end prefix; no per-call full-list allocation.
+// Units: focalY in logical pixels from canvas top; canvasWidth in logical
+// pixels; times in epoch milliseconds.
 
 import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/engine/stream_mark_layout.dart';
@@ -16,7 +16,28 @@ const int _minVisualMs = streamMarkMinVisualMinutes * 60 * 1000;
 int _effectiveEndMs(StreamDayMark m) =>
     m.endMs < m.startMs + _minVisualMs ? m.startMs + _minVisualMs : m.endMs;
 
-/// Returns the id of the mark under (focalY, focalX) or null.
+/// Candidate checks performed by the last [hitTestMark] call. Reset with
+/// [resetHitTestCandidateChecks].
+int hitTestCandidateChecks = 0;
+
+void resetHitTestCandidateChecks() => hitTestCandidateChecks = 0;
+
+final Expando<List<int>> _maxEndCache = Expando<List<int>>('maxEnd');
+
+List<int> _maxEnds(List<StreamDayMark> marks) {
+  final cached = _maxEndCache[marks];
+  if (cached != null) return cached;
+  final out = List<int>.filled(marks.length, 0);
+  var running = 0;
+  for (var i = 0; i < marks.length; i++) {
+    final e = _effectiveEndMs(marks[i]);
+    if (e > running) running = e;
+    out[i] = running;
+  }
+  _maxEndCache[marks] = out;
+  return out;
+}
+
 String? hitTestMark({
   required List<StreamDayMark> marks,
   required List<MarkLayout> layout,
@@ -33,65 +54,50 @@ String? hitTestMark({
   if (fx < edgeMarginDp || fx > canvasWidth - edgeMarginDp) return null;
 
   final t = viewport.pxToTime(focalY);
+  hitTestCandidateChecks = 0;
 
   // Binary search: first index whose startMs > t.
-  final starts = marks.map((m) => m.startMs).toList(growable: false);
   var lo = 0;
-  var hi = starts.length;
+  var hi = marks.length;
   while (lo < hi) {
     final mid = (lo + hi) >> 1;
-    if (starts[mid] <= t) {
+    if (marks[mid].startMs <= t) {
       lo = mid + 1;
     } else {
       hi = mid;
     }
   }
 
-  // Among marks with startMs <= t, keep those whose effective end >= t and
-  // whose column rect contains fx. Later marks draw on top, so keep the last.
+  final maxEnds = _maxEnds(marks);
+  // First index whose running max-end >= t.
+  var first = 0;
+  var last = hi;
+  while (first < last) {
+    final mid = (first + last) >> 1;
+    if (maxEnds[mid] < t) {
+      first = mid + 1;
+    } else {
+      last = mid;
+    }
+  }
+
   int? result;
-  for (var i = 0; i < lo; i++) {
+  for (var i = first; i < hi; i++) {
+    hitTestCandidateChecks++;
     final m = marks[i];
     if (_effectiveEndMs(m) < t) continue;
     final l = layout[i];
-    final cols = l.columnCount < 1 ? 1 : l.columnCount;
-    final available = (canvasWidth - 8).clamp(1.0, double.infinity);
-    final colWidth = available / cols;
-    final left = 4.0 + l.column * colWidth;
-    final right = left + colWidth;
-    if (fx >= left && fx <= right) {
+    final rect = markColumnRect(
+      column: l.column,
+      columnCount: l.columnCount,
+      canvasWidth: canvasWidth,
+      top: 0,
+      bottom: 0,
+    );
+    if (fx >= rect.left && fx <= rect.right) {
       result = i;
     }
   }
   if (result == null) return null;
   return marks[result].id;
 }
-
-/// Stateful convenience wrapper around [hitTestMark].
-class MarkHitTest {
-  MarkHitTest({
-    required this.marks,
-    required this.layout,
-    required this.viewport,
-    required this.canvasWidth,
-    this.edgeMarginDp = 24,
-  });
-
-  final List<StreamDayMark> marks;
-  final List<MarkLayout> layout;
-  final StreamTimeViewport viewport;
-  final double canvasWidth;
-  final double edgeMarginDp;
-
-  String? at({required double focalY, double? focalX}) => hitTestMark(
-    marks: marks,
-    layout: layout,
-    viewport: viewport,
-    focalY: focalY,
-    canvasWidth: canvasWidth,
-    focalX: focalX,
-    edgeMarginDp: edgeMarginDp,
-  );
-}
-
-typedef MarkHitTester = MarkHitTest;

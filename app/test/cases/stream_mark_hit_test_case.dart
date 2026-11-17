@@ -176,4 +176,39 @@ void main() {
       isNull,
     );
   });
+
+  test('hit-test candidate checks bounded for 50k marks', () {
+    final vp = StreamTimeViewport(baseEpochMs: 0);
+    vp.setViewportHeight(400);
+    vp.setZoom(StreamTimeViewport.dayMinutesPerPixel);
+    final n = 50000;
+    final marks = List.generate(n, (i) {
+      final start = i * 60 * 1000; // 1 min apart
+      return StreamDayMark(
+        id: 'm$i',
+        kind: StreamDayMarkKind.event,
+        startMs: start,
+        endMs: start + 30 * 60 * 1000,
+        title: 't$i',
+        colorArgb: 0xFF000000,
+      );
+    });
+    final intervals = marks
+        .map((m) => MarkInterval(startMs: m.startMs, endMs: m.endMs, id: m.id))
+        .toList();
+    final layout = layoutMarkColumns(intervals);
+    resetHitTestCandidateChecks();
+    final y = vp.timeToPx(60 * 60 * 1000); // 1h in
+    final got = hitTestMark(
+      marks: marks,
+      layout: layout,
+      viewport: vp,
+      focalY: y,
+      canvasWidth: 360,
+      focalX: 100,
+    );
+    expect(got, isNotNull);
+    // Candidate checks should be bounded, not O(n).
+    expect(hitTestCandidateChecks, lessThan(100));
+  });
 }

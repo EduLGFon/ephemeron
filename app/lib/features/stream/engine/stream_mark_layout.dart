@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui';
+
 // Pure Dart overlap-column layout for stream marks.
 //
 // Packs marks whose time intervals overlap into side-by-side columns, like a
@@ -115,4 +118,23 @@ List<MarkLayout> layoutMarkColumns(
     marks.length,
     (k) => MarkLayout(column: column[k], columnCount: columnCountPer[k]),
   );
+}
+
+/// Shared column geometry for a mark, matching [DayCanvasPainter].
+///
+/// [top]/[bottom] are pixel y bounds; only left/right are derived from the
+/// column layout so painter and hit-test agree exactly.
+Rect markColumnRect({
+  required int column,
+  required int columnCount,
+  required double canvasWidth,
+  required double top,
+  required double bottom,
+}) {
+  final cols = columnCount < 1 ? 1 : columnCount;
+  final available = (canvasWidth - 8).clamp(1.0, double.infinity);
+  final colWidth = available / cols;
+  final left = 4.0 + column * colWidth;
+  final right = math.max(left, left + colWidth - 4);
+  return Rect.fromLTRB(left, top, right, bottom);
 }

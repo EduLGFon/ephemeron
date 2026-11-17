@@ -1,10 +1,15 @@
 // Gesture layer for the Stream day view.
 //
-// Wraps an existing canvas child and recognises swipe-to-complete/push,
-// long-press-drag to move or create, while never starting a gesture within
+// Wraps an existing canvas child and recognises swipe-to-complete/push and
+// long-press-drag to move or create. Never starts a gesture within
 // [edgeMarginDp] of the left/right edges. Vertical drags that are not mark
 // gestures are left untouched so an outer DayGestureRegion can still scroll.
-// Undo is reported via [onUndoRequested] instead of showing a snackbar.
+//
+// Auto-scroll at top/bottom during a drag is a documented follow-up and is
+// not implemented here.
+//
+// Undo is owned by the caller: this layer only reports actions via callbacks;
+// the caller applies them optimistically and shows showUndoSnackBar.
 
 import 'dart:math' as math;
 
@@ -15,6 +20,7 @@ import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/engine/mark_hit_test.dart';
 import 'package:ephemeron/features/stream/engine/stream_mark_layout.dart';
 import 'package:ephemeron/features/stream/engine/stream_time_viewport.dart';
+import 'package:ephemeron/features/stream/presentation/gestures/drag_mark_overlay.dart';
 import 'package:ephemeron/features/stream/presentation/platform/stream_platform_capabilities.dart';
 
 class DayMarkGestures extends StatefulWidget {
@@ -30,11 +36,12 @@ class DayMarkGestures extends StatefulWidget {
     this.onMoveMark,
     this.onMoveMarkEnd,
     this.onCreateBlock,
-    this.onUndoRequested,
     this.snapMinutes,
     this.swipeThresholdDp = 56.0,
     this.minBlockMinutes = 15,
+    this.moveThresholdDp = 4.0,
     this.edgeMarginDp,
+    this.dragPreview,
   });
 
   final StreamTimeViewport viewport;
@@ -47,12 +54,12 @@ class DayMarkGestures extends StatefulWidget {
   final void Function(String id, int newStartMs)? onMoveMark;
   final void Function(String id, int newStartMs)? onMoveMarkEnd;
   final void Function(int startMs, int endMs)? onCreateBlock;
-  final void Function(String actionDescription, VoidCallback undoCallback)?
-  onUndoRequested;
   final int? snapMinutes;
   final double swipeThresholdDp;
   final int minBlockMinutes;
+  final double moveThresholdDp;
   final double? edgeMarginDp;
+  final ValueNotifier<DragPreviewData?>? dragPreview;
 
   @override
   State<DayMarkGestures> createState() => _DayMarkGesturesState();
@@ -66,6 +73,10 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
   bool _swipeFired = false;
 
   String? _moveMarkId;
+  int _originalStartMs = 0;
+  int _grabOffsetMs = 0;
+  double _pressY = 0;
+  bool _movedBeyond = false;
   int _lastSnappedMs = -1;
 
   double _createStartY = 0;
@@ -88,6 +99,13 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
       focalX: x,
       edgeMarginDp: 0,
     );
+  }
+
+  StreamDayMark? _markById(String id) {
+    for (final m in widget.marks) {
+      if (m.id == id) return m;
+    }
+    return null;
   }
 
   int _snapMinutes() {
@@ -132,12 +150,10 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
       _swipeFired = true;
       widget.onSwipeDone?.call(id);
       AppFeedback.success();
-      widget.onUndoRequested?.call('Done', () {});
     } else if (_swipeDx <= -widget.swipeThresholdDp) {
       _swipeFired = true;
       widget.onSwipePush?.call(id);
       AppFeedback.tap();
-      widget.onUndoRequested?.call('Push', () {});
     }
     _swipeDx = 0;
   }
@@ -152,6 +168,12 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
     final id = _hitMark(x, d.localPosition.dy);
     if (id != null) {
       _moveMarkId = id;
+      final mark = _markById(id);
+      final pressTime = widget.viewport.pxToTime(d.localPosition.dy);
+      _originalStartMs = mark?.startMs ?? pressTime;
+      _grabOffsetMs = pressTime - _originalStartMs;
+      _pressY = d.localPosition.dy;
+      _movedBeyond = false;
       _lastSnappedMs = -1;
     } else {
       _moveMarkId = null;
@@ -163,12 +185,24 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
 
   void _onLongPressMove(LongPressMoveUpdateDetails d) {
     if (_moveMarkId != null) {
-      final snapped = _snap(widget.viewport.pxToTime(d.localPosition.dy));
-      if (snapped != _lastSnappedMs) {
-        _lastSnappedMs = snapped;
-        AppFeedback.selection();
+      if ((d.localPosition.dy - _pressY).abs() >= widget.moveThresholdDp) {
+        _movedBeyond = true;
       }
-      widget.onMoveMark?.call(_moveMarkId!, snapped);
+      final pressTime = widget.viewport.pxToTime(d.localPosition.dy);
+      final newStart = _snap(pressTime - _grabOffsetMs);
+      if (newStart != _lastSnappedMs) {
+        _lastSnappedMs = newStart;
+        if (_movedBeyond) AppFeedback.selection();
+      }
+      if (_movedBeyond || newStart != _originalStartMs) {
+        widget.onMoveMark?.call(_moveMarkId!, newStart);
+        final mark = _markById(_moveMarkId!);
+        widget.dragPreview?.value = DragPreviewData(
+          id: _moveMarkId!,
+          globalPosition: d.globalPosition,
+          label: mark?.title ?? '',
+        );
+      }
     } else if (_creating) {
       _createCurrentY = d.localPosition.dy;
     }
@@ -177,11 +211,13 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
   void _onLongPressEnd(LongPressEndDetails d) {
     if (_moveMarkId != null) {
       final id = _moveMarkId!;
-      final snapped = _lastSnappedMs >= 0
-          ? _lastSnappedMs
-          : _snap(widget.viewport.pxToTime(d.localPosition.dy));
-      widget.onMoveMarkEnd?.call(id, snapped);
-      widget.onUndoRequested?.call('Move', () {});
+      if (_movedBeyond || _lastSnappedMs != _originalStartMs) {
+        final snapped = _lastSnappedMs >= 0 ? _lastSnappedMs : _originalStartMs;
+        if (snapped != _originalStartMs) {
+          widget.onMoveMarkEnd?.call(id, snapped);
+        }
+      }
+      widget.dragPreview?.value = null;
       _moveMarkId = null;
       _lastSnappedMs = -1;
     } else if (_creating) {
@@ -193,7 +229,6 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
       if (e - s < minMs) e = s + minMs;
       widget.onCreateBlock?.call(s, e);
       AppFeedback.success();
-      widget.onUndoRequested?.call('Create block', () {});
       _creating = false;
     }
   }
@@ -217,8 +252,3 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
     );
   }
 }
-
-// Aliases for naming flexibility.
-typedef DayMarkGestureLayer = DayMarkGestures;
-typedef DayMarkGestureRegion = DayMarkGestures;
-typedef StreamDayMarkGestures = DayMarkGestures;

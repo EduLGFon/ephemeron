@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/rendering.dart';
 
 import '../../application/stream_day_mark.dart';
@@ -50,12 +48,13 @@ class DayCanvasPainter extends CustomPainter {
     var top = viewport.timeToPx(m.startMs);
     var bottom = viewport.timeToPx(m.endMs);
     if (bottom - top < _minBlockPx) bottom = top + _minBlockPx;
-    final cols = l.columnCount < 1 ? 1 : l.columnCount;
-    final available = (size.width - 8).clamp(1.0, double.infinity);
-    final colWidth = available / cols;
-    final left = 4 + l.column * colWidth;
-    final right = math.max(left, left + colWidth - 4);
-    return Rect.fromLTRB(left, top, right, bottom);
+    return markColumnRect(
+      column: l.column,
+      columnCount: l.columnCount,
+      canvasWidth: size.width,
+      top: top,
+      bottom: bottom,
+    );
   }
 
   void _paintHairlines(Canvas canvas, Size size, int t0, int t1) {

@@ -34,15 +34,14 @@ class _TrayDropTargetState extends State<TrayDropTarget> {
     return DragTarget<String>(
       key: _key,
       onAcceptWithDetails: (details) {
-        final box = _key.currentContext?.findRenderObject() as RenderBox?;
-        final local = box != null
-            ? box.globalToLocal(details.offset)
-            : details.offset;
+        final box = _key.currentContext?.findRenderObject();
+        if (box is! RenderBox) return;
+        final local = box.globalToLocal(details.offset);
         if (local.dx < widget.edgeMarginDp ||
-            local.dx >
-                (box?.size.width ?? double.infinity) - widget.edgeMarginDp) {
+            local.dx > box.size.width - widget.edgeMarginDp) {
           return;
         }
+        if (local.dy < 0 || local.dy > box.size.height) return;
         final time = widget.viewport.pxToTime(local.dy);
         widget.onTrayDrop(details.data, time);
       },
