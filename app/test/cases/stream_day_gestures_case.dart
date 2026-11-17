@@ -23,6 +23,15 @@ void main() {
     return vp;
   }
 
+  StreamDayMark eventMark(String id, int startMin, int endMin) => StreamDayMark(
+    id: id,
+    kind: StreamDayMarkKind.event,
+    startMs: startMin * 60 * 1000,
+    endMs: endMin * 60 * 1000,
+    title: id,
+    colorArgb: 0xFF000000,
+  );
+
   Widget buildGestures({
     required StreamTimeViewport vp,
     required List<StreamDayMark> marks,
@@ -31,6 +40,7 @@ void main() {
     void Function(String, int)? onMoveMark,
     void Function(String, int)? onMoveMarkEnd,
     void Function(int, int)? onCreateBlock,
+    void Function(String)? onMarkTap,
     int? snapMinutes = 15,
     ValueNotifier<DragPreviewData?>? dragPreview,
   }) {
@@ -54,6 +64,7 @@ void main() {
             onMoveMark: onMoveMark,
             onMoveMarkEnd: onMoveMarkEnd,
             onCreateBlock: onCreateBlock,
+            onMarkTap: onMarkTap,
             snapMinutes: snapMinutes,
             dragPreview: dragPreview,
             child: const SizedBox.expand(),
@@ -173,6 +184,155 @@ void main() {
     await tester.pump();
     expect(done, 0);
     expect(push, 0);
+  });
+
+  testWidgets('tap on a mark fires onMarkTap once with its id', (tester) async {
+    final vp = makeVp();
+    final taps = <String>[];
+    await tester.pumpWidget(
+      buildGestures(
+        vp: vp,
+        marks: [eventMark('m0', 0, 60)],
+        onMarkTap: taps.add,
+      ),
+    );
+    await tester.pump();
+    await tester.tapAt(const Offset(100, 28));
+    await tester.pump();
+    expect(taps, ['m0']);
+  });
+
+  testWidgets('tap on empty time fires no onMarkTap', (tester) async {
+    final vp = makeVp();
+    final taps = <String>[];
+    await tester.pumpWidget(
+      buildGestures(
+        vp: vp,
+        marks: [eventMark('m0', 0, 60)],
+        onMarkTap: taps.add,
+      ),
+    );
+    await tester.pump();
+    await tester.tapAt(const Offset(100, 200));
+    await tester.pump();
+    expect(taps, isEmpty);
+  });
+
+  testWidgets('swipes fire swipe callbacks and not onMarkTap', (tester) async {
+    final vp = makeVp();
+    final taps = <String>[];
+    final done = <String>[];
+    final push = <String>[];
+    await tester.pumpWidget(
+      buildGestures(
+        vp: vp,
+        marks: [eventMark('m0', 0, 60)],
+        onMarkTap: taps.add,
+        onSwipeDone: done.add,
+        onSwipePush: push.add,
+      ),
+    );
+    await tester.pump();
+    await tester.dragFrom(const Offset(100, 28), const Offset(80, 0));
+    await tester.pump();
+    await tester.dragFrom(const Offset(100, 28), const Offset(-80, 0));
+    await tester.pump();
+    expect(done, ['m0']);
+    expect(push, ['m0']);
+    expect(taps, isEmpty);
+  });
+
+  testWidgets('long-press without movement fires no tap or move end', (
+    tester,
+  ) async {
+    final vp = makeVp();
+    final taps = <String>[];
+    var moves = 0;
+    var ends = 0;
+    await tester.pumpWidget(
+      buildGestures(
+        vp: vp,
+        marks: [eventMark('m0', 0, 60)],
+        onMarkTap: taps.add,
+        onMoveMark: (_, _) => moves++,
+        onMoveMarkEnd: (_, _) => ends++,
+      ),
+    );
+    await tester.pump();
+    final gesture = await tester.startGesture(const Offset(100, 28));
+    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.up();
+    await tester.pump();
+    expect(taps, isEmpty);
+    expect(moves, 0);
+    expect(ends, 0);
+  });
+
+  testWidgets('long-press + move reports move and never a tap', (tester) async {
+    final vp = makeVp();
+    final taps = <String>[];
+    final moves = <int>[];
+    String? endedId;
+    await tester.pumpWidget(
+      buildGestures(
+        vp: vp,
+        marks: [eventMark('m0', 0, 60)],
+        onMarkTap: taps.add,
+        onMoveMark: (_, ms) => moves.add(ms),
+        onMoveMarkEnd: (id, _) => endedId = id,
+      ),
+    );
+    await tester.pump();
+    final gesture = await tester.startGesture(const Offset(100, 28));
+    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.moveBy(const Offset(0, 60));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    expect(moves, isNotEmpty);
+    expect(endedId, 'm0');
+    expect(taps, isEmpty);
+  });
+
+  testWidgets('tap on overlapping marks picks the painted column', (
+    tester,
+  ) async {
+    final vp = makeVp();
+    final taps = <String>[];
+    await tester.pumpWidget(
+      buildGestures(
+        vp: vp,
+        marks: [eventMark('left', 0, 60), eventMark('right', 30, 90)],
+        onMarkTap: taps.add,
+      ),
+    );
+    await tester.pump();
+    final y = vp.timeToPx(45 * 60 * 1000);
+    await tester.tapAt(Offset(100, y));
+    await tester.pump();
+    await tester.tapAt(Offset(250, y));
+    await tester.pump();
+    expect(taps, ['left', 'right']);
+  });
+
+  testWidgets('taps inside the edge margin still fire onMarkTap', (
+    tester,
+  ) async {
+    final vp = makeVp();
+    final taps = <String>[];
+    await tester.pumpWidget(
+      buildGestures(
+        vp: vp,
+        marks: [eventMark('m0', 0, 60)],
+        onMarkTap: taps.add,
+      ),
+    );
+    await tester.pump();
+    await tester.tapAt(const Offset(10, 28));
+    await tester.pump();
+    await tester.tapAt(const Offset(350, 28));
+    await tester.pump();
+    expect(taps, ['m0', 'm0']);
   });
 
   testWidgets('long-press + drag on mark reports move and snaps', (

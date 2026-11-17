@@ -25,6 +25,7 @@ class DayMarkGestureLayer extends StatefulWidget {
     this.onMoveMark,
     this.onMoveMarkEnd,
     this.onCreateBlock,
+    this.onMarkTap,
     this.snapMinutes,
     this.swipeThresholdDp = 56.0,
     this.minBlockMinutes = 15,
@@ -46,6 +47,7 @@ class DayMarkGestureLayer extends StatefulWidget {
   final void Function(String id, int newStartMs)? onMoveMark;
   final void Function(String id, int newStartMs)? onMoveMarkEnd;
   final void Function(int startMs, int endMs)? onCreateBlock;
+  final ValueChanged<String>? onMarkTap;
   final int? snapMinutes;
   final double swipeThresholdDp;
   final int minBlockMinutes;
@@ -87,6 +89,7 @@ class _DayMarkGestureLayerState extends State<DayMarkGestureLayer> {
           onMoveMark: widget.onMoveMark,
           onMoveMarkEnd: widget.onMoveMarkEnd,
           onCreateBlock: widget.onCreateBlock,
+          onMarkTap: widget.onMarkTap,
           snapMinutes: widget.snapMinutes,
           swipeThresholdDp: widget.swipeThresholdDp,
           minBlockMinutes: widget.minBlockMinutes,

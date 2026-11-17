@@ -1,9 +1,15 @@
 // Gesture layer for the Stream day view.
 //
 // Wraps an existing canvas child and recognises swipe-to-complete/push and
-// long-press-drag to move or create. Never starts a gesture within
+// long-press-drag to move or create. Never starts an action gesture within
 // [edgeMarginDp] of the left/right edges. Vertical drags that are not mark
 // gestures are left untouched so an outer DayGestureRegion can still scroll.
+//
+// Taps are a separate TapGestureRecognizer in the same arena as the swipe and
+// long-press recognizers: when a drag or long-press wins, the tap is rejected,
+// so onMarkTap fires only for a press-and-release without movement. Taps are
+// allowed inside [edgeMarginDp]; only the action gestures have the edge
+// restriction.
 //
 // Auto-scroll at top/bottom during a drag is a documented follow-up and is
 // not implemented here.
@@ -26,6 +32,7 @@ import 'package:ephemeron/features/stream/presentation/platform/stream_platform_
 part 'day_mark_gesture_swipe.dart';
 part 'day_mark_gesture_move.dart';
 part 'day_mark_gesture_create.dart';
+part 'day_mark_gesture_tap.dart';
 
 class DayMarkGestures extends StatefulWidget {
   const DayMarkGestures({
@@ -40,6 +47,7 @@ class DayMarkGestures extends StatefulWidget {
     this.onMoveMark,
     this.onMoveMarkEnd,
     this.onCreateBlock,
+    this.onMarkTap,
     this.snapMinutes,
     this.swipeThresholdDp = 56.0,
     this.minBlockMinutes = 15,
@@ -60,6 +68,7 @@ class DayMarkGestures extends StatefulWidget {
   final void Function(String id, int newStartMs)? onMoveMark;
   final void Function(String id, int newStartMs)? onMoveMarkEnd;
   final void Function(int startMs, int endMs)? onCreateBlock;
+  final ValueChanged<String>? onMarkTap;
   final int? snapMinutes;
   final double swipeThresholdDp;
   final int minBlockMinutes;
@@ -95,8 +104,8 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
 
   bool _inEdge(double x, Size size) => x < _margin || x > size.width - _margin;
 
-  String? _hitMark(double x, double y, Size size) {
-    if (_inEdge(x, size)) return null;
+  String? _hitMark(double x, double y, Size size, {bool allowEdges = false}) {
+    if (!allowEdges && _inEdge(x, size)) return null;
     return hitTestMark(
       marks: widget.marks,
       layout: widget.markLayouts,
@@ -143,6 +152,7 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
           onLongPressStart: (d) => _onLongPressStart(d, size),
           onLongPressMoveUpdate: (d) => _onLongPressMove(d, size),
           onLongPressEnd: _onLongPressEnd,
+          onTapUp: widget.onMarkTap == null ? null : (d) => _onTapUp(d, size),
           child: widget.child,
         );
       },
