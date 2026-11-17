@@ -8,6 +8,7 @@ import 'package:ephemeron/features/stream/presentation/stream_header.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/breadcrumb.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/scrubber.dart';
 import 'package:ephemeron/features/stream/presentation/now_pill.dart';
+import 'package:ephemeron/features/stream/presentation/chrome/time_rail.dart';
 import 'package:ephemeron/features/stream/presentation/stream_screen.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/now_line.dart';
 import 'package:ephemeron/features/stream/presentation/stream_time_format.dart';
@@ -333,6 +334,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     final header = tester.widget<StreamHeader>(find.byType(StreamHeader));
     expect(header.syncLabel, isNull);
+    expect(header.settingsLabel, isNotNull);
+    expect(header.settingsLabel, isNotEmpty);
+    expect(find.bySemanticsLabel(header.settingsLabel!), findsOneWidget);
   });
 
   testWidgets('settings navigation', (tester) async {
@@ -373,5 +377,179 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(router.routerDelegate.currentConfiguration.uri.path, '/settings');
+  });
+
+  testWidgets('rail window covers injected now', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final now = DateTime(2026, 11, 17, 22, 9);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _overrides(),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SizedBox(
+            width: 360,
+            height: 800,
+            child: StreamDayBody(date: DateTime(2026, 11, 17), now: now),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.textContaining('10:00 PM'), findsOneWidget);
+    expect(find.textContaining('6:00 AM'), findsOneWidget);
+
+    final railRect = tester.getRect(find.byType(TimeRail));
+    final labels = find.descendant(
+      of: find.byType(TimeRail),
+      matching: find.byType(Text),
+    );
+    final nearBottom = labels.evaluate().any((e) {
+      final r = tester.getRect(find.byWidget(e.widget));
+      return r.bottom >= railRect.bottom - 60;
+    });
+    expect(nearBottom, isTrue);
+  });
+
+  testWidgets('rail delta follows canvas scroll', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final now = DateTime(2026, 11, 17, 22, 9);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _overrides(),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SizedBox(
+            width: 360,
+            height: 800,
+            child: StreamDayBody(date: DateTime(2026, 11, 17), now: now),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final before = tester.getRect(find.text('10:00 PM'));
+    await tester.drag(find.byType(DayCanvas), const Offset(0, -300));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    final after = tester.getRect(find.text('10:00 PM'));
+    expect((after.top - before.top).abs(), closeTo(300, 40));
+  });
+
+  testWidgets('date change updates router location', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = GoRouter(
+      initialLocation: '/stream/2026-11-17/day',
+      routes: [
+        GoRoute(
+          path: '/stream/:date/:zoom',
+          builder: (context, state) => StreamScreen(
+            date: tryParseStreamDate(state.pathParameters['date']),
+            zoom: state.pathParameters['zoom'],
+          ),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _overrides(),
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.drag(find.byType(DayCanvas), const Offset(0, -2000));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/stream/2026-11-18/day',
+    );
+  });
+
+  testWidgets('stream day body re-centers on date change', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _overrides(),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SizedBox(
+            width: 360,
+            height: 800,
+            child: StreamDayBody(
+              date: DateTime(2026, 11, 17),
+              now: DateTime(2026, 11, 17, 10, 0),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(NowLine), findsOneWidget);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _overrides(),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SizedBox(
+            width: 360,
+            height: 800,
+            child: StreamDayBody(
+              date: DateTime(2026, 11, 15),
+              now: DateTime(2026, 11, 17, 10, 0),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(NowLine), findsNothing);
   });
 }
