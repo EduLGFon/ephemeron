@@ -53,8 +53,11 @@ class _SlippedTriageState extends State<SlippedTriage> {
   void didUpdateWidget(covariant SlippedTriage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.items.length != oldWidget.items.length) {
-      _selectedIndex = _selectedIndex.clamp(0, widget.items.length - 1);
-      if (widget.items.isEmpty) _selectedIndex = 0;
+      if (widget.items.isEmpty) {
+        _selectedIndex = 0;
+      } else {
+        _selectedIndex = _selectedIndex.clamp(0, widget.items.length - 1);
+      }
     }
   }
 
@@ -110,11 +113,18 @@ class _SlippedTriageState extends State<SlippedTriage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
       final target = _selectedIndex * slippedTriageItemExtent;
-      _scrollController.animateTo(
-        target,
-        duration: StreamMotion.fast,
-        curve: StreamMotion.standard,
-      );
+      final reduceMotion =
+          _focusNode.context != null &&
+          MediaQuery.of(_focusNode.context!).disableAnimations;
+      if (reduceMotion) {
+        _scrollController.jumpTo(target);
+      } else {
+        _scrollController.animateTo(
+          target,
+          duration: StreamMotion.fast,
+          curve: StreamMotion.standard,
+        );
+      }
     });
   }
 
@@ -127,46 +137,53 @@ class _SlippedTriageState extends State<SlippedTriage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (widget.hintLabel != null)
-              Padding(
-                padding: const EdgeInsetsDirectional.all(StreamSpacing.x2),
-                child: Text(
-                  widget.hintLabel!,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                itemExtent: slippedTriageItemExtent,
-                itemCount: widget.items.length,
-                itemBuilder: (context, index) {
-                  final item = widget.items[index];
-                  return SlippedTriageRow(
-                    item: item,
-                    overdueText: widget.daysOverdueLabel(item),
-                    labels: widget.actionLabels,
-                    selected: index == _selectedIndex,
-                    onDone: () {
-                      widget.onDone(item.id);
-                      widget.onUndoRequested(item.id);
-                    },
-                    onTomorrow: () {
-                      widget.onTomorrow(item.id);
-                      widget.onUndoRequested(item.id);
-                    },
-                    onPickTime: () => widget.onPickTime(item.id),
-                    onDrop: () {
-                      widget.onDrop(item.id);
-                      widget.onUndoRequested(item.id);
-                    },
-                  );
-                },
-              ),
-            ),
+            if (widget.hintLabel != null) _buildHint(context),
+            Expanded(child: _buildList()),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHint(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.all(StreamSpacing.x2),
+      child: Text(
+        widget.hintLabel!,
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+    );
+  }
+
+  Widget _buildList() {
+    return ListView.builder(
+      controller: _scrollController,
+      itemExtent: slippedTriageItemExtent,
+      itemCount: widget.items.length,
+      itemBuilder: (context, index) => _buildRow(context, index),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, int index) {
+    final item = widget.items[index];
+    return SlippedTriageRow(
+      item: item,
+      overdueText: widget.daysOverdueLabel(item),
+      labels: widget.actionLabels,
+      selected: index == _selectedIndex,
+      onDone: () {
+        widget.onDone(item.id);
+        widget.onUndoRequested(item.id);
+      },
+      onTomorrow: () {
+        widget.onTomorrow(item.id);
+        widget.onUndoRequested(item.id);
+      },
+      onPickTime: () => widget.onPickTime(item.id),
+      onDrop: () {
+        widget.onDrop(item.id);
+        widget.onUndoRequested(item.id);
+      },
     );
   }
 }
