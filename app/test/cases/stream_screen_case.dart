@@ -11,6 +11,7 @@ import 'package:ephemeron/features/stream/application/stream_day_cache_scope.dar
 import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_day_providers.dart';
 import 'package:ephemeron/features/stream/application/stream_command_actions.dart';
+import 'package:ephemeron/features/stream/application/stream_peek_target.dart';
 import 'package:ephemeron/features/stream/application/stream_sync_status.dart';
 import 'package:ephemeron/features/stream/application/stream_theme_provider.dart';
 import 'package:ephemeron/features/stream/application/stream_tray.dart';
@@ -24,11 +25,14 @@ import 'package:ephemeron/features/stream/presentation/stream_header.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/breadcrumb.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/scrubber.dart';
 import 'package:ephemeron/features/stream/presentation/now_pill.dart';
+import 'package:ephemeron/features/stream/presentation/peek/peek_data.dart';
+import 'package:ephemeron/features/stream/presentation/peek/peek_panel.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/time_rail.dart';
 import 'package:ephemeron/features/stream/presentation/stream_screen.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/now_line.dart';
 import 'package:ephemeron/features/stream/presentation/stream_time_format.dart';
 import 'package:ephemeron/features/stream/presentation/surface/stream_launcher.dart';
+import 'package:ephemeron/features/stream/presentation/surface/stream_peek_sheet.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_chip.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_item.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_panel.dart';
@@ -40,7 +44,7 @@ import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/sync/application/sync_providers.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart' show SyncStatus;
 import 'package:ephemeron/features/tasks/application/tasks_providers.dart'
-    show openTasksProvider;
+    show openTasksProvider, taskListsProvider;
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
@@ -146,6 +150,7 @@ final _fakeMarks = List<StreamDayMark>.generate(
 Widget _app({
   required List<Override> overrides,
   required DateTime date,
+  DateTime? now,
   VoidCallback? onOpenCommand,
   VoidCallback? onOpenSettings,
   ValueChanged<DateTime>? onDateChanged,
@@ -166,6 +171,7 @@ Widget _app({
           homeOverride ??
           StreamScreen(
             date: date,
+            now: now,
             onOpenCommand: onOpenCommand,
             onOpenSettings: onOpenSettings,
             onDateChanged: onDateChanged,
@@ -311,6 +317,53 @@ void main() {
 
     final rect = tester.getRect(find.byType(Scrubber));
     expect(360.0 - rect.right, greaterThanOrEqualTo(24.0));
+  });
+
+  testWidgets('tapping a mark opens the peek sheet', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final mark = _fakeMarks.last;
+    final target = StreamPeekTarget(
+      data: PeekData(
+        id: 'peek-task',
+        title: 'Peek task title',
+        startMs: mark.startMs,
+        endMs: mark.endMs,
+      ),
+      editable: true,
+      sourceTaskId: 'peek-task',
+      sourcePriority: 0,
+    );
+    final overrides = <Override>[
+      ..._overrides(),
+      streamPeekTargetProvider(mark)
+          .overrideWithValue(AsyncValue<StreamPeekTarget?>.data(target)),
+      taskListsProvider.overrideWith((ref) => Stream.value(const <TaskList>[])),
+    ];
+    await tester.pumpWidget(
+      _app(
+        overrides: overrides,
+        date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 9),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final viewport = tester.widget<DayCanvas>(find.byType(DayCanvas)).viewport;
+    final rect = tester.getRect(find.byType(DayCanvas));
+    final y = viewport.timeToPx(
+      DateTime(2026, 11, 17, 10, 30).millisecondsSinceEpoch,
+    );
+    await tester.tapAt(Offset(rect.center.dx, rect.top + y));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StreamPeekSheet), findsOneWidget);
+    expect(find.byType(PeekPanel), findsOneWidget);
+    expect(find.text('Peek task title'), findsOneWidget);
   });
 
   testWidgets('now line sits near 35 percent for injected now', (tester) async {
