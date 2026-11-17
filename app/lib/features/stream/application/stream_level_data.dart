@@ -67,7 +67,15 @@ StreamLevelRange streamMonthRange(DateTime date) {
   );
 }
 
-StreamLevelRange streamLevelRangeFor(StreamLevel level, DateTime date) {
+/// Local range for [level] around [date].
+///
+/// [firstDayOfWeek] affects the week range only; day and month ranges are
+/// independent of it.
+StreamLevelRange streamLevelRangeFor(
+  StreamLevel level,
+  DateTime date, {
+  int firstDayOfWeek = DateTime.monday,
+}) {
   switch (level) {
     case StreamLevel.day:
       final start = DateTime(date.year, date.month, date.day);
@@ -77,7 +85,7 @@ StreamLevelRange streamLevelRangeFor(StreamLevel level, DateTime date) {
         end: DateTime(start.year, start.month, start.day + 1),
       );
     case StreamLevel.week:
-      final start = streamWeekStart(date);
+      final start = streamWeekStart(date, firstDayOfWeek: firstDayOfWeek);
       return StreamLevelRange(
         level: level,
         start: start,
