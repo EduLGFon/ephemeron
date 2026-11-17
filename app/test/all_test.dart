@@ -91,8 +91,10 @@ import 'cases/source_label_case.dart' as source_label;
 import 'cases/source_move_case.dart' as source_move;
 import 'cases/source_picker_case.dart' as source_picker;
 import 'cases/stream_agenda_case.dart' as stream_agenda;
+import 'cases/stream_capture_actions_case.dart' as stream_capture_actions;
 import 'cases/stream_capture_bar_case.dart' as stream_capture_bar;
 import 'cases/stream_capture_parser_case.dart' as stream_capture_parser;
+import 'cases/stream_capture_plan_case.dart' as stream_capture_plan;
 import 'cases/stream_chrome_widgets_case.dart' as stream_chrome_widgets;
 import 'cases/stream_command_actions_case.dart' as stream_command_actions;
 import 'cases/stream_command_palette_case.dart' as stream_command_palette;
@@ -267,8 +269,10 @@ const _included = <String>{
   'source_move_case.dart',
   'source_picker_case.dart',
   'stream_agenda_case.dart',
+  'stream_capture_actions_case.dart',
   'stream_capture_bar_case.dart',
   'stream_capture_parser_case.dart',
+  'stream_capture_plan_case.dart',
   'stream_chrome_widgets_case.dart',
   'stream_command_actions_case.dart',
   'stream_command_palette_case.dart',
@@ -449,8 +453,10 @@ void main() {
   group('source_move', source_move.main);
   group('source_picker', source_picker.main);
   group('stream_agenda', stream_agenda.main);
+  group('stream_capture_actions', stream_capture_actions.main);
   group('stream_capture_bar', stream_capture_bar.main);
   group('stream_capture_parser', stream_capture_parser.main);
+  group('stream_capture_plan', stream_capture_plan.main);
   group('stream_chrome_widgets', stream_chrome_widgets.main);
   group('stream_command_actions', stream_command_actions.main);
   group('stream_command_palette', stream_command_palette.main);
