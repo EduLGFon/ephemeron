@@ -1,4 +1,6 @@
-import 'package:ephemeron/data/drift/app_database.dart' show Task;
+import 'package:drift/native.dart';
+import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/calendar/application/calendar_providers.dart';
 import 'package:ephemeron/features/calendar/application/calendar_state.dart';
 import 'package:ephemeron/features/stream/application/stream_capture_actions.dart';
@@ -31,6 +33,8 @@ import 'package:ephemeron/features/stream/presentation/tray/tray_panel.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_strip.dart';
 import 'package:ephemeron/features/stream/stream_flags.dart';
 import 'package:ephemeron/features/stream/presentation/stream_route_params.dart';
+import 'package:ephemeron/features/settings/application/settings_providers.dart';
+import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/tasks/application/tasks_providers.dart'
     show openTasksProvider;
 import 'package:ephemeron/l10n/src/app_localizations.dart';
@@ -39,6 +43,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FixedStreamThemeNotifier extends StreamThemeNotifier {
   _FixedStreamThemeNotifier(this.mode);
@@ -864,9 +869,8 @@ void main() {
     final router = _launcherRouter();
     final overrides = <Override>[
       ..._overrides(tray: <TrayItem>[_trayItems.first]),
-      openTasksProvider.overrideWith(
-        (ref, arg) => Stream<List<Task>>.value(const <Task>[]),
-      ),
+      openTasksProvider(null)
+          .overrideWithValue(AsyncValue<List<Task>>.data(const <Task>[])),
     ];
     await tester.pumpWidget(_routerApp(router, overrides: overrides));
     await tester.pumpAndSettle();
@@ -875,5 +879,121 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_location(router), '/tab1');
+  });
+
+  testWidgets('capture bar stays above the keyboard inset', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    // Physical pixels at DPR 1, so the real MediaQuery reports 300 logical px
+    // of bottom viewInsets; no synthetic MediaQuery wrapper is used.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pumpWidget(
+      _app(
+        overrides: _overrides(tray: _trayItems),
+        date: DateTime(2026, 11, 17),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final capture = find.byType(CaptureBar);
+    expect(capture, findsOneWidget);
+    final rect = tester.getRect(capture);
+    expect(rect.top, greaterThanOrEqualTo(0));
+    expect(rect.height, greaterThan(0));
+    // Scaffold shrinks the body by the inset, so the dock stays above it.
+    expect(rect.bottom, lessThanOrEqualTo(800 - 300 + 0.5));
+    expect(
+      tester.getRect(find.byType(TrayStrip)).bottom,
+      lessThanOrEqualTo(800 - 300 + 0.5),
+    );
+  });
+
+  testWidgets('tray tap opens the task editor for a loaded task', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    const task = Task(
+      id: 't1',
+      title: 'Tray task title',
+      priority: 0,
+      pinned: false,
+      wontDo: false,
+      sortOrder: 0,
+      createdAt: 0,
+      updatedAt: 0,
+      dirty: false,
+    );
+    const item = TrayItem(
+      id: 't1',
+      title: 'Tray task title',
+      listId: 'l1',
+      listName: 'Work',
+      colorArgb: 0xFF336699,
+    );
+    final overrides = <Override>[
+      ..._overrides(tray: const <TrayItem>[item]),
+      appDatabaseProvider.overrideWithValue(db),
+      settingsRepositoryProvider.overrideWith(
+        (ref) async => SettingsRepository(prefs),
+      ),
+      openTasksProvider(null)
+          .overrideWithValue(AsyncValue<List<Task>>.data(<Task>[task])),
+    ];
+    await tester.pumpWidget(
+      _app(overrides: overrides, date: DateTime(2026, 11, 17)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byType(TrayChip));
+    await tester.pumpAndSettle();
+
+    final fields = tester.widgetList<TextField>(find.byType(TextField));
+    expect(fields.any((field) => field.controller?.text == task.title), isTrue);
+    expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await db.close();
+  });
+
+  testWidgets('tray tap with no task and no router reports the failure', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final overrides = <Override>[
+      ..._overrides(tray: <TrayItem>[_trayItems.first]),
+      openTasksProvider(null)
+          .overrideWithValue(AsyncValue<List<Task>>.data(const <Task>[])),
+    ];
+    await tester.pumpWidget(
+      _app(overrides: overrides, date: DateTime(2026, 11, 17)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byType(TrayChip));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
+    expect(find.text(l.streamTrayTaskUnavailable), findsOneWidget);
   });
 }

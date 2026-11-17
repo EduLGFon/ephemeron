@@ -77,10 +77,30 @@ String _kindLabel(CaptureKind kind, AppLocalizations l) => switch (kind) {
   CaptureKind.countdown => l.streamChipKindCountdown,
 };
 
-String _repeatLabel(CaptureRepeat repeat, AppLocalizations l) =>
-    repeat.frequency == CaptureRepeatFrequency.daily
-    ? l.streamCaptureRepeatDaily
-    : l.streamCaptureRepeatWeekly;
+String _repeatLabel(CaptureRepeat repeat, AppLocalizations l) {
+  if (repeat.frequency == CaptureRepeatFrequency.daily) {
+    return l.streamCaptureRepeatDaily;
+  }
+  if (repeat.weekdays.isEmpty) return l.streamCaptureRepeatWeekly;
+  final sorted = repeat.weekdays.toSet().toList()..sort();
+  final days = sorted
+      .map((weekday) => _weekdayLabel(weekday, l))
+      .where((label) => label.isNotEmpty)
+      .join(', ');
+  if (days.isEmpty) return l.streamCaptureRepeatWeekly;
+  return l.streamCaptureWeeklyOn(days);
+}
+
+String _weekdayLabel(int weekday, AppLocalizations l) => switch (weekday) {
+  1 => l.streamWeekdayMon,
+  2 => l.streamWeekdayTue,
+  3 => l.streamWeekdayWed,
+  4 => l.streamWeekdayThu,
+  5 => l.streamWeekdayFri,
+  6 => l.streamWeekdaySat,
+  7 => l.streamWeekdaySun,
+  _ => '',
+};
 
 String _priorityLabel(CapturePriority priority, AppLocalizations l) =>
     switch (priority) {

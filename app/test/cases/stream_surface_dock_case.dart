@@ -157,6 +157,13 @@ void main() {
     expect(find.textContaining('Priority:'), findsOneWidget);
   });
 
+  testWidgets('weekly repeat chip lists sorted weekdays', (tester) async {
+    await tester.pumpWidget(_app(_dock()));
+    await tester.enterText(find.byType(TextField), 'gym every wed mon 7am');
+    await tester.pump();
+    expect(find.textContaining('Weekly (Mon, Wed)'), findsOneWidget);
+  });
+
   testWidgets('320 dp at 2.0 scale does not overflow', (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;

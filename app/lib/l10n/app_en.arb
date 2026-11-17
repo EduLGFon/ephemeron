@@ -82,6 +82,7 @@
   "streamTrayPanelTitle": "Unscheduled tasks",
   "streamTrayUnnamed": "Unnamed",
   "streamTrayCollapse": "Collapse",
+  "streamTrayTaskUnavailable": "Could not open task",
   "streamChipKindTask": "Task",
   "streamChipKindEvent": "Event",
   "streamChipKindHabit": "Habit",
@@ -93,6 +94,21 @@
   "streamChipPriority": "Priority",
   "streamCaptureRepeatDaily": "Daily",
   "streamCaptureRepeatWeekly": "Weekly",
+  "streamCaptureWeeklyOn": "Weekly ({days})",
+  "@streamCaptureWeeklyOn": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "streamWeekdayMon": "Mon",
+  "streamWeekdayTue": "Tue",
+  "streamWeekdayWed": "Wed",
+  "streamWeekdayThu": "Thu",
+  "streamWeekdayFri": "Fri",
+  "streamWeekdaySat": "Sat",
+  "streamWeekdaySun": "Sun",
   "streamCapturePriorityLow": "Low",
   "streamCapturePriorityMedium": "Medium",
   "streamCapturePriorityHigh": "High"

@@ -72,6 +72,7 @@
   "streamTrayPanelTitle": "Tarefas sem data",
   "streamTrayUnnamed": "Sem nome",
   "streamTrayCollapse": "Recolher",
+  "streamTrayTaskUnavailable": "Não foi possível abrir a tarefa",
   "streamChipKindTask": "Tarefa",
   "streamChipKindEvent": "Evento",
   "streamChipKindHabit": "Hábito",
@@ -83,6 +84,21 @@
   "streamChipPriority": "Prioridade",
   "streamCaptureRepeatDaily": "Diário",
   "streamCaptureRepeatWeekly": "Semanal",
+  "streamCaptureWeeklyOn": "Semanal ({days})",
+  "@streamCaptureWeeklyOn": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "streamWeekdayMon": "Seg",
+  "streamWeekdayTue": "Ter",
+  "streamWeekdayWed": "Qua",
+  "streamWeekdayThu": "Qui",
+  "streamWeekdayFri": "Sex",
+  "streamWeekdaySat": "Sáb",
+  "streamWeekdaySun": "Dom",
   "streamCapturePriorityLow": "Baixa",
   "streamCapturePriorityMedium": "Média",
   "streamCapturePriorityHigh": "Alta"

@@ -10,7 +10,6 @@ import 'package:ephemeron/l10n/src/app_localizations.dart';
 
 import '../../../../core/ui/app_feedback.dart';
 import '../../../../core/ui/app_sheet.dart';
-import '../../../../data/drift/app_database.dart' show Task;
 import '../../../tasks/application/tasks_providers.dart' show openTasksProvider;
 import '../../../tasks/presentation/task_editor_sheet.dart' show showTaskEditor;
 import '../../application/stream_capture_actions.dart';
@@ -107,21 +106,26 @@ class StreamDockHost extends ConsumerWidget {
   }
 
   /// Opens the existing task editor for a tray item. When open tasks are not
-  /// loaded yet (or the id is gone), falls back to the Tasks tab.
+  /// loaded yet (or the id is gone), falls back to the Tasks tab; without a
+  /// router, reports the failure instead of silently doing nothing.
   void _openTask(BuildContext context, WidgetRef ref, String id) {
-    final task = _findTask(ref.read(openTasksProvider(null)).value, id);
+    final task = ref
+        .read(openTasksProvider(null))
+        .value
+        ?.where((task) => task.id == id)
+        .firstOrNull;
     if (task != null) {
       unawaited(showTaskEditor(context, task: task));
       return;
     }
-    GoRouter.maybeOf(context)?.go('/tab1');
-  }
-
-  Task? _findTask(List<Task>? tasks, String id) {
-    if (tasks == null) return null;
-    for (final task in tasks) {
-      if (task.id == id) return task;
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      router.go('/tab1');
+      return;
     }
-    return null;
+    showErrorSnackBar(
+      context,
+      AppLocalizations.of(context).streamTrayTaskUnavailable,
+    );
   }
 }
