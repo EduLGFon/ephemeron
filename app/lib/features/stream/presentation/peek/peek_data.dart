@@ -28,6 +28,24 @@ class PeekData {
   final PeekPriority priority;
   final String? notes;
 
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PeekData &&
+        other.id == id &&
+        other.title == title &&
+        other.startMs == startMs &&
+        other.endMs == endMs &&
+        other.listId == listId &&
+        other.listName == listName &&
+        other.priority == priority &&
+        other.notes == notes;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, title, startMs, endMs, listId, listName, priority, notes);
+
   PeekData copyWith({
     String? id,
     String? title,

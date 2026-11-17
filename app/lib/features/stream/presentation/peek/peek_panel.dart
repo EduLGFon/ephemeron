@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../design/stream_tokens.dart';
 import 'peek_data.dart';
 import 'peek_editor.dart';
+import 'peek_panel_content.dart';
 
 /// Expanding inline container for a Stream Peek.
 class PeekPanel extends StatefulWidget {
@@ -22,14 +23,19 @@ class PeekPanel extends StatefulWidget {
     required this.onSave,
     required this.onCancel,
     required this.onDiscardRequested,
+    required this.emptyTitleLabel,
+    required this.endBeforeStartLabel,
     this.isDirty,
     this.listOptions,
     this.onPickTime,
     this.onPickList,
     this.addEndLabel,
     this.clearEndLabel,
-    this.emptyTitleLabel,
-    this.endBeforeStartLabel,
+    this.titleLabel,
+    this.startLabel,
+    this.endLabel,
+    this.listLabel,
+    this.notesLabel,
   });
 
   final PeekData data;
@@ -45,14 +51,19 @@ class PeekPanel extends StatefulWidget {
   final void Function(PeekEdit edit) onSave;
   final VoidCallback onCancel;
   final VoidCallback onDiscardRequested;
+  final String emptyTitleLabel;
+  final String endBeforeStartLabel;
   final bool Function()? isDirty;
   final List<PeekListOption>? listOptions;
   final Future<int?> Function(BuildContext context, int currentMs)? onPickTime;
   final Future<String?> Function(BuildContext context)? onPickList;
   final String? addEndLabel;
   final String? clearEndLabel;
-  final String? emptyTitleLabel;
-  final String? endBeforeStartLabel;
+  final String? titleLabel;
+  final String? startLabel;
+  final String? endLabel;
+  final String? listLabel;
+  final String? notesLabel;
 
   @override
   State<PeekPanel> createState() => _PeekPanelState();
@@ -117,38 +128,30 @@ class _PeekPanelState extends State<PeekPanel> {
   Widget build(BuildContext context) {
     final reduce = MediaQuery.of(context).disableAnimations;
     final content = _expanded
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                    onPressed: _close,
-                    icon: const Icon(Icons.close),
-                    tooltip: widget.closeLabel,
-                  ),
-                ],
-              ),
-              PeekEditor(
-                key: _editorKey,
-                data: widget.data,
-                formatTime: widget.formatTime,
-                priorityLabels: widget.priorityLabels,
-                saveLabel: widget.saveLabel,
-                cancelLabel: widget.cancelLabel,
-                onSave: widget.onSave,
-                onCancel: widget.onCancel,
-                onDiscardRequested: widget.onDiscardRequested,
-                listOptions: widget.listOptions,
-                onPickTime: widget.onPickTime,
-                onPickList: widget.onPickList,
-                addEndLabel: widget.addEndLabel,
-                clearEndLabel: widget.clearEndLabel,
-                emptyTitleLabel: widget.emptyTitleLabel,
-                endBeforeStartLabel: widget.endBeforeStartLabel,
-              ),
-            ],
+        ? PeekPanelContent(
+            closeLabel: widget.closeLabel,
+            onClose: _close,
+            data: widget.data,
+            formatTime: widget.formatTime,
+            priorityLabels: widget.priorityLabels,
+            saveLabel: widget.saveLabel,
+            cancelLabel: widget.cancelLabel,
+            onSave: widget.onSave,
+            onCancel: widget.onCancel,
+            onDiscardRequested: widget.onDiscardRequested,
+            listOptions: widget.listOptions,
+            onPickTime: widget.onPickTime,
+            onPickList: widget.onPickList,
+            addEndLabel: widget.addEndLabel,
+            clearEndLabel: widget.clearEndLabel,
+            emptyTitleLabel: widget.emptyTitleLabel,
+            endBeforeStartLabel: widget.endBeforeStartLabel,
+            titleLabel: widget.titleLabel,
+            startLabel: widget.startLabel,
+            endLabel: widget.endLabel,
+            listLabel: widget.listLabel,
+            notesLabel: widget.notesLabel,
+            editorKey: _editorKey,
           )
         : const SizedBox.shrink();
     if (reduce) {

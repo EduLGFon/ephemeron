@@ -10,7 +10,7 @@ class PeekPriorityRow extends StatelessWidget {
     required this.icons,
     required this.value,
     required this.onChanged,
-  });
+  }) : assert(labels.length == 4 && icons.length == 4);
 
   final List<String> labels;
   final List<IconData> icons;
