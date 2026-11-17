@@ -126,6 +126,8 @@ import 'cases/stream_mark_hit_test_case.dart' as stream_mark_hit_test;
 import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_month_view_case.dart' as stream_month_view;
+import 'cases/stream_offline_banner_host_case.dart'
+    as stream_offline_banner_host;
 import 'cases/stream_peek_data_case.dart' as stream_peek_data;
 import 'cases/stream_peek_editor_case.dart' as stream_peek_editor;
 import 'cases/stream_peek_editor_state_case.dart' as stream_peek_editor_state;
@@ -320,6 +322,7 @@ const _included = <String>{
   'stream_mark_layout_case.dart',
   'stream_mark_mapper_case.dart',
   'stream_month_view_case.dart',
+  'stream_offline_banner_host_case.dart',
   'stream_peek_data_case.dart',
   'stream_peek_editor_case.dart',
   'stream_peek_editor_state_case.dart',
@@ -520,6 +523,7 @@ void main() {
   group('stream_mark_layout', stream_mark_layout.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
   group('stream_month_view', stream_month_view.main);
+  group('stream_offline_banner_host', stream_offline_banner_host.main);
   group('stream_peek_data', stream_peek_data.main);
   group('stream_peek_editor', stream_peek_editor.main);
   group('stream_peek_editor_state', stream_peek_editor_state.main);
