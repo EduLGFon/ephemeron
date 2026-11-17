@@ -19,6 +19,7 @@ class StreamScreen extends ConsumerStatefulWidget {
     super.key,
     this.date,
     this.zoom,
+    this.now,
     this.onOpenCommand,
     this.onOpenSettings,
     this.onDateChanged,
@@ -29,6 +30,9 @@ class StreamScreen extends ConsumerStatefulWidget {
 
   final DateTime? date;
   final String? zoom;
+
+  /// Fixed wall clock for tests; null uses the real clock.
+  final DateTime? now;
   final VoidCallback? onOpenCommand;
   final VoidCallback? onOpenSettings;
   final ValueChanged<DateTime>? onDateChanged;
@@ -157,6 +161,7 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
     // TODO(#stream-overlays): wire command palette overlay and openCommand.
     final body = StreamDayBody(
       date: params.date,
+      now: widget.now,
       onDateChanged: (day) {
         widget.onDateChanged?.call(day);
         GoRouter.maybeOf(context)?.go('/stream/${formatStreamDate(day)}/day');

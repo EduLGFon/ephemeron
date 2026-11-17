@@ -500,6 +500,9 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
+    // Fixed wall clock so the viewport starts at a known time; the drag below
+    // is derived from the viewport mapping to cross exactly one local midnight.
+    final now = DateTime(2026, 11, 17, 10, 0);
     final router = GoRouter(
       initialLocation: '/stream/2026-11-17/day',
       routes: [
@@ -508,6 +511,7 @@ void main() {
           builder: (context, state) => StreamScreen(
             date: tryParseStreamDate(state.pathParameters['date']),
             zoom: state.pathParameters['zoom'],
+            now: now,
           ),
         ),
       ],
@@ -527,13 +531,22 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.drag(find.byType(DayCanvas), const Offset(0, -2000));
+
+    final viewport = tester.widget<DayCanvas>(find.byType(DayCanvas)).viewport;
+    final centerPx = viewport.offsetPx + viewport.viewportHeight / 2;
+    final targetMs = DateTime(2026, 11, 18, 12).millisecondsSinceEpoch;
+    final targetPx =
+        (targetMs - viewport.baseEpochMs) /
+        (viewport.minutesPerPixel * 60000.0);
+    await tester.drag(find.byType(DayCanvas), Offset(0, centerPx - targetPx));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
+
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       '/stream/2026-11-18/day',
     );
+    expect(find.textContaining('2026-11-18'), findsOneWidget);
   });
 
   testWidgets('stream day body re-centers on date change', (tester) async {
