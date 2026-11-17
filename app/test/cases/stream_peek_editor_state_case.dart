@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_data.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_editor.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_editor_state.dart';
+import 'package:ephemeron/features/stream/presentation/peek/peek_list_selector.dart';
 
 Widget _app(Widget home) => MaterialApp(home: Scaffold(body: home));
 
@@ -171,6 +172,48 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(saved!.endMs, 50);
+  });
+
+  testWidgets('list picker null result is cancel, never a clear', (
+    tester,
+  ) async {
+    String? changedId = 'unchanged';
+    await tester.pumpWidget(
+      _app(
+        PeekListSelector(
+          listId: 'l1',
+          listName: 'Work',
+          onPickList: (_) async => null,
+          onChanged: (id, _) => changedId = id,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(InkWell));
+    await tester.pumpAndSettle();
+
+    expect(changedId, 'unchanged');
+  });
+
+  testWidgets('list dropdown offers no clear item', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        PeekListSelector(
+          options: const [PeekListOption(id: 'l1', name: 'Work')],
+          listId: 'l1',
+          listName: 'Work',
+          onChanged: (_, _) {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(DropdownButtonFormField<String?>));
+    await tester.pumpAndSettle();
+
+    final items = tester.widgetList<DropdownMenuItem<String?>>(
+      find.byType(DropdownMenuItem<String?>),
+    );
+    expect(items.where((item) => item.value == null), isEmpty);
   });
 
   testWidgets('long list name does not overflow', (tester) async {

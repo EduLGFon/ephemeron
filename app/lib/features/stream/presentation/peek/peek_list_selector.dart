@@ -3,6 +3,10 @@ import 'package:material_ui/material_ui.dart';
 import 'peek_data.dart';
 
 /// List selector for the Peek editor.
+///
+/// TaskRepository.updateTask treats a null list id as "leave unchanged", so a
+/// cleared list cannot be saved. Offer only real lists: a null picker result
+/// is treated as cancel, never as a clear that would silently do nothing.
 class PeekListSelector extends StatelessWidget {
   const PeekListSelector({
     super.key,
@@ -29,10 +33,6 @@ class PeekListSelector extends StatelessWidget {
         isExpanded: true,
         decoration: InputDecoration(labelText: label),
         items: [
-          const DropdownMenuItem<String?>(
-            value: null,
-            child: SizedBox.shrink(),
-          ),
           for (final o in options!)
             DropdownMenuItem<String?>(
               value: o.id,
@@ -40,9 +40,8 @@ class PeekListSelector extends StatelessWidget {
             ),
         ],
         onChanged: (v) {
-          final name = v == null
-              ? null
-              : options!.firstWhere((o) => o.id == v).name;
+          if (v == null) return;
+          final name = options!.firstWhere((o) => o.id == v).name;
           onChanged(v, name);
         },
       );
@@ -52,17 +51,17 @@ class PeekListSelector extends StatelessWidget {
           ? null
           : () async {
               final v = await onPickList!(context);
-              final name = v == null
-                  ? null
-                  : (options
-                            ?.firstWhere(
-                              (o) => o.id == v,
-                              orElse: () =>
-                                  PeekListOption(id: v, name: listName ?? ''),
-                            )
-                            .name ??
-                        listName);
-              onChanged(v, v == null ? null : (name ?? listName));
+              if (v == null) return;
+              final name =
+                  options
+                      ?.firstWhere(
+                        (o) => o.id == v,
+                        orElse: () =>
+                            PeekListOption(id: v, name: listName ?? ''),
+                      )
+                      .name ??
+                  listName;
+              onChanged(v, name);
             },
       child: InputDecorator(
         decoration: InputDecoration(labelText: label),
