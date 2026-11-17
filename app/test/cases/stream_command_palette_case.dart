@@ -80,7 +80,7 @@ void main() {
     expect(dismissed, isTrue);
   });
 
-  testWidgets('no overflow at 320dp and 2.0 scale', (tester) async {
+  testWidgets('no overflow at 320dp and 3.0 scale', (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -88,6 +88,37 @@ void main() {
       MaterialApp(
         home: MediaQuery(
           data: const MediaQueryData(textScaler: TextScaler.linear(3.0)),
+          child: Scaffold(
+            body: SizedBox(
+              width: 320,
+              child: CommandPalette(
+                candidates: [
+                  CommandCandidate(
+                    id: 'x',
+                    label: 'A very long command label that should ellipsize',
+                    subtitle: 'subtitle text that is also long',
+                  ),
+                ],
+                onSelected: (_) {},
+                emptyLabel: 'empty',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('no overflow at 5.0 scale with subtitle', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(5.0)),
           child: Scaffold(
             body: SizedBox(
               width: 320,
@@ -142,9 +173,18 @@ void main() {
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: Offset.zero);
     await tester.pump();
-    await gesture.moveTo(tester.getCenter(find.byType(InkWell).first));
+    // Hover a non-selected row (second candidate); first row is selected.
+    await gesture.moveTo(tester.getCenter(find.byType(InkWell).at(1)));
     await tester.pump();
-    expect(tester.takeException(), isNull);
+    final context = tester.element(find.byType(CommandPalette));
+    final highlight = Theme.of(context).highlightColor;
+    final containers = tester
+        .widgetList<Container>(find.byType(Container))
+        .toList();
+    // second row highlighted
+    expect(containers[1].color, highlight);
+    // a different non-selected, non-hovered row is not highlighted
+    expect(containers[2].color, isNull);
     await gesture.removePointer();
     await tester.pump();
   });

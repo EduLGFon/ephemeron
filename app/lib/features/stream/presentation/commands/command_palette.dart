@@ -121,9 +121,6 @@ class _CommandPaletteState extends State<CommandPalette> {
             ? Center(child: Text(widget.emptyLabel))
             : ListView.builder(
                 itemCount: list.length,
-                itemExtent:
-                    56 *
-                    MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 3.0),
                 itemBuilder: (context, i) {
                   final c = list[i];
                   return CommandPaletteRow(
