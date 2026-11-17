@@ -58,8 +58,9 @@ abstract final class LevelData {
     final grouped = groupByLocalDay(marks);
     var maxCount = 0;
     final counts = <DateTime, int>{};
-    for (var i = 0; !start.add(Duration(days: i)).isAfter(end); i++) {
+    for (var i = 0; ; i++) {
       final cursor = DateTime(start.year, start.month, start.day + i);
+      if (cursor.isAfter(end)) break;
       final c = grouped[cursor]?.length ?? 0;
       counts[cursor] = c;
       if (c > maxCount) maxCount = c;
@@ -68,8 +69,9 @@ abstract final class LevelData {
         ? maxCountOverride
         : (maxCount == 0 ? 1 : maxCount);
     final result = <DayMarkCount>[];
-    for (var i = 0; !start.add(Duration(days: i)).isAfter(end); i++) {
+    for (var i = 0; ; i++) {
       final cursor = DateTime(start.year, start.month, start.day + i);
+      if (cursor.isAfter(end)) break;
       final c = counts[cursor] ?? 0;
       result.add(
         DayMarkCount(

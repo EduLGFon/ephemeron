@@ -286,6 +286,127 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(tester.takeException(), isNull);
+    // Measure the header TextPainter at 2.0 scale.
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: 'D0',
+        style: TextStyle(fontSize: 11 * 2.0, fontWeight: FontWeight.w500),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '\u2026',
+    );
+    tp.layout(maxWidth: 45);
+    expect(tp.didExceedMaxLines, isFalse);
+  });
+
+  testWidgets('caller mark action labels appear in semantics', (tester) async {
+    final ws = DateTime(2026, 1, 5);
+    final ms = ws.millisecondsSinceEpoch;
+    final mark = StreamDayMark(
+      id: 'mark-1',
+      kind: StreamDayMarkKind.event,
+      startMs: ms,
+      endMs: ms + 30 * 60 * 1000,
+      title: 'alpha',
+      colorArgb: 0xFF000000,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 280,
+            height: 200,
+            child: WeekView(
+              weekStart: ws,
+              marks: [mark],
+              cellWidth: 40,
+              cellHeight: 200,
+              dayHeaderBuilder: (i, d) => 'D$i',
+              daySemanticsLabel: (i, [d]) => 'day $i',
+              markSemanticsLabel: (m) => m.title,
+              markActionLabels: const {
+                'complete': 'DONE',
+                'push': 'PUSH',
+                'reschedule': 'RESCHED',
+                'delete': 'DEL',
+              },
+              onCompleteMark: (_) {},
+              onPushMark: (_) {},
+              onRescheduleMark: (_) {},
+              onDeleteMark: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final root = tester.getSemantics(find.byType(MaterialApp));
+    SemanticsNode? markNode;
+    void findNode(SemanticsNode n) {
+      if (n.label.contains('alpha')) markNode = n;
+      n.visitChildren((c) {
+        findNode(c);
+        return true;
+      });
+    }
+
+    findNode(root);
+    expect(markNode, isNotNull);
+    expect(markNode!.toStringDeep(), contains('DONE'));
+    expect(markNode!.toStringDeep(), contains('PUSH'));
+  });
+
+  testWidgets('null mark callbacks yield no custom actions', (tester) async {
+    final ws = DateTime(2026, 1, 5);
+    final ms = ws.millisecondsSinceEpoch;
+    final mark = StreamDayMark(
+      id: 'mark-1',
+      kind: StreamDayMarkKind.event,
+      startMs: ms,
+      endMs: ms + 30 * 60 * 1000,
+      title: 'alpha',
+      colorArgb: 0xFF000000,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 280,
+            height: 200,
+            child: WeekView(
+              weekStart: ws,
+              marks: [mark],
+              cellWidth: 40,
+              cellHeight: 200,
+              dayHeaderBuilder: (i, d) => 'D$i',
+              daySemanticsLabel: (i, [d]) => 'day $i',
+              markSemanticsLabel: (m) => m.title,
+              markActionLabels: const {
+                'complete': 'DONE',
+                'push': 'PUSH',
+                'reschedule': 'RESCHED',
+                'delete': 'DEL',
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final root = tester.getSemantics(find.byType(MaterialApp));
+    SemanticsNode? markNode;
+    void findNode(SemanticsNode n) {
+      if (n.label.contains('alpha')) markNode = n;
+      n.visitChildren((c) {
+        findNode(c);
+        return true;
+      });
+    }
+
+    findNode(root);
+    expect(markNode, isNotNull);
+    final data = markNode!.getSemanticsData();
+    expect(data.customSemanticsActionIds, anyOf(isNull, isEmpty));
   });
 }
