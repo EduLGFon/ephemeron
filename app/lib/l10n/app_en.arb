@@ -53,6 +53,15 @@
   "languageEnglish": "English",
   "languagePortuguese": "Portuguese",
   "streamNow": "Now",
+  "streamSlippedCount": "{count, plural, =1{1 slipped} other{{count} slipped}}",
+  "@streamSlippedCount": {
+    "description": "Pill under the Now label when tasks slipped past their day",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "streamDay": "Day",
   "streamSettings": "Settings",
   "streamScrubber": "Timeline position",

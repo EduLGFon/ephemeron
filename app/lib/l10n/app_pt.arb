@@ -43,6 +43,14 @@
   "languageEnglish": "Inglês",
   "languagePortuguese": "Português",
   "streamNow": "Agora",
+  "streamSlippedCount": "{count, plural, =1{1 atrasada} other{{count} atrasadas}}",
+  "@streamSlippedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "streamDay": "Dia",
   "streamSettings": "Ajustes",
   "streamScrubber": "Posição na linha do tempo",
