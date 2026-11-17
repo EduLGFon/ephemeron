@@ -54,8 +54,8 @@ void main() {
     );
   });
 
-  test('maps zoom day/week/month', () {
-    for (final level in ['day', 'week', 'month']) {
+  test('maps zoom day/week/month/year', () {
+    for (final level in ['day', 'week', 'month', 'year']) {
       expect(
         map('zoom $level'),
         isA<StreamCommandZoom>().having((i) => i.level, 'level', level),
@@ -105,12 +105,10 @@ void main() {
   });
 
   test('invalid zoom is unsupported', () {
-    for (final level in ['hour', 'year']) {
-      final intent = map('zoom $level');
-      expect(intent, isA<StreamCommandUnsupported>());
-      if (intent case StreamCommandUnsupported(:final reason)) {
-        expect(reason, contains(level));
-      }
+    final intent = map('zoom hour');
+    expect(intent, isA<StreamCommandUnsupported>());
+    if (intent case StreamCommandUnsupported(:final reason)) {
+      expect(reason, contains('hour'));
     }
   });
 

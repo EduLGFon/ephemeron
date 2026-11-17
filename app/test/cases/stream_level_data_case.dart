@@ -166,6 +166,46 @@ void main() {
     });
   });
 
+  group('streamYearRange', () {
+    test('normal year starts Jan 1 and ends the next Jan 1', () {
+      final range = streamYearRange(DateTime(2026, 6, 15));
+      expect(range.level, StreamLevel.year);
+      expect(range.start, DateTime(2026, 1, 1));
+      expect(range.end, DateTime(2027, 1, 1));
+      expect(range.start.hour, 0);
+      expect(range.end.hour, 0);
+    });
+
+    test('leap year keeps 366 local days', () {
+      final range = streamYearRange(DateTime(2028, 2, 29));
+      expect(range.start, DateTime(2028, 1, 1));
+      expect(range.end, DateTime(2029, 1, 1));
+      final days = LevelData.countsForRange(
+        rangeStart: range.start,
+        rangeEnd: DateTime(range.end.year, range.end.month, range.end.day - 1),
+        marks: const [],
+      );
+      expect(days.length, 366);
+      expect(days.last.day, DateTime(2028, 12, 31));
+    });
+
+    test('year level dispatch matches streamYearRange', () {
+      final date = DateTime(2026, 11, 18);
+      expect(
+        streamLevelRangeFor(StreamLevel.year, date),
+        streamYearRange(date),
+      );
+    });
+
+    test('year query window is half-open UTC', () {
+      final range = streamYearRange(DateTime(2026, 11, 18));
+      final query = streamLevelQueryRange(range);
+      expect(query.fromUtc, range.start.toUtc());
+      expect(query.toUtc, range.end.toUtc());
+      expect(query.fromUtc.isBefore(query.toUtc), isTrue);
+    });
+  });
+
   group('streamLevelMarksProvider', () {
     // Local week 2026-11-16 .. 2026-11-23.
     final week = streamLevelRangeFor(StreamLevel.week, DateTime(2026, 11, 18));

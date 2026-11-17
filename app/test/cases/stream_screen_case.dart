@@ -22,9 +22,11 @@ import 'package:ephemeron/features/stream/capture/capture_parser.dart'
     show CaptureDraft;
 import 'package:ephemeron/features/stream/design/stream_theme_mode.dart';
 import 'package:ephemeron/features/stream/presentation/capture/capture_bar.dart';
+import 'package:ephemeron/features/stream/presentation/commands/command_palette.dart';
 import 'package:ephemeron/features/stream/presentation/day/day_canvas.dart';
 import 'package:ephemeron/features/stream/presentation/levels/month_view.dart';
 import 'package:ephemeron/features/stream/presentation/levels/week_view.dart';
+import 'package:ephemeron/features/stream/presentation/levels/year_view.dart';
 import 'package:ephemeron/features/stream/presentation/stream_day_body.dart';
 import 'package:ephemeron/features/stream/presentation/stream_header.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/breadcrumb.dart';
@@ -38,7 +40,9 @@ import 'package:ephemeron/features/stream/presentation/chrome/time_rail.dart';
 import 'package:ephemeron/features/stream/presentation/stream_screen.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/now_line.dart';
 import 'package:ephemeron/features/stream/presentation/stream_time_format.dart';
+import 'package:ephemeron/features/stream/presentation/surface/stream_agenda_host.dart';
 import 'package:ephemeron/features/stream/presentation/surface/stream_launcher.dart';
+import 'package:ephemeron/features/stream/presentation/surface/stream_offline_banner_host.dart';
 import 'package:ephemeron/features/stream/presentation/surface/stream_peek_sheet.dart';
 import 'package:ephemeron/features/stream/presentation/surface/stream_settings_sheet.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_chip.dart';
@@ -352,9 +356,11 @@ void main() {
   test('valid zoom levels map to levels', () {
     expect(parseStreamRouteParams(zoom: 'week').zoom, 'week');
     expect(parseStreamRouteParams(zoom: 'month').zoom, 'month');
+    expect(parseStreamRouteParams(zoom: 'year').zoom, 'year');
     expect(streamLevelForZoom('day'), StreamLevel.day);
     expect(streamLevelForZoom('week'), StreamLevel.week);
     expect(streamLevelForZoom('month'), StreamLevel.month);
+    expect(streamLevelForZoom('year'), StreamLevel.year);
     expect(streamLevelForZoom('hour'), StreamLevel.day);
   });
 
@@ -465,7 +471,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      _app(overrides: _overrides(), date: DateTime(2026, 11, 17), zoom: 'year'),
+      _app(overrides: _overrides(), date: DateTime(2026, 11, 17), zoom: 'hour'),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -473,12 +479,40 @@ void main() {
     expect(find.byType(DayCanvas), findsOneWidget);
     expect(find.byType(WeekView), findsNothing);
     expect(find.byType(MonthView), findsNothing);
+    expect(find.byType(YearView), findsNothing);
     final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
     final header = tester.widget<StreamHeader>(find.byType(StreamHeader));
     expect(header.levelLabel, l.streamDay);
   });
 
-  testWidgets('week and month at 320 dp and 2.0 scale do not overflow', (
+  testWidgets('year zoom renders YearView and the Year breadcrumb', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final date = DateTime(2026, 11, 17);
+    final overrides = <Override>[
+      ..._overrides(),
+      ..._levelOverrides(StreamLevel.year, date),
+    ];
+    await tester.pumpWidget(
+      _app(overrides: overrides, date: date, zoom: 'year'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(YearView), findsOneWidget);
+    expect(find.byType(StreamDayBody), findsNothing);
+    final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
+    final header = tester.widget<StreamHeader>(find.byType(StreamHeader));
+    expect(header.levelLabel, l.streamYear);
+    expect(find.text(l.streamYear), findsOneWidget);
+  });
+
+  testWidgets('week, month and year at 320 dp and 2.0 scale do not overflow', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -491,8 +525,9 @@ void main() {
       ..._overrides(tray: _trayItems),
       ..._levelOverrides(StreamLevel.week, date),
       ..._levelOverrides(StreamLevel.month, date),
+      ..._levelOverrides(StreamLevel.year, date),
     ];
-    for (final zoom in ['week', 'month']) {
+    for (final zoom in ['week', 'month', 'year']) {
       await tester.pumpWidget(
         _app(
           overrides: overrides,
@@ -509,6 +544,122 @@ void main() {
       expect(find.byType(CaptureBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     }
+  });
+
+  testWidgets('palette zoom candidates navigate to matching URLs', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final date = DateTime(2026, 11, 17);
+    const targets = <String, String>{
+      'Day': 'day',
+      'Week': 'week',
+      'Month': 'month',
+      'Year': 'year',
+    };
+    for (final entry in targets.entries) {
+      final router = _launcherRouter();
+      final overrides = <Override>[
+        ..._overrides(),
+        ..._levelOverrides(StreamLevel.week, date),
+        ..._levelOverrides(StreamLevel.month, date),
+        ..._levelOverrides(StreamLevel.year, date),
+      ];
+      await tester.pumpWidget(_routerApp(router, overrides: overrides));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(Breadcrumb));
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CommandPalette),
+          matching: find.text(entry.key),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_location(router), '/stream/2026-11-17/${entry.value}');
+    }
+  });
+
+  testWidgets('palette Agenda candidate toggles the agenda lens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = _launcherRouter();
+    final overrides = <Override>[
+      ..._overrides(),
+      ..._levelOverrides(StreamLevel.day, DateTime(2026, 11, 17)),
+    ];
+    await tester.pumpWidget(_routerApp(router, overrides: overrides));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(Breadcrumb));
+    await tester.pump();
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const Key('streamCommandField')),
+      'agenda',
+    );
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StreamAgendaHost), findsOneWidget);
+    expect(find.byType(DayCanvas), findsNothing);
+    final toggle = tester.widget<Switch>(
+      find.byKey(const Key('streamAgendaToggle')),
+    );
+    expect(toggle.value, isTrue);
+
+    await tester.tap(find.byKey(const Key('streamAgendaToggle')));
+    await tester.pump();
+    expect(find.byType(StreamAgendaHost), findsNothing);
+    expect(find.byType(DayCanvas), findsOneWidget);
+  });
+
+  testWidgets('offline banner shows the message and retry starts sync', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var retries = 0;
+    final overrides = <Override>[
+      ..._overrides(),
+      streamSyncStatusProvider.overrideWithValue(StreamSyncStatus.offline),
+      syncAllProvider.overrideWithValue(() async {
+        retries++;
+      }),
+    ];
+    await tester.pumpWidget(
+      _app(
+        overrides: overrides,
+        date: DateTime(2026, 11, 17),
+        syncStatus: StreamSyncStatus.offline,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(StreamOfflineBannerHost), findsOneWidget);
+    final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
+    expect(find.text(l.streamOfflineMessage), findsOneWidget);
+
+    await tester.tap(find.text(l.streamOfflineRetry));
+    await tester.pump();
+    expect(retries, 1);
   });
 
   testWidgets('tapping a mark opens the peek sheet', (tester) async {

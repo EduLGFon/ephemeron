@@ -4,6 +4,7 @@ import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_level_data.dart';
 import 'package:ephemeron/features/stream/presentation/levels/month_view.dart';
 import 'package:ephemeron/features/stream/presentation/levels/week_view.dart';
+import 'package:ephemeron/features/stream/presentation/levels/year_view.dart';
 import 'package:ephemeron/features/stream/presentation/surface/stream_level_host.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
@@ -89,6 +90,12 @@ Widget _hostApp({
             emptyLabel: 'Nothing here',
             loadingLabel: 'Loading marks',
             errorLabel: 'Could not load marks',
+            yearMonthHeading: (month) => 'M$month',
+            yearMonthSemanticsLabel: (heading, count) => '$heading: $count',
+            yearDaySemanticsLabel: (day, count) =>
+                '${day.month}/${day.day}: $count',
+            yearHabitStreakSemanticsLabel: (streak, first, last) =>
+                '${streak.habitId} $first-$last',
             habitStreaks: habitStreaks,
             onDayTap: onDayTap,
             onMarkTap: onMarkTap,
@@ -284,6 +291,73 @@ void main() {
     expect(find.byType(MonthView), findsNothing);
   });
 
+  testWidgets('year: covered marks render YearView with local day counts', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _hostApp(
+        level: StreamLevel.year,
+        date: DateTime(2026, 11, 18),
+        marks: _marks([
+          _mark('a', DateTime(2026, 1, 2, 9)),
+          _mark('b', DateTime(2026, 1, 2, 11)),
+          _mark('c', DateTime(2026, 12, 31, 9)),
+        ]),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(YearView), findsOneWidget);
+    final view = tester.widget<YearView>(find.byType(YearView));
+    expect(view.year, 2026);
+    expect(view.firstDayOfWeek, DateTime.monday);
+    expect(view.dayCounts[yearDayKey(DateTime(2026, 1, 2))], 2);
+    expect(view.dayCounts[yearDayKey(DateTime(2026, 12, 31))], 1);
+    expect(view.dayCounts[yearDayKey(DateTime(2026, 2, 1))], 0);
+    expect(view.monthHeading(1), 'M1');
+    expect(view.daySemanticsLabel(DateTime(2026, 1, 2), 2), '1/2: 2');
+  });
+
+  testWidgets('year: uncovered range requests ensure once', (tester) async {
+    final date = DateTime(2026, 11, 18);
+    final range = streamLevelRangeFor(StreamLevel.year, date);
+    final calls = <CalendarRange>[];
+    await tester.pumpWidget(
+      _hostApp(
+        level: StreamLevel.year,
+        date: date,
+        marks: _marks(const [], covered: false),
+        ensureRange: (requested) async {
+          calls.add(requested);
+        },
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Loading marks'), findsOneWidget);
+    expect(find.byType(YearView), findsNothing);
+    expect(calls, [streamLevelQueryRange(range)]);
+
+    await tester.pump();
+    expect(calls, hasLength(1));
+  });
+
+  testWidgets('year: covered empty range shows the empty label', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _hostApp(
+        level: StreamLevel.year,
+        date: DateTime(2026, 11, 18),
+        marks: _marks(const []),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Nothing here'), findsOneWidget);
+    expect(find.byType(YearView), findsNothing);
+  });
+
   testWidgets('320dp at 2.0 scale does not overflow', (tester) async {
     await tester.pumpWidget(
       _hostApp(
@@ -321,6 +395,22 @@ void main() {
         marks: _marks([
           _mark('a', DateTime(2026, 11, 3, 9)),
           _mark('b', DateTime(2026, 11, 10, 9)),
+        ]),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(
+      _hostApp(
+        level: StreamLevel.year,
+        date: DateTime(2026, 11, 15),
+        width: 320,
+        height: 200,
+        textScale: 2.0,
+        marks: _marks([
+          _mark('a', DateTime(2026, 1, 2, 9)),
+          _mark('b', DateTime(2026, 7, 10, 9)),
         ]),
       ),
     );

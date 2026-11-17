@@ -1,10 +1,10 @@
-// Range access for the Week and Month semantic-zoom levels.
+// Range access for the Week, Month and Year semantic-zoom levels.
 //
 // Units: StreamDayMark.startMs/endMs are epoch milliseconds in LOCAL time
 // (see stream_mark_mapper.dart). StreamLevelRange.start/end are local
 // calendar dates, start inclusive and end exclusive. The occurrence query
 // uses the half-open UTC window derived from those local midnights, so a
-// local week/month never drops rows that only overlap at the edges.
+// local week/month/year never drops rows that only overlap at the edges.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../calendar/application/calendar_providers.dart'
@@ -14,7 +14,7 @@ import 'stream_day_mark.dart';
 import 'stream_day_providers.dart' show occurrenceToRow;
 import 'stream_mark_mapper.dart';
 
-enum StreamLevel { day, week, month }
+enum StreamLevel { day, week, month, year }
 
 /// Local calendar range for one zoom level. [start] is inclusive, [end]
 /// exclusive; both are normalized to local midnight.
@@ -67,10 +67,23 @@ StreamLevelRange streamMonthRange(DateTime date) {
   );
 }
 
+/// Local calendar year containing [date].
+///
+/// January 1 is inclusive and the next January 1 is exclusive. The DateTime
+/// constructor keeps both boundaries at local midnight across DST transitions;
+/// a fixed `Duration(days: 365)` would drift by an hour.
+StreamLevelRange streamYearRange(DateTime date) {
+  return StreamLevelRange(
+    level: StreamLevel.year,
+    start: DateTime(date.year, 1, 1),
+    end: DateTime(date.year + 1, 1, 1),
+  );
+}
+
 /// Local range for [level] around [date].
 ///
-/// [firstDayOfWeek] affects the week range only; day and month ranges are
-/// independent of it.
+/// [firstDayOfWeek] affects the week range only; day, month and year ranges
+/// are independent of it.
 StreamLevelRange streamLevelRangeFor(
   StreamLevel level,
   DateTime date, {
@@ -93,6 +106,8 @@ StreamLevelRange streamLevelRangeFor(
       );
     case StreamLevel.month:
       return streamMonthRange(date);
+    case StreamLevel.year:
+      return streamYearRange(date);
   }
 }
 

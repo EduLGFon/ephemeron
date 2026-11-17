@@ -1,10 +1,11 @@
-// Hosts the Stream Week and Month semantic-zoom levels.
+// Hosts the Stream Week, Month and Year semantic-zoom levels plus the agenda
+// lens over any level range.
 //
 // Presentation/application only: computes the local level range, waits for the
 // occurrence cache to cover it through StreamDayCacheController.ensure, groups
-// the marks with LevelData and renders the existing WeekView/MonthView. The
-// caller supplies every user-visible label and callback, so the host adds no
-// route, nested scrollable or English copy. See ARCHITECTURE.md.
+// the marks with LevelData and renders the existing WeekView/MonthView/YearView.
+// The caller supplies every user-visible label and callback, so the host adds
+// no route, nested scrollable or English copy. See ARCHITECTURE.md.
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -18,12 +19,15 @@ import '../../application/stream_level_data.dart';
 import '../levels/level_data.dart';
 import '../levels/month_view.dart';
 import '../levels/week_view.dart';
+import '../levels/year_view.dart';
+import 'stream_agenda_host.dart';
 
 part 'stream_level_host_views.dart';
 
-/// Renders one Week or Month level for [date] inside the available space.
+/// Renders one Week, Month or Year level for [date] inside the available space.
 ///
-/// The week starts on [firstDayOfWeek]; the month grid uses the same value.
+/// The week starts on [firstDayOfWeek]; the month and year grids use the same
+/// value.
 class StreamLevelHost extends ConsumerStatefulWidget {
   const StreamLevelHost({
     super.key,
@@ -44,8 +48,20 @@ class StreamLevelHost extends ConsumerStatefulWidget {
     this.onDateTap,
     this.onHabitTap,
     this.habitStreaks,
+    this.yearMonthHeading,
+    this.yearMonthSemanticsLabel,
+    this.yearDaySemanticsLabel,
+    this.yearHabitStreakSemanticsLabel,
     this.ensureRange,
-  }) : assert(level != StreamLevel.day, 'Week or month level expected');
+  }) : assert(level != StreamLevel.day, 'Week, month or year level expected'),
+       assert(
+         level != StreamLevel.year ||
+             (yearMonthHeading != null &&
+                 yearMonthSemanticsLabel != null &&
+                 yearDaySemanticsLabel != null &&
+                 yearHabitStreakSemanticsLabel != null),
+         'Year labels are required for the year level',
+       );
 
   final StreamLevel level;
   final DateTime date;
@@ -79,6 +95,19 @@ class StreamLevelHost extends ConsumerStatefulWidget {
   final void Function(DateTime date)? onDateTap;
   final void Function(String habitId)? onHabitTap;
   final List<MonthHabitStreak>? habitStreaks;
+
+  /// Caller-localized heading for one year month (1-12).
+  final String Function(int month)? yearMonthHeading;
+
+  /// Caller-localized semantics label for one year month and its count.
+  final String Function(String heading, int count)? yearMonthSemanticsLabel;
+
+  /// Caller-localized semantics label for one year day and its mark count.
+  final String Function(DateTime date, int count)? yearDaySemanticsLabel;
+
+  /// Caller-localized semantics label for one year habit streak run.
+  final String Function(YearHabitStreak streak, DateTime first, DateTime last)?
+  yearHabitStreakSemanticsLabel;
 
   /// Overrides the cache controller; useful for hosts without a repository.
   final void Function(CalendarRange range)? ensureRange;
@@ -117,9 +146,25 @@ class _StreamLevelHostState extends ConsumerState<StreamLevelHost> {
         if (data.marks.isEmpty) {
           return _message(context, widget.emptyLabel);
         }
-        return widget.level == StreamLevel.week
-            ? _weekLevelBody(host: widget, range: range, marks: data.marks)
-            : _monthLevelBody(host: widget, range: range, marks: data.marks);
+        return switch (widget.level) {
+          StreamLevel.week => _weekLevelBody(
+            host: widget,
+            range: range,
+            marks: data.marks,
+          ),
+          StreamLevel.month => _monthLevelBody(
+            host: widget,
+            range: range,
+            marks: data.marks,
+          ),
+          StreamLevel.year => _yearLevelBody(
+            host: widget,
+            range: range,
+            marks: data.marks,
+          ),
+          // The constructor asserts the day level away; keep the switch total.
+          StreamLevel.day => _message(context, widget.emptyLabel),
+        };
       },
     );
   }

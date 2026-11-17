@@ -95,6 +95,8 @@
   "streamDay": "Day",
   "streamWeek": "Week",
   "streamMonth": "Month",
+  "streamYear": "Year",
+  "streamAgenda": "Agenda",
   "streamLevelEmpty": "Nothing scheduled here",
   "streamLevelLoading": "Loading marks",
   "streamLevelError": "Could not load marks",
@@ -293,6 +295,11 @@
   "streamCommandPaletteClose": "Close command palette",
   "streamCommandToday": "Today",
   "streamCommandTomorrow": "Tomorrow",
+  "streamCommandDay": "Day",
+  "streamCommandWeek": "Week",
+  "streamCommandMonth": "Month",
+  "streamCommandYear": "Year",
+  "streamCommandAgenda": "Agenda",
   "streamCommandSettings": "Settings",
   "streamCommandSearch": "Search",
   "streamCommandSyncNow": "Sync now",
@@ -304,5 +311,7 @@
   "streamSyncSynced": "Synced",
   "streamSyncSyncing": "Syncing",
   "streamSyncOffline": "Offline",
-  "streamSyncAttention": "Sync needs attention"
+  "streamSyncAttention": "Sync needs attention",
+  "streamOfflineMessage": "You are offline. Changes sync when the connection returns.",
+  "streamOfflineRetry": "Retry"
 }
