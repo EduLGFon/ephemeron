@@ -128,6 +128,7 @@ import 'cases/stream_peek_data_case.dart' as stream_peek_data;
 import 'cases/stream_peek_editor_case.dart' as stream_peek_editor;
 import 'cases/stream_peek_editor_state_case.dart' as stream_peek_editor_state;
 import 'cases/stream_peek_panel_case.dart' as stream_peek_panel;
+import 'cases/stream_peek_sheet_case.dart' as stream_peek_sheet;
 import 'cases/stream_platform_case.dart' as stream_platform;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
 import 'cases/stream_school_host_case.dart' as stream_school_host;
@@ -319,6 +320,7 @@ const _included = <String>{
   'stream_peek_editor_case.dart',
   'stream_peek_editor_state_case.dart',
   'stream_peek_panel_case.dart',
+  'stream_peek_sheet_case.dart',
   'stream_platform_case.dart',
   'stream_route_params_case.dart',
   'stream_school_host_case.dart',
@@ -516,6 +518,7 @@ void main() {
   group('stream_peek_editor', stream_peek_editor.main);
   group('stream_peek_editor_state', stream_peek_editor_state.main);
   group('stream_peek_panel', stream_peek_panel.main);
+  group('stream_peek_sheet', stream_peek_sheet.main);
   group('stream_platform', stream_platform.main);
   group('stream_route_params', stream_route_params.main);
   group('stream_school_host', stream_school_host.main);
