@@ -61,6 +61,14 @@ class _StreamSchoolHostState extends ConsumerState<StreamSchoolHost> {
 
   @override
   Widget build(BuildContext context) {
+    // A reset from settings clears the completion flag while this host may
+    // still be holding the session-local dismissal. Reopen the school from the
+    // first step; completed=true, loading and error states are untouched.
+    ref.listen<AsyncValue<bool>>(streamSchoolCompletedProvider, (_, next) {
+      if (!_dismissed || next.value != false) return;
+      _controller.restart();
+      setState(() => _dismissed = false);
+    });
     final completed = ref.watch(streamSchoolCompletedProvider).value;
     // Loading or failed reads leave the app usable instead of blocking it.
     if (_dismissed || completed != false) return widget.child;
