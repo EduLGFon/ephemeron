@@ -107,6 +107,9 @@ import 'cases/stream_gesture_school_case.dart' as stream_gesture_school;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
 import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
+import 'cases/stream_peek_editor_case.dart' as stream_peek_editor;
+import 'cases/stream_peek_editor_state_case.dart' as stream_peek_editor_state;
+import 'cases/stream_peek_panel_case.dart' as stream_peek_panel;
 import 'cases/stream_platform_case.dart' as stream_platform;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
 import 'cases/stream_slipped_keyboard_case.dart' as stream_slipped_keyboard;
@@ -266,6 +269,9 @@ const _included = <String>{
   'stream_layout_mode_case.dart',
   'stream_mark_layout_case.dart',
   'stream_mark_mapper_case.dart',
+  'stream_peek_editor_case.dart',
+  'stream_peek_editor_state_case.dart',
+  'stream_peek_panel_case.dart',
   'stream_platform_case.dart',
   'stream_route_params_case.dart',
   'stream_slipped_keyboard_case.dart',
@@ -431,6 +437,9 @@ void main() {
   group('stream_layout_mode', stream_layout_mode.main);
   group('stream_mark_layout', stream_mark_layout.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
+  group('stream_peek_editor', stream_peek_editor.main);
+  group('stream_peek_editor_state', stream_peek_editor_state.main);
+  group('stream_peek_panel', stream_peek_panel.main);
   group('stream_platform', stream_platform.main);
   group('stream_route_params', stream_route_params.main);
   group('stream_slipped_keyboard', stream_slipped_keyboard.main);
