@@ -1,6 +1,7 @@
 import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/presentation/agenda/agenda_lens.dart';
 import 'package:ephemeron/features/stream/presentation/agenda/agenda_section.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -18,9 +19,12 @@ void main() {
   test('grouping by day is correct and sorted', () {
     final base = DateTime(2026, 1, 1);
     final m1 = _mark('a', base.millisecondsSinceEpoch + 1000);
-    final m2 = _mark('b', base.add(const Duration(days: 1)).millisecondsSinceEpoch + 500);
-    final m3 = _mark('c', base.millisecondsSinceEpoch + 500); // same day, earlier
-    final secs = groupMarksByDay([m1, m2, m3]);
+    final m2 = _mark(
+      'b',
+      base.add(const Duration(days: 1)).millisecondsSinceEpoch + 500,
+    );
+    final m3 = _mark('c', base.millisecondsSinceEpoch + 500);
+    final secs = groupMarksByDay([m1, m2, m3], headingFor: (d) => 'H');
     expect(secs.length, 2);
     expect(secs[0].items.map((m) => m.id).toList(), ['c', 'a']);
     expect(secs[1].items.map((m) => m.id).toList(), ['b']);
@@ -29,7 +33,7 @@ void main() {
   test('one day with no marks is absent', () {
     final base = DateTime(2026, 1, 1);
     final m = _mark('a', base.millisecondsSinceEpoch);
-    final secs = groupMarksByDay([m]);
+    final secs = groupMarksByDay([m], headingFor: (d) => 'H');
     expect(secs.length, 1);
   });
 
@@ -42,6 +46,8 @@ void main() {
             onMarkTap: (_) {},
             emptyLabel: 'Nothing here',
             formatTime: (_) => '09:00',
+            semanticLabel: (_) => 'label',
+            dayHeadingBuilder: (_) => 'Day',
           ),
         ),
       ),
@@ -64,6 +70,7 @@ void main() {
               onMarkTap: (id) => tapped = id,
               emptyLabel: 'empty',
               formatTime: (_) => '09:00',
+              semanticLabel: (_) => '09:00 Title event',
               dayHeadingBuilder: (_) => 'Day',
             ),
           ),
@@ -78,7 +85,10 @@ void main() {
 
   testWidgets('stable keys exist per row', (tester) async {
     final base = DateTime(2026, 1, 1);
-    final marks = [for (var i = 0; i < 3; i++) _mark('k$i', base.millisecondsSinceEpoch + i * 1000)];
+    final marks = [
+      for (var i = 0; i < 3; i++)
+        _mark('k$i', base.millisecondsSinceEpoch + i * 1000),
+    ];
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -89,6 +99,7 @@ void main() {
               onMarkTap: (_) {},
               emptyLabel: 'empty',
               formatTime: (_) => '09:00',
+              semanticLabel: (m) => '09:00 ${m.title} event',
               dayHeadingBuilder: (_) => 'Day',
             ),
           ),
@@ -118,6 +129,7 @@ void main() {
               onMarkTap: (_) {},
               emptyLabel: 'empty',
               formatTime: (_) => '09:00',
+              semanticLabel: (m) => '09:00 ${m.title} event',
               dayHeadingBuilder: (_) => 'Day',
             ),
           ),
@@ -125,10 +137,10 @@ void main() {
       ),
     );
     await tester.pump();
-    final built = tester.widgetList(
-      find.byWidgetPredicate((w) => w.key is ValueKey<String>),
-    ).length;
-    expect(built, lessThan(40));
+    final built = tester
+        .widgetList(find.byWidgetPredicate((w) => w.key is ValueKey<String>))
+        .length;
+    expect(built, lessThanOrEqualTo(8));
   });
 
   testWidgets('semantics row labels and headers', (tester) async {
@@ -144,7 +156,7 @@ void main() {
               onMarkTap: (_) {},
               emptyLabel: 'empty',
               formatTime: (_) => '09:00',
-              semanticLabel: (mm) => '09:00 Hello ${mm.kind.name}',
+              semanticLabel: (_) => '09:00 Hello event',
               dayHeadingBuilder: (_) => 'DayH',
             ),
           ),
@@ -152,9 +164,17 @@ void main() {
       ),
     );
     await tester.pump();
-    final rowSem = tester.getSemantics(find.byKey(const ValueKey<String>('s1')));
-    expect(rowSem.getSemanticsData().label, '09:00 Hello event');
-    expect(find.text('DayH'), findsOneWidget);
+    final rowSem = tester.getSemantics(
+      find.byKey(const ValueKey<String>('s1')),
+    );
+    final rowData = rowSem.getSemanticsData();
+    expect(rowData.label, '09:00 Hello event');
+    expect(rowData.flagsCollection.isButton, isTrue);
+    expect(rowData.hasAction(SemanticsAction.tap), isTrue);
+    final headerData = tester
+        .getSemantics(find.text('DayH'))
+        .getSemanticsData();
+    expect(headerData.flagsCollection.isHeader, isTrue);
   });
 
   testWidgets('320dp at 2.0 scale long title no overflow', (tester) async {
@@ -176,6 +196,7 @@ void main() {
                 onMarkTap: (_) {},
                 emptyLabel: 'empty',
                 formatTime: (_) => '09:00',
+                semanticLabel: (_) => '09:00 long event',
                 dayHeadingBuilder: (_) => 'Day',
               ),
             ),
@@ -184,6 +205,5 @@ void main() {
       ),
     );
     await tester.pump();
-    // no exception thrown
   });
 }

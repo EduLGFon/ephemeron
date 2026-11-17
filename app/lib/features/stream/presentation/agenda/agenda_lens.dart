@@ -1,61 +1,42 @@
 // Agenda lens: a plain, accessible list of the same marks for a range.
 //
-// Presentation only: data is injected. No providers, data, domain or router.
+// Presentation only: data is injected. Input path: raw marks plus a day
+// heading builder; grouping happens inside via groupMarksByDay. Semantic
+// labels are supplied by the caller so no locale-specific text leaks in.
 import 'package:material_ui/material_ui.dart';
 
 import '../../application/stream_day_mark.dart';
 import 'agenda_section.dart';
 
-/// Fixed row height used for [itemExtent]. Large enough for two lines of
-/// title at text scale 2.0 without clipping.
 const double kAgendaRowExtent = 144;
 
 class AgendaLens extends StatelessWidget {
   const AgendaLens({
     super.key,
-    this.marks,
-    this.sections,
+    required this.marks,
     required this.onMarkTap,
     required this.emptyLabel,
     required this.formatTime,
-    this.semanticLabel,
-    this.dayHeadingBuilder,
+    required this.semanticLabel,
+    required this.dayHeadingBuilder,
   });
 
-  /// Raw marks; grouped internally when [sections] is null.
-  final List<StreamDayMark>? marks;
-
-  /// Pre-grouped sections. Takes precedence over [marks].
-  final List<AgendaSection>? sections;
-
+  final List<StreamDayMark> marks;
   final void Function(String id) onMarkTap;
   final String emptyLabel;
   final String Function(StreamDayMark mark) formatTime;
-
-  /// Composed semantics label (time, title, kind). Falls back to a neutral
-  /// combination of [formatTime], title and kind name.
-  final String Function(StreamDayMark mark)? semanticLabel;
-
-  /// Heading label builder used when grouping [marks] internally.
-  final String Function(DateTime day)? dayHeadingBuilder;
-
-  List<AgendaSection> get _sections {
-    if (sections != null) return sections!;
-    return groupMarksByDay(
-      marks ?? const <StreamDayMark>[],
-      headingFor: dayHeadingBuilder,
-    );
-  }
+  final String Function(StreamDayMark mark) semanticLabel;
+  final String Function(DateTime day) dayHeadingBuilder;
 
   @override
   Widget build(BuildContext context) {
-    final secs = _sections;
-    if (secs.isEmpty) {
+    final sections = groupMarksByDay(marks, headingFor: dayHeadingBuilder);
+    if (sections.isEmpty) {
       return Center(child: Text(emptyLabel));
     }
     return CustomScrollView(
       slivers: [
-        for (final section in secs) ...[
+        for (final section in sections) ...[
           SliverToBoxAdapter(
             child: Semantics(
               header: true,
@@ -72,14 +53,11 @@ class AgendaLens extends StatelessWidget {
             itemExtent: kAgendaRowExtent,
             delegate: SliverChildBuilderDelegate((context, index) {
               final mark = section.items[index];
-              final label = semanticLabel != null
-                  ? semanticLabel!(mark)
-                  : '${formatTime(mark)} ${mark.title} ${mark.kind.name}';
               return _AgendaRow(
                 key: ValueKey<String>(mark.id),
                 mark: mark,
                 timeLabel: formatTime(mark),
-                semanticLabelText: label,
+                semanticLabelText: semanticLabel(mark),
                 onMarkTap: onMarkTap,
               );
             }, childCount: section.items.length),
@@ -90,10 +68,6 @@ class AgendaLens extends StatelessWidget {
   }
 }
 
-// SliverList has no itemExtent param directly? It does via delegate? Actually
-// SliverList constructor accepts itemExtent? In newer Flutter, SliverList has
-// `itemExtent`? Let's check. SliverFixedExtentList is the one. Need use
-// SliverFixedExtentList instead. We'll fix below by editing.
 class _AgendaRow extends StatelessWidget {
   const _AgendaRow({
     super.key,

@@ -22,12 +22,6 @@ class AgendaSection {
 
   /// Marks for this day, sorted by start time with stable tie-breaking.
   final List<StreamDayMark> items;
-
-  /// Alias for [dayKey] (local date).
-  DateTime get date => dayKey;
-
-  /// Alias for [dayKey] (local date).
-  DateTime get localDate => dayKey;
 }
 
 /// Groups [marks] into one [AgendaSection] per distinct local day.
@@ -35,10 +29,10 @@ class AgendaSection {
 /// Days are sorted ascending. Within a day, marks are sorted by [startMs]
 /// ascending; ties keep their input order (stable). Days that contain no
 /// marks are never produced. [headingFor] supplies the localized heading for
-/// each day; when omitted a neutral ISO-ish label is used.
+/// each day (required; no default English fallback).
 List<AgendaSection> groupMarksByDay(
   List<StreamDayMark> marks, {
-  String Function(DateTime day)? headingFor,
+  required String Function(DateTime day) headingFor,
 }) {
   final byDay = <DateTime, List<_IndexedMark>>{};
   for (var i = 0; i < marks.length; i++) {
@@ -52,7 +46,7 @@ List<AgendaSection> groupMarksByDay(
     for (final day in days)
       AgendaSection(
         dayKey: day,
-        heading: headingFor == null ? _defaultHeading(day) : headingFor(day),
+        heading: headingFor(day),
         items:
             (byDay[day]!..sort((a, b) {
                   final c = a.mark.startMs.compareTo(b.mark.startMs);
@@ -64,25 +58,6 @@ List<AgendaSection> groupMarksByDay(
       ),
   ];
 }
-
-// Aliases for callers/tests that prefer other names.
-List<AgendaSection> groupStreamDayMarksByDay(
-  List<StreamDayMark> marks, {
-  String Function(DateTime day)? headingFor,
-}) => groupMarksByDay(marks, headingFor: headingFor);
-
-List<AgendaSection> buildAgendaSections(
-  List<StreamDayMark> marks, {
-  String Function(DateTime day)? headingFor,
-}) => groupMarksByDay(marks, headingFor: headingFor);
-
-List<AgendaSection> agendaSectionsFromMarks(
-  List<StreamDayMark> marks, {
-  String Function(DateTime day)? headingFor,
-}) => groupMarksByDay(marks, headingFor: headingFor);
-
-String _defaultHeading(DateTime day) =>
-    '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
 
 class _IndexedMark {
   const _IndexedMark(this.index, this.mark);
