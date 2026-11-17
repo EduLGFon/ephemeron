@@ -16,10 +16,14 @@ class StreamStatusView extends StatelessWidget {
     this.emptyBody,
     this.emptyActionLabel,
     this.onEmptyAction,
+    this.emptySecondaryLabel,
+    this.onEmptySecondary,
     this.errorTitle,
     this.errorBody,
     this.retryLabel,
     this.onRetry,
+    this.errorSecondaryLabel,
+    this.onSecondaryAction,
     this.offlineMessage,
     this.offlineRetryLabel,
     this.onOfflineRetry,
@@ -32,10 +36,14 @@ class StreamStatusView extends StatelessWidget {
   final String? emptyBody;
   final String? emptyActionLabel;
   final VoidCallback? onEmptyAction;
+  final String? emptySecondaryLabel;
+  final VoidCallback? onEmptySecondary;
   final String? errorTitle;
   final String? errorBody;
   final String? retryLabel;
   final VoidCallback? onRetry;
+  final String? errorSecondaryLabel;
+  final VoidCallback? onSecondaryAction;
   final String? offlineMessage;
   final String? offlineRetryLabel;
   final VoidCallback? onOfflineRetry;
@@ -51,8 +59,10 @@ class StreamStatusView extends StatelessWidget {
         return StreamEmptyState(
           title: emptyTitle ?? '',
           body: emptyBody,
-          actionLabel: emptyActionLabel ?? '',
-          onAction: onEmptyAction ?? () {},
+          actionLabel: emptyActionLabel,
+          onAction: onEmptyAction,
+          secondaryActionLabel: emptySecondaryLabel,
+          onSecondaryAction: onEmptySecondary,
         );
       case StreamStatus.loadingRemote:
         return StreamSkeleton(itemCount: skeletonItemCount);
@@ -60,8 +70,10 @@ class StreamStatusView extends StatelessWidget {
         return StreamErrorState(
           title: errorTitle ?? '',
           body: errorBody,
-          retryLabel: retryLabel ?? '',
-          onRetry: onRetry ?? () {},
+          retryLabel: retryLabel,
+          onRetry: onRetry,
+          secondaryActionLabel: errorSecondaryLabel,
+          onSecondaryAction: onSecondaryAction,
         );
       case StreamStatus.offline:
         return StreamOfflineBanner(

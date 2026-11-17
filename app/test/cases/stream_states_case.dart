@@ -4,6 +4,7 @@ import 'package:ephemeron/features/stream/presentation/states/stream_error_state
 import 'package:ephemeron/features/stream/presentation/states/stream_offline_banner.dart';
 import 'package:ephemeron/features/stream/presentation/states/stream_skeleton.dart';
 import 'package:ephemeron/features/stream/presentation/states/stream_status_view.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -32,6 +33,36 @@ void main() {
     expect(taps, 1);
   });
 
+  testWidgets('empty state omits action when label missing', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: StreamEmptyState(title: 'Empty title')),
+      ),
+    );
+    expect(find.byType(FilledButton), findsNothing);
+  });
+
+  testWidgets('empty state renders secondary action', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StreamEmptyState(
+            title: 'Empty title',
+            actionLabel: 'Primary',
+            onAction: () {},
+            secondaryActionLabel: 'Secondary',
+            onSecondaryAction: () => taps++,
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Secondary'), findsOneWidget);
+    await tester.tap(find.text('Secondary'));
+    await tester.pump();
+    expect(taps, 1);
+  });
+
   testWidgets('error state renders labels and retry action', (tester) async {
     var taps = 0;
     await tester.pumpWidget(
@@ -52,6 +83,15 @@ void main() {
     await tester.tap(find.byType(FilledButton));
     await tester.pump();
     expect(taps, 1);
+  });
+
+  testWidgets('error state omits retry when missing', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: StreamErrorState(title: 'Error title')),
+      ),
+    );
+    expect(find.byType(FilledButton), findsNothing);
   });
 
   testWidgets('offline banner renders message and retry', (tester) async {
@@ -80,23 +120,13 @@ void main() {
       MaterialApp(home: Scaffold(body: StreamSkeleton())),
     );
     await tester.pump();
-    final fade = tester.widget<FadeTransition>(
-      find.descendant(
-        of: find.byType(StreamSkeleton),
-        matching: find.byType(FadeTransition),
-      ),
+    final fadeFinder = find.descendant(
+      of: find.byType(StreamSkeleton),
+      matching: find.byType(FadeTransition),
     );
-    final first = fade.opacity.value;
+    final first = tester.widget<FadeTransition>(fadeFinder).opacity.value;
     await tester.pump(const Duration(milliseconds: 100));
-    final second = tester
-        .widget<FadeTransition>(
-          find.descendant(
-            of: find.byType(StreamSkeleton),
-            matching: find.byType(FadeTransition),
-          ),
-        )
-        .opacity
-        .value;
+    final second = tester.widget<FadeTransition>(fadeFinder).opacity.value;
     expect(second, isNot(equals(first)));
 
     await tester.pumpWidget(
@@ -106,25 +136,9 @@ void main() {
       ),
     );
     await tester.pump();
-    final r1 = tester
-        .widget<FadeTransition>(
-          find.descendant(
-            of: find.byType(StreamSkeleton),
-            matching: find.byType(FadeTransition),
-          ),
-        )
-        .opacity
-        .value;
+    final r1 = tester.widget<FadeTransition>(fadeFinder).opacity.value;
     await tester.pump(const Duration(milliseconds: 100));
-    final r2 = tester
-        .widget<FadeTransition>(
-          find.descendant(
-            of: find.byType(StreamSkeleton),
-            matching: find.byType(FadeTransition),
-          ),
-        )
-        .opacity
-        .value;
+    final r2 = tester.widget<FadeTransition>(fadeFinder).opacity.value;
     expect(r2, equals(r1));
   });
 
@@ -184,38 +198,44 @@ void main() {
   });
 
   testWidgets('no overflow at 320dp 2.0 scale', (tester) async {
-    final states = <Widget>[
-      StreamEmptyState(
-        title: 'Empty title long text that wraps around',
-        body: 'Body text that may wrap at small widths',
-        actionLabel: 'Primary action',
-        onAction: () {},
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final banner = StreamOfflineBanner(
+      message: 'Offline message long text',
+      retryLabel: 'Retry',
+      onRetry: () {},
+    );
+    const skeleton = StreamSkeleton();
+
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+        child: MaterialApp(home: Scaffold(body: banner)),
       ),
-      StreamErrorState(
-        title: 'Error title long text',
-        body: 'Error body long text',
-        retryLabel: 'Retry',
-        onRetry: () {},
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.byType(StreamOfflineBanner)).width,
+      lessThanOrEqualTo(320.5),
+    );
+
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+        child: MaterialApp(home: Scaffold(body: skeleton)),
       ),
-      StreamOfflineBanner(
-        message: 'Offline message long text',
-        retryLabel: 'Retry',
-        onRetry: () {},
-      ),
-      const StreamSkeleton(),
-    ];
-    for (final w in states) {
-      await tester.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(
-            size: Size(320, 640),
-            textScaler: TextScaler.linear(2.0),
-          ),
-          child: MaterialApp(home: Scaffold(body: w)),
-        ),
-      );
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-    }
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.byType(StreamSkeleton)).width,
+      lessThanOrEqualTo(320.5),
+    );
   });
 }

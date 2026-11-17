@@ -142,4 +142,25 @@ void main() {
     expect(StreamHairlines.dark, isNot(StreamSurfaces.dark));
     expect(StreamHairlines.trueBlack, isNot(StreamSurfaces.trueBlack));
   });
+
+  test('tonal containers differ from surface by a visible step', () {
+    for (final mode in [
+      StreamThemeMode.light,
+      StreamThemeMode.dark,
+      StreamThemeMode.trueBlack,
+    ]) {
+      final brightness = mode == StreamThemeMode.light
+          ? Brightness.light
+          : Brightness.dark;
+      final cs = streamThemeData(mode, brightness).colorScheme;
+      expect(
+        streamContrastRatio(cs.surfaceContainerHighest, cs.surface),
+        greaterThanOrEqualTo(1.1),
+      );
+      expect(
+        streamContrastRatio(cs.surfaceContainerHigh, cs.surface),
+        greaterThanOrEqualTo(1.1),
+      );
+    }
+  });
 }

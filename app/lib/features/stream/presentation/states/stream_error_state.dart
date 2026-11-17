@@ -7,16 +7,16 @@ class StreamErrorState extends StatelessWidget {
     super.key,
     required this.title,
     this.body,
-    required this.retryLabel,
-    required this.onRetry,
+    this.retryLabel,
+    this.onRetry,
     this.secondaryActionLabel,
     this.onSecondaryAction,
   });
 
   final String title;
   final String? body;
-  final String retryLabel;
-  final VoidCallback onRetry;
+  final String? retryLabel;
+  final VoidCallback? onRetry;
   final String? secondaryActionLabel;
   final VoidCallback? onSecondaryAction;
 
@@ -27,45 +27,48 @@ class StreamErrorState extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline, color: scheme.error, size: 32),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: scheme.onSurface,
-                  ),
-                ),
-                if (body != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    body!,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                FilledButton.tonal(onPressed: onRetry, child: Text(retryLabel)),
-                if (secondaryActionLabel != null &&
-                    onSecondaryAction != null) ...[
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: onSecondaryAction,
-                    child: Text(secondaryActionLabel!),
-                  ),
-                ],
-              ],
+        child: SingleChildScrollView(child: _content(theme, scheme)),
+      ),
+    );
+  }
+
+  Widget _content(ThemeData theme, ColorScheme scheme) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.error_outline, color: scheme.error, size: 32),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: scheme.onSurface,
             ),
           ),
-        ),
+          if (body != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              body!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (retryLabel != null && onRetry != null) ...[
+            const SizedBox(height: 24),
+            FilledButton.tonal(onPressed: onRetry, child: Text(retryLabel!)),
+          ],
+          if (secondaryActionLabel != null && onSecondaryAction != null) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: onSecondaryAction,
+              child: Text(secondaryActionLabel!),
+            ),
+          ],
+        ],
       ),
     );
   }
