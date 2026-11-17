@@ -81,6 +81,19 @@ void main() {
     }
   });
 
+  test('malformed dayKey takes precedence over targetMs', () {
+    final ms = DateTime(2026, 3, 12).millisecondsSinceEpoch;
+    final item = CountdownLandmarkItem(
+      id: 'p',
+      title: 'P',
+      targetDayKey: 'not-a-date',
+      targetMs: ms,
+    );
+    final now = DateTime(2026, 3, 10);
+    expect(daysUntil(item, now), isNull);
+    expect(countdownLandmarkKind(item, now), CountdownLandmarkKind.invalid);
+  });
+
   test('missing target returns null/invalid', () {
     final item = CountdownLandmarkItem(id: 'h', title: 'H');
     final now = DateTime(2026, 3, 10);

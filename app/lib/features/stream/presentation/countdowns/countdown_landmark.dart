@@ -11,8 +11,7 @@ class CountdownLandmark extends StatelessWidget {
     required this.title,
     this.label,
     this.daysLabel,
-    this.days,
-    this.value,
+    this.days = 0,
     this.onTap,
     this.colorArgb,
   }) : assert(label != null || daysLabel != null);
@@ -21,14 +20,11 @@ class CountdownLandmark extends StatelessWidget {
   final String title;
   final String? label;
   final String? daysLabel;
-  final int? days;
-  final num? value;
+  final int days;
   final void Function(String id)? onTap;
   final int? colorArgb;
 
   String get _resolvedLabel => label ?? daysLabel ?? '';
-
-  num? get _tweenValue => days ?? value;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +35,7 @@ class CountdownLandmark extends StatelessWidget {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final duration = reduceMotion ? Duration.zero : StreamMotion.fast;
     final resolvedLabel = _resolvedLabel;
-    final tweenKey = _tweenValue ?? resolvedLabel;
+    final tweenKey = days;
     return Semantics(
       label: '$title, $resolvedLabel',
       button: onTap != null,

@@ -145,6 +145,75 @@ void main() {
     expect(find.text('CF'), findsOneWidget);
   });
 
+  testWidgets('semantics: one node per chip with composed label and tap', (
+    tester,
+  ) async {
+    String? tapped;
+    var showAll = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CountdownEdgeChips(
+            items: items(3),
+            edge: CountdownEdge.top,
+            labelBuilder: (i) => '3 days',
+            onTap: (id) => tapped = id,
+            onShowAll: () => showAll++,
+            aggregateLabel: '+1 more',
+          ),
+        ),
+      ),
+    );
+    expect(find.bySemanticsLabel(RegExp('Event 0, 3 days')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Event 1, 3 days')), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp(r'\+1 more, show all')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Event 0'));
+    await tester.pump();
+    expect(tapped, 'e0');
+    await tester.tap(find.text('+1 more'));
+    await tester.pump();
+    expect(showAll, 1);
+  });
+
+  testWidgets('top and bottom edge placement', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CountdownEdgeChips(
+            items: items(1),
+            edge: CountdownEdge.top,
+            labelBuilder: (i) => '1 day',
+            onTap: (_) {},
+          ),
+        ),
+      ),
+    );
+    final topAlign = tester.widget<Align>(find.byType(Align));
+    expect(topAlign.alignment, Alignment.topLeft);
+    final topWrap = tester.widget<Wrap>(find.byType(Wrap));
+    expect(topWrap.verticalDirection, VerticalDirection.down);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CountdownEdgeChips(
+            items: items(1),
+            edge: CountdownEdge.bottom,
+            labelBuilder: (i) => '1 day',
+            onTap: (_) {},
+          ),
+        ),
+      ),
+    );
+    final bottomAlign = tester.widget<Align>(find.byType(Align));
+    expect(bottomAlign.alignment, Alignment.bottomLeft);
+    final bottomWrap = tester.widget<Wrap>(find.byType(Wrap));
+    expect(bottomWrap.verticalDirection, VerticalDirection.up);
+  });
+
   testWidgets('no overflow at 320dp and 2.0 scale', (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1.0;

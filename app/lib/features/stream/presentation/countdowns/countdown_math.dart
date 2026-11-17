@@ -27,6 +27,8 @@ CountdownLandmarkKind countdownLandmarkKind(
 }
 
 DateTime? _targetDate(CountdownLandmarkItem item) {
+  // targetDayKey takes precedence: a malformed key is invalid even when
+  // targetMs is present (no fallback).
   final key = item.targetDayKey;
   if (key != null) {
     final parts = key.split('-');

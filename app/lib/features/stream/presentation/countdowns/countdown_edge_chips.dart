@@ -45,7 +45,6 @@ class CountdownEdgeChips extends StatelessWidget {
     final aggregate = aggregateLabel ?? (extra > 0 ? '+$extra' : '');
     return Semantics(
       container: true,
-      excludeSemantics: true,
       child: Align(
         alignment: edge == CountdownEdge.top
             ? Alignment.topLeft
@@ -98,7 +97,7 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: onTap != null,
-      label: isAggregate ? daysLabel : '$title, $daysLabel',
+      label: isAggregate ? '$daysLabel, show all' : '$title, $daysLabel',
       excludeSemantics: true,
       onTap: onTap,
       child: GestureDetector(
