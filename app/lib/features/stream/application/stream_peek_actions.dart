@@ -23,7 +23,13 @@ final class StreamPeekUnchanged extends StreamPeekResult {
   const StreamPeekUnchanged();
 }
 
-enum StreamPeekFailure { readOnly, missingTask, invalidEdit, saveFailed }
+enum StreamPeekFailure {
+  readOnly,
+  missingTask,
+  invalidEdit,
+  listClearUnsupported,
+  saveFailed,
+}
 
 /// Typed failure for the surface to translate into user feedback.
 class StreamPeekException implements Exception {
@@ -61,6 +67,11 @@ class StreamPeekActions {
     final validationError = _validate(edit);
     if (validationError != null) {
       throw StreamPeekException(StreamPeekFailure.invalidEdit, validationError);
+    }
+    // TaskRepository.updateTask treats a null list id as "leave unchanged",
+    // so a clear cannot be applied. Reject it instead of reporting success.
+    if (edit.listId == null && target.data.listId != null) {
+      throw const StreamPeekException(StreamPeekFailure.listClearUnsupported);
     }
     if (_isUnchanged(target.data, edit)) return const StreamPeekUnchanged();
     try {

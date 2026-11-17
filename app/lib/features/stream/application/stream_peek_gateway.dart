@@ -60,14 +60,16 @@ class RiverpodStreamPeekGateway implements StreamPeekGateway {
   Future<void> rebuildDay(int dayStartMs) async {
     final local = DateTime.fromMillisecondsSinceEpoch(dayStartMs);
     final dayStart = DateTime(local.year, local.month, local.day);
-    // rebuildWindow deletes by a padded day key but inserts only rows that
-    // overlap the window. Rebuild the same padded span so neighboring cache
-    // days are not dropped.
+    // rebuildWindow deletes day keys from key(start)-1d through key(end)+1d
+    // but reinserts only rows overlapping the requested window. Ask for
+    // [D-2, D+3) so its delete span covers D-3..D+4 while the inserted span
+    // covers D-2..D+3, preserving the adjacent days a [D-1, D+2) rebuild
+    // used to drop.
     await _ref
         .read(occurrenceRepositoryProvider)
         .rebuildWindow(
-          windowStartUtc: dayStart.subtract(const Duration(days: 1)),
-          windowEndUtc: dayStart.add(const Duration(days: 2)),
+          windowStartUtc: dayStart.subtract(const Duration(days: 2)),
+          windowEndUtc: dayStart.add(const Duration(days: 3)),
         );
   }
 }

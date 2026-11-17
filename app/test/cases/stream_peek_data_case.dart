@@ -1,4 +1,8 @@
+import 'package:drift/native.dart';
+import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/data/repositories/occurrence_repository.dart';
+import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_peek_data.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_data.dart';
@@ -369,6 +373,57 @@ void main() {
       DateTime(2026, 11, 17).millisecondsSinceEpoch,
       DateTime(2026, 11, 18).millisecondsSinceEpoch,
     ]);
+  });
+
+  test('rebuildDay keeps the adjacent cache days D-2 and D+3', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final tasks = TaskRepository(db);
+    for (var day = 15; day <= 20; day++) {
+      final key = '2026-11-${day.toString().padLeft(2, '0')}';
+      await tasks.createTask(
+        title: 'Task $day',
+        plannedStart: '${key}T09:00',
+        plannedEnd: '${key}T10:00',
+      );
+    }
+    final occurrences = OccurrenceRepository(db);
+    await occurrences.rebuildWindow(
+      windowStartUtc: DateTime.utc(2026, 11, 13),
+      windowEndUtc: DateTime.utc(2026, 11, 21),
+    );
+    final container = ProviderContainer(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(streamPeekGatewayProvider)
+        .rebuildDay(DateTime(2026, 11, 17).millisecondsSinceEpoch);
+
+    final rows = await (db.select(db.occurrenceCache)).get();
+    final days = {for (final row in rows) row.dayKey};
+    expect(days, contains('2026-11-15'));
+    expect(days, contains('2026-11-20'));
+  });
+
+  test('clearing a list fails instead of silently succeeding', () async {
+    final gateway = _FakeGateway();
+    final target = _target();
+    final edit = PeekEdit(
+      title: target.data.title,
+      startMs: target.data.startMs,
+      endMs: target.data.endMs,
+      listId: null,
+      priority: target.data.priority,
+      notes: target.data.notes,
+    );
+
+    await expectLater(
+      StreamPeekActions(gateway).save(target, edit),
+      _failsWith(StreamPeekFailure.listClearUnsupported),
+    );
+    expect(gateway.updateCalls, 0);
   });
 
   test('a no-op save writes nothing', () async {
