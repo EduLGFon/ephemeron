@@ -10,6 +10,8 @@ import 'package:ephemeron/features/stream/application/stream_day_cache.dart';
 import 'package:ephemeron/features/stream/application/stream_day_cache_scope.dart';
 import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_day_providers.dart';
+import 'package:ephemeron/features/stream/application/stream_command_actions.dart';
+import 'package:ephemeron/features/stream/application/stream_sync_status.dart';
 import 'package:ephemeron/features/stream/application/stream_theme_provider.dart';
 import 'package:ephemeron/features/stream/application/stream_tray.dart';
 import 'package:ephemeron/features/stream/capture/capture_parser.dart'
@@ -35,9 +37,12 @@ import 'package:ephemeron/features/stream/stream_flags.dart';
 import 'package:ephemeron/features/stream/presentation/stream_route_params.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
+import 'package:ephemeron/features/sync/application/sync_providers.dart';
+import 'package:ephemeron/features/sync/data/sync_engine.dart' show SyncStatus;
 import 'package:ephemeron/features/tasks/application/tasks_providers.dart'
     show openTasksProvider;
 import 'package:ephemeron/l10n/src/app_localizations.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
@@ -87,6 +92,19 @@ class _FakeCacheGateway implements StreamDayCacheGateway {
 class _NullBuiltRange extends CalendarBuiltRange {
   @override
   CalendarRange? build() => null;
+}
+
+class _FakeCommandExecutor extends StreamCommandExecutor {
+  _FakeCommandExecutor()
+    : super(setThemeMode: (_) async {}, syncNow: () async {});
+
+  final List<StreamCommandIntent> intents = <StreamCommandIntent>[];
+
+  @override
+  Future<StreamCommandResult> execute(StreamCommandIntent intent) async {
+    intents.add(intent);
+    return const StreamCommandHandled();
+  }
 }
 
 const List<TrayItem> _trayItems = <TrayItem>[
@@ -182,14 +200,18 @@ List<Override> _overrides({
 /// Minimal stand-in for the app router: the Stream route plus the launcher's
 /// destinations. The real shell routes cannot be pushed from a bare test
 /// router, so this asserts the navigation intent only.
-GoRouter _launcherRouter() => GoRouter(
-  initialLocation: '/stream/2026-11-17/day',
+GoRouter _launcherRouter({
+  DateTime? now,
+  String initialLocation = '/stream/2026-11-17/day',
+}) => GoRouter(
+  initialLocation: initialLocation,
   routes: [
     GoRoute(
       path: '/stream/:date/:zoom',
       builder: (context, state) => StreamScreen(
         date: tryParseStreamDate(state.pathParameters['date']),
         zoom: state.pathParameters['zoom'],
+        now: now,
       ),
     ),
     for (var i = 0; i < 7; i++)
@@ -211,6 +233,23 @@ Widget _routerApp(GoRouter router, {List<Override>? overrides}) =>
         supportedLocales: AppLocalizations.supportedLocales,
       ),
     );
+
+/// Stream screen without sync overrides, so the live provider drives the
+/// header. Tests pass the status they want the provider to expose.
+Widget _statusApp(StreamSyncStatus status) => ProviderScope(
+  overrides: [
+    ..._overrides(),
+    streamSyncStatusProvider.overrideWithValue(status),
+  ],
+  child: MaterialApp(
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: StreamScreen(date: DateTime(2026, 11, 17)),
+  ),
+);
 
 /// Pushed routes are imperative matches, so [RouteMatchList.uri] keeps
 /// reporting the base location; the last match is the visible one.
@@ -392,7 +431,12 @@ void main() {
 
     await tester.tap(find.byType(Breadcrumb));
     await tester.pump();
+    await tester.pump();
     expect(openCommand, 1);
+    expect(find.byKey(const Key('streamCommandField')), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.byKey(const Key('streamCommandField')), findsNothing);
 
     await tester.drag(find.byType(DayCanvas), const Offset(0, -600));
     await tester.pump();
@@ -425,6 +469,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.byType(CaptureBar), findsOneWidget);
     expect(find.byType(TrayStrip), findsOneWidget);
+
+    await tester.tap(find.byType(Breadcrumb));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const Key('streamCommandField')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -995,5 +1044,163 @@ void main() {
 
     final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
     expect(find.text(l.streamTrayTaskUnavailable), findsOneWidget);
+  });
+
+  test('stream sync status maps every sync status', () {
+    const expected = <SyncStatus, StreamSyncStatus>{
+      SyncStatus.synced: StreamSyncStatus.synced,
+      SyncStatus.syncing: StreamSyncStatus.syncing,
+      SyncStatus.offline: StreamSyncStatus.offline,
+      SyncStatus.error: StreamSyncStatus.attention,
+    };
+    for (final entry in expected.entries) {
+      expect(streamSyncStatusFromSync(entry.key), entry.value);
+    }
+  });
+
+  test('streamSyncStatusProvider reads the combined status', () {
+    for (final status in SyncStatus.values) {
+      final container = ProviderContainer(
+        overrides: [combinedSyncStatusProvider.overrideWithValue(status)],
+      );
+      addTearDown(container.dispose);
+      expect(
+        container.read(streamSyncStatusProvider),
+        streamSyncStatusFromSync(status),
+      );
+    }
+  });
+
+  testWidgets('breadcrumb opens the palette and Esc closes it', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_routerApp(_launcherRouter()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(Breadcrumb));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const Key('streamCommandField')), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.byKey(const Key('streamCommandField')), findsNothing);
+  });
+
+  testWidgets('Ctrl+K opens the palette', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_routerApp(_launcherRouter()));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const Key('streamCommandField')), findsOneWidget);
+  });
+
+  testWidgets('selecting Today navigates to the expected date', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = _launcherRouter(
+      now: DateTime(2026, 11, 17, 10),
+      initialLocation: '/stream/2026-11-15/day',
+    );
+    await tester.pumpWidget(_routerApp(router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(Breadcrumb));
+    await tester.pump();
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const Key('streamCommandField')),
+      'today',
+    );
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(_location(router), '/stream/2026-11-17/day');
+    expect(find.byKey(const Key('streamCommandField')), findsNothing);
+  });
+
+  testWidgets('sync now and theme run the fake executor once', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final executor = _FakeCommandExecutor();
+    final overrides = <Override>[
+      ..._overrides(),
+      streamCommandExecutorProvider.overrideWithValue(executor),
+    ];
+    await tester.pumpWidget(
+      _routerApp(_launcherRouter(), overrides: overrides),
+    );
+    await tester.pumpAndSettle();
+
+    for (final query in ['sync', 'dark']) {
+      await tester.tap(find.byType(Breadcrumb));
+      await tester.pump();
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('streamCommandField')),
+        query,
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(find.byKey(const Key('streamCommandField')), findsNothing);
+    }
+
+    expect(executor.intents, hasLength(2));
+    expect(executor.intents[0], isA<StreamCommandSyncNow>());
+    expect(
+      executor.intents[1],
+      isA<StreamCommandTheme>().having(
+        (intent) => intent.mode,
+        'mode',
+        StreamThemeMode.dark,
+      ),
+    );
+  });
+
+  testWidgets('sync status provider drives the header label', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final status in StreamSyncStatus.values) {
+      await tester.pumpWidget(_statusApp(status));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final header = tester.widget<StreamHeader>(find.byType(StreamHeader));
+      final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
+      final expected = switch (status) {
+        StreamSyncStatus.synced => l.streamSyncSynced,
+        StreamSyncStatus.syncing => l.streamSyncSyncing,
+        StreamSyncStatus.offline => l.streamSyncOffline,
+        StreamSyncStatus.attention => l.streamSyncAttention,
+      };
+      expect(header.syncStatus, status);
+      expect(header.syncLabel, expected);
+      expect(find.bySemanticsLabel(expected), findsWidgets);
+    }
   });
 }
