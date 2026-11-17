@@ -3,8 +3,13 @@ import 'package:material_ui/material_ui.dart';
 import '../../design/stream_tokens.dart';
 import 'countdown_landmark_item.dart';
 
+/// Which stream edge the chips pin to.
 enum CountdownEdge { top, bottom }
 
+/// Small chips for countdowns that fall outside the viewport.
+///
+/// The input [items] must already be ordered by proximity to the viewport
+/// (nearest first); this widget takes the first two entries.
 class CountdownEdgeChips extends StatelessWidget {
   const CountdownEdgeChips({
     super.key,
@@ -15,8 +20,6 @@ class CountdownEdgeChips extends StatelessWidget {
     this.onTap,
     this.onShowAll,
     this.aggregateLabel,
-    this.moreLabel,
-    this.overflowLabel,
   });
 
   final List<CountdownLandmarkItem> items;
@@ -26,8 +29,6 @@ class CountdownEdgeChips extends StatelessWidget {
   final void Function(String id)? onTap;
   final VoidCallback? onShowAll;
   final String? aggregateLabel;
-  final String? moreLabel;
-  final String? overflowLabel;
 
   String _chipLabel(CountdownLandmarkItem item) {
     if (labelBuilder != null) return labelBuilder!(item);
@@ -35,36 +36,44 @@ class CountdownEdgeChips extends StatelessWidget {
     return item.title;
   }
 
-  String get _aggregate => aggregateLabel ?? moreLabel ?? overflowLabel ?? '';
-
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
     final visible = items.take(2).toList(growable: false);
     final extra = items.length - visible.length;
+    final aggregate = aggregateLabel ?? (extra > 0 ? '+$extra' : '');
     return Semantics(
       container: true,
-      child: Wrap(
-        spacing: StreamSpacing.x2,
-        runSpacing: StreamSpacing.x2,
-        children: [
-          for (final item in visible)
-            _Chip(
-              title: item.title,
-              daysLabel: _chipLabel(item),
-              onTap: onTap == null ? null : () => onTap!(item.id),
-              scheme: scheme,
-            ),
-          if (extra > 0 && _aggregate.isNotEmpty)
-            _Chip(
-              title: _aggregate,
-              daysLabel: _aggregate,
-              onTap: onShowAll,
-              scheme: scheme,
-              isAggregate: true,
-            ),
-        ],
+      excludeSemantics: true,
+      child: Align(
+        alignment: edge == CountdownEdge.top
+            ? Alignment.topLeft
+            : Alignment.bottomLeft,
+        child: Wrap(
+          verticalDirection: edge == CountdownEdge.top
+              ? VerticalDirection.down
+              : VerticalDirection.up,
+          spacing: StreamSpacing.x2,
+          runSpacing: StreamSpacing.x2,
+          children: [
+            for (final item in visible)
+              _Chip(
+                title: item.title,
+                daysLabel: _chipLabel(item),
+                onTap: onTap == null ? null : () => onTap!(item.id),
+                scheme: scheme,
+              ),
+            if (extra > 0 && aggregate.isNotEmpty)
+              _Chip(
+                title: aggregate,
+                daysLabel: aggregate,
+                onTap: onShowAll,
+                scheme: scheme,
+                isAggregate: true,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -90,11 +99,12 @@ class _Chip extends StatelessWidget {
     return Semantics(
       button: onTap != null,
       label: isAggregate ? daysLabel : '$title, $daysLabel',
+      excludeSemantics: true,
       onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           child: Container(
             padding: const EdgeInsetsDirectional.symmetric(
               horizontal: StreamSpacing.x3,

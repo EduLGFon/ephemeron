@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../design/stream_tokens.dart';
-import 'countdown_landmark_item.dart';
 
 /// In-stream countdown landmark: a 1px hairline with a big tabular label,
 /// title, and a small dot. Presentation only; data is injected.
@@ -10,32 +9,26 @@ class CountdownLandmark extends StatelessWidget {
     super.key,
     required this.id,
     required this.title,
-    this.y,
-    this.targetY,
     this.label,
     this.daysLabel,
-    this.labelBuilder,
+    this.days,
+    this.value,
     this.onTap,
     this.colorArgb,
-    this.value,
-  });
+  }) : assert(label != null || daysLabel != null);
 
   final String id;
   final String title;
-  final double? y;
-  final double? targetY;
   final String? label;
   final String? daysLabel;
-  final String Function(CountdownLandmarkItem item)? labelBuilder;
+  final int? days;
+  final num? value;
   final void Function(String id)? onTap;
   final int? colorArgb;
-  final num? value;
 
-  String get _resolvedLabel {
-    if (label != null) return label!;
-    if (daysLabel != null) return daysLabel!;
-    return '';
-  }
+  String get _resolvedLabel => label ?? daysLabel ?? '';
+
+  num? get _tweenValue => days ?? value;
 
   @override
   Widget build(BuildContext context) {
@@ -46,9 +39,11 @@ class CountdownLandmark extends StatelessWidget {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final duration = reduceMotion ? Duration.zero : StreamMotion.fast;
     final resolvedLabel = _resolvedLabel;
+    final tweenKey = _tweenValue ?? resolvedLabel;
     return Semantics(
       label: '$title, $resolvedLabel',
       button: onTap != null,
+      excludeSemantics: true,
       onTap: onTap == null ? null : () => onTap!(id),
       child: GestureDetector(
         onTap: onTap == null ? null : () => onTap!(id),
@@ -72,12 +67,15 @@ class CountdownLandmark extends StatelessWidget {
                 const SizedBox(width: StreamSpacing.x2),
                 Flexible(
                   child: TweenAnimationBuilder<double>(
-                    key: ValueKey<String>(resolvedLabel),
+                    key: ValueKey<Object>(tweenKey),
                     tween: Tween<double>(begin: 0, end: 1),
                     duration: duration,
                     curve: StreamMotion.standard,
                     builder: (context, v, child) {
-                      return Opacity(opacity: v, child: child);
+                      return FadeTransition(
+                        opacity: AlwaysStoppedAnimation<double>(v),
+                        child: child,
+                      );
                     },
                     child: FittedBox(
                       fit: BoxFit.scaleDown,

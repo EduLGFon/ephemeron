@@ -107,6 +107,44 @@ void main() {
     expect(find.text('+9'), findsNothing);
   });
 
+  testWidgets('three items with no optional labels shows default aggregate', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CountdownEdgeChips(
+            items: items(3),
+            edge: CountdownEdge.top,
+            labelBuilder: (i) => '3 days',
+            onTap: (_) {},
+            onShowAll: () {},
+          ),
+        ),
+      ),
+    );
+    expect(find.text('+1'), findsOneWidget);
+  });
+
+  testWidgets('colour-free item renders', (tester) async {
+    final cf = [
+      CountdownLandmarkItem(id: 'cf', title: 'CF', targetDayKey: '2026-03-10'),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CountdownEdgeChips(
+            items: cf,
+            edge: CountdownEdge.bottom,
+            labelBuilder: (i) => '1 day',
+            onTap: (_) {},
+          ),
+        ),
+      ),
+    );
+    expect(find.text('CF'), findsOneWidget);
+  });
+
   testWidgets('no overflow at 320dp and 2.0 scale', (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1.0;
