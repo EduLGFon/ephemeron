@@ -55,22 +55,22 @@
 
 ## Stream UI (v3)
 
-- [ ] Wire capture bar into the day surface.
-- [ ] Wire command palette into the day surface.
+- [x] Wire capture bar into the day surface.
+- [x] Wire command palette into the day surface.
 - [ ] Wire tray drag-to-schedule.
 - [ ] Wire peek inline editor.
 - [ ] Wire slipped triage.
-- [ ] Wire agenda toggle.
-- [ ] Wire gesture school overlay.
+- [x] Wire agenda toggle.
+- [x] Wire gesture school overlay.
 - [ ] Wire focus mode controls.
 - [ ] Wire habit gutter.
 - [ ] Wire countdown landmarks.
-- [ ] Wire week/month level switching.
-- [ ] Implement year level view.
-- [ ] Implement settings sheet.
+- [x] Wire week/month level switching.
+- [x] Implement year level view.
+- [x] Implement settings sheet.
 - [ ] Implement progressive hints.
 - [ ] Wire permission banners.
-- [ ] Wire sync/offline states into the surface.
+- [x] Wire sync/offline states into the surface.
 - [ ] Remove old UI after Phase 8 acceptance.
 - [ ] Run Phase 0 perf gate (frame build/raster, cold start, memory, 2000-mark scroll) after the spike fix.
 - [ ] Review follow-up: week/month painters over 300 lines.

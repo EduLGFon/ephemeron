@@ -37,27 +37,29 @@ existing UI is untouched when it is off.
 - Gesture school overlay: `presentation/school/`.
 - Designed states (empty/error/offline/skeleton): `presentation/states/`.
 - Platform capabilities + feedback adapter: `presentation/platform/`.
-- Week + month level views: shipped with the day surface (viewport/canvas).
+- Week + month + year level views: render through `StreamLevelHost` on the
+  day surface (viewport/canvas).
 - Day surface shell: centered Now line, rail, scrubber, Now pill, header, route
   (`presentation/stream_placeholder_screen.dart`, `stream_route_params.dart`).
 
 ## Not yet wired into the surface
 
-These are component units with tests, not yet mounted on the day surface:
+Component units with tests; items marked (wired) are now mounted on the day
+surface, the rest are not yet mounted:
 
-- capture bar
-- command palette
+- capture bar (wired)
+- command palette (wired)
 - tray drag-to-schedule
 - peek inline editor
 - slipped triage
-- agenda toggle
-- gesture school
+- agenda toggle (wired)
+- gesture school (wired)
 - focus mode controls
 - habit gutter
 - countdown landmarks
-- week/month level switching
-- year level
-- settings sheet
+- week/month level switching (wired)
+- year level (wired)
+- settings sheet (wired)
 - progressive hints
 - permission banners
 - old UI removal
