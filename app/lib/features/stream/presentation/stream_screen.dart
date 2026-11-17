@@ -13,6 +13,7 @@ import '../../../../core/ui/app_sheet.dart';
 import '../application/stream_command_actions.dart';
 import '../application/stream_day_cache_scope.dart';
 import '../application/stream_day_providers.dart' show StreamDayKey;
+import '../application/stream_school_preferences.dart';
 import '../application/stream_sync_status.dart';
 import '../application/stream_theme_provider.dart';
 import '../capture/capture_parser.dart' show CaptureLocale;
@@ -25,6 +26,7 @@ import 'surface/stream_command_overlay.dart';
 import 'surface/stream_dock_host.dart';
 import 'surface/stream_launcher.dart';
 import 'surface/stream_school_host.dart';
+import 'surface/stream_settings_sheet.dart';
 
 class StreamScreen extends ConsumerStatefulWidget {
   const StreamScreen({
@@ -136,9 +138,29 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
     );
   }
 
+  /// Opens the Stream settings sheet. Navigation and school replay stay with
+  /// this caller; the sheet only reports the intent.
   void _openSettings() {
     widget.onOpenSettings?.call();
-    GoRouter.maybeOf(context)?.go('/settings');
+    showAppSheet<void>(
+      context,
+      builder: (sheetContext) => StreamSettingsSheet(
+        onClose: () => Navigator.of(sheetContext).pop(),
+        onOpenAppSettings: () {
+          Navigator.of(sheetContext).pop();
+          GoRouter.maybeOf(context)?.push('/settings');
+        },
+        onReplaySchool: () => unawaited(_replaySchool(sheetContext)),
+      ),
+    );
+  }
+
+  /// Clears the completion flag, then dismisses the sheet so the school host
+  /// can show the overlay again.
+  Future<void> _replaySchool(BuildContext sheetContext) async {
+    await ref.read(streamSchoolCompletedProvider.notifier).reset();
+    if (!mounted || !sheetContext.mounted) return;
+    Navigator.of(sheetContext).pop();
   }
 
   void _openLauncher() {

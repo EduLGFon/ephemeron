@@ -37,6 +37,7 @@ import 'package:ephemeron/features/stream/presentation/chrome/now_line.dart';
 import 'package:ephemeron/features/stream/presentation/stream_time_format.dart';
 import 'package:ephemeron/features/stream/presentation/surface/stream_launcher.dart';
 import 'package:ephemeron/features/stream/presentation/surface/stream_peek_sheet.dart';
+import 'package:ephemeron/features/stream/presentation/surface/stream_settings_sheet.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_chip.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_item.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_panel.dart';
@@ -65,6 +66,24 @@ class _FixedStreamThemeNotifier extends StreamThemeNotifier {
   StreamThemeMode build() => mode;
 }
 
+class _RecordingThemeNotifier extends StreamThemeNotifier {
+  _RecordingThemeNotifier(this.mode);
+  StreamThemeMode mode;
+  int setModeCalls = 0;
+  StreamThemeMode? lastMode;
+
+  @override
+  StreamThemeMode build() => mode;
+
+  @override
+  Future<void> setMode(StreamThemeMode value) async {
+    setModeCalls++;
+    lastMode = value;
+    mode = value;
+    state = value;
+  }
+}
+
 class _FixedSchoolNotifier extends StreamSchoolCompletedNotifier {
   _FixedSchoolNotifier(this.completed);
   final bool completed;
@@ -72,6 +91,22 @@ class _FixedSchoolNotifier extends StreamSchoolCompletedNotifier {
   Future<bool> build() async => completed;
   @override
   Future<void> markCompleted() async => state = const AsyncData(true);
+}
+
+class _RecordingSchoolNotifier extends StreamSchoolCompletedNotifier {
+  _RecordingSchoolNotifier({required this.completed});
+  bool completed;
+  int resetCalls = 0;
+
+  @override
+  Future<bool> build() async => completed;
+
+  @override
+  Future<void> reset() async {
+    resetCalls++;
+    completed = false;
+    state = const AsyncData(false);
+  }
 }
 
 /// Interface filler: the fake actions below override submit, so no gateway
@@ -201,12 +236,14 @@ List<Override> _overrides({
   _FakeCaptureActions? actions,
   _FakeCacheGateway? cache,
   bool schoolCompleted = true,
+  StreamThemeNotifier Function()? theme,
+  StreamSchoolCompletedNotifier Function()? school,
 }) => <Override>[
   streamMarksForDayProvider.overrideWith(
     (ref, key) async => StreamDayMarks(marks: _fakeMarks, skippedCount: 0),
   ),
   streamThemeProvider.overrideWith(
-    () => _FixedStreamThemeNotifier(StreamThemeMode.dark),
+    theme ?? () => _FixedStreamThemeNotifier(StreamThemeMode.dark),
   ),
   streamTrayItemsProvider.overrideWith(
     (ref) => Stream<List<TrayItem>>.value(tray),
@@ -219,7 +256,7 @@ List<Override> _overrides({
     (ref) => Stream<List<SlippedItem>>.value(const <SlippedItem>[]),
   ),
   streamSchoolCompletedProvider.overrideWith(
-    () => _FixedSchoolNotifier(schoolCompleted),
+    school ?? () => _FixedSchoolNotifier(schoolCompleted),
   ),
 ];
 
@@ -499,8 +536,12 @@ void main() {
     expect(find.byType(NowPill), findsNothing);
 
     await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(openSettings, 1);
+    expect(find.byType(StreamSettingsSheet), findsOneWidget);
+    await tester.tap(find.byKey(const Key('streamSettingsSheetClose')));
+    await tester.pumpAndSettle();
+    expect(find.byType(StreamSettingsSheet), findsNothing);
 
     await tester.tap(find.byType(Breadcrumb));
     await tester.pump();
@@ -597,44 +638,120 @@ void main() {
     expect(find.bySemanticsLabel(header.settingsLabel!), findsOneWidget);
   });
 
-  testWidgets('settings navigation', (tester) async {
+  testWidgets('header avatar opens the stream settings sheet', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final router = GoRouter(
-      initialLocation: '/stream/2026-11-17/day',
-      routes: [
-        GoRoute(
-          path: '/stream/:date/:zoom',
-          builder: (context, state) => StreamScreen(
-            date: tryParseStreamDate(state.pathParameters['date']),
-            zoom: state.pathParameters['zoom'],
-          ),
-        ),
-        GoRoute(path: '/settings', builder: (_, _) => const Text('settings')),
-      ],
+    await tester.pumpWidget(_routerApp(_launcherRouter()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.account_circle_outlined));
+    await tester.pumpAndSettle();
+
+    final l = AppLocalizations.of(
+      tester.element(find.byType(StreamSettingsSheet)),
     );
+    expect(find.byType(StreamSettingsSheet), findsOneWidget);
+    expect(find.text(l.streamSettingsSheetTitle), findsOneWidget);
+    expect(find.text(l.streamSettingsThemeSection), findsOneWidget);
+    expect(find.byKey(const Key('streamSettingsTheme-dark')), findsOneWidget);
+    expect(find.byKey(const Key('streamSettingsMore')), findsOneWidget);
+  });
+
+  testWidgets('selecting a theme mode calls setMode and keeps the sheet open', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final theme = _RecordingThemeNotifier(StreamThemeMode.system);
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: _overrides(),
-        child: MaterialApp.router(
-          routerConfig: router,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            ...GlobalMaterialLocalizations.delegates,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-        ),
+      _routerApp(_launcherRouter(), overrides: _overrides(theme: () => theme)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.account_circle_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('streamSettingsTheme-trueBlack')));
+    await tester.pumpAndSettle();
+
+    expect(theme.setModeCalls, 1);
+    expect(theme.lastMode, StreamThemeMode.trueBlack);
+    expect(find.byType(StreamSettingsSheet), findsOneWidget);
+  });
+
+  testWidgets('More settings pushes /settings and closes the sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = _launcherRouter();
+    await tester.pumpWidget(_routerApp(router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.account_circle_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('streamSettingsMore')));
+    await tester.pumpAndSettle();
+
+    expect(_location(router), '/settings');
+    expect(find.byType(StreamSettingsSheet), findsNothing);
+    expect(find.text('settings'), findsOneWidget);
+  });
+
+  testWidgets('Replay Gesture School resets completion and shows the school', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final school = _RecordingSchoolNotifier(completed: true);
+    await tester.pumpWidget(
+      _routerApp(
+        _launcherRouter(),
+        overrides: _overrides(school: () => school),
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.account_circle_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('streamSettingsReplaySchool')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(router.routerDelegate.currentConfiguration.uri.path, '/settings');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+
+    expect(school.resetCalls, 1);
+    expect(find.byType(StreamSettingsSheet), findsNothing);
+    expect(find.byType(GestureSchoolOverlay), findsOneWidget);
+  });
+
+  testWidgets('settings sheet at 320 dp and 2.0 text scale does not overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await tester.pumpWidget(_routerApp(_launcherRouter()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.account_circle_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StreamSettingsSheet), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('rail window covers injected now', (tester) async {
