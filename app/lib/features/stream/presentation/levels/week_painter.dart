@@ -13,12 +13,7 @@ class _WeekPainter extends CustomPainter {
     required this.maxChips,
     this.overflowLabelBuilder,
     required this.dayVisible,
-    required this.markSemanticsLabel,
     this.onDayTap,
-    this.onCompleteMark,
-    this.onPushMark,
-    this.onRescheduleMark,
-    this.onDeleteMark,
     required this.markActionLabels,
   });
 
@@ -33,12 +28,7 @@ class _WeekPainter extends CustomPainter {
   final int maxChips;
   final String Function(int)? overflowLabelBuilder;
   final bool Function(int) dayVisible;
-  final String Function(StreamDayMark) markSemanticsLabel;
   final void Function(DateTime)? onDayTap;
-  final void Function(String)? onCompleteMark;
-  final void Function(String)? onPushMark;
-  final void Function(String)? onRescheduleMark;
-  final void Function(String)? onDeleteMark;
   final Map<String, String> markActionLabels;
 
   double get _headerH => 20.0 * textScale;

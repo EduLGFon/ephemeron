@@ -81,42 +81,15 @@ class _MonthViewState extends State<MonthView> {
     return Rect.fromLTWH(col * cs, row * cs, cs, cs);
   }
 
-  List<List<int>> _rowSegments(List<int> days, double cs) {
-    final segments = <List<int>>[];
-    var current = <int>[];
-    int? currentRow;
-    for (final d in days) {
-      final row = _cellRect(d, cs).top ~/ cs;
-      if (current.isEmpty || row == currentRow) {
-        current.add(d);
-        currentRow = row;
-      } else {
-        segments.add(current);
-        current = <int>[d];
-        currentRow = row;
-      }
-    }
-    if (current.isNotEmpty) segments.add(current);
-    return segments;
-  }
-
   bool _hitStreakDot(Offset pos, double cs) {
     final streaks = widget.habitStreaks ?? const <MonthHabitStreak>[];
     for (final streak in streaks) {
-      final sorted = streak.doneDays.toList()..sort();
-      final groups = <List<int>>[];
-      var current = <int>[];
-      for (final d in sorted) {
-        if (current.isEmpty || d == current.last + 1) {
-          current.add(d);
-        } else {
-          groups.add(current);
-          current = <int>[d];
-        }
-      }
-      if (current.isNotEmpty) groups.add(current);
+      final groups = monthHabitStreakGroups(streak.doneDays);
       for (final g in groups) {
-        for (final seg in _rowSegments(g, cs)) {
+        for (final seg in monthHabitStreakRowSegments(
+          g,
+          _firstWeekdayOffset(),
+        )) {
           for (final d in seg) {
             final r = _cellRect(d, cs);
             final y = r.center.dy + cs * 0.15;
@@ -140,20 +113,12 @@ class _MonthViewState extends State<MonthView> {
   String? _hitStreakHabit(Offset pos, double cs) {
     final streaks = widget.habitStreaks ?? const <MonthHabitStreak>[];
     for (final streak in streaks) {
-      final sorted = streak.doneDays.toList()..sort();
-      final groups = <List<int>>[];
-      var current = <int>[];
-      for (final d in sorted) {
-        if (current.isEmpty || d == current.last + 1) {
-          current.add(d);
-        } else {
-          groups.add(current);
-          current = <int>[d];
-        }
-      }
-      if (current.isNotEmpty) groups.add(current);
+      final groups = monthHabitStreakGroups(streak.doneDays);
       for (final g in groups) {
-        for (final seg in _rowSegments(g, cs)) {
+        for (final seg in monthHabitStreakRowSegments(
+          g,
+          _firstWeekdayOffset(),
+        )) {
           for (final d in seg) {
             final r = _cellRect(d, cs);
             final y = r.center.dy + cs * 0.15;

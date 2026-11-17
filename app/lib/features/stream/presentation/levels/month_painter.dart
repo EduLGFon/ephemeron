@@ -29,7 +29,8 @@ class _MonthPainter extends CustomPainter {
   final int? visibleEndDay;
   final double textScale;
   final String Function(int day, int count) daySemanticsLabel;
-  final String Function(MonthHabitStreak streak) streakSemanticsLabel;
+  final String Function(MonthHabitStreak streak, int firstDay, int lastDay)
+  streakSemanticsLabel;
   final void Function(DateTime date)? onDateTap;
   final void Function(String habitId)? onHabitTap;
 
@@ -37,26 +38,6 @@ class _MonthPainter extends CustomPainter {
     if (visibleStartDay != null && day < visibleStartDay!) return false;
     if (visibleEndDay != null && day > visibleEndDay!) return false;
     return true;
-  }
-
-  List<List<int>> _rowSegments(List<int> days) {
-    final segments = <List<int>>[];
-    var current = <int>[];
-    int? currentRow;
-    for (final d in days) {
-      final idx = firstOffset + (d - 1);
-      final row = idx ~/ 7;
-      if (current.isEmpty || row == currentRow) {
-        current.add(d);
-        currentRow = row;
-      } else {
-        segments.add(current);
-        current = <int>[d];
-        currentRow = row;
-      }
-    }
-    if (current.isNotEmpty) segments.add(current);
-    return segments;
   }
 
   Rect _cellRect(int day) {
@@ -99,21 +80,10 @@ class _MonthPainter extends CustomPainter {
       tp.paint(canvas, Offset(rect.left + 2, rect.top + 2));
     }
     for (final streak in habitStreaks) {
-      final sorted = streak.doneDays.toList()..sort();
-      final groups = <List<int>>[];
-      var current = <int>[];
-      for (final d in sorted) {
-        if (current.isEmpty || d == current.last + 1) {
-          current.add(d);
-        } else {
-          groups.add(current);
-          current = <int>[d];
-        }
-      }
-      if (current.isNotEmpty) groups.add(current);
+      final groups = monthHabitStreakGroups(streak.doneDays);
       for (final g in groups) {
         if (g.isEmpty) continue;
-        for (final seg in _rowSegments(g)) {
+        for (final seg in monthHabitStreakRowSegments(g, firstOffset)) {
           if (seg.isEmpty) continue;
           final startRect = _cellRect(seg.first);
           final endRect = _cellRect(seg.last);
@@ -163,21 +133,10 @@ class _MonthPainter extends CustomPainter {
       );
     }
     for (final streak in habitStreaks) {
-      final sorted = streak.doneDays.toList()..sort();
-      final groups = <List<int>>[];
-      var current = <int>[];
-      for (final d in sorted) {
-        if (current.isEmpty || d == current.last + 1) {
-          current.add(d);
-        } else {
-          groups.add(current);
-          current = <int>[d];
-        }
-      }
-      if (current.isNotEmpty) groups.add(current);
+      final groups = monthHabitStreakGroups(streak.doneDays);
       for (final g in groups) {
         if (g.isEmpty) continue;
-        final segs = _rowSegments(g);
+        final segs = monthHabitStreakRowSegments(g, firstOffset);
         for (var si = 0; si < segs.length; si++) {
           final seg = segs[si];
           if (seg.isEmpty) continue;
@@ -185,13 +144,7 @@ class _MonthPainter extends CustomPainter {
           final endRect = _cellRect(seg.last);
           final y =
               (startRect.center.dy + endRect.center.dy) / 2 + cellSize * 0.15;
-          final rowIndex = (firstOffset + (seg.first - 1)) ~/ 7;
-          final baseLabel = streakSemanticsLabel(streak);
-          // Distinct labels per row segment so wrapped streaks do not emit
-          // duplicate identical semantics nodes.
-          final label = segs.length > 1
-              ? '$baseLabel (row $rowIndex)'
-              : baseLabel;
+          final label = streakSemanticsLabel(streak, seg.first, seg.last);
           result.add(
             CustomPainterSemantics(
               rect: Rect.fromLTWH(

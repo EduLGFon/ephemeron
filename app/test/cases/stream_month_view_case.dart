@@ -15,7 +15,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
             ),
           ),
         ),
@@ -37,7 +38,8 @@ void main() {
               dayCounts: List.generate(31, (i) => i % 5),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
             ),
           ),
         ),
@@ -63,7 +65,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               habitStreaks: [streak],
             ),
           ),
@@ -86,7 +89,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               onDateTap: (d) => tapped = d,
             ),
           ),
@@ -111,7 +115,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               visibleStartDay: 5,
               visibleEndDay: 10,
               onCulledCount: (c) => culled = c,
@@ -140,7 +145,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               habitStreaks: [streak],
             ),
           ),
@@ -181,7 +187,8 @@ void main() {
               dayCounts: List.generate(31, (i) => 100),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
             ),
           ),
         ),
@@ -215,7 +222,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel} $firstDay-$lastDay',
               habitStreaks: [streak],
             ),
           ),
@@ -234,9 +242,10 @@ void main() {
     }
 
     collect(root);
-    final streakNodes = labels.where((l) => l.contains('h1')).length;
-    // A wrapped streak yields 2 row segments.
-    expect(streakNodes, 2);
+    final streakLabels = labels.where((l) => l.contains('h1')).toList();
+    // A wrapped streak yields 2 row segments with distinct labels.
+    expect(streakLabels.length, 2);
+    expect(streakLabels.toSet().length, 2);
   });
 
   testWidgets('dot tap returns exact habit id', (tester) async {
@@ -256,7 +265,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               habitStreaks: [streak],
               onHabitTap: (id) => tappedHabit = id,
             ),
@@ -283,7 +293,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               onDateTap: (d) => tapped = d,
             ),
           ),
@@ -315,7 +326,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               habitStreaks: [streak],
               onDateTap: (d) => tapped = d,
             ),
@@ -346,7 +358,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               habitStreaks: [streak],
               onHabitTap: (id) => tappedHabit = id,
             ),
@@ -374,7 +387,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               visibleStartDay: 5,
               visibleEndDay: 10,
               onCulledCount: (c) {
@@ -402,7 +416,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
               visibleStartDay: 5,
               visibleEndDay: 10,
             ),
@@ -438,7 +453,8 @@ void main() {
               firstDayOfWeek: DateTime.sunday,
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
             ),
           ),
         ),
@@ -460,7 +476,8 @@ void main() {
               firstDayOfWeek: DateTime.monday,
               cellSize: 40,
               daySemanticsLabel: (day, count) => 'Day $day: $count',
-              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+              streakSemanticsLabel: (s, firstDay, lastDay) =>
+                  '${s.habitId}: ${s.streakLabel}',
             ),
           ),
         ),

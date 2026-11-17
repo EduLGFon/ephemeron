@@ -65,7 +65,8 @@ class MonthView extends StatefulWidget {
   final void Function(String habitId)? onHabitTap;
   final void Function(int culledCount)? onCulledCount;
   final String Function(int day, int count) daySemanticsLabel;
-  final String Function(MonthHabitStreak streak) streakSemanticsLabel;
+  final String Function(MonthHabitStreak streak, int firstDay, int lastDay)
+  streakSemanticsLabel;
 
   @override
   State<MonthView> createState() => _MonthViewState();
@@ -73,3 +74,38 @@ class MonthView extends StatefulWidget {
 
 typedef StreamMonthView = MonthView;
 typedef MonthLevelView = MonthView;
+
+List<List<int>> monthHabitStreakGroups(Set<int> doneDays) {
+  final sorted = doneDays.toList()..sort();
+  final groups = <List<int>>[];
+  var current = <int>[];
+  for (final d in sorted) {
+    if (current.isEmpty || d == current.last + 1) {
+      current.add(d);
+    } else {
+      groups.add(current);
+      current = <int>[d];
+    }
+  }
+  if (current.isNotEmpty) groups.add(current);
+  return groups;
+}
+
+List<List<int>> monthHabitStreakRowSegments(List<int> days, int firstOffset) {
+  final segments = <List<int>>[];
+  var current = <int>[];
+  int? currentRow;
+  for (final d in days) {
+    final row = (firstOffset + (d - 1)) ~/ 7;
+    if (current.isEmpty || row == currentRow) {
+      current.add(d);
+      currentRow = row;
+    } else {
+      segments.add(current);
+      current = <int>[d];
+      currentRow = row;
+    }
+  }
+  if (current.isNotEmpty) segments.add(current);
+  return segments;
+}
