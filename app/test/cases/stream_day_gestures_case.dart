@@ -3,6 +3,7 @@ import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/engine/stream_mark_layout.dart';
 import 'package:ephemeron/features/stream/engine/stream_time_viewport.dart';
 import 'package:ephemeron/features/stream/presentation/gestures/day_mark_gestures.dart';
+import 'package:ephemeron/features/stream/presentation/gestures/day_mark_gesture_layer.dart';
 import 'package:ephemeron/features/stream/presentation/gestures/drag_mark_overlay.dart';
 import 'package:ephemeron/features/stream/presentation/gestures/tray_drop_target.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -234,12 +235,14 @@ void main() {
     ];
     var moves = 0;
     var ends = 0;
+    var creates = 0;
     await tester.pumpWidget(
       buildGestures(
         vp: vp,
         marks: marks,
         onMoveMark: (_, _) => moves++,
         onMoveMarkEnd: (_, _) => ends++,
+        onCreateBlock: (_, _) => creates++,
       ),
     );
     await tester.pump();
@@ -249,6 +252,7 @@ void main() {
     await tester.pump();
     expect(moves, 0);
     expect(ends, 0);
+    expect(creates, 0);
   });
 
   testWidgets('grab offset preserved on move', (tester) async {
@@ -279,8 +283,8 @@ void main() {
     await gesture.up();
     await tester.pump();
     expect(ended, isNotNull);
-    // new start should be about 30 min (within one snap step)
-    expect(ended!, closeTo(30 * 60 * 1000, 15 * 60 * 1000));
+    // new start equals original start plus drag delta snapped, within 1 ms
+    expect(ended!, closeTo(30 * 60 * 1000, 1));
   });
 
   testWidgets('long-press empty time creates block with exact times', (
@@ -358,6 +362,7 @@ void main() {
             children: [
               Draggable<String>(
                 data: 'chip1',
+                dragAnchorStrategy: pointerDragAnchorStrategy,
                 feedback: const Text('chip'),
                 child: const Text('chip'),
               ),
@@ -384,29 +389,143 @@ void main() {
     await tester.dragFrom(chipCenter, dropTarget - chipCenter);
     await tester.pump();
     expect(gotId, 'chip1');
-    expect(gotTime, isNotNull);
+    final expectedTime = vp.pxToTime(targetRect.center.dy - targetRect.top);
+    expect(gotTime, expectedTime);
   });
 
   testWidgets('tray drop inside margin ignored', (tester) async {
+    tester.view.physicalSize = const Size(360, 400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
     final vp = makeVp();
     var called = false;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SizedBox(
-            width: 360,
-            height: 300,
-            child: TrayDropTarget(
-              viewport: vp,
-              onTrayDrop: (_, _) => called = true,
-              child: const SizedBox.expand(),
-            ),
+          body: Column(
+            children: [
+              Draggable<String>(
+                data: 'chip1',
+                dragAnchorStrategy: pointerDragAnchorStrategy,
+                feedback: const Text('chip'),
+                child: const Text('chip'),
+              ),
+              Expanded(
+                child: TrayDropTarget(
+                  viewport: vp,
+                  edgeMarginDp: 24,
+                  onTrayDrop: (_, _) => called = true,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
     await tester.pump();
-    // Can't easily drag draggable; skip by direct? Just ensure no crash.
+    final chipCenter = tester.getCenter(find.text('chip'));
+    final targetRect = tester.getRect(find.byType(TrayDropTarget));
+    final drop = Offset(targetRect.left + 2, targetRect.center.dy);
+    await tester.dragFrom(chipCenter, drop - chipCenter);
+    await tester.pump();
+    expect(called, isFalse);
+  });
+
+  testWidgets('tray drop at x=30 reports exact time', (tester) async {
+    tester.view.physicalSize = const Size(360, 400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final vp = makeVp();
+    String? gotId;
+    int? gotTime;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              Draggable<String>(
+                data: 'chip1',
+                dragAnchorStrategy: pointerDragAnchorStrategy,
+                feedback: const Text('chip'),
+                child: const Text('chip'),
+              ),
+              Expanded(
+                child: TrayDropTarget(
+                  viewport: vp,
+                  edgeMarginDp: 24,
+                  onTrayDrop: (id, t) {
+                    gotId = id;
+                    gotTime = t;
+                  },
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final chipCenter = tester.getCenter(find.text('chip'));
+    final targetRect = tester.getRect(find.byType(TrayDropTarget));
+    final drop = Offset(targetRect.left + 30, targetRect.center.dy);
+    await tester.dragFrom(chipCenter, drop - chipCenter);
+    await tester.pump();
+    expect(gotId, 'chip1');
+    final expectedTime = vp.pxToTime(targetRect.center.dy - targetRect.top);
+    expect(gotTime, expectedTime);
+  });
+
+  testWidgets('tray drop above and below bounds ignored', (tester) async {
+    tester.view.physicalSize = const Size(360, 400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final vp = makeVp();
+    var called = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              Draggable<String>(
+                data: 'chip1',
+                dragAnchorStrategy: pointerDragAnchorStrategy,
+                feedback: const Text('chip'),
+                child: const Text('chip'),
+              ),
+              Expanded(
+                child: TrayDropTarget(
+                  viewport: vp,
+                  edgeMarginDp: 24,
+                  onTrayDrop: (_, _) => called = true,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final chipCenter = tester.getCenter(find.text('chip'));
+    final targetRect = tester.getRect(find.byType(TrayDropTarget));
+    final dropAbove = Offset(targetRect.left + 30, targetRect.top - 10);
+    await tester.dragFrom(chipCenter, dropAbove - chipCenter);
+    await tester.pump();
+    expect(called, isFalse);
+    final dropBelow = Offset(targetRect.left + 30, targetRect.bottom + 10);
+    await tester.dragFrom(chipCenter, dropBelow - chipCenter);
+    await tester.pump();
     expect(called, isFalse);
   });
 
@@ -456,6 +575,58 @@ void main() {
     expect(notifier.value, isNotNull);
     await gesture.up();
     await tester.pump();
+    expect(notifier.value, isNull);
+  });
+  testWidgets('overlay moves during drag and disappears on release', (
+    tester,
+  ) async {
+    final vp = makeVp();
+    final marks = [
+      StreamDayMark(
+        id: 'm0',
+        kind: StreamDayMarkKind.event,
+        startMs: 0,
+        endMs: 60 * 60 * 1000,
+        title: 't',
+        colorArgb: 0xFF000000,
+      ),
+    ];
+    final intervals = marks
+        .map((m) => MarkInterval(startMs: m.startMs, endMs: m.endMs, id: m.id))
+        .toList();
+    final layouts = layoutMarkColumns(intervals);
+    final notifier = ValueNotifier<DragPreviewData?>(null);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            height: 400,
+            child: DayMarkGestureLayer(
+              viewport: vp,
+              marks: marks,
+              markLayouts: layouts,
+              dragPreview: notifier,
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final gesture = await tester.startGesture(const Offset(100, 28));
+    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.moveBy(const Offset(0, 40));
+    await tester.pump();
+    expect(find.byType(DragMarkOverlay), findsOneWidget);
+    final before = tester.widget<Positioned>(find.byType(Positioned)).top;
+    await gesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    final after = tester.widget<Positioned>(find.byType(Positioned)).top;
+    expect(after, isNot(equals(before)));
+    await gesture.up();
+    await tester.pump();
+    expect(find.byType(DragMarkOverlay), findsNothing);
     expect(notifier.value, isNull);
   });
 }

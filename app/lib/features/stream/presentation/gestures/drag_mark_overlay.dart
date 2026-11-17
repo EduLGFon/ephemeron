@@ -6,16 +6,28 @@
 import 'package:material_ui/material_ui.dart';
 
 /// Payload describing an in-flight drag preview.
+///
+/// [localPosition] is expressed relative to the gesture region that owns the
+/// drag, so the overlay can be positioned with a [Positioned] inside the same
+/// [Stack] without converting global coordinates.
 class DragPreviewData {
   const DragPreviewData({
     required this.id,
-    required this.globalPosition,
+    required this.localPosition,
     required this.label,
+    this.timeLabel = '',
   });
 
   final String id;
-  final Offset globalPosition;
+  final Offset localPosition;
   final String label;
+  final String timeLabel;
+
+  /// Backwards-compatible alias for [localPosition].
+  Offset get globalPosition => localPosition;
+
+  /// Backwards-compatible alias for [localPosition].
+  Offset get offset => localPosition;
 }
 
 class DragMarkOverlay extends StatelessWidget {

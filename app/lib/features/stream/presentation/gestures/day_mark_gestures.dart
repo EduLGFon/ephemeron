@@ -23,6 +23,10 @@ import 'package:ephemeron/features/stream/engine/stream_time_viewport.dart';
 import 'package:ephemeron/features/stream/presentation/gestures/drag_mark_overlay.dart';
 import 'package:ephemeron/features/stream/presentation/platform/stream_platform_capabilities.dart';
 
+part 'day_mark_gesture_swipe.dart';
+part 'day_mark_gesture_move.dart';
+part 'day_mark_gesture_create.dart';
+
 class DayMarkGestures extends StatefulWidget {
   const DayMarkGestures({
     super.key,
@@ -66,13 +70,12 @@ class DayMarkGestures extends StatefulWidget {
 }
 
 class _DayMarkGesturesState extends State<DayMarkGestures> {
-  Size _size = Size.zero;
-
   String? _swipeMarkId;
   double _swipeDx = 0;
   bool _swipeFired = false;
 
   String? _moveMarkId;
+  StreamDayMark? _moveMark;
   int _originalStartMs = 0;
   int _grabOffsetMs = 0;
   double _pressY = 0;
@@ -86,22 +89,22 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
   double get _margin =>
       widget.edgeMarginDp ?? widget.capabilities.edgeGestureMarginDp.toDouble();
 
-  bool _inEdge(double x) => x < _margin || x > _size.width - _margin;
+  bool _inEdge(double x, Size size) => x < _margin || x > size.width - _margin;
 
-  String? _hitMark(double x, double y) {
-    if (_inEdge(x)) return null;
+  String? _hitMark(double x, double y, Size size) {
+    if (_inEdge(x, size)) return null;
     return hitTestMark(
       marks: widget.marks,
       layout: widget.markLayouts,
       viewport: widget.viewport,
       focalY: y,
-      canvasWidth: _size.width,
+      canvasWidth: size.width,
       focalX: x,
       edgeMarginDp: 0,
     );
   }
 
-  StreamDayMark? _markById(String id) {
+  StreamDayMark? _moveMarkFor(String id) {
     for (final m in widget.marks) {
       if (m.id == id) return m;
     }
@@ -123,128 +126,18 @@ class _DayMarkGesturesState extends State<DayMarkGestures> {
     return ((ms + snapMs ~/ 2) ~/ snapMs) * snapMs;
   }
 
-  void _onHorizStart(DragStartDetails d) {
-    _swipeDx = 0;
-    _swipeFired = false;
-    final x = d.localPosition.dx;
-    if (_inEdge(x)) {
-      _swipeMarkId = null;
-      return;
-    }
-    _swipeMarkId = _hitMark(x, d.localPosition.dy);
-  }
-
-  void _onHorizUpdate(DragUpdateDetails d) {
-    if (_swipeMarkId == null || _swipeFired) return;
-    _swipeDx += d.delta.dx;
-  }
-
-  void _onHorizEnd(DragEndDetails d) {
-    final id = _swipeMarkId;
-    _swipeMarkId = null;
-    if (id == null || _swipeFired) {
-      _swipeDx = 0;
-      return;
-    }
-    if (_swipeDx >= widget.swipeThresholdDp) {
-      _swipeFired = true;
-      widget.onSwipeDone?.call(id);
-      AppFeedback.success();
-    } else if (_swipeDx <= -widget.swipeThresholdDp) {
-      _swipeFired = true;
-      widget.onSwipePush?.call(id);
-      AppFeedback.tap();
-    }
-    _swipeDx = 0;
-  }
-
-  void _onLongPressStart(LongPressStartDetails d) {
-    final x = d.localPosition.dx;
-    if (_inEdge(x)) {
-      _moveMarkId = null;
-      _creating = false;
-      return;
-    }
-    final id = _hitMark(x, d.localPosition.dy);
-    if (id != null) {
-      _moveMarkId = id;
-      final mark = _markById(id);
-      final pressTime = widget.viewport.pxToTime(d.localPosition.dy);
-      _originalStartMs = mark?.startMs ?? pressTime;
-      _grabOffsetMs = pressTime - _originalStartMs;
-      _pressY = d.localPosition.dy;
-      _movedBeyond = false;
-      _lastSnappedMs = -1;
-    } else {
-      _moveMarkId = null;
-      _creating = true;
-      _createStartY = d.localPosition.dy;
-      _createCurrentY = d.localPosition.dy;
-    }
-  }
-
-  void _onLongPressMove(LongPressMoveUpdateDetails d) {
-    if (_moveMarkId != null) {
-      if ((d.localPosition.dy - _pressY).abs() >= widget.moveThresholdDp) {
-        _movedBeyond = true;
-      }
-      final pressTime = widget.viewport.pxToTime(d.localPosition.dy);
-      final newStart = _snap(pressTime - _grabOffsetMs);
-      if (newStart != _lastSnappedMs) {
-        _lastSnappedMs = newStart;
-        if (_movedBeyond) AppFeedback.selection();
-      }
-      if (_movedBeyond || newStart != _originalStartMs) {
-        widget.onMoveMark?.call(_moveMarkId!, newStart);
-        final mark = _markById(_moveMarkId!);
-        widget.dragPreview?.value = DragPreviewData(
-          id: _moveMarkId!,
-          globalPosition: d.globalPosition,
-          label: mark?.title ?? '',
-        );
-      }
-    } else if (_creating) {
-      _createCurrentY = d.localPosition.dy;
-    }
-  }
-
-  void _onLongPressEnd(LongPressEndDetails d) {
-    if (_moveMarkId != null) {
-      final id = _moveMarkId!;
-      if (_movedBeyond || _lastSnappedMs != _originalStartMs) {
-        final snapped = _lastSnappedMs >= 0 ? _lastSnappedMs : _originalStartMs;
-        if (snapped != _originalStartMs) {
-          widget.onMoveMarkEnd?.call(id, snapped);
-        }
-      }
-      widget.dragPreview?.value = null;
-      _moveMarkId = null;
-      _lastSnappedMs = -1;
-    } else if (_creating) {
-      final t0 = widget.viewport.pxToTime(_createStartY);
-      final t1 = widget.viewport.pxToTime(_createCurrentY);
-      var s = math.min(t0, t1);
-      var e = math.max(t0, t1);
-      final minMs = widget.minBlockMinutes * 60 * 1000;
-      if (e - s < minMs) e = s + minMs;
-      widget.onCreateBlock?.call(s, e);
-      AppFeedback.success();
-      _creating = false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        _size = constraints.biggest;
+        final size = constraints.biggest;
         return GestureDetector(
           behavior: HitTestBehavior.translucent,
-          onHorizontalDragStart: _onHorizStart,
-          onHorizontalDragUpdate: _onHorizUpdate,
+          onHorizontalDragStart: (d) => _onHorizStart(d, size),
+          onHorizontalDragUpdate: (d) => _onHorizUpdate(d, size),
           onHorizontalDragEnd: _onHorizEnd,
-          onLongPressStart: _onLongPressStart,
-          onLongPressMoveUpdate: _onLongPressMove,
+          onLongPressStart: (d) => _onLongPressStart(d, size),
+          onLongPressMoveUpdate: (d) => _onLongPressMove(d, size),
           onLongPressEnd: _onLongPressEnd,
           child: widget.child,
         );

@@ -211,4 +211,42 @@ void main() {
     // Candidate checks should be bounded, not O(n).
     expect(hitTestCandidateChecks, lessThan(100));
   });
+
+  test('mutated list does not yield stale prefixes', () {
+    final vp = makeVp();
+    final marks = [
+      StreamDayMark(
+        id: 'm0',
+        kind: StreamDayMarkKind.event,
+        startMs: 0,
+        endMs: 60 * 60 * 1000,
+        title: 't',
+        colorArgb: 0xFF000000,
+      ),
+    ];
+    final layout = layoutMarkColumns([
+      const MarkInterval(startMs: 0, endMs: 60 * 60 * 1000, id: 'm0'),
+    ]);
+    // Mutate the list in place (same identity).
+    marks[0] = StreamDayMark(
+      id: 'm0',
+      kind: StreamDayMarkKind.event,
+      startMs: 2 * 60 * 60 * 1000,
+      endMs: 3 * 60 * 60 * 1000,
+      title: 't',
+      colorArgb: 0xFF000000,
+    );
+    final y = vp.timeToPx((2.5 * 60 * 60 * 1000).toInt());
+    expect(
+      hitTestMark(
+        marks: marks,
+        layout: layout,
+        viewport: vp,
+        focalY: y,
+        canvasWidth: 360,
+        focalX: 100,
+      ),
+      'm0',
+    );
+  });
 }
