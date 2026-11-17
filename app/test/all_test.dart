@@ -114,6 +114,7 @@ import 'cases/stream_focus_case.dart' as stream_focus;
 import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
 import 'cases/stream_gesture_school_case.dart' as stream_gesture_school;
 import 'cases/stream_habit_gutter_case.dart' as stream_habit_gutter;
+import 'cases/stream_habit_layer_case.dart' as stream_habit_layer;
 import 'cases/stream_habit_streak_case.dart' as stream_habit_streak;
 import 'cases/stream_launcher_case.dart' as stream_launcher;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
@@ -300,6 +301,7 @@ const _included = <String>{
   'stream_fuzzy_case.dart',
   'stream_gesture_school_case.dart',
   'stream_habit_gutter_case.dart',
+  'stream_habit_layer_case.dart',
   'stream_habit_streak_case.dart',
   'stream_launcher_case.dart',
   'stream_layout_mode_case.dart',
@@ -492,6 +494,7 @@ void main() {
   group('stream_fuzzy', stream_fuzzy.main);
   group('stream_gesture_school', stream_gesture_school.main);
   group('stream_habit_gutter', stream_habit_gutter.main);
+  group('stream_habit_layer', stream_habit_layer.main);
   group('stream_habit_streak', stream_habit_streak.main);
   group('stream_launcher', stream_launcher.main);
   group('stream_layout_mode', stream_layout_mode.main);
