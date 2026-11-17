@@ -45,5 +45,11 @@
   "streamNow": "Agora",
   "streamDay": "Dia",
   "streamSettings": "Ajustes",
-  "streamScrubber": "Posição na linha do tempo"
+  "streamScrubber": "Posição na linha do tempo",
+  "streamLauncherTitle": "Ir para",
+  "streamLauncherClose": "Fechar",
+  "streamLauncherMenu": "Abrir menu de seções",
+  "streamLauncherCalendar": "Calendário",
+  "streamLauncherMatrix": "Matriz",
+  "streamLauncherFocus": "Foco"
 }

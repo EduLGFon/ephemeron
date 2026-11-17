@@ -15,6 +15,9 @@ class StreamHeader extends StatelessWidget {
     this.slippedCount = 0,
     this.slippedSemanticLabel,
     this.onOpenCommand,
+    this.menuLabel,
+    this.menuTooltip,
+    this.onOpenMenu,
     this.syncStatus = StreamSyncStatus.synced,
     this.syncLabel,
     this.settingsLabel,
@@ -27,6 +30,9 @@ class StreamHeader extends StatelessWidget {
   final int slippedCount;
   final String? slippedSemanticLabel;
   final VoidCallback? onOpenCommand;
+  final String? menuLabel;
+  final String? menuTooltip;
+  final VoidCallback? onOpenMenu;
   final StreamSyncStatus syncStatus;
   final String? syncLabel;
   final String? settingsLabel;
@@ -56,13 +62,30 @@ class StreamHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
+          Semantics(
+            button: true,
+            label: menuLabel ?? '',
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              child: IconButton(
+                key: const Key('streamHeaderMenu'),
+                onPressed: onOpenMenu,
+                icon: const Icon(Icons.menu),
+                iconSize: StreamIconSize.lg,
+                tooltip: menuTooltip ?? menuLabel,
+              ),
+            ),
+          ),
           Expanded(
             child: Breadcrumb(
               dateLabel: dateLabel,
               levelLabel: levelLabel,
               slippedCount: slippedCount > 0 ? slippedCount : null,
               slippedSemanticLabel: slippedSemanticLabel,
-              onTap: onOpenCommand,
+              // The breadcrumb keeps its command-palette trigger when a caller
+              // wires one; otherwise it opens the section launcher as a second
+              // trigger next to the menu button.
+              onTap: onOpenCommand ?? onOpenMenu,
             ),
           ),
           const SizedBox(width: StreamSpacing.x2),

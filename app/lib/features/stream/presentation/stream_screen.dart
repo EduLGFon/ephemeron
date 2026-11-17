@@ -5,12 +5,14 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 
+import '../../../../core/ui/app_sheet.dart';
 import '../application/stream_theme_provider.dart';
 import '../design/stream_theme.dart';
 import 'stream_day_body.dart';
 import 'stream_header.dart';
 import 'stream_layout_mode.dart';
 import 'stream_route_params.dart';
+import 'surface/stream_launcher.dart';
 
 class StreamScreen extends ConsumerStatefulWidget {
   const StreamScreen({
@@ -57,6 +59,31 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
   void _openSettings() {
     widget.onOpenSettings?.call();
     GoRouter.maybeOf(context)?.go('/settings');
+  }
+
+  void _openLauncher() {
+    showAppSheet<void>(
+      context,
+      builder: (sheetContext) => StreamLauncher(
+        onClose: () => Navigator.of(sheetContext).pop(),
+        onSelected: (destination) {
+          Navigator.of(sheetContext).pop();
+          _goToDestination(destination);
+        },
+      ),
+    );
+  }
+
+  /// Shell branches use `go` because pushing a branch would mount a second
+  /// AppShell. Top-level screens push so the Stream stays on the back stack.
+  void _goToDestination(StreamLauncherDestination destination) {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    if (destination.keepsStreamOnStack) {
+      router.push(destination.route);
+    } else {
+      router.go(destination.route);
+    }
   }
 
   Widget _captureTray() =>
@@ -120,6 +147,8 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
       levelLabel: l.streamDay,
       slippedCount: 0,
       onOpenCommand: widget.onOpenCommand,
+      menuLabel: l.streamLauncherMenu,
+      onOpenMenu: _openLauncher,
       syncStatus: widget.syncStatus,
       syncLabel: widget.syncLabel,
       settingsLabel: l.streamSettings,
