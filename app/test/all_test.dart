@@ -100,10 +100,12 @@ import 'cases/stream_countdown_edge_case.dart' as stream_countdown_edge;
 import 'cases/stream_countdown_landmark_case.dart' as stream_countdown_landmark;
 import 'cases/stream_countdown_math_case.dart' as stream_countdown_math;
 import 'cases/stream_culler_case.dart' as stream_culler;
+import 'cases/stream_day_canvas_case.dart' as stream_day_canvas;
 import 'cases/stream_focus_case.dart' as stream_focus;
 import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
 import 'cases/stream_gesture_school_case.dart' as stream_gesture_school;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
+import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_platform_case.dart' as stream_platform;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
@@ -112,6 +114,7 @@ import 'cases/stream_slipped_trail_case.dart' as stream_slipped_trail;
 import 'cases/stream_slipped_triage_case.dart' as stream_slipped_triage;
 import 'cases/stream_theme_case.dart' as stream_theme;
 import 'cases/stream_theme_preferences_case.dart' as stream_theme_preferences;
+import 'cases/stream_time_viewport_case.dart' as stream_time_viewport;
 import 'cases/stream_tray_chip_case.dart' as stream_tray_chip;
 import 'cases/stream_tray_panel_grouping_case.dart'
     as stream_tray_panel_grouping;
@@ -256,10 +259,12 @@ const _included = <String>{
   'stream_countdown_landmark_case.dart',
   'stream_countdown_math_case.dart',
   'stream_culler_case.dart',
+  'stream_day_canvas_case.dart',
   'stream_focus_case.dart',
   'stream_fuzzy_case.dart',
   'stream_gesture_school_case.dart',
   'stream_layout_mode_case.dart',
+  'stream_mark_layout_case.dart',
   'stream_mark_mapper_case.dart',
   'stream_platform_case.dart',
   'stream_route_params_case.dart',
@@ -268,6 +273,7 @@ const _included = <String>{
   'stream_slipped_triage_case.dart',
   'stream_theme_case.dart',
   'stream_theme_preferences_case.dart',
+  'stream_time_viewport_case.dart',
   'stream_tray_chip_case.dart',
   'stream_tray_panel_grouping_case.dart',
   'stream_tray_panel_interaction_case.dart',
@@ -418,10 +424,12 @@ void main() {
   group('stream_countdown_landmark', stream_countdown_landmark.main);
   group('stream_countdown_math', stream_countdown_math.main);
   group('stream_culler', stream_culler.main);
+  group('stream_day_canvas', stream_day_canvas.main);
   group('stream_focus', stream_focus.main);
   group('stream_fuzzy', stream_fuzzy.main);
   group('stream_gesture_school', stream_gesture_school.main);
   group('stream_layout_mode', stream_layout_mode.main);
+  group('stream_mark_layout', stream_mark_layout.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
   group('stream_platform', stream_platform.main);
   group('stream_route_params', stream_route_params.main);
@@ -430,6 +438,7 @@ void main() {
   group('stream_slipped_triage', stream_slipped_triage.main);
   group('stream_theme', stream_theme.main);
   group('stream_theme_preferences', stream_theme_preferences.main);
+  group('stream_time_viewport', stream_time_viewport.main);
   group('stream_tray_chip', stream_tray_chip.main);
   group('stream_tray_panel_grouping', stream_tray_panel_grouping.main);
   group('stream_tray_panel_interaction', stream_tray_panel_interaction.main);
