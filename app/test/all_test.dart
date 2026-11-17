@@ -96,6 +96,7 @@ import 'cases/stream_culler_case.dart' as stream_culler;
 import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
+import 'cases/stream_platform_case.dart' as stream_platform;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
 import 'cases/stream_theme_case.dart' as stream_theme;
 import 'cases/stream_theme_preferences_case.dart' as stream_theme_preferences;
@@ -233,6 +234,7 @@ const _included = <String>{
   'stream_fuzzy_case.dart',
   'stream_layout_mode_case.dart',
   'stream_mark_mapper_case.dart',
+  'stream_platform_case.dart',
   'stream_route_params_case.dart',
   'stream_theme_case.dart',
   'stream_theme_preferences_case.dart',
@@ -377,6 +379,7 @@ void main() {
   group('stream_fuzzy', stream_fuzzy.main);
   group('stream_layout_mode', stream_layout_mode.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
+  group('stream_platform', stream_platform.main);
   group('stream_route_params', stream_route_params.main);
   group('stream_theme', stream_theme.main);
   group('stream_theme_preferences', stream_theme_preferences.main);
