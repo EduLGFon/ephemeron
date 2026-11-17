@@ -1,0 +1,90 @@
+# The Stream (v3) UI - Status
+
+## What it is
+
+A new time-centric "Stream" UI, shipped behind a compile-time flag so the
+existing UI is untouched when it is off.
+
+- Flag: `STREAM_UI` (`bool.fromEnvironment('STREAM_UI')`, default off), see
+  `app/lib/features/stream/stream_flags.dart`.
+- Route: `/stream/<yyyy-MM-dd>/<zoom>` (zoom is `day`/`week`/`month`/...),
+  registered in `app/lib/app/router/app_router.dart` only when the flag is on.
+  With the flag on, `/` redirects to today's day view.
+- The old UI, routes and tests are unchanged when the flag is off.
+
+## What exists and is merged on v3
+
+- Design tokens/themes: `app/lib/features/stream/design/` (tokens, palette,
+  theme, theme mode with light/dark/true-black/system + persisted mode) and
+  `application/stream_theme_provider.dart`, `stream_theme_preferences.dart`.
+- Time viewport: `engine/stream_time_viewport.dart`, `engine/time_viewport.dart`,
+  `engine/stream_mark_layout.dart`, `engine/mark_culler.dart`.
+- Day canvas + gesture region: `presentation/day/` (day_canvas, painter, style,
+  day_gestures).
+- Chrome: `presentation/chrome/` (now_line, time_rail, breadcrumb, scrubber).
+- Day mark mapper/providers: `application/stream_day_mark.dart`,
+  `stream_mark_mapper.dart`, `stream_day_providers.dart`; `data/fake_marks.dart`.
+- Capture parser (pure, pt/en, 50+ table cases): `capture/` (capture_parser*).
+- Capture bar + preview chips: `presentation/capture/`.
+- Command palette + parser + fuzzy matcher: `presentation/commands/`.
+- Tray strip + panel: `presentation/tray/`.
+- Slipped trail + triage: `presentation/slipped/`.
+- Peek inline editor: `presentation/peek/`.
+- Agenda lens: `presentation/agenda/`.
+- Focus timer + band: `presentation/focus/`.
+- Countdown landmarks + edge chips: `presentation/countdowns/`.
+- Habit gutter + streak line: `presentation/habits/`.
+- Gesture school overlay: `presentation/school/`.
+- Designed states (empty/error/offline/skeleton): `presentation/states/`.
+- Platform capabilities + feedback adapter: `presentation/platform/`.
+- Week + month level views: shipped with the day surface (viewport/canvas).
+- Day surface shell: centered Now line, rail, scrubber, Now pill, header, route
+  (`presentation/stream_placeholder_screen.dart`, `stream_route_params.dart`).
+
+## Not yet wired into the surface
+
+These are component units with tests, not yet mounted on the day surface:
+
+- capture bar
+- command palette
+- tray drag-to-schedule
+- peek inline editor
+- slipped triage
+- agenda toggle
+- gesture school
+- focus mode controls
+- habit gutter
+- countdown landmarks
+- week/month level switching
+- year level
+- settings sheet
+- progressive hints
+- permission banners
+- old UI removal
+
+## Verification status
+
+Every component unit passes its targeted tests and `flutter analyze`. The merged
+tree has not passed a full-suite checkpoint under load. Phase 0 performance
+budgets (frame build/raster, cold start, memory, 2000-mark scroll) are UNMEASURED
+after the spike fix; do not claim otherwise.
+
+## Data-model gaps (suggested only, no schema change)
+
+- Task time-block/duration is derived from `plannedStart`/`plannedEnd`, not a
+  first-class field.
+- Countdown `targetDate` is nullable (`app/lib/data/drift/tables/misc.dart`).
+- Focus sessions have no range `StreamProvider`; range query is a `Future`
+  (`sessionsInRange`).
+- There is no existing app-level `ThemeMode`; the Stream adds its own persisted
+  mode (`stream_theme_mode.dart`).
+- Habit time-of-day exists as `timeMinutes` (nullable int).
+- Notes are plain text in the editor.
+
+## How to run and verify
+
+- Run: `flutter run --dart-define=STREAM_UI=true` (from `app/`).
+- Targeted: `flutter test test/cases/<file>_case.dart`.
+- Codegen: `dart run tools/gen_test_runner.dart`, `flutter gen-l10n`.
+- Analyze: `flutter analyze`.
+- Tests: `flutter test` (serial; concurrent runs contend on the tool lock).
