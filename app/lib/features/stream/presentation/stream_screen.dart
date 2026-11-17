@@ -24,6 +24,7 @@ import 'stream_route_params.dart';
 import 'surface/stream_command_overlay.dart';
 import 'surface/stream_dock_host.dart';
 import 'surface/stream_launcher.dart';
+import 'surface/stream_school_host.dart';
 
 class StreamScreen extends ConsumerStatefulWidget {
   const StreamScreen({
@@ -276,40 +277,42 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
           focusNode: _shortcutFocus,
           autofocus: true,
           includeSemantics: false,
-          child: Scaffold(
-            backgroundColor: theme.scaffoldBackgroundColor,
-            body: Stack(
-              children: [
-                SafeArea(
-                  child: Semantics(
-                    container: true,
-                    explicitChildNodes: true,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final layoutMode = streamLayoutModeForWidth(
-                          constraints.maxWidth,
-                        );
-                        switch (layoutMode) {
-                          case StreamLayoutMode.compact:
-                            return _compact(header, body, dock);
-                          case StreamLayoutMode.medium:
-                            return _medium(header, body, dock);
-                          case StreamLayoutMode.expanded:
-                            return _expanded(header, body, dock);
-                        }
-                      },
+          child: StreamSchoolHost(
+            child: Scaffold(
+              backgroundColor: theme.scaffoldBackgroundColor,
+              body: Stack(
+                children: [
+                  SafeArea(
+                    child: Semantics(
+                      container: true,
+                      explicitChildNodes: true,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final layoutMode = streamLayoutModeForWidth(
+                            constraints.maxWidth,
+                          );
+                          switch (layoutMode) {
+                            case StreamLayoutMode.compact:
+                              return _compact(header, body, dock);
+                            case StreamLayoutMode.medium:
+                              return _medium(header, body, dock);
+                            case StreamLayoutMode.expanded:
+                              return _expanded(header, body, dock);
+                          }
+                        },
+                      ),
                     ),
                   ),
-                ),
-                StreamCommandOverlay(
-                  open: _paletteOpen,
-                  now: now,
-                  labels: StreamCommandOverlayLabels.of(l),
-                  onClose: _closePalette,
-                  onSelected: (intent) =>
-                      unawaited(_handleCommandIntent(intent)),
-                ),
-              ],
+                  StreamCommandOverlay(
+                    open: _paletteOpen,
+                    now: now,
+                    labels: StreamCommandOverlayLabels.of(l),
+                    onClose: _closePalette,
+                    onSelected: (intent) =>
+                        unawaited(_handleCommandIntent(intent)),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
