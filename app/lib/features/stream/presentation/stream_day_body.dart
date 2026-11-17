@@ -10,6 +10,7 @@ import '../engine/stream_time_viewport.dart';
 import 'stream_day_body_view.dart';
 import 'stream_day_controller.dart';
 import 'stream_time_format.dart';
+import 'surface/stream_peek_sheet.dart';
 
 class StreamDayBody extends ConsumerStatefulWidget {
   const StreamDayBody({
@@ -164,6 +165,16 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
     widget.onReturnToNow?.call();
   }
 
+  /// Opens Peek for the tapped mark. The sheet owns loading and saving; a tap
+  /// whose id is no longer in the loaded marks is ignored.
+  void _openMark(List<StreamDayMark> marks, String id) {
+    for (final mark in marks) {
+      if (mark.id != id) continue;
+      unawaited(showStreamPeek(context, mark: mark));
+      return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -190,6 +201,7 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
       onReturnToNow: _returnToNow,
       l: l,
       date: widget.date,
+      onMarkTap: (id) => _openMark(marks, id),
     );
   }
 }
