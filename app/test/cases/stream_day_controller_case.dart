@@ -1,8 +1,13 @@
+import 'package:ephemeron/features/stream/application/stream_ambient.dart';
 import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_day_providers.dart';
+import 'package:ephemeron/features/stream/application/stream_slipped_data.dart';
 import 'package:ephemeron/features/stream/engine/stream_time_viewport.dart';
 import 'package:ephemeron/features/stream/presentation/stream_day_body.dart';
 import 'package:ephemeron/features/stream/presentation/stream_day_controller.dart';
+import 'package:ephemeron/features/stream/presentation/habits/habit_gutter_item.dart';
+import 'package:ephemeron/features/stream/presentation/countdowns/countdown_landmark_item.dart';
+import 'package:ephemeron/features/stream/presentation/slipped/slipped_item.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +28,15 @@ Widget _host({required DateTime date, StreamDayBodyController? controller}) {
       streamMarksForDayProvider.overrideWith(
         (ref, key) async =>
             const StreamDayMarks(marks: <StreamDayMark>[], skippedCount: 0),
+      ),
+      streamSlippedItemsProvider.overrideWith(
+        (ref) => Stream.value(const <SlippedItem>[]),
+      ),
+      streamHabitGutterItemsProvider.overrideWith(
+        (ref, _) => Stream.value(const <HabitGutterItem>[]),
+      ),
+      streamCountdownLandmarkItemsProvider.overrideWith(
+        (ref) => Stream.value(const <CountdownLandmarkItem>[]),
       ),
     ],
     child: MaterialApp(
