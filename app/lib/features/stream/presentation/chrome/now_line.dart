@@ -22,23 +22,27 @@ class NowLine extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        RepaintBoundary(
-          child: ValueListenableBuilder<String>(
-            valueListenable: label,
-            builder: (context, text, _) {
-              return Semantics(
-                liveRegion: liveRegion,
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: StreamTypeScale.sm,
-                    fontWeight: FontWeight(StreamFontWeight.medium),
-                    color: accent,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+        Flexible(
+          child: RepaintBoundary(
+            child: ValueListenableBuilder<String>(
+              valueListenable: label,
+              builder: (context, text, _) {
+                return Semantics(
+                  liveRegion: liveRegion,
+                  child: Text(
+                    text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: StreamTypeScale.sm,
+                      fontWeight: FontWeight(StreamFontWeight.medium),
+                      color: accent,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
         const SizedBox(width: StreamSpacing.x2),

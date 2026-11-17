@@ -15,7 +15,7 @@ import '../../features/notes/presentation/notes_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/stream/presentation/stream_spike_screen.dart';
-import '../../features/stream/presentation/stream_placeholder_screen.dart';
+import '../../features/stream/presentation/stream_screen.dart';
 import '../../features/stream/presentation/stream_route_params.dart';
 import '../../features/stream/stream_flags.dart';
 
@@ -109,10 +109,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (streamUiEnabled)
         GoRoute(
           path: '/stream/:date/:zoom',
-          builder: (context, state) => const StreamPlaceholderScreen(),
+          builder: (context, state) => StreamScreen(
+            date: tryParseStreamDate(state.pathParameters['date']),
+            zoom: state.pathParameters['zoom'],
+          ),
         ),
     ],
     redirect: (context, state) {
+      // Canonicalize unsupported stream zoom levels (such as hour) to day so
+      // the URL and the rendered level agree.
+      if (streamUiEnabled) {
+        final match = RegExp(r'^/stream/([^/]+)/([^/]+)/?$')
+            .firstMatch(state.uri.path);
+        if (match != null && match.group(2) != 'day') {
+          final query = state.uri.hasQuery ? '?${state.uri.query}' : '';
+          return '/stream/${match.group(1)}/day$query';
+        }
+      }
       // Widget taps deliver ephemeron://widget/... through the platform
       // intent; if one ever reaches the router as a path, open the
       // calendar instead of showing the error page.

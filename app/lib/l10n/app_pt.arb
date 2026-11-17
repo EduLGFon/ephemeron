@@ -1,7 +1,9 @@
 {
   "@@locale": "pt",
   "searchTitle": "Buscar",
-  "@searchTitle": { "description": "Global search screen title" },
+  "@searchTitle": {
+    "description": "Global search screen title"
+  },
   "searchHint": "Buscar em tudo",
   "searchEmpty": "Digite para buscar.",
   "searchAll": "Tudo",
@@ -19,7 +21,11 @@
   "backupRestoreBody": "Isto substitui todos os dados atuais do dispositivo pelo backup. Exporte antes se precisar do estado atual.",
   "backupCancel": "Cancelar",
   "backupExported": "Backup salvo: {name}",
-  "@backupExported": { "placeholders": { "name": {} } },
+  "@backupExported": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "backupExportFailed": "Falha na exportação.",
   "backupRestored": "Backup restaurado.",
   "onboardingSkip": "Pular",
@@ -35,5 +41,9 @@
   "languageTitle": "Idioma",
   "languageSystem": "Sistema",
   "languageEnglish": "Inglês",
-  "languagePortuguese": "Português"
+  "languagePortuguese": "Português",
+  "streamNow": "Agora",
+  "streamDay": "Dia",
+  "streamSettings": "Ajustes",
+  "streamScrubber": "Posição na linha do tempo"
 }
