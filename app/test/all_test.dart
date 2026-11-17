@@ -107,6 +107,12 @@ import 'cases/stream_slipped_trail_case.dart' as stream_slipped_trail;
 import 'cases/stream_slipped_triage_case.dart' as stream_slipped_triage;
 import 'cases/stream_theme_case.dart' as stream_theme;
 import 'cases/stream_theme_preferences_case.dart' as stream_theme_preferences;
+import 'cases/stream_tray_chip_case.dart' as stream_tray_chip;
+import 'cases/stream_tray_panel_grouping_case.dart'
+    as stream_tray_panel_grouping;
+import 'cases/stream_tray_panel_interaction_case.dart'
+    as stream_tray_panel_interaction;
+import 'cases/stream_tray_strip_case.dart' as stream_tray_strip;
 import 'cases/stream_viewport_case.dart' as stream_viewport;
 import 'cases/sync_all_case.dart' as sync_all;
 import 'cases/sync_attention_case.dart' as sync_attention;
@@ -252,6 +258,10 @@ const _included = <String>{
   'stream_slipped_triage_case.dart',
   'stream_theme_case.dart',
   'stream_theme_preferences_case.dart',
+  'stream_tray_chip_case.dart',
+  'stream_tray_panel_grouping_case.dart',
+  'stream_tray_panel_interaction_case.dart',
+  'stream_tray_strip_case.dart',
   'stream_viewport_case.dart',
   'sync_all_case.dart',
   'sync_attention_case.dart',
@@ -405,6 +415,10 @@ void main() {
   group('stream_slipped_triage', stream_slipped_triage.main);
   group('stream_theme', stream_theme.main);
   group('stream_theme_preferences', stream_theme_preferences.main);
+  group('stream_tray_chip', stream_tray_chip.main);
+  group('stream_tray_panel_grouping', stream_tray_panel_grouping.main);
+  group('stream_tray_panel_interaction', stream_tray_panel_interaction.main);
+  group('stream_tray_strip', stream_tray_strip.main);
   group('stream_viewport', stream_viewport.main);
   group('sync_all', sync_all.main);
   group('sync_attention', sync_attention.main);
