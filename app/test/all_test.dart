@@ -102,6 +102,7 @@ import 'cases/stream_command_palette_case.dart' as stream_command_palette;
 import 'cases/stream_command_parser_case.dart' as stream_command_parser;
 import 'cases/stream_countdown_edge_case.dart' as stream_countdown_edge;
 import 'cases/stream_countdown_landmark_case.dart' as stream_countdown_landmark;
+import 'cases/stream_countdown_layer_case.dart' as stream_countdown_layer;
 import 'cases/stream_countdown_math_case.dart' as stream_countdown_math;
 import 'cases/stream_culler_case.dart' as stream_culler;
 import 'cases/stream_day_cache_case.dart' as stream_day_cache;
@@ -286,6 +287,7 @@ const _included = <String>{
   'stream_command_parser_case.dart',
   'stream_countdown_edge_case.dart',
   'stream_countdown_landmark_case.dart',
+  'stream_countdown_layer_case.dart',
   'stream_countdown_math_case.dart',
   'stream_culler_case.dart',
   'stream_day_cache_case.dart',
@@ -476,6 +478,7 @@ void main() {
   group('stream_command_parser', stream_command_parser.main);
   group('stream_countdown_edge', stream_countdown_edge.main);
   group('stream_countdown_landmark', stream_countdown_landmark.main);
+  group('stream_countdown_layer', stream_countdown_layer.main);
   group('stream_countdown_math', stream_countdown_math.main);
   group('stream_culler', stream_culler.main);
   group('stream_day_cache', stream_day_cache.main);
