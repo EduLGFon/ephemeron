@@ -92,7 +92,10 @@ import 'cases/source_move_case.dart' as source_move;
 import 'cases/source_picker_case.dart' as source_picker;
 import 'cases/stream_capture_parser_case.dart' as stream_capture_parser;
 import 'cases/stream_chrome_widgets_case.dart' as stream_chrome_widgets;
+import 'cases/stream_command_palette_case.dart' as stream_command_palette;
+import 'cases/stream_command_parser_case.dart' as stream_command_parser;
 import 'cases/stream_culler_case.dart' as stream_culler;
+import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
@@ -228,7 +231,10 @@ const _included = <String>{
   'source_picker_case.dart',
   'stream_capture_parser_case.dart',
   'stream_chrome_widgets_case.dart',
+  'stream_command_palette_case.dart',
+  'stream_command_parser_case.dart',
   'stream_culler_case.dart',
+  'stream_fuzzy_case.dart',
   'stream_layout_mode_case.dart',
   'stream_mark_mapper_case.dart',
   'stream_route_params_case.dart',
@@ -372,7 +378,10 @@ void main() {
   group('source_picker', source_picker.main);
   group('stream_capture_parser', stream_capture_parser.main);
   group('stream_chrome_widgets', stream_chrome_widgets.main);
+  group('stream_command_palette', stream_command_palette.main);
+  group('stream_command_parser', stream_command_parser.main);
   group('stream_culler', stream_culler.main);
+  group('stream_fuzzy', stream_fuzzy.main);
   group('stream_layout_mode', stream_layout_mode.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
   group('stream_route_params', stream_route_params.main);
