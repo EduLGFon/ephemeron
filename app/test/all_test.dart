@@ -101,12 +101,15 @@ import 'cases/stream_countdown_landmark_case.dart' as stream_countdown_landmark;
 import 'cases/stream_countdown_math_case.dart' as stream_countdown_math;
 import 'cases/stream_culler_case.dart' as stream_culler;
 import 'cases/stream_day_canvas_case.dart' as stream_day_canvas;
+import 'cases/stream_day_gestures_case.dart' as stream_day_gestures;
+import 'cases/stream_drag_overlay_case.dart' as stream_drag_overlay;
 import 'cases/stream_focus_case.dart' as stream_focus;
 import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
 import 'cases/stream_gesture_school_case.dart' as stream_gesture_school;
 import 'cases/stream_habit_gutter_case.dart' as stream_habit_gutter;
 import 'cases/stream_habit_streak_case.dart' as stream_habit_streak;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
+import 'cases/stream_mark_hit_test_case.dart' as stream_mark_hit_test;
 import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_peek_editor_case.dart' as stream_peek_editor;
@@ -266,12 +269,15 @@ const _included = <String>{
   'stream_countdown_math_case.dart',
   'stream_culler_case.dart',
   'stream_day_canvas_case.dart',
+  'stream_day_gestures_case.dart',
+  'stream_drag_overlay_case.dart',
   'stream_focus_case.dart',
   'stream_fuzzy_case.dart',
   'stream_gesture_school_case.dart',
   'stream_habit_gutter_case.dart',
   'stream_habit_streak_case.dart',
   'stream_layout_mode_case.dart',
+  'stream_mark_hit_test_case.dart',
   'stream_mark_layout_case.dart',
   'stream_mark_mapper_case.dart',
   'stream_peek_editor_case.dart',
@@ -437,12 +443,15 @@ void main() {
   group('stream_countdown_math', stream_countdown_math.main);
   group('stream_culler', stream_culler.main);
   group('stream_day_canvas', stream_day_canvas.main);
+  group('stream_day_gestures', stream_day_gestures.main);
+  group('stream_drag_overlay', stream_drag_overlay.main);
   group('stream_focus', stream_focus.main);
   group('stream_fuzzy', stream_fuzzy.main);
   group('stream_gesture_school', stream_gesture_school.main);
   group('stream_habit_gutter', stream_habit_gutter.main);
   group('stream_habit_streak', stream_habit_streak.main);
   group('stream_layout_mode', stream_layout_mode.main);
+  group('stream_mark_hit_test', stream_mark_hit_test.main);
   group('stream_mark_layout', stream_mark_layout.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
   group('stream_peek_editor', stream_peek_editor.main);
