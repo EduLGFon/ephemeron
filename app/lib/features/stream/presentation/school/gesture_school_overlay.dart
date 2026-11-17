@@ -4,34 +4,27 @@ import 'package:material_ui/material_ui.dart';
 import 'ghost_finger.dart';
 import 'gesture_school_controller.dart';
 import 'gesture_school_step.dart';
+import 'school_actions.dart';
+import 'school_progress_dots.dart';
 
 class GestureSchoolOverlay extends StatefulWidget {
   const GestureSchoolOverlay({
     super.key,
     required this.controller,
     this.steps,
-    this.labels,
-    this.stepLabels,
-    this.skipLabel = '',
-    this.nextLabel = '',
-    this.skipText,
-    this.nextText,
-    required this.onStepCompleted,
-    required this.onSkip,
-    required this.onFinish,
-  });
+    this.labels = const <GestureSchoolStepId, GestureSchoolStepText>{},
+    required this.skipLabel,
+    required this.nextLabel,
+    this.progressLabel,
+  }) : assert(skipLabel != ''),
+       assert(nextLabel != '');
 
   final GestureSchoolController controller;
   final List<GestureSchoolStep>? steps;
-  final Map<String, dynamic>? labels;
-  final Map<String, dynamic>? stepLabels;
+  final Map<GestureSchoolStepId, GestureSchoolStepText> labels;
   final String skipLabel;
   final String nextLabel;
-  final String? skipText;
-  final String? nextText;
-  final void Function(String stepId) onStepCompleted;
-  final VoidCallback onSkip;
-  final VoidCallback onFinish;
+  final String Function(String stepId, int current, int total)? progressLabel;
 
   @override
   State<GestureSchoolOverlay> createState() => _GestureSchoolOverlayState();
@@ -39,19 +32,11 @@ class GestureSchoolOverlay extends StatefulWidget {
 
 class _GestureSchoolOverlayState extends State<GestureSchoolOverlay> {
   late List<GestureSchoolStep> _steps;
-  int _lastIndex = -1;
-  bool _finishedNotified = false;
-
-  String get _skipLabel =>
-      widget.skipLabel.isNotEmpty ? widget.skipLabel : (widget.skipText ?? '');
-  String get _nextLabel =>
-      widget.nextLabel.isNotEmpty ? widget.nextLabel : (widget.nextText ?? '');
 
   @override
   void initState() {
     super.initState();
     _steps = _resolveSteps();
-    _lastIndex = widget.controller.stepIndex;
     widget.controller.addListener(_onController);
   }
 
@@ -71,34 +56,25 @@ class _GestureSchoolOverlayState extends State<GestureSchoolOverlay> {
 
   List<GestureSchoolStep> _resolveSteps() {
     if (widget.steps != null) return widget.steps!;
-    final map = widget.labels ?? widget.stepLabels ?? const <String, dynamic>{};
-    return gestureSchoolStepsFromLabels(map);
+    return gestureSchoolStepsFromLabels(widget.labels);
   }
 
   void _onController() {
-    final c = widget.controller;
-    if (c.stepIndex != _lastIndex &&
-        _lastIndex >= 0 &&
-        c.stepIndex > _lastIndex) {
-      final completedId = _steps[_lastIndex].id;
-      widget.onStepCompleted(completedId);
-    }
-    _lastIndex = c.stepIndex;
-    if (c.isFinished && !_finishedNotified) {
-      _finishedNotified = true;
-      widget.onFinish();
-    }
     if (mounted) setState(() {});
+  }
+
+  String _progressLabel(String stepId, int current, int total) {
+    final cb = widget.progressLabel;
+    if (cb != null) return cb(stepId, current, total);
+    return '$current of $total';
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    if (_steps.isEmpty) return const SizedBox.shrink();
     final c = widget.controller;
     final idx = c.stepIndex.clamp(0, _steps.length - 1);
-    final step = _steps.isEmpty
-        ? const GestureSchoolStep(id: '', title: '', body: '', gestureHint: '')
-        : _steps[idx];
+    final step = _steps[idx];
 
     return Focus(
       autofocus: true,
@@ -111,92 +87,64 @@ class _GestureSchoolOverlayState extends State<GestureSchoolOverlay> {
           }
           if (event.logicalKey == LogicalKeyboardKey.escape) {
             c.skip();
-            widget.onSkip();
             return KeyEventResult.handled;
           }
         }
         return KeyEventResult.ignored;
       },
-      child: Semantics(
-        liveRegion: true,
-        label: 'Step ${idx + 1} of ${_steps.length}',
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    step.title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(step.body, style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(height: 8),
-                GhostFinger(stepId: step.id, color: scheme.primary),
-                const SizedBox(height: 8),
-                Text(
-                  step.gestureHint,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (int i = 0; i < _steps.length; i++)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: Semantics(
-                          label: 'Step ${i + 1} of ${_steps.length}',
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: i == idx
-                                  ? scheme.primary
-                                  : scheme.outlineVariant,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    Semantics(
-                      button: true,
-                      label: _skipLabel,
-                      child: TextButton(
-                        onPressed: () {
-                          c.skip();
-                          widget.onSkip();
-                        },
-                        child: Text(_skipLabel),
-                      ),
-                    ),
-                    Semantics(
-                      button: true,
-                      label: _nextLabel,
-                      child: FilledButton(
-                        onPressed: c.completeCurrentStep,
-                        child: Text(_nextLabel),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _Header(step: step),
+              const SizedBox(height: 8),
+              GhostFinger(stepId: step.id),
+              const SizedBox(height: 8),
+              Text(
+                step.gestureHint,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              SchoolProgressDots(
+                count: _steps.length,
+                currentIndex: idx,
+                currentStepIdName: step.id.name,
+                progressLabel: _progressLabel,
+              ),
+              const SizedBox(height: 12),
+              SchoolActions(
+                skipLabel: widget.skipLabel,
+                nextLabel: widget.nextLabel,
+                onSkip: c.skip,
+                onNext: c.completeCurrentStep,
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.step});
+
+  final GestureSchoolStep step;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(step.title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(step.body, style: Theme.of(context).textTheme.bodyMedium),
+        ],
       ),
     );
   }

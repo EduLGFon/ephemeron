@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'gesture_school_step.dart';
+
 /// A simple ghost finger drawn with shapes, animated along a path that depends
 /// on [stepId]. Under reduce motion it is drawn at its end position statically.
 class GhostFinger extends StatefulWidget {
@@ -10,7 +12,7 @@ class GhostFinger extends StatefulWidget {
     this.size = 120,
   });
 
-  final String stepId;
+  final GestureSchoolStepId stepId;
   final Color? color;
   final double size;
 
@@ -78,7 +80,7 @@ class GhostFingerPainter extends CustomPainter {
     required this.reduceMotion,
   }) : super(repaint: progress);
 
-  final String stepId;
+  final GestureSchoolStepId stepId;
   final Color color;
   final Animation<double> progress;
   final bool reduceMotion;
@@ -101,7 +103,7 @@ class GhostFingerPainter extends CustomPainter {
     Offset finger(double x, double y) => Offset(x, y);
 
     switch (stepId) {
-      case 'scroll':
+      case GestureSchoolStepId.scroll:
         {
           final y = h * (0.2 + 0.6 * t);
           canvas.drawCircle(finger(w * 0.5, y), 10, dotPaint);
@@ -112,7 +114,7 @@ class GhostFingerPainter extends CustomPainter {
           );
         }
         break;
-      case 'capture':
+      case GestureSchoolStepId.capture:
         {
           canvas.drawCircle(finger(w * 0.5, h * 0.5), 10, dotPaint);
           canvas.drawLine(
@@ -122,7 +124,7 @@ class GhostFingerPainter extends CustomPainter {
           );
         }
         break;
-      case 'complete':
+      case GestureSchoolStepId.complete:
         {
           final x = w * (0.3 + 0.4 * t);
           canvas.drawCircle(finger(x, h * 0.5), 10, dotPaint);
@@ -133,7 +135,7 @@ class GhostFingerPainter extends CustomPainter {
           );
         }
         break;
-      case 'push':
+      case GestureSchoolStepId.push:
         {
           final x = w * (0.7 - 0.4 * t);
           canvas.drawCircle(finger(x, h * 0.5), 10, dotPaint);
@@ -144,7 +146,7 @@ class GhostFingerPainter extends CustomPainter {
           );
         }
         break;
-      case 'dragSchedule':
+      case GestureSchoolStepId.dragSchedule:
         {
           final x = w * (0.2 + 0.6 * t);
           final y = h * (0.3 + 0.4 * t);
@@ -154,21 +156,20 @@ class GhostFingerPainter extends CustomPainter {
           canvas.drawCircle(finger(w * 0.8, h * 0.7), 12, strokePaint);
         }
         break;
-      case 'pinch':
+      case GestureSchoolStepId.pinch:
         {
           final d = 0.1 + 0.3 * t;
           canvas.drawCircle(finger(w * (0.5 - d), h * 0.5), 8, dotPaint);
           canvas.drawCircle(finger(w * (0.5 + d), h * 0.5), 8, dotPaint);
         }
         break;
-      default:
-        canvas.drawCircle(finger(w * 0.5, h * 0.5), 10, dotPaint);
     }
   }
 
   @override
   bool shouldRepaint(covariant GhostFingerPainter oldDelegate) {
-    if (reduceMotion) return false;
-    return true;
+    return oldDelegate.stepId != stepId ||
+        oldDelegate.color != color ||
+        oldDelegate.reduceMotion != reduceMotion;
   }
 }
