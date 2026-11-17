@@ -120,5 +120,14 @@
   "streamWeekdaySun": "Sun",
   "streamCapturePriorityLow": "Low",
   "streamCapturePriorityMedium": "Medium",
-  "streamCapturePriorityHigh": "High"
+  "streamCapturePriorityHigh": "High",
+  "streamSettingsSheetTitle": "Stream settings",
+  "streamSettingsSheetClose": "Close",
+  "streamSettingsThemeSection": "Theme",
+  "streamSettingsThemeLight": "Light",
+  "streamSettingsThemeDark": "Dark",
+  "streamSettingsThemeTrueBlack": "True Black",
+  "streamSettingsThemeSystem": "System",
+  "streamSettingsMore": "More settings",
+  "streamSettingsReplaySchool": "Replay Gesture School"
 }
