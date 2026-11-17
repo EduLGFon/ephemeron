@@ -162,6 +162,7 @@ import 'cases/stream_tray_panel_interaction_case.dart'
 import 'cases/stream_tray_strip_case.dart' as stream_tray_strip;
 import 'cases/stream_viewport_case.dart' as stream_viewport;
 import 'cases/stream_week_view_case.dart' as stream_week_view;
+import 'cases/stream_year_view_case.dart' as stream_year_view;
 import 'cases/sync_all_case.dart' as sync_all;
 import 'cases/sync_attention_case.dart' as sync_attention;
 import 'cases/sync_calendar_integrity_case.dart' as sync_calendar_integrity;
@@ -358,6 +359,7 @@ const _included = <String>{
   'stream_tray_strip_case.dart',
   'stream_viewport_case.dart',
   'stream_week_view_case.dart',
+  'stream_year_view_case.dart',
   'sync_all_case.dart',
   'sync_attention_case.dart',
   'sync_calendar_integrity_case.dart',
@@ -562,6 +564,7 @@ void main() {
   group('stream_tray_strip', stream_tray_strip.main);
   group('stream_viewport', stream_viewport.main);
   group('stream_week_view', stream_week_view.main);
+  group('stream_year_view', stream_year_view.main);
   group('sync_all', sync_all.main);
   group('sync_attention', sync_attention.main);
   group('sync_calendar_integrity', sync_calendar_integrity.main);
