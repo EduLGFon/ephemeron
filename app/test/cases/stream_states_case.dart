@@ -4,7 +4,7 @@ import 'package:ephemeron/features/stream/presentation/states/stream_error_state
 import 'package:ephemeron/features/stream/presentation/states/stream_offline_banner.dart';
 import 'package:ephemeron/features/stream/presentation/states/stream_skeleton.dart';
 import 'package:ephemeron/features/stream/presentation/states/stream_status_view.dart';
-
+import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -63,6 +63,23 @@ void main() {
     expect(taps, 1);
   });
 
+  testWidgets('empty state title appears once in semantics', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StreamEmptyState(
+            title: 'Empty title',
+            actionLabel: 'Do thing',
+            onAction: () {},
+          ),
+        ),
+      ),
+    );
+    expect(find.bySemanticsLabel('Empty title'), findsOneWidget);
+    final node = tester.getSemantics(find.byType(FilledButton));
+    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+  });
+
   testWidgets('error state renders labels and retry action', (tester) async {
     var taps = 0;
     await tester.pumpWidget(
@@ -92,6 +109,27 @@ void main() {
       ),
     );
     expect(find.byType(FilledButton), findsNothing);
+  });
+
+  testWidgets('error state renders secondary action', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StreamErrorState(
+            title: 'Error title',
+            retryLabel: 'Retry',
+            onRetry: () {},
+            secondaryActionLabel: 'Settings',
+            onSecondaryAction: () => taps++,
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Settings'), findsOneWidget);
+    await tester.tap(find.text('Settings'));
+    await tester.pump();
+    expect(taps, 1);
   });
 
   testWidgets('offline banner renders message and retry', (tester) async {
@@ -197,7 +235,7 @@ void main() {
     }
   });
 
-  testWidgets('no overflow at 320dp 2.0 scale', (tester) async {
+  testWidgets('states layout at 320dp and 2.0 scale', (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -205,37 +243,53 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final banner = StreamOfflineBanner(
-      message: 'Offline message long text',
-      retryLabel: 'Retry',
-      onRetry: () {},
-    );
-    const skeleton = StreamSkeleton();
-
-    await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
-        child: MaterialApp(home: Scaffold(body: banner)),
+    final cases = <Widget>[
+      StreamEmptyState(
+        title: 'Empty title long text that wraps around',
+        body: 'Body text that may wrap at small widths',
+        actionLabel: 'Primary action',
+        onAction: () {},
       ),
-    );
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    expect(
-      tester.getSize(find.byType(StreamOfflineBanner)).width,
-      lessThanOrEqualTo(320.5),
-    );
-
-    await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
-        child: MaterialApp(home: Scaffold(body: skeleton)),
+      StreamErrorState(
+        title: 'Error title long text',
+        body: 'Error body long text',
+        retryLabel: 'Retry',
+        onRetry: () {},
       ),
-    );
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    expect(
-      tester.getSize(find.byType(StreamSkeleton)).width,
-      lessThanOrEqualTo(320.5),
-    );
+      StreamOfflineBanner(
+        message: 'Offline message long text',
+        retryLabel: 'Retry',
+        onRetry: () {},
+      ),
+      const StreamSkeleton(),
+    ];
+
+    for (final w in cases) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                final mq = MediaQuery.of(context);
+                return MediaQuery(
+                  data: mq.copyWith(textScaler: const TextScaler.linear(2.0)),
+                  child: SizedBox(width: 320, child: w),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      final finder = w is StreamEmptyState
+          ? find.byType(StreamEmptyState)
+          : w is StreamErrorState
+          ? find.byType(StreamErrorState)
+          : w is StreamOfflineBanner
+          ? find.byType(StreamOfflineBanner)
+          : find.byType(StreamSkeleton);
+      expect(tester.getSize(finder).width, lessThanOrEqualTo(320.5));
+    }
   });
 }
