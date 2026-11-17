@@ -61,5 +61,55 @@
   "streamLauncherMenu": "Open sections menu",
   "streamLauncherCalendar": "Calendar",
   "streamLauncherMatrix": "Matrix",
-  "streamLauncherFocus": "Focus"
+  "streamLauncherFocus": "Focus",
+  "streamCaptureHint": "Capture a task, event, habit or countdown",
+  "streamCaptureLabel": "Capture",
+  "streamCaptureSubmit": "Add",
+  "streamCaptureClear": "Clear",
+  "streamCaptureClose": "Close",
+  "streamCaptureCaptured": "Captured",
+  "streamCaptureFailed": "Capture failed",
+  "streamTrayEmpty": "No unscheduled tasks",
+  "streamTrayCount": "{count, plural, =1{1 unscheduled task} other{{count} unscheduled tasks}}",
+  "@streamTrayCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "streamTrayHandle": "Open task tray",
+  "streamTrayPanelTitle": "Unscheduled tasks",
+  "streamTrayUnnamed": "Unnamed",
+  "streamTrayCollapse": "Collapse",
+  "streamTrayTaskUnavailable": "Could not open task",
+  "streamChipKindTask": "Task",
+  "streamChipKindEvent": "Event",
+  "streamChipKindHabit": "Habit",
+  "streamChipKindCountdown": "Countdown",
+  "streamChipDate": "Date",
+  "streamChipTime": "Time",
+  "streamChipRepeat": "Repeat",
+  "streamChipList": "List",
+  "streamChipPriority": "Priority",
+  "streamCaptureRepeatDaily": "Daily",
+  "streamCaptureRepeatWeekly": "Weekly",
+  "streamCaptureWeeklyOn": "Weekly ({days})",
+  "@streamCaptureWeeklyOn": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "streamWeekdayMon": "Mon",
+  "streamWeekdayTue": "Tue",
+  "streamWeekdayWed": "Wed",
+  "streamWeekdayThu": "Thu",
+  "streamWeekdayFri": "Fri",
+  "streamWeekdaySat": "Sat",
+  "streamWeekdaySun": "Sun",
+  "streamCapturePriorityLow": "Low",
+  "streamCapturePriorityMedium": "Medium",
+  "streamCapturePriorityHigh": "High"
 }
