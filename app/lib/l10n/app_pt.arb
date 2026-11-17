@@ -51,6 +51,9 @@
       }
     }
   },
+  "streamHabitStreak": "{current, plural, =1{1 dia de sequência} other{{current} dias de sequência}}, melhor {best}",
+  "streamCountdownDays": "{days, plural, =0{Hoje} =1{Amanhã} other{{days} dias}}",
+  "streamCountdownDaysAgo": "{days, plural, =1{1 dia atrás} other{{days} dias atrás}}",
   "streamDay": "Dia",
   "streamSettings": "Ajustes",
   "streamScrubber": "Posição na linha do tempo",

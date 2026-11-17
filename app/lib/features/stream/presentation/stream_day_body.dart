@@ -1,9 +1,14 @@
 import 'dart:async';
 
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 
+import '../../../core/ui/app_feedback.dart';
+import '../../../domain/habits/date_key.dart';
+import '../../habits/application/habits_providers.dart'
+    show habitRepositoryProvider;
 import '../application/stream_day_mark.dart';
 import '../application/stream_day_providers.dart';
 import '../engine/stream_time_viewport.dart';
@@ -36,6 +41,8 @@ class StreamDayBody extends ConsumerStatefulWidget {
 
 class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
   late StreamTimeViewport _viewport;
+  late StreamDayBodyController _controller;
+  bool _ownsController = false;
   late final ValueNotifier<String> _timeLabel;
   late final ValueNotifier<bool> _away;
   Timer? _timer;
@@ -60,7 +67,8 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
     _viewport = StreamTimeViewport(
       baseEpochMs: _dayStart.millisecondsSinceEpoch,
     );
-    _attachController(widget.controller);
+    _controller = _bindController();
+    _attachController();
     _timeLabel = ValueNotifier<String>('');
     _away = ValueNotifier<bool>(false);
     _timer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -80,10 +88,13 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
   void didUpdateWidget(covariant StreamDayBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     final controllerChanged = oldWidget.controller != widget.controller;
+    final dateChanged = oldWidget.date != widget.date;
     if (controllerChanged) {
-      oldWidget.controller?.detach(_viewport);
+      _controller.detach(_viewport);
+      if (_ownsController) _controller.dispose();
+      _controller = _bindController();
     }
-    if (oldWidget.date != widget.date) {
+    if (dateChanged) {
       _centerRetries = 0;
       _viewport.removeListener(_updateAway);
       _viewport.dispose();
@@ -91,20 +102,21 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
         baseEpochMs: _dayStart.millisecondsSinceEpoch,
       );
       _viewport.addListener(_updateAway);
-      _attachController(widget.controller);
+      _attachController();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _centerViewport();
         _updateAway();
       });
     } else if (controllerChanged) {
-      _attachController(widget.controller);
+      _attachController();
     }
   }
 
   @override
   void dispose() {
-    widget.controller?.detach(_viewport);
+    _controller.detach(_viewport);
+    if (_ownsController) _controller.dispose();
     _timer?.cancel();
     _viewport.removeListener(_updateAway);
     _viewport.dispose();
@@ -113,8 +125,20 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
     super.dispose();
   }
 
-  void _attachController(StreamDayBodyController? controller) {
-    controller?.attach(
+  /// Uses the caller's controller when supplied, otherwise owns one so the
+  /// ambient layers always have a live viewport binding.
+  StreamDayBodyController _bindController() {
+    final provided = widget.controller;
+    if (provided != null) {
+      _ownsController = false;
+      return provided;
+    }
+    _ownsController = true;
+    return StreamDayBodyController();
+  }
+
+  void _attachController() {
+    _controller.attach(
       viewport: _viewport,
       date: widget.date,
       clock: () => _now,
@@ -175,6 +199,29 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
     }
   }
 
+  void _toggleHabit(String id) {
+    AppFeedback.selection();
+    unawaited(_writeHabitToggle(id));
+  }
+
+  /// The gutter reflects the log stream, so a failed write leaves the glyph
+  /// unchanged and is only reported to the debug console.
+  Future<void> _writeHabitToggle(String id) async {
+    try {
+      await ref
+          .read(habitRepositoryProvider)
+          .toggleHabitDone(id, habitDateKey(widget.date));
+    } catch (error) {
+      debugPrint('Stream habit toggle failed: $error');
+    }
+  }
+
+  /// Countdown taps and "show all" both open the Countdowns tab. The Stream
+  /// has no countdown editor of its own; reusing /tab4 keeps a single editor.
+  void _openCountdowns() {
+    GoRouter.maybeOf(context)?.go('/tab4');
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -192,6 +239,7 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
 
     return StreamDayBodyView(
       viewport: _viewport,
+      controller: _controller,
       marks: marks,
       isToday: _isToday,
       now: _now,
@@ -201,7 +249,11 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
       onReturnToNow: _returnToNow,
       l: l,
       date: widget.date,
+      currentDayKey: habitDateKey(widget.date),
       onMarkTap: (id) => _openMark(marks, id),
+      onHabitToggle: _toggleHabit,
+      onCountdownTap: (_) => _openCountdowns(),
+      onShowAllCountdowns: _openCountdowns,
     );
   }
 }

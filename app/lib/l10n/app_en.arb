@@ -62,6 +62,36 @@
       }
     }
   },
+  "streamHabitStreak": "{current, plural, =1{1 day streak} other{{current} days streak}}, best {best}",
+  "@streamHabitStreak": {
+    "description": "Tooltip on a Stream habit glyph with the current and best streak",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "best": {
+        "type": "int"
+      }
+    }
+  },
+  "streamCountdownDays": "{days, plural, =0{Today} =1{Tomorrow} other{{days} days}}",
+  "@streamCountdownDays": {
+    "description": "Label on a Stream countdown landmark; days is the whole-day offset from now",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "streamCountdownDaysAgo": "{days, plural, =1{1 day ago} other{{days} days ago}}",
+  "@streamCountdownDaysAgo": {
+    "description": "Label on a past Stream countdown landmark",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "streamDay": "Day",
   "streamSettings": "Settings",
   "streamScrubber": "Timeline position",

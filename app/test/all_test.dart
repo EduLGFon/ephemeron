@@ -93,6 +93,7 @@ import 'cases/source_picker_case.dart' as source_picker;
 import 'cases/stream_agenda_case.dart' as stream_agenda;
 import 'cases/stream_agenda_host_case.dart' as stream_agenda_host;
 import 'cases/stream_ambient_case.dart' as stream_ambient;
+import 'cases/stream_ambient_mount_case.dart' as stream_ambient_mount;
 import 'cases/stream_capture_actions_case.dart' as stream_capture_actions;
 import 'cases/stream_capture_bar_case.dart' as stream_capture_bar;
 import 'cases/stream_capture_parser_case.dart' as stream_capture_parser;
@@ -291,6 +292,7 @@ const _included = <String>{
   'stream_agenda_case.dart',
   'stream_agenda_host_case.dart',
   'stream_ambient_case.dart',
+  'stream_ambient_mount_case.dart',
   'stream_capture_actions_case.dart',
   'stream_capture_bar_case.dart',
   'stream_capture_parser_case.dart',
@@ -494,6 +496,7 @@ void main() {
   group('stream_agenda', stream_agenda.main);
   group('stream_agenda_host', stream_agenda_host.main);
   group('stream_ambient', stream_ambient.main);
+  group('stream_ambient_mount', stream_ambient_mount.main);
   group('stream_capture_actions', stream_capture_actions.main);
   group('stream_capture_bar', stream_capture_bar.main);
   group('stream_capture_parser', stream_capture_parser.main);
