@@ -46,6 +46,8 @@ class DayMarkGestures extends StatefulWidget {
     this.moveThresholdDp = 4.0,
     this.edgeMarginDp,
     this.dragPreview,
+    this.timeFormatter,
+    this.formatTime,
   });
 
   final StreamTimeViewport viewport;
@@ -64,6 +66,8 @@ class DayMarkGestures extends StatefulWidget {
   final double moveThresholdDp;
   final double? edgeMarginDp;
   final ValueNotifier<DragPreviewData?>? dragPreview;
+  final String Function(int epochMs)? timeFormatter;
+  final String Function(int epochMs)? formatTime;
 
   @override
   State<DayMarkGestures> createState() => _DayMarkGesturesState();

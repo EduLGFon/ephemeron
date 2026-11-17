@@ -1,3 +1,4 @@
+// Composed by the stream surface overlay unit.
 // Composition widget binding [DayMarkGestures] to [DragMarkOverlay] through a
 // [DragPreviewData] notifier, so the overlay follows a mark drag without
 // rebuilding the stream below.
@@ -30,6 +31,8 @@ class DayMarkGestureLayer extends StatefulWidget {
     this.moveThresholdDp = 4.0,
     this.edgeMarginDp,
     this.dragPreview,
+    this.timeFormatter,
+    this.formatTime,
     this.overlayWidth,
   });
 
@@ -49,6 +52,8 @@ class DayMarkGestureLayer extends StatefulWidget {
   final double moveThresholdDp;
   final double? edgeMarginDp;
   final ValueNotifier<DragPreviewData?>? dragPreview;
+  final String Function(int epochMs)? timeFormatter;
+  final String Function(int epochMs)? formatTime;
   final double? overlayWidth;
 
   @override
@@ -88,6 +93,8 @@ class _DayMarkGestureLayerState extends State<DayMarkGestureLayer> {
           moveThresholdDp: widget.moveThresholdDp,
           edgeMarginDp: widget.edgeMarginDp,
           dragPreview: _notifier,
+          timeFormatter: widget.timeFormatter,
+          formatTime: widget.formatTime,
           child: widget.child,
         ),
         ValueListenableBuilder<DragPreviewData?>(

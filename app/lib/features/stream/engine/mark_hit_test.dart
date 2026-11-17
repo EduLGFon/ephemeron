@@ -8,8 +8,6 @@
 // Units: focalY in logical pixels from canvas top; canvasWidth in logical
 // pixels; times in epoch milliseconds.
 
-import 'package:flutter/foundation.dart';
-
 import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/engine/stream_mark_layout.dart';
 import 'package:ephemeron/features/stream/engine/stream_time_viewport.dart';
@@ -19,37 +17,6 @@ const int _minVisualMs = streamMarkMinVisualMinutes * 60 * 1000;
 int _effectiveEndMs(StreamDayMark m) =>
     m.endMs < m.startMs + _minVisualMs ? m.startMs + _minVisualMs : m.endMs;
 
-/// Max-end prefix table for a list of marks. Built once when the marks list
-/// changes; avoids the stale-cache problem of keying by list identity.
-@immutable
-class MarkHitTestLayout {
-  const MarkHitTestLayout._(this.marks, this.maxEnds);
-
-  factory MarkHitTestLayout.fromMarks(List<StreamDayMark> marks) {
-    final out = List<int>.filled(marks.length, 0);
-    var running = 0;
-    for (var i = 0; i < marks.length; i++) {
-      final e = _effectiveEndMs(marks[i]);
-      if (e > running) running = e;
-      out[i] = running;
-    }
-    return MarkHitTestLayout._(marks, out);
-  }
-
-  final List<StreamDayMark> marks;
-  final List<int> maxEnds;
-
-  List<int> get prefixes => maxEnds;
-}
-
-/// Candidate checks performed by the last [hitTestMark] call. Reset with
-/// [resetHitTestCandidateChecks]. Retained for compatibility; prefer passing
-/// a debug counter callback.
-@visibleForTesting
-int hitTestCandidateChecks = 0;
-
-void resetHitTestCandidateChecks() => hitTestCandidateChecks = 0;
-
 String? hitTestMark({
   required List<StreamDayMark> marks,
   required List<MarkLayout> layout,
@@ -58,7 +25,6 @@ String? hitTestMark({
   required double canvasWidth,
   double? focalX,
   double edgeMarginDp = 24,
-  MarkHitTestLayout? hitTestLayout,
   void Function(int count)? onCandidateChecks,
 }) {
   if (marks.isEmpty || layout.length != marks.length) return null;
@@ -68,7 +34,6 @@ String? hitTestMark({
   if (fx < edgeMarginDp || fx > canvasWidth - edgeMarginDp) return null;
 
   final t = viewport.pxToTime(focalY);
-  hitTestCandidateChecks = 0;
 
   var lo = 0;
   var hi = marks.length;
@@ -81,9 +46,13 @@ String? hitTestMark({
     }
   }
 
-  final maxEnds = hitTestLayout != null && identical(hitTestLayout.marks, marks)
-      ? hitTestLayout.maxEnds
-      : MarkHitTestLayout.fromMarks(marks).maxEnds;
+  final maxEnds = List<int>.filled(marks.length, 0);
+  var running = 0;
+  for (var i = 0; i < marks.length; i++) {
+    final e = _effectiveEndMs(marks[i]);
+    if (e > running) running = e;
+    maxEnds[i] = running;
+  }
 
   var first = 0;
   var last = hi;
@@ -100,7 +69,6 @@ String? hitTestMark({
   var checks = 0;
   for (var i = first; i < hi; i++) {
     checks++;
-    hitTestCandidateChecks++;
     final m = marks[i];
     if (_effectiveEndMs(m) < t) continue;
     final l = layout[i];

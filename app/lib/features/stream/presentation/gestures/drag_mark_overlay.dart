@@ -22,12 +22,6 @@ class DragPreviewData {
   final Offset localPosition;
   final String label;
   final String timeLabel;
-
-  /// Backwards-compatible alias for [localPosition].
-  Offset get globalPosition => localPosition;
-
-  /// Backwards-compatible alias for [localPosition].
-  Offset get offset => localPosition;
 }
 
 class DragMarkOverlay extends StatelessWidget {

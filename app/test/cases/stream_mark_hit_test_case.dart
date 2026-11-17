@@ -197,7 +197,7 @@ void main() {
         .map((m) => MarkInterval(startMs: m.startMs, endMs: m.endMs, id: m.id))
         .toList();
     final layout = layoutMarkColumns(intervals);
-    resetHitTestCandidateChecks();
+    var candidateChecks = 0;
     final y = vp.timeToPx(60 * 60 * 1000); // 1h in
     final got = hitTestMark(
       marks: marks,
@@ -206,10 +206,11 @@ void main() {
       focalY: y,
       canvasWidth: 360,
       focalX: 100,
+      onCandidateChecks: (c) => candidateChecks = c,
     );
     expect(got, isNotNull);
     // Candidate checks should be bounded, not O(n).
-    expect(hitTestCandidateChecks, lessThan(100));
+    expect(candidateChecks, lessThan(100));
   });
 
   test('mutated list does not yield stale prefixes', () {

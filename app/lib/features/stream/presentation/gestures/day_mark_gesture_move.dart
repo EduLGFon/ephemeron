@@ -40,10 +40,14 @@ extension _DayMarkGestureMove on _DayMarkGesturesState {
       }
       if (_movedBeyond || newStart != _originalStartMs) {
         widget.onMoveMark?.call(_moveMarkId!, newStart);
+        final formatter = widget.timeFormatter ?? widget.formatTime;
         widget.dragPreview?.value = DragPreviewData(
           id: _moveMarkId!,
           localPosition: d.localPosition,
           label: _moveMark?.title ?? '',
+          timeLabel: formatter != null
+              ? formatter(newStart)
+              : _formatEpochMs(newStart),
         );
       }
     } else if (_creating) {
@@ -68,4 +72,11 @@ extension _DayMarkGestureMove on _DayMarkGesturesState {
       _handleCreateEnd();
     }
   }
+}
+
+String _formatEpochMs(int ms) {
+  final dt = DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true);
+  final h = dt.hour.toString().padLeft(2, '0');
+  final m = dt.minute.toString().padLeft(2, '0');
+  return '$h:$m';
 }
