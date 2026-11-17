@@ -11,6 +11,11 @@ ThemeData streamThemeData(StreamThemeMode mode, Brightness platformBrightness) {
   final isTrueBlack = resolved == StreamThemeMode.trueBlack;
 
   final surface = _surfaceFor(isDark, isTrueBlack);
+  final surfaceContainerHigh = _surfaceContainerHighFor(isDark, isTrueBlack);
+  final surfaceContainerHighest = _surfaceContainerHighestFor(
+    isDark,
+    isTrueBlack,
+  );
   final onSurface = _textFor(isDark, isTrueBlack);
   final hairline = _hairlineFor(isDark, isTrueBlack);
   final error = _errorFor(isDark, isTrueBlack);
@@ -22,6 +27,8 @@ ThemeData streamThemeData(StreamThemeMode mode, Brightness platformBrightness) {
     brightness: brightness,
     accent: accent,
     surface: surface,
+    surfaceContainerHigh: surfaceContainerHigh,
+    surfaceContainerHighest: surfaceContainerHighest,
     onSurface: onSurface,
     hairline: hairline,
     error: error,
@@ -56,6 +63,16 @@ Color _surfaceFor(bool isDark, bool isTrueBlack) {
   return isDark ? StreamSurfaces.dark : StreamSurfaces.light;
 }
 
+Color _surfaceContainerHighFor(bool isDark, bool isTrueBlack) {
+  if (isTrueBlack) return const Color(0xFF141414);
+  return isDark ? const Color(0xFF242424) : const Color(0xFFF0F0F0);
+}
+
+Color _surfaceContainerHighestFor(bool isDark, bool isTrueBlack) {
+  if (isTrueBlack) return const Color(0xFF1A1A1A);
+  return isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE8E8E8);
+}
+
 Color _textFor(bool isDark, bool isTrueBlack) {
   if (isTrueBlack) return StreamTextColors.trueBlack;
   return isDark ? StreamTextColors.dark : StreamTextColors.light;
@@ -80,6 +97,8 @@ ColorScheme _colorScheme({
   required Brightness brightness,
   required Color accent,
   required Color surface,
+  required Color surfaceContainerHigh,
+  required Color surfaceContainerHighest,
   required Color onSurface,
   required Color hairline,
   required Color error,
@@ -95,6 +114,8 @@ ColorScheme _colorScheme({
     onError: onError,
     surface: surface,
     onSurface: onSurface,
+    surfaceContainerHigh: surfaceContainerHigh,
+    surfaceContainerHighest: surfaceContainerHighest,
     outline: hairline,
     outlineVariant: hairline,
   );

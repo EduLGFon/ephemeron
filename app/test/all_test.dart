@@ -115,6 +115,7 @@ import 'cases/stream_route_params_case.dart' as stream_route_params;
 import 'cases/stream_slipped_keyboard_case.dart' as stream_slipped_keyboard;
 import 'cases/stream_slipped_trail_case.dart' as stream_slipped_trail;
 import 'cases/stream_slipped_triage_case.dart' as stream_slipped_triage;
+import 'cases/stream_states_case.dart' as stream_states;
 import 'cases/stream_theme_case.dart' as stream_theme;
 import 'cases/stream_theme_preferences_case.dart' as stream_theme_preferences;
 import 'cases/stream_time_viewport_case.dart' as stream_time_viewport;
@@ -277,6 +278,7 @@ const _included = <String>{
   'stream_slipped_keyboard_case.dart',
   'stream_slipped_trail_case.dart',
   'stream_slipped_triage_case.dart',
+  'stream_states_case.dart',
   'stream_theme_case.dart',
   'stream_theme_preferences_case.dart',
   'stream_time_viewport_case.dart',
@@ -445,6 +447,7 @@ void main() {
   group('stream_slipped_keyboard', stream_slipped_keyboard.main);
   group('stream_slipped_trail', stream_slipped_trail.main);
   group('stream_slipped_triage', stream_slipped_triage.main);
+  group('stream_states', stream_states.main);
   group('stream_theme', stream_theme.main);
   group('stream_theme_preferences', stream_theme_preferences.main);
   group('stream_time_viewport', stream_time_viewport.main);
