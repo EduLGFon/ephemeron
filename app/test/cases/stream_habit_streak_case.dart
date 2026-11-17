@@ -237,4 +237,213 @@ void main() {
     expect(node.getSemanticsData().label, contains('Habit'));
     expect(node.getSemanticsData().label, contains('5'));
   });
+
+  testWidgets('painted: consecutive days draw two line segments', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 120,
+          height: 24,
+          child: HabitStreakLine(
+            doneByDay: const {'0': true, '1': true, '2': true},
+            dayKeys: const ['0', '1', '2'],
+            cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
+            weekLevel: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    final cp = find.descendant(
+      of: find.byType(HabitStreakLine),
+      matching: find.byType(CustomPaint),
+    );
+    expect(
+      cp,
+      paints
+        ..line(p1: const Offset(20, 300), p2: const Offset(60, 300))
+        ..line(p1: const Offset(60, 300), p2: const Offset(100, 300)),
+    );
+    expect(cp, paintsExactlyCountTimes(#drawLine, 2));
+  });
+
+  testWidgets('painted: a gap yields two separate segments', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 200,
+          height: 24,
+          child: HabitStreakLine(
+            doneByDay: const {
+              '0': true,
+              '1': true,
+              '2': false,
+              '3': true,
+              '4': true,
+            },
+            dayKeys: const ['0', '1', '2', '3', '4'],
+            cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
+            weekLevel: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    final cp = find.descendant(
+      of: find.byType(HabitStreakLine),
+      matching: find.byType(CustomPaint),
+    );
+    expect(
+      cp,
+      paints
+        ..line(p1: const Offset(20, 300), p2: const Offset(60, 300))
+        ..line(p1: const Offset(140, 300), p2: const Offset(180, 300)),
+    );
+    expect(cp, paintsExactlyCountTimes(#drawLine, 2));
+  });
+
+  testWidgets('painted: a single day draws a dot and no line', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 40,
+          height: 24,
+          child: HabitStreakLine(
+            doneByDay: const {'0': true},
+            dayKeys: const ['0'],
+            cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
+            weekLevel: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    final cp = find.descendant(
+      of: find.byType(HabitStreakLine),
+      matching: find.byType(CustomPaint),
+    );
+    expect(cp, paints..circle(x: 20, y: 300, radius: 3));
+    expect(cp, paintsExactlyCountTimes(#drawLine, 0));
+  });
+
+  testWidgets('painted: zero done days draws nothing', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 0,
+          height: 24,
+          child: HabitStreakLine(
+            doneByDay: const {},
+            dayCount: 0,
+            cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
+            weekLevel: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    final cp = find.descendant(
+      of: find.byType(HabitStreakLine),
+      matching: find.byType(CustomPaint),
+    );
+    expect(cp, paintsNothing);
+  });
+
+  testWidgets('painted: DST range with a non-empty map draws segments', (
+    tester,
+  ) async {
+    final done = <String, bool>{};
+    for (var i = 0; i < 10; i++) {
+      final d = DateTime(2026, 10, 30 + i);
+      final key =
+          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      done[key] = true;
+    }
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 10 * 20,
+          height: 24,
+          child: HabitStreakLine(
+            doneByDay: done,
+            dayCount: 10,
+            startDate: DateTime(2026, 10, 30),
+            cellWidth: 20,
+            colorArgb: 0xFF4CAF50,
+            weekLevel: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    final cp = find.descendant(
+      of: find.byType(HabitStreakLine),
+      matching: find.byType(CustomPaint),
+    );
+    expect(cp, paintsExactlyCountTimes(#drawLine, 9));
+  });
+
+  testWidgets('painted: reduce motion paints full layout in one pump', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: SizedBox(
+            width: 120,
+            height: 24,
+            child: HabitStreakLine(
+              doneByDay: const {'0': true, '1': true, '2': true},
+              dayKeys: const ['0', '1', '2'],
+              cellWidth: 40,
+              colorArgb: 0xFF4CAF50,
+              weekLevel: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    final cp = find.descendant(
+      of: find.byType(HabitStreakLine),
+      matching: find.byType(CustomPaint),
+    );
+    expect(cp, paintsExactlyCountTimes(#drawLine, 2));
+  });
+
+  testWidgets('painted: animated case starts empty then completes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 120,
+          height: 24,
+          child: HabitStreakLine(
+            doneByDay: const {'0': true, '1': true, '2': true},
+            dayKeys: const ['0', '1', '2'],
+            cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
+            weekLevel: false,
+            duration: const Duration(milliseconds: 120),
+          ),
+        ),
+      ),
+    );
+    // Initial frame: progress 0, so nothing is painted yet.
+    final cp = find.descendant(
+      of: find.byType(HabitStreakLine),
+      matching: find.byType(CustomPaint),
+    );
+    expect(cp, paintsNothing);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(cp, paintsExactlyCountTimes(#drawLine, 2));
+  });
 }

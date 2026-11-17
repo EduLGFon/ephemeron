@@ -19,7 +19,7 @@ List<String> habitStreakDayKeys({
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
     );
   }
-  return out;
+  return List.unmodifiable(out);
 }
 
 /// Pure layout descriptor for the streak painter. Exposed for testing.
@@ -115,7 +115,8 @@ class HabitStreakLine extends StatelessWidget {
   final int colorArgb;
 
   /// Unused day key retained for backwards compatibility; the streak line
-  /// does not highlight a single day. See ARCHITECTURE.md.
+  /// does not highlight a single day, so this value is not read by the
+  /// widget or its painter.
   final String? currentDayKey;
   final List<String>? dayKeys;
   final int? dayCount;
@@ -201,8 +202,6 @@ class _StreakPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
-    if (layout.isEmpty) return;
-
     for (final i in layout.segmentStarts) {
       final x0 = i * cellWidth + cellWidth / 2;
       final x1 = (i + 1) * cellWidth + cellWidth / 2;
@@ -233,6 +232,5 @@ class _StreakPainter extends CustomPainter {
       old.cellWidth != cellWidth ||
       old.color != color ||
       old.showDots != showDots ||
-      old.progress != progress ||
-      old.layout != layout;
+      old.progress != progress;
 }

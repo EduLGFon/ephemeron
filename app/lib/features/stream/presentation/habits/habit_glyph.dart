@@ -5,7 +5,10 @@ import '../../design/stream_tokens.dart';
 /// Returns black or white depending on the luminance of [color], so the check
 /// mark stays visible on any hue.
 Color contrastColorFor(Color color) {
-  // Aligned with painter_helpers.dart (_contrast uses 0.55) for consistency.
+  // Duplicated from the private _contrast helper in
+  // data/services/week_calendar_image/painter_helpers.dart (threshold 0.55).
+  // That helper is private and importing the data layer here would invert the
+  // feature -> data dependency direction, so keep this local copy in sync.
   final luminance = color.computeLuminance();
   return luminance > 0.55 ? Colors.black : Colors.white;
 }
