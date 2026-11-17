@@ -104,6 +104,8 @@ import 'cases/stream_day_canvas_case.dart' as stream_day_canvas;
 import 'cases/stream_focus_case.dart' as stream_focus;
 import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
 import 'cases/stream_gesture_school_case.dart' as stream_gesture_school;
+import 'cases/stream_habit_gutter_case.dart' as stream_habit_gutter;
+import 'cases/stream_habit_streak_case.dart' as stream_habit_streak;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
 import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
@@ -267,6 +269,8 @@ const _included = <String>{
   'stream_focus_case.dart',
   'stream_fuzzy_case.dart',
   'stream_gesture_school_case.dart',
+  'stream_habit_gutter_case.dart',
+  'stream_habit_streak_case.dart',
   'stream_layout_mode_case.dart',
   'stream_mark_layout_case.dart',
   'stream_mark_mapper_case.dart',
@@ -436,6 +440,8 @@ void main() {
   group('stream_focus', stream_focus.main);
   group('stream_fuzzy', stream_fuzzy.main);
   group('stream_gesture_school', stream_gesture_school.main);
+  group('stream_habit_gutter', stream_habit_gutter.main);
+  group('stream_habit_streak', stream_habit_streak.main);
   group('stream_layout_mode', stream_layout_mode.main);
   group('stream_mark_layout', stream_mark_layout.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
