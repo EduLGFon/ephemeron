@@ -18,11 +18,18 @@ class StreamPeekTarget {
     required this.data,
     required this.editable,
     this.sourceTaskId,
+    this.sourcePriority,
   });
 
   final PeekData data;
   final bool editable;
   final String? sourceTaskId;
+
+  /// Stored task priority (0 none, 1 low, 2 medium, 3 P2, 4 P1).
+  ///
+  /// Peek collapses 3 and 4 into [PeekPriority.high]. Keeping the original
+  /// value lets save preserve it when the user does not change the level.
+  final int? sourcePriority;
 }
 
 /// Maps [mark] to PeekData.
@@ -73,6 +80,7 @@ Future<StreamPeekTarget?> _taskTarget(Ref ref, StreamDayMark mark) async {
     ),
     editable: true,
     sourceTaskId: task.id,
+    sourcePriority: task.priority,
   );
 }
 
@@ -90,9 +98,9 @@ String? _listName(List<TaskList> lists, String id) {
   return null;
 }
 
-// Stored priorities are 0 none, 1 low, 2 medium, 3 high. The task editor
-// also exposes 4 (P1); Peek has four levels, so 4 maps to high. Saving high
-// writes 3; a no-op save short-circuits before writing.
+// Stored priorities are 0 none, 1 low, 2 medium, 3 P2, 4 P1. Peek has four
+// levels, so 3 and 4 both map to high. Save preserves the stored value when
+// the level is unchanged; selecting high explicitly writes 4 (P1).
 PeekPriority _peekPriority(int priority) => switch (priority) {
   <= 0 => PeekPriority.none,
   1 => PeekPriority.low,

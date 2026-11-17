@@ -45,9 +45,11 @@ class StreamPeekActions {
   ///
   /// Validation mirrors the Peek editor: a non-blank title and an end that is
   /// not before the start. An edit identical to the snapshot returns
-  /// [StreamPeekUnchanged] without writing. Both the original and edited day
-  /// are rebuilt (deduplicated, so a same-day edit rebuilds once) because a
-  /// moved task leaves a stale row on its old day.
+  /// [StreamPeekUnchanged] without writing. An unchanged priority writes the
+  /// target's stored value, so Peek's collapse of P2/P1 into high cannot
+  /// downgrade a task when only other fields change. Both the original and
+  /// edited day are rebuilt (deduplicated, so a same-day edit rebuilds once)
+  /// because a moved task leaves a stale row on its old day.
   Future<StreamPeekResult> save(StreamPeekTarget target, PeekEdit edit) async {
     if (!target.editable) {
       throw const StreamPeekException(StreamPeekFailure.readOnly);
@@ -68,7 +70,7 @@ class StreamPeekActions {
         plannedStart: _formatPlanned(edit.startMs),
         plannedEnd: edit.endMs == null ? null : _formatPlanned(edit.endMs!),
         listId: edit.listId,
-        priority: edit.priority.index,
+        priority: _priorityForSave(target, edit),
         notes: edit.notes,
       );
       for (final day in _affectedDays(target.data.startMs, edit.startMs)) {
@@ -84,6 +86,23 @@ class StreamPeekActions {
 final streamPeekActionsProvider = Provider<StreamPeekActions>((ref) {
   return StreamPeekActions(ref.watch(streamPeekGatewayProvider));
 });
+
+// Keep the stored priority when the user leaves the level alone. Otherwise
+// map Peek's four levels onto the task scale. Peek collapses P2 (3) and P1
+// (4) into high, so choosing high writes the highest, 4 (P1).
+int _priorityForSave(StreamPeekTarget target, PeekEdit edit) {
+  if (edit.priority == target.data.priority) {
+    return target.sourcePriority ?? _taskPriority(edit.priority);
+  }
+  return _taskPriority(edit.priority);
+}
+
+int _taskPriority(PeekPriority priority) => switch (priority) {
+  PeekPriority.none => 0,
+  PeekPriority.low => 1,
+  PeekPriority.medium => 2,
+  PeekPriority.high => 4,
+};
 
 String? _validate(PeekEdit edit) {
   if (edit.title.trim().isEmpty) return 'title is required';

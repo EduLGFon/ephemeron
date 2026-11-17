@@ -135,26 +135,30 @@ ProviderContainer _container({
   return container;
 }
 
+PeekData _priorityData(PeekPriority priority) {
+  return PeekData(
+    id: 't1',
+    title: 'Old',
+    startMs: _at(9),
+    endMs: _at(10),
+    listId: 'l1',
+    listName: 'Work',
+    priority: priority,
+    notes: 'old note',
+  );
+}
+
 StreamPeekTarget _target({
   bool editable = true,
   String? sourceTaskId = 't1',
   PeekData? data,
+  int? sourcePriority = 1,
 }) {
   return StreamPeekTarget(
-    data:
-        data ??
-        PeekData(
-          id: 't1',
-          title: 'Old',
-          startMs: _at(9),
-          endMs: _at(10),
-          listId: 'l1',
-          listName: 'Work',
-          priority: PeekPriority.low,
-          notes: 'old note',
-        ),
+    data: data ?? _priorityData(PeekPriority.low),
     editable: editable,
     sourceTaskId: sourceTaskId,
+    sourcePriority: sourcePriority,
   );
 }
 
@@ -173,6 +177,22 @@ PeekEdit _edit({
     listId: listId,
     priority: priority,
     notes: notes,
+  );
+}
+
+/// Edit that changes only the requested fields from [target].
+PeekEdit _editFor(
+  StreamPeekTarget target, {
+  String? title,
+  PeekPriority? priority,
+}) {
+  return PeekEdit(
+    title: title ?? target.data.title,
+    startMs: target.data.startMs,
+    endMs: target.data.endMs,
+    listId: target.data.listId,
+    priority: priority ?? target.data.priority,
+    notes: target.data.notes,
   );
 }
 
@@ -220,6 +240,7 @@ void main() {
     expect(target.data.listId, 'l1');
     expect(target.data.listName, 'Work');
     expect(target.data.priority, PeekPriority.medium);
+    expect(target.sourcePriority, 2);
     expect(target.data.notes, 'note');
   });
 
@@ -259,12 +280,64 @@ void main() {
     expect(gateway.plannedStart, '2026-11-17T14:15');
     expect(gateway.plannedEnd, '2026-11-17T15:15');
     expect(gateway.listId, 'l2');
-    expect(gateway.priority, 3);
+    expect(gateway.priority, 4);
     expect(gateway.notes, 'new note');
     expect(gateway.rebuildCalls, 1);
     expect(gateway.rebuiltDays, [
       DateTime(2026, 11, 17).millisecondsSinceEpoch,
     ]);
+  });
+
+  test('a title-only edit keeps stored P1 (4)', () async {
+    final gateway = _FakeGateway();
+    final target = _target(
+      data: _priorityData(PeekPriority.high),
+      sourcePriority: 4,
+    );
+
+    await StreamPeekActions(gateway)
+        .save(target, _editFor(target, title: 'Renamed'));
+
+    expect(gateway.priority, 4);
+  });
+
+  test('a title-only edit keeps stored P2 (3)', () async {
+    final gateway = _FakeGateway();
+    final target = _target(
+      data: _priorityData(PeekPriority.high),
+      sourcePriority: 3,
+    );
+
+    await StreamPeekActions(gateway)
+        .save(target, _editFor(target, title: 'Renamed'));
+
+    expect(gateway.priority, 3);
+  });
+
+  test('choosing high writes P1 (4)', () async {
+    final gateway = _FakeGateway();
+    final target = _target(
+      data: _priorityData(PeekPriority.low),
+      sourcePriority: 1,
+    );
+
+    await StreamPeekActions(gateway)
+        .save(target, _editFor(target, priority: PeekPriority.high));
+
+    expect(gateway.priority, 4);
+  });
+
+  test('choosing medium writes 2', () async {
+    final gateway = _FakeGateway();
+    final target = _target(
+      data: _priorityData(PeekPriority.high),
+      sourcePriority: 4,
+    );
+
+    await StreamPeekActions(gateway)
+        .save(target, _editFor(target, priority: PeekPriority.medium));
+
+    expect(gateway.priority, 2);
   });
 
   test('the actions provider uses the injected gateway', () async {
@@ -300,18 +373,13 @@ void main() {
 
   test('a no-op save writes nothing', () async {
     final gateway = _FakeGateway();
-    final actions = StreamPeekActions(gateway);
-    final target = _target();
-    final edit = PeekEdit(
-      title: target.data.title,
-      startMs: target.data.startMs,
-      endMs: target.data.endMs,
-      listId: target.data.listId,
-      priority: target.data.priority,
-      notes: target.data.notes,
+    final target = _target(
+      data: _priorityData(PeekPriority.high),
+      sourcePriority: 4,
     );
 
-    final result = await actions.save(target, edit);
+    final result = await StreamPeekActions(gateway)
+        .save(target, _editFor(target));
 
     expect(result, isA<StreamPeekUnchanged>());
     expect(gateway.updateCalls, 0);
