@@ -12,6 +12,7 @@ class _FakeSchoolNotifier extends StreamSchoolCompletedNotifier {
 
   final bool initial;
   int markCalls = 0;
+  int resetCalls = 0;
 
   @override
   Future<bool> build() async => initial;
@@ -20,6 +21,12 @@ class _FakeSchoolNotifier extends StreamSchoolCompletedNotifier {
   Future<void> markCompleted() async {
     markCalls++;
     state = const AsyncData(true);
+  }
+
+  @override
+  Future<void> reset() async {
+    resetCalls++;
+    state = const AsyncData(false);
   }
 }
 
@@ -176,6 +183,37 @@ void main() {
     expect(find.byType(GestureSchoolOverlay), findsNothing);
     expect(find.text(_l10n(tester).streamSchoolScrollTitle), findsNothing);
     expect(notifier.markCalls, 0);
+  });
+
+  testWidgets('reset after skip reopens the school from the first step', (
+    tester,
+  ) async {
+    final notifier = _FakeSchoolNotifier(false);
+    var finished = 0;
+    await _pump(tester, _app(notifier: notifier, onFinished: () => finished++));
+    final l = _l10n(tester);
+
+    await tester.tap(find.text(l.onboardingSkip));
+    await tester.pumpAndSettle();
+    expect(find.byType(GestureSchoolOverlay), findsNothing);
+    expect(notifier.markCalls, 1);
+    expect(finished, 1);
+
+    await notifier.reset();
+    await tester.pumpAndSettle();
+
+    expect(notifier.resetCalls, 1);
+    expect(find.byType(GestureSchoolOverlay), findsOneWidget);
+    expect(find.text(l.streamSchoolScrollTitle), findsOneWidget);
+    expect(find.byType(ModalBarrier), findsWidgets);
+    expect(find.text('child'), findsOneWidget);
+
+    await tester.tap(find.text(l.onboardingSkip));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GestureSchoolOverlay), findsNothing);
+    expect(notifier.markCalls, 2);
+    expect(finished, 1);
   });
 
   testWidgets('320 dp at 2.0 text scale does not overflow', (tester) async {
