@@ -1,7 +1,19 @@
+import 'package:ephemeron/data/drift/app_database.dart' show Task;
+import 'package:ephemeron/features/calendar/application/calendar_providers.dart';
+import 'package:ephemeron/features/calendar/application/calendar_state.dart';
+import 'package:ephemeron/features/stream/application/stream_capture_actions.dart';
+import 'package:ephemeron/features/stream/application/stream_capture_gateway.dart';
+import 'package:ephemeron/features/stream/application/stream_capture_outcome.dart';
+import 'package:ephemeron/features/stream/application/stream_day_cache.dart';
+import 'package:ephemeron/features/stream/application/stream_day_cache_scope.dart';
 import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_day_providers.dart';
 import 'package:ephemeron/features/stream/application/stream_theme_provider.dart';
+import 'package:ephemeron/features/stream/application/stream_tray.dart';
+import 'package:ephemeron/features/stream/capture/capture_parser.dart'
+    show CaptureDraft;
 import 'package:ephemeron/features/stream/design/stream_theme_mode.dart';
+import 'package:ephemeron/features/stream/presentation/capture/capture_bar.dart';
 import 'package:ephemeron/features/stream/presentation/day/day_canvas.dart';
 import 'package:ephemeron/features/stream/presentation/stream_day_body.dart';
 import 'package:ephemeron/features/stream/presentation/stream_header.dart';
@@ -13,8 +25,14 @@ import 'package:ephemeron/features/stream/presentation/stream_screen.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/now_line.dart';
 import 'package:ephemeron/features/stream/presentation/stream_time_format.dart';
 import 'package:ephemeron/features/stream/presentation/surface/stream_launcher.dart';
+import 'package:ephemeron/features/stream/presentation/tray/tray_chip.dart';
+import 'package:ephemeron/features/stream/presentation/tray/tray_item.dart';
+import 'package:ephemeron/features/stream/presentation/tray/tray_panel.dart';
+import 'package:ephemeron/features/stream/presentation/tray/tray_strip.dart';
 import 'package:ephemeron/features/stream/stream_flags.dart';
 import 'package:ephemeron/features/stream/presentation/stream_route_params.dart';
+import 'package:ephemeron/features/tasks/application/tasks_providers.dart'
+    show openTasksProvider;
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +46,67 @@ class _FixedStreamThemeNotifier extends StreamThemeNotifier {
   @override
   StreamThemeMode build() => mode;
 }
+
+/// Interface filler: the fake actions below override submit, so no gateway
+/// method is ever called.
+class _UnusedCaptureGateway implements StreamCaptureGateway {
+  @override
+  Future<Never> noSuchMethod(Invocation invocation) =>
+      Future<Never>.error(UnimplementedError('unused capture gateway'));
+}
+
+class _FakeCaptureActions extends StreamCaptureActions {
+  _FakeCaptureActions() : super(_UnusedCaptureGateway());
+
+  final List<CaptureDraft> drafts = <CaptureDraft>[];
+  final List<DateTime> submittedAt = <DateTime>[];
+
+  @override
+  Future<CaptureOutcome> submit(
+    CaptureDraft draft, {
+    required DateTime now,
+  }) async {
+    drafts.add(draft);
+    submittedAt.add(now);
+    return CaptureOutcome(kind: draft.kind, id: 'captured-${drafts.length}');
+  }
+}
+
+class _FakeCacheGateway implements StreamDayCacheGateway {
+  final List<CalendarRange> calls = <CalendarRange>[];
+
+  @override
+  Future<void> rebuild(CalendarRange range) async => calls.add(range);
+}
+
+class _NullBuiltRange extends CalendarBuiltRange {
+  @override
+  CalendarRange? build() => null;
+}
+
+const List<TrayItem> _trayItems = <TrayItem>[
+  TrayItem(
+    id: 't1',
+    title: 'Unscheduled one',
+    listId: 'l1',
+    listName: 'Work',
+    colorArgb: 0xFF336699,
+  ),
+  TrayItem(
+    id: 't2',
+    title: 'Unscheduled two',
+    listId: 'l1',
+    listName: 'Work',
+    colorArgb: 0xFF336699,
+  ),
+  TrayItem(
+    id: 't3',
+    title: 'Unscheduled three',
+    listId: 'l2',
+    listName: 'Home',
+    colorArgb: 0xFF996633,
+  ),
+];
 
 final _fakeMarks = List<StreamDayMark>.generate(
   3,
@@ -75,12 +154,23 @@ Widget _app({
   );
 }
 
-List<Override> _overrides() => <Override>[
+List<Override> _overrides({
+  List<TrayItem> tray = const <TrayItem>[],
+  _FakeCaptureActions? actions,
+  _FakeCacheGateway? cache,
+}) => <Override>[
   streamMarksForDayProvider.overrideWith(
     (ref, key) async => StreamDayMarks(marks: _fakeMarks, skippedCount: 0),
   ),
   streamThemeProvider.overrideWith(
     () => _FixedStreamThemeNotifier(StreamThemeMode.dark),
+  ),
+  streamTrayItemsProvider.overrideWith(
+    (ref) => Stream<List<TrayItem>>.value(tray),
+  ),
+  streamDayCacheGatewayProvider.overrideWithValue(cache ?? _FakeCacheGateway()),
+  streamCaptureActionsProvider.overrideWithValue(
+    actions ?? _FakeCaptureActions(),
   ),
 ];
 
@@ -104,17 +194,18 @@ GoRouter _launcherRouter() => GoRouter(
   ],
 );
 
-Widget _routerApp(GoRouter router) => ProviderScope(
-  overrides: _overrides(),
-  child: MaterialApp.router(
-    routerConfig: router,
-    localizationsDelegates: const [
-      AppLocalizations.delegate,
-      ...GlobalMaterialLocalizations.delegates,
-    ],
-    supportedLocales: AppLocalizations.supportedLocales,
-  ),
-);
+Widget _routerApp(GoRouter router, {List<Override>? overrides}) =>
+    ProviderScope(
+      overrides: overrides ?? _overrides(),
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    );
 
 /// Pushed routes are imperative matches, so [RouteMatchList.uri] keeps
 /// reporting the base location; the last match is the visible one.
@@ -317,7 +408,7 @@ void main() {
 
     await tester.pumpWidget(
       _app(
-        overrides: _overrides(),
+        overrides: _overrides(tray: _trayItems),
         date: DateTime(2026, 11, 17),
         homeOverride: MediaQuery(
           data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
@@ -327,6 +418,8 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(CaptureBar), findsOneWidget);
+    expect(find.byType(TrayStrip), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -658,5 +751,129 @@ void main() {
       expect(_location(router), entry.value);
       expect(find.byType(StreamLauncher), findsNothing);
     }
+  });
+
+  testWidgets('dock replaces the capture tray placeholder', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(
+        overrides: _overrides(tray: _trayItems),
+        date: DateTime(2026, 11, 17),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(const Key('captureTrayPlaceholder')), findsNothing);
+    expect(find.byType(CaptureBar), findsOneWidget);
+    expect(find.byType(TrayStrip), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+  });
+
+  testWidgets('capture submit runs the action and clears the bar', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final actions = _FakeCaptureActions();
+    await tester.pumpWidget(
+      _app(
+        overrides: _overrides(actions: actions),
+        date: DateTime(2026, 11, 17),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.enterText(find.byType(TextField), 'buy milk');
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(actions.drafts, hasLength(1));
+    expect(actions.drafts.single.title, 'buy milk');
+    expect(actions.submittedAt.single, isNotNull);
+    expect(find.text('buy milk'), findsNothing);
+    final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
+    expect(find.text(l.streamCaptureCaptured), findsOneWidget);
+  });
+
+  testWidgets('day body is wrapped in the occurrence cache scope', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final cache = _FakeCacheGateway();
+    final overrides = <Override>[
+      ..._overrides(cache: cache),
+      calendarBuiltRangeProvider.overrideWith(() => _NullBuiltRange()),
+    ];
+    await tester.pumpWidget(
+      _app(overrides: overrides, date: DateTime(2026, 11, 17)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(StreamDayCacheScope), findsOneWidget);
+    expect(cache.calls, isNotEmpty);
+    expect(cache.calls.single.fromUtc, DateTime.utc(2026, 11, 16));
+  });
+
+  testWidgets('tray handle opens the tray panel', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(
+        overrides: _overrides(tray: _trayItems),
+        date: DateTime(2026, 11, 17),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
+    await tester.tap(find.bySemanticsLabel(l.streamTrayHandle));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TrayPanel), findsOneWidget);
+    expect(find.text('Unscheduled one'), findsWidgets);
+  });
+
+  testWidgets('tray tap without a loaded task opens the tasks tab', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = _launcherRouter();
+    final overrides = <Override>[
+      ..._overrides(tray: <TrayItem>[_trayItems.first]),
+      openTasksProvider.overrideWith(
+        (ref, arg) => Stream<List<Task>>.value(const <Task>[]),
+      ),
+    ];
+    await tester.pumpWidget(_routerApp(router, overrides: overrides));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(TrayChip));
+    await tester.pumpAndSettle();
+
+    expect(_location(router), '/tab1');
   });
 }

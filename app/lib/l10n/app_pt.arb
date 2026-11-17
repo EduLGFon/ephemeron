@@ -51,5 +51,39 @@
   "streamLauncherMenu": "Abrir menu de seções",
   "streamLauncherCalendar": "Calendário",
   "streamLauncherMatrix": "Matriz",
-  "streamLauncherFocus": "Foco"
+  "streamLauncherFocus": "Foco",
+  "streamCaptureHint": "Capture uma tarefa, evento, hábito ou contagem",
+  "streamCaptureLabel": "Capturar",
+  "streamCaptureSubmit": "Adicionar",
+  "streamCaptureClear": "Limpar",
+  "streamCaptureClose": "Fechar",
+  "streamCaptureCaptured": "Capturado",
+  "streamCaptureFailed": "Falha ao capturar",
+  "streamTrayEmpty": "Nenhuma tarefa sem data",
+  "streamTrayCount": "{count, plural, =1{1 tarefa sem data} other{{count} tarefas sem data}}",
+  "@streamTrayCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "streamTrayHandle": "Abrir bandeja de tarefas",
+  "streamTrayPanelTitle": "Tarefas sem data",
+  "streamTrayUnnamed": "Sem nome",
+  "streamTrayCollapse": "Recolher",
+  "streamChipKindTask": "Tarefa",
+  "streamChipKindEvent": "Evento",
+  "streamChipKindHabit": "Hábito",
+  "streamChipKindCountdown": "Contagem",
+  "streamChipDate": "Data",
+  "streamChipTime": "Hora",
+  "streamChipRepeat": "Repetição",
+  "streamChipList": "Lista",
+  "streamChipPriority": "Prioridade",
+  "streamCaptureRepeatDaily": "Diário",
+  "streamCaptureRepeatWeekly": "Semanal",
+  "streamCapturePriorityLow": "Baixa",
+  "streamCapturePriorityMedium": "Média",
+  "streamCapturePriorityHigh": "Alta"
 }

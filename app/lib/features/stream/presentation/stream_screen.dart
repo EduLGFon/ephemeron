@@ -6,12 +6,16 @@ import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 
 import '../../../../core/ui/app_sheet.dart';
+import '../application/stream_day_cache_scope.dart';
+import '../application/stream_day_providers.dart' show StreamDayKey;
 import '../application/stream_theme_provider.dart';
+import '../capture/capture_parser.dart' show CaptureLocale;
 import '../design/stream_theme.dart';
 import 'stream_day_body.dart';
 import 'stream_header.dart';
 import 'stream_layout_mode.dart';
 import 'stream_route_params.dart';
+import 'surface/stream_dock_host.dart';
 import 'surface/stream_launcher.dart';
 
 class StreamScreen extends ConsumerStatefulWidget {
@@ -90,18 +94,20 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
     }
   }
 
-  Widget _captureTray() =>
-      const SizedBox(key: Key('captureTrayPlaceholder'), height: 72);
+  CaptureLocale _captureLocale(BuildContext context) =>
+      Localizations.localeOf(context).languageCode == 'pt'
+      ? CaptureLocale.pt
+      : CaptureLocale.en;
 
-  Widget _compact(StreamHeader header, StreamDayBody body) => Column(
+  Widget _compact(StreamHeader header, Widget body, Widget dock) => Column(
     children: [
       header,
       Expanded(child: body),
-      _captureTray(),
+      dock,
     ],
   );
 
-  Widget _medium(StreamHeader header, StreamDayBody body) => Column(
+  Widget _medium(StreamHeader header, Widget body, Widget dock) => Column(
     children: [
       header,
       Expanded(
@@ -112,11 +118,11 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
           ],
         ),
       ),
-      _captureTray(),
+      dock,
     ],
   );
 
-  Widget _expanded(StreamHeader header, StreamDayBody body) => Row(
+  Widget _expanded(StreamHeader header, Widget body, Widget dock) => Row(
     children: [
       const SizedBox(key: Key('leftPanelPlaceholder'), width: 240),
       Expanded(
@@ -127,7 +133,7 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
               children: [
                 header,
                 Expanded(child: body),
-                _captureTray(),
+                dock,
               ],
             ),
           ),
@@ -144,6 +150,7 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
     final brightness = MediaQuery.platformBrightnessOf(context);
     final theme = streamThemeData(mode, brightness);
     final l = AppLocalizations.of(context);
+    final now = widget.now ?? DateTime.now();
     final header = StreamHeader(
       dateLabel:
           '${DateFormat('EEE d MMM').format(params.date)} '
@@ -159,15 +166,23 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
       onOpenSettings: _openSettings,
     );
     // TODO(#stream-overlays): wire command palette overlay and openCommand.
-    final body = StreamDayBody(
-      date: params.date,
-      now: widget.now,
-      onDateChanged: (day) {
-        widget.onDateChanged?.call(day);
-        GoRouter.maybeOf(context)?.go('/stream/${formatStreamDate(day)}/day');
-      },
-      onReturnToNow: widget.onReturnToNow,
+    final body = StreamDayCacheScope(
+      day: StreamDayKey(
+        year: params.date.year,
+        month: params.date.month,
+        day: params.date.day,
+      ),
+      child: StreamDayBody(
+        date: params.date,
+        now: now,
+        onDateChanged: (day) {
+          widget.onDateChanged?.call(day);
+          GoRouter.maybeOf(context)?.go('/stream/${formatStreamDate(day)}/day');
+        },
+        onReturnToNow: widget.onReturnToNow,
+      ),
     );
+    final dock = StreamDockHost(now: now, locale: _captureLocale(context));
 
     return Theme(
       data: theme,
@@ -179,11 +194,11 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
               final layoutMode = streamLayoutModeForWidth(constraints.maxWidth);
               switch (layoutMode) {
                 case StreamLayoutMode.compact:
-                  return _compact(header, body);
+                  return _compact(header, body, dock);
                 case StreamLayoutMode.medium:
-                  return _medium(header, body);
+                  return _medium(header, body, dock);
                 case StreamLayoutMode.expanded:
-                  return _expanded(header, body);
+                  return _expanded(header, body, dock);
               }
             },
           ),
