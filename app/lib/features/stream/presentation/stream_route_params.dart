@@ -5,12 +5,13 @@ library;
 import '../application/stream_level_data.dart';
 
 ///
-/// The date segment is `yyyy-MM-dd`; valid zoom levels are `day`, `week` and
-/// `month`. Invalid or missing values fall back to today's date and `day`.
+/// The date segment is `yyyy-MM-dd`; valid zoom levels are `day`, `week`,
+/// `month` and `year`. Invalid or missing values fall back to today's date and
+/// `day`.
 
 const String streamDefaultZoom = 'day';
 
-const Set<String> _streamZoomLevels = <String>{'day', 'week', 'month'};
+const Set<String> _streamZoomLevels = <String>{'day', 'week', 'month', 'year'};
 
 String? _normalizedStreamZoom(String? value) {
   final normalized = value?.trim().toLowerCase();
@@ -32,6 +33,7 @@ StreamLevel streamLevelForZoom(String? value) =>
     switch (normalizeStreamZoom(value)) {
       'week' => StreamLevel.week,
       'month' => StreamLevel.month,
+      'year' => StreamLevel.year,
       _ => StreamLevel.day,
     };
 

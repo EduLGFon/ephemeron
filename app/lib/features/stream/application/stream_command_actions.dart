@@ -10,10 +10,10 @@ import '../design/stream_theme_mode.dart';
 import '../presentation/commands/command_request.dart';
 import 'stream_theme_provider.dart';
 
-/// Zoom levels the Stream surface can render. The parser also accepts `hour`
-/// and `year`; this unit reports those as unsupported instead of silently
-/// dropping the requested level.
-const Set<String> _supportedZooms = {'day', 'week', 'month'};
+/// Zoom levels the Stream surface can render. The parser also accepts `hour`;
+/// this unit reports it as unsupported instead of silently dropping the
+/// requested level.
+const Set<String> _supportedZooms = {'day', 'week', 'month', 'year'};
 
 /// Focus control is not mapped in this unit: the repository has no focus
 /// pause/resume surface to route to.

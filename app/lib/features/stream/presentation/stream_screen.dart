@@ -11,6 +11,7 @@ import 'package:ephemeron/l10n/src/app_localizations.dart';
 import '../../../../core/time/device_date_format.dart';
 import '../../../../core/ui/app_feedback.dart';
 import '../../../../core/ui/app_sheet.dart';
+import '../../sync/application/sync_providers.dart' show syncAllProvider;
 import '../application/stream_command_actions.dart';
 import '../application/stream_day_cache_scope.dart';
 import '../application/stream_day_mark.dart' show StreamDayMarkKind;
@@ -25,10 +26,13 @@ import 'stream_day_body.dart';
 import 'stream_header.dart';
 import 'stream_layout_mode.dart';
 import 'stream_route_params.dart';
+import 'stream_time_format.dart';
 import 'surface/stream_command_overlay.dart';
 import 'surface/stream_dock_host.dart';
 import 'surface/stream_launcher.dart';
 import 'surface/stream_level_host.dart';
+import 'surface/stream_offline_banner_host.dart';
+import 'surface/stream_peek_sheet.dart';
 import 'surface/stream_school_host.dart';
 import 'surface/stream_settings_sheet.dart';
 
@@ -46,6 +50,7 @@ String _levelLabel(AppLocalizations l, StreamLevel level) => switch (level) {
   StreamLevel.day => l.streamDay,
   StreamLevel.week => l.streamWeek,
   StreamLevel.month => l.streamMonth,
+  StreamLevel.year => l.streamYear,
 };
 
 class StreamScreen extends ConsumerStatefulWidget {
@@ -83,11 +88,13 @@ class StreamScreen extends ConsumerStatefulWidget {
 
 class _StreamScreenState extends ConsumerState<StreamScreen> {
   final ValueNotifier<bool> _paletteOpen = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _agendaOpen = ValueNotifier<bool>(false);
   final FocusNode _shortcutFocus = FocusNode(debugLabel: 'streamShortcuts');
 
   @override
   void dispose() {
     _paletteOpen.dispose();
+    _agendaOpen.dispose();
     _shortcutFocus.dispose();
     super.dispose();
   }
@@ -113,6 +120,14 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
     switch (intent) {
       case StreamCommandGoToDate(:final date):
         router?.go('/stream/${formatStreamDate(date)}/day');
+      case StreamCommandZoom(:final level):
+        final params = _resolveParams();
+        router?.go(
+          '/stream/${formatStreamDate(params.date)}/'
+          '${normalizeStreamZoom(level)}',
+        );
+      case StreamCommandAgenda():
+        _agendaOpen.value = !_agendaOpen.value;
       case StreamCommandSettings():
         router?.push('/settings');
       case StreamCommandSearch():
@@ -126,10 +141,7 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
           context,
           AppLocalizations.of(context).streamCommandFailed,
         );
-      case StreamCommandZoom() ||
-          StreamCommandAgenda() ||
-          StreamCommandHelp() ||
-          StreamCommandUnsupported():
+      case StreamCommandHelp() || StreamCommandUnsupported():
         // Not offered by the palette.
         break;
     }
@@ -222,11 +234,98 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
       emptyLabel: l.streamLevelEmpty,
       loadingLabel: l.streamLevelLoading,
       errorLabel: l.streamLevelError,
+      yearMonthHeading: (month) =>
+          DeviceDateFormat.shortMonthName(context, month),
+      yearMonthSemanticsLabel: (heading, count) =>
+          l.streamMonthDaySemantics(heading, count),
+      yearDaySemanticsLabel: (day, count) => l.streamMonthDaySemantics(
+        DeviceDateFormat.shortDate(context, day),
+        count,
+      ),
+      // Year habit ribbons are not wired in this unit; the label only has to
+      // be present because YearView requires it.
+      yearHabitStreakSemanticsLabel: (_, first, last) =>
+          l.streamMonthStreakSemantics(
+            last.day - first.day + 1,
+            first.day,
+            last.day,
+          ),
       onDayTap: _openDay,
       onDateTap: _openDay,
       // Mark actions stay out of scope: the host exposes no complete, push,
-      // reschedule or delete callbacks, so week mark chips are read-only and
+      // reschedule or delete callbacks, so level mark chips are read-only and
       // onMarkTap is intentionally not wired.
+    );
+  }
+
+  /// Agenda is a lens over the current level's marks, not a zoom level.
+  Widget _agendaFor({
+    required StreamLevel level,
+    required StreamRouteParams params,
+    required AppLocalizations l,
+  }) {
+    return StreamLevelAgenda(
+      level: level,
+      date: params.date,
+      firstDayOfWeek: DateTime.monday,
+      emptyLabel: l.streamLevelEmpty,
+      loadingLabel: l.streamLevelLoading,
+      errorLabel: l.streamLevelError,
+      formatTime: (startMs) => formatStreamTimeOfDay(
+        context,
+        DateTime.fromMillisecondsSinceEpoch(startMs),
+      ),
+      markSemanticsLabel: (mark) => l.streamMarkSemantics(
+        mark.kind == StreamDayMarkKind.task
+            ? l.streamChipKindTask
+            : l.streamChipKindEvent,
+        mark.title,
+      ),
+      dayHeadingBuilder: (day) => DeviceDateFormat.date(context, day),
+      onMarkTap: (mark) => unawaited(showStreamPeek(context, mark: mark)),
+    );
+  }
+
+  Widget _agendaToggle(AppLocalizations l, bool open) => Padding(
+    padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 8, 0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text(l.streamAgenda),
+        const SizedBox(width: 4),
+        Switch(
+          key: const Key('streamAgendaToggle'),
+          value: open,
+          onChanged: (value) => _agendaOpen.value = value,
+        ),
+      ],
+    ),
+  );
+
+  /// Inline offline banner plus the agenda switch above the level body.
+  Widget _levelBody({
+    required StreamLevel level,
+    required StreamRouteParams params,
+    required DateTime now,
+    required AppLocalizations l,
+  }) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: _agendaOpen,
+      builder: (context, agendaOpen, _) => Column(
+        children: [
+          StreamOfflineBannerHost(
+            message: l.streamOfflineMessage,
+            retryLabel: l.streamOfflineRetry,
+            onRetry: () => unawaited(ref.read(syncAllProvider)()),
+          ),
+          _agendaToggle(l, agendaOpen),
+          Expanded(
+            child: agendaOpen
+                ? _agendaFor(level: level, params: params, l: l)
+                : _bodyFor(level: level, params: params, now: now, l: l),
+          ),
+        ],
+      ),
     );
   }
 
@@ -361,7 +460,7 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
         onOpenSettings: _openSettings,
       ),
     );
-    final body = _bodyFor(level: level, params: params, now: now, l: l);
+    final body = _levelBody(level: level, params: params, now: now, l: l);
     final dock = StreamDockHost(now: now, locale: _captureLocale(context));
 
     return Theme(

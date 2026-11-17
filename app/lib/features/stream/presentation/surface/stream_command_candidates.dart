@@ -18,6 +18,11 @@ class StreamCommandOverlayLabels {
     required this.close,
     required this.today,
     required this.tomorrow,
+    required this.day,
+    required this.week,
+    required this.month,
+    required this.year,
+    required this.agenda,
     required this.settings,
     required this.search,
     required this.syncNow,
@@ -35,6 +40,11 @@ class StreamCommandOverlayLabels {
       close: l.streamCommandPaletteClose,
       today: l.streamCommandToday,
       tomorrow: l.streamCommandTomorrow,
+      day: l.streamCommandDay,
+      week: l.streamCommandWeek,
+      month: l.streamCommandMonth,
+      year: l.streamCommandYear,
+      agenda: l.streamCommandAgenda,
       settings: l.streamCommandSettings,
       search: l.streamCommandSearch,
       syncNow: l.streamCommandSyncNow,
@@ -51,6 +61,11 @@ class StreamCommandOverlayLabels {
   final String close;
   final String today;
   final String tomorrow;
+  final String day;
+  final String week;
+  final String month;
+  final String year;
+  final String agenda;
   final String settings;
   final String search;
   final String syncNow;
@@ -69,7 +84,8 @@ class StreamCommandEntry {
   final StreamCommandIntent intent;
 }
 
-/// Today, Tomorrow, Settings, Search, Sync now and the four theme modes.
+/// Today, Tomorrow, the four zoom levels, Agenda, Settings, Search, Sync now
+/// and the four theme modes.
 List<StreamCommandEntry> buildStreamCommandEntries({
   required DateTime now,
   required StreamCommandOverlayLabels labels,
@@ -84,6 +100,26 @@ List<StreamCommandEntry> buildStreamCommandEntries({
     StreamCommandEntry(
       candidate: CommandCandidate(id: 'tomorrow', label: labels.tomorrow),
       intent: StreamCommandGoToDate(tomorrow),
+    ),
+    StreamCommandEntry(
+      candidate: CommandCandidate(id: 'day', label: labels.day),
+      intent: const StreamCommandZoom('day'),
+    ),
+    StreamCommandEntry(
+      candidate: CommandCandidate(id: 'week', label: labels.week),
+      intent: const StreamCommandZoom('week'),
+    ),
+    StreamCommandEntry(
+      candidate: CommandCandidate(id: 'month', label: labels.month),
+      intent: const StreamCommandZoom('month'),
+    ),
+    StreamCommandEntry(
+      candidate: CommandCandidate(id: 'year', label: labels.year),
+      intent: const StreamCommandZoom('year'),
+    ),
+    StreamCommandEntry(
+      candidate: CommandCandidate(id: 'agenda', label: labels.agenda),
+      intent: const StreamCommandAgenda(),
     ),
     StreamCommandEntry(
       candidate: CommandCandidate(id: 'settings', label: labels.settings),

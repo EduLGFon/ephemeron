@@ -57,6 +57,8 @@
   "streamDay": "Dia",
   "streamWeek": "Semana",
   "streamMonth": "Mês",
+  "streamYear": "Ano",
+  "streamAgenda": "Agenda",
   "streamLevelEmpty": "Nada agendado aqui",
   "streamLevelLoading": "Carregando marcas",
   "streamLevelError": "Não foi possível carregar as marcas",
@@ -205,6 +207,11 @@
   "streamCommandPaletteClose": "Fechar paleta de comandos",
   "streamCommandToday": "Hoje",
   "streamCommandTomorrow": "Amanhã",
+  "streamCommandDay": "Dia",
+  "streamCommandWeek": "Semana",
+  "streamCommandMonth": "Mês",
+  "streamCommandYear": "Ano",
+  "streamCommandAgenda": "Agenda",
   "streamCommandSettings": "Ajustes",
   "streamCommandSearch": "Buscar",
   "streamCommandSyncNow": "Sincronizar agora",
@@ -216,5 +223,7 @@
   "streamSyncSynced": "Sincronizado",
   "streamSyncSyncing": "Sincronizando",
   "streamSyncOffline": "Offline",
-  "streamSyncAttention": "Sincronização precisa de atenção"
+  "streamSyncAttention": "Sincronização precisa de atenção",
+  "streamOfflineMessage": "Você está offline. As alterações serão sincronizadas quando a conexão voltar.",
+  "streamOfflineRetry": "Tentar novamente"
 }
