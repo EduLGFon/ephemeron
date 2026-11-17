@@ -129,6 +129,7 @@ import 'cases/stream_theme_case.dart' as stream_theme;
 import 'cases/stream_theme_preferences_case.dart' as stream_theme_preferences;
 import 'cases/stream_time_viewport_case.dart' as stream_time_viewport;
 import 'cases/stream_tray_chip_case.dart' as stream_tray_chip;
+import 'cases/stream_tray_data_case.dart' as stream_tray_data;
 import 'cases/stream_tray_panel_grouping_case.dart'
     as stream_tray_panel_grouping;
 import 'cases/stream_tray_panel_interaction_case.dart'
@@ -302,6 +303,7 @@ const _included = <String>{
   'stream_theme_preferences_case.dart',
   'stream_time_viewport_case.dart',
   'stream_tray_chip_case.dart',
+  'stream_tray_data_case.dart',
   'stream_tray_panel_grouping_case.dart',
   'stream_tray_panel_interaction_case.dart',
   'stream_tray_strip_case.dart',
@@ -481,6 +483,7 @@ void main() {
   group('stream_theme_preferences', stream_theme_preferences.main);
   group('stream_time_viewport', stream_time_viewport.main);
   group('stream_tray_chip', stream_tray_chip.main);
+  group('stream_tray_data', stream_tray_data.main);
   group('stream_tray_panel_grouping', stream_tray_panel_grouping.main);
   group('stream_tray_panel_interaction', stream_tray_panel_interaction.main);
   group('stream_tray_strip', stream_tray_strip.main);
