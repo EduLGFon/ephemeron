@@ -96,6 +96,9 @@ import 'cases/stream_capture_parser_case.dart' as stream_capture_parser;
 import 'cases/stream_chrome_widgets_case.dart' as stream_chrome_widgets;
 import 'cases/stream_command_palette_case.dart' as stream_command_palette;
 import 'cases/stream_command_parser_case.dart' as stream_command_parser;
+import 'cases/stream_countdown_edge_case.dart' as stream_countdown_edge;
+import 'cases/stream_countdown_landmark_case.dart' as stream_countdown_landmark;
+import 'cases/stream_countdown_math_case.dart' as stream_countdown_math;
 import 'cases/stream_culler_case.dart' as stream_culler;
 import 'cases/stream_focus_case.dart' as stream_focus;
 import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
@@ -249,6 +252,9 @@ const _included = <String>{
   'stream_chrome_widgets_case.dart',
   'stream_command_palette_case.dart',
   'stream_command_parser_case.dart',
+  'stream_countdown_edge_case.dart',
+  'stream_countdown_landmark_case.dart',
+  'stream_countdown_math_case.dart',
   'stream_culler_case.dart',
   'stream_focus_case.dart',
   'stream_fuzzy_case.dart',
@@ -408,6 +414,9 @@ void main() {
   group('stream_chrome_widgets', stream_chrome_widgets.main);
   group('stream_command_palette', stream_command_palette.main);
   group('stream_command_parser', stream_command_parser.main);
+  group('stream_countdown_edge', stream_countdown_edge.main);
+  group('stream_countdown_landmark', stream_countdown_landmark.main);
+  group('stream_countdown_math', stream_countdown_math.main);
   group('stream_culler', stream_culler.main);
   group('stream_focus', stream_focus.main);
   group('stream_fuzzy', stream_fuzzy.main);
