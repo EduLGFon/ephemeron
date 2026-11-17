@@ -12,6 +12,7 @@ import 'package:ephemeron/features/stream/presentation/chrome/time_rail.dart';
 import 'package:ephemeron/features/stream/presentation/stream_screen.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/now_line.dart';
 import 'package:ephemeron/features/stream/presentation/stream_time_format.dart';
+import 'package:ephemeron/features/stream/presentation/surface/stream_launcher.dart';
 import 'package:ephemeron/features/stream/stream_flags.dart';
 import 'package:ephemeron/features/stream/presentation/stream_route_params.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
@@ -82,6 +83,43 @@ List<Override> _overrides() => <Override>[
     () => _FixedStreamThemeNotifier(StreamThemeMode.dark),
   ),
 ];
+
+/// Minimal stand-in for the app router: the Stream route plus the launcher's
+/// destinations. The real shell routes cannot be pushed from a bare test
+/// router, so this asserts the navigation intent only.
+GoRouter _launcherRouter() => GoRouter(
+  initialLocation: '/stream/2026-11-17/day',
+  routes: [
+    GoRoute(
+      path: '/stream/:date/:zoom',
+      builder: (context, state) => StreamScreen(
+        date: tryParseStreamDate(state.pathParameters['date']),
+        zoom: state.pathParameters['zoom'],
+      ),
+    ),
+    for (var i = 0; i < 7; i++)
+      GoRoute(path: '/tab$i', builder: (_, _) => Text('tab$i')),
+    GoRoute(path: '/search', builder: (_, _) => const Text('search')),
+    GoRoute(path: '/settings', builder: (_, _) => const Text('settings')),
+  ],
+);
+
+Widget _routerApp(GoRouter router) => ProviderScope(
+  overrides: _overrides(),
+  child: MaterialApp.router(
+    routerConfig: router,
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+  ),
+);
+
+/// Pushed routes are imperative matches, so [RouteMatchList.uri] keeps
+/// reporting the base location; the last match is the visible one.
+String _location(GoRouter router) =>
+    router.routerDelegate.currentConfiguration.last.matchedLocation;
 
 void main() {
   test('streamUiEnabled defaults to false', () {
@@ -551,5 +589,61 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(NowLine), findsNothing);
+  });
+
+  testWidgets('header menu opens the launcher', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_routerApp(_launcherRouter()));
+    await tester.pumpAndSettle();
+
+    final header = tester.widget<StreamHeader>(find.byType(StreamHeader));
+    expect(header.menuLabel, isNotNull);
+    expect(header.menuLabel, isNotEmpty);
+    expect(find.bySemanticsLabel(header.menuLabel!), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('streamHeaderMenu')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StreamLauncher), findsOneWidget);
+    expect(
+      find.byKey(const Key('streamLauncherDestination-tasks')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('launcher destinations navigate and close the sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const destinations = <StreamLauncherDestination, String>{
+      StreamLauncherDestination.tasks: '/tab1',
+      StreamLauncherDestination.settings: '/settings',
+      StreamLauncherDestination.search: '/search',
+    };
+    for (final entry in destinations.entries) {
+      final router = _launcherRouter();
+      await tester.pumpWidget(_routerApp(router));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('streamHeaderMenu')));
+      await tester.pumpAndSettle();
+      expect(find.byType(StreamLauncher), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(Key('streamLauncherDestination-${entry.key.name}')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_location(router), entry.value);
+      expect(find.byType(StreamLauncher), findsNothing);
+    }
   });
 }

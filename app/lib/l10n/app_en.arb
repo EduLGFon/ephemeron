@@ -55,5 +55,11 @@
   "streamNow": "Now",
   "streamDay": "Day",
   "streamSettings": "Settings",
-  "streamScrubber": "Timeline position"
+  "streamScrubber": "Timeline position",
+  "streamLauncherTitle": "Go to",
+  "streamLauncherClose": "Close",
+  "streamLauncherMenu": "Open sections menu",
+  "streamLauncherCalendar": "Calendar",
+  "streamLauncherMatrix": "Matrix",
+  "streamLauncherFocus": "Focus"
 }
