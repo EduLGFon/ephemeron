@@ -42,8 +42,13 @@ class StreamTimeViewport extends ChangeNotifier {
   void notify() => notifyListeners();
 
   @override
+  void dispose() {
+    _offsetPxListenable.dispose();
+    super.dispose();
+  }
+
+  @override
   void notifyListeners() {
-    _offsetPxListenable.value = _offsetPx;
     super.notifyListeners();
   }
 

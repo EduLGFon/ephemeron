@@ -13,7 +13,7 @@ import '../../design/stream_tokens.dart';
 class TimeRail extends StatelessWidget {
   const TimeRail({
     super.key,
-    required this.hourCount,
+    this.hourCount,
     required this.hourHeight,
     this.hourLabels,
     this.hourLabelBuilder,
@@ -22,7 +22,7 @@ class TimeRail extends StatelessWidget {
     this.viewportHeight,
   });
 
-  final int hourCount;
+  final int? hourCount;
   final double hourHeight;
   final List<String>? hourLabels;
   final String Function(int index)? hourLabelBuilder;
@@ -53,9 +53,17 @@ class TimeRail extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final vh = viewportHeight ?? constraints.maxHeight;
-        final first = (offset / hourHeight).floor().clamp(0, hourCount);
-        final visibleCount = (vh / hourHeight).ceil() + 2;
-        final last = (first + visibleCount).clamp(0, hourCount);
+        var first = (offset / hourHeight).floor().toInt();
+        final visibleCount = (vh / hourHeight).ceil() + 1;
+        var last = first + visibleCount;
+        if (hourCount != null) {
+          if (first >= hourCount!) {
+            first = hourCount!;
+            last = hourCount!;
+          } else {
+            last = last.clamp(first, hourCount!);
+          }
+        }
         final children = <Widget>[];
         for (var i = first; i < last; i++) {
           children.add(

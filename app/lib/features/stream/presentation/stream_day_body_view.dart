@@ -65,11 +65,10 @@ class StreamDayBodyView extends StatelessWidget {
                 child: ListenableBuilder(
                   listenable: viewport,
                   builder: (context, _) => TimeRail(
-                    hourCount: 24,
                     hourHeight: 60.0 / viewport.minutesPerPixel,
                     hourLabelBuilder: (i) => formatStreamTimeOfDay(
                       context,
-                      DateTime(date.year, date.month, date.day, i),
+                      date.add(Duration(hours: i)),
                     ),
                     scrollOffsetListenable: viewport.offsetPxListenable,
                   ),

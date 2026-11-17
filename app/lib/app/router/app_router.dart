@@ -122,7 +122,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         final match = RegExp(r'^/stream/([^/]+)/([^/]+)/?$')
             .firstMatch(state.uri.path);
         if (match != null && match.group(2) != 'day') {
-          return '/stream/${match.group(1)}/day';
+          final query = state.uri.hasQuery ? '?${state.uri.query}' : '';
+          return '/stream/${match.group(1)}/day$query';
         }
       }
       // Widget taps deliver ephemeron://widget/... through the platform

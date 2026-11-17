@@ -15,12 +15,14 @@ class StreamDayBody extends ConsumerStatefulWidget {
     super.key,
     required this.date,
     this.now,
+    this.clock,
     this.onDateChanged,
     this.onReturnToNow,
   });
 
   final DateTime date;
   final DateTime? now;
+  final DateTime Function()? clock;
   final ValueChanged<DateTime>? onDateChanged;
   final VoidCallback? onReturnToNow;
 
@@ -33,8 +35,10 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
   late final ValueNotifier<String> _timeLabel;
   late final ValueNotifier<bool> _away;
   Timer? _timer;
+  int _centerRetries = 0;
+  static const int _maxCenterRetries = 5;
 
-  DateTime get _now => widget.now ?? DateTime.now();
+  DateTime get _now => widget.clock?.call() ?? widget.now ?? DateTime.now();
 
   DateTime get _dayStart =>
       DateTime(widget.date.year, widget.date.month, widget.date.day);
@@ -56,12 +60,12 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
     _away = ValueNotifier<bool>(false);
     _timer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (!mounted) return;
-      _timeLabel.value = formatStreamTimeOfDay(context, DateTime.now());
+      _timeLabel.value = formatStreamTimeOfDay(context, _now);
     });
     _viewport.addListener(_updateAway);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _timeLabel.value = formatStreamTimeOfDay(context, DateTime.now());
+      _timeLabel.value = formatStreamTimeOfDay(context, _now);
       _centerViewport();
       _updateAway();
     });
@@ -71,6 +75,7 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
   void didUpdateWidget(covariant StreamDayBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.date != widget.date) {
+      _centerRetries = 0;
       _viewport.removeListener(_updateAway);
       _viewport.dispose();
       _viewport = StreamTimeViewport(
@@ -100,12 +105,17 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
     if (!_isToday) {
       _viewport.setOffset(8 * 60 / _viewport.minutesPerPixel);
       _away.value = false;
+      _centerRetries = 0;
       return;
     }
     if (height <= 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _centerViewport());
+      if (_centerRetries < _maxCenterRetries) {
+        _centerRetries++;
+        WidgetsBinding.instance.addPostFrameCallback((_) => _centerViewport());
+      }
       return;
     }
+    _centerRetries = 0;
     final nowMs = _now.millisecondsSinceEpoch;
     final offset =
         (nowMs - _viewport.baseEpochMs) /

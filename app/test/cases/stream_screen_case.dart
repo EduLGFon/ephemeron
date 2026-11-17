@@ -40,7 +40,7 @@ final _fakeMarks = List<StreamDayMark>.generate(
 );
 
 Widget _app({
-  required List overrides,
+  required List<Override> overrides,
   required DateTime date,
   VoidCallback? onOpenCommand,
   VoidCallback? onOpenSettings,
@@ -51,7 +51,7 @@ Widget _app({
   Widget? homeOverride,
 }) {
   return ProviderScope(
-    overrides: overrides.cast(),
+    overrides: overrides,
     child: MaterialApp(
       localizationsDelegates: const [
         AppLocalizations.delegate,
@@ -73,7 +73,7 @@ Widget _app({
   );
 }
 
-List _overrides() => <Override>[
+List<Override> _overrides() => <Override>[
   streamMarksForDayProvider.overrideWith(
     (ref, key) async => StreamDayMarks(marks: _fakeMarks, skippedCount: 0),
   ),
@@ -148,7 +148,7 @@ void main() {
     final now = DateTime(2026, 11, 17, 22, 9);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: _overrides().cast(),
+        overrides: _overrides(),
         child: MaterialApp(
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -177,7 +177,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: _overrides().cast(),
+        overrides: _overrides(),
         child: MaterialApp(
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -356,7 +356,7 @@ void main() {
     );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: _overrides().cast(),
+        overrides: _overrides(),
         child: MaterialApp.router(
           routerConfig: router,
           localizationsDelegates: const [
