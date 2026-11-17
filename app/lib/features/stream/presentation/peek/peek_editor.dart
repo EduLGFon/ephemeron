@@ -1,7 +1,13 @@
 import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 
+import 'peek_actions.dart';
 import 'peek_data.dart';
+import 'peek_list_selector.dart';
+import 'peek_notes_field.dart';
+import 'peek_priority_row.dart';
+import 'peek_time_row.dart';
+import 'peek_title_field.dart';
 
 /// Inline editor body for a Stream Peek.
 class PeekEditor extends StatefulWidget {
@@ -23,13 +29,19 @@ class PeekEditor extends StatefulWidget {
     this.endLabel,
     this.listLabel,
     this.notesLabel,
+    this.addEndLabel,
+    this.clearEndLabel,
+    this.emptyTitleLabel,
+    this.endBeforeStartLabel,
     this.priorityIcons = const [
       Icons.flag_outlined,
       Icons.flag,
       Icons.priority_high,
       Icons.whatshot,
     ],
-  });
+    this.titleKey,
+  }) : assert(priorityLabels.length == 4),
+       assert(priorityIcons.length == 4);
 
   final PeekData data;
   final String Function(int ms) formatTime;
@@ -47,7 +59,12 @@ class PeekEditor extends StatefulWidget {
   final String? endLabel;
   final String? listLabel;
   final String? notesLabel;
+  final String? addEndLabel;
+  final String? clearEndLabel;
+  final String? emptyTitleLabel;
+  final String? endBeforeStartLabel;
   final List<IconData> priorityIcons;
+  final Key? titleKey;
 
   @override
   State<PeekEditor> createState() => PeekEditorState();
@@ -60,24 +77,60 @@ class PeekEditorState extends State<PeekEditor> {
   late final TextEditingController _notes = TextEditingController(
     text: widget.data.notes ?? '',
   );
+  late final FocusNode titleFocusNode = FocusNode();
+  late PeekData _baseline = widget.data;
   late int _startMs = widget.data.startMs;
   late int? _endMs = widget.data.endMs;
   late String? _listId = widget.data.listId;
   late String? _listName = widget.data.listName;
   late PeekPriority _priority = widget.data.priority;
-
-  final FocusNode _rootFocus = FocusNode();
+  String? _titleError;
+  String? _endError;
 
   bool get hasChanges {
-    return _title.text != widget.data.title ||
-        _startMs != widget.data.startMs ||
-        _endMs != widget.data.endMs ||
-        _listId != widget.data.listId ||
-        _priority != widget.data.priority ||
-        (_notes.text) != (widget.data.notes ?? '');
+    return _title.text != _baseline.title ||
+        _startMs != _baseline.startMs ||
+        _endMs != _baseline.endMs ||
+        _listId != _baseline.listId ||
+        _priority != _baseline.priority ||
+        (_notes.text) != (_baseline.notes ?? '');
+  }
+
+  void _reseed(PeekData data) {
+    _title.text = data.title;
+    _notes.text = data.notes ?? '';
+    _startMs = data.startMs;
+    _endMs = data.endMs;
+    _listId = data.listId;
+    _listName = data.listName;
+    _priority = data.priority;
+    _baseline = data;
+    _titleError = null;
+    _endError = null;
+  }
+
+  @override
+  void didUpdateWidget(covariant PeekEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.data.id != oldWidget.data.id) {
+      _reseed(widget.data);
+    } else if (!hasChanges && widget.data != oldWidget.data) {
+      _reseed(widget.data);
+    }
+    // If the user is dirty and the same mark changes, keep the user's edit.
   }
 
   void _save() {
+    if (_title.text.trim().isEmpty) {
+      setState(() => _titleError = widget.emptyTitleLabel);
+      return;
+    }
+    if (_endMs != null && _endMs! < _startMs) {
+      setState(() => _endError = widget.endBeforeStartLabel);
+      return;
+    }
+    _titleError = null;
+    _endError = null;
     widget.onSave(
       PeekEdit(
         title: _title.text,
@@ -98,19 +151,30 @@ class PeekEditorState extends State<PeekEditor> {
     }
   }
 
+  Future<void> _pickStart() async {
+    if (widget.onPickTime == null) return;
+    final v = await widget.onPickTime!(context, _startMs);
+    if (v != null) setState(() => _startMs = v);
+  }
+
+  Future<void> _pickEnd() async {
+    if (widget.onPickTime == null) return;
+    final current = _endMs ?? _startMs + 30 * 60 * 1000;
+    final v = await widget.onPickTime!(context, current);
+    setState(() => _endMs = v);
+  }
+
   @override
   void dispose() {
     _title.dispose();
     _notes.dispose();
-    _rootFocus.dispose();
+    titleFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Focus(
-      focusNode: _rootFocus,
-      autofocus: false,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
@@ -123,51 +187,32 @@ class PeekEditorState extends State<PeekEditor> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
+            PeekTitleField(
+              key: widget.titleKey ?? const ValueKey('peek_title_field'),
               controller: _title,
-              autofocus: true,
-              decoration: InputDecoration(labelText: widget.titleLabel),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _save(),
+              focusNode: titleFocusNode,
+              label: widget.titleLabel,
+              errorText: _titleError,
+              onSubmitted: _save,
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _TimeField(
-                    label: widget.startLabel,
-                    value: widget.formatTime(_startMs),
-                    onTap: widget.onPickTime == null
-                        ? null
-                        : () async {
-                            final v = await widget.onPickTime!(
-                              context,
-                              _startMs,
-                            );
-                            if (v != null) setState(() => _startMs = v);
-                          },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _TimeField(
-                    label: widget.endLabel,
-                    value: _endMs == null ? '' : widget.formatTime(_endMs!),
-                    onTap: widget.onPickTime == null || _endMs == null
-                        ? null
-                        : () async {
-                            final v = await widget.onPickTime!(
-                              context,
-                              _endMs!,
-                            );
-                            if (v != null) setState(() => _endMs = v);
-                          },
-                  ),
-                ),
-              ],
+            PeekTimeRow(
+              formatTime: widget.formatTime,
+              startMs: _startMs,
+              endMs: _endMs,
+              startLabel: widget.startLabel,
+              endLabel: widget.endLabel,
+              addEndLabel: widget.addEndLabel,
+              clearEndLabel: widget.clearEndLabel,
+              endErrorText: _endError,
+              onPickStart: _pickStart,
+              onPickEnd: _pickEnd,
+              onClearEnd: widget.clearEndLabel == null
+                  ? null
+                  : () => setState(() => _endMs = null),
             ),
             const SizedBox(height: 8),
-            _ListSelector(
+            PeekListSelector(
               label: widget.listLabel,
               options: widget.listOptions,
               listId: _listId,
@@ -179,116 +224,23 @@ class PeekEditorState extends State<PeekEditor> {
               }),
             ),
             const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SegmentedButton<PeekPriority>(
-                segments: [
-                  for (var i = 0; i < PeekPriority.values.length; i++)
-                    ButtonSegment<PeekPriority>(
-                      value: PeekPriority.values[i],
-                      label: Text(widget.priorityLabels[i]),
-                      icon: Icon(widget.priorityIcons[i]),
-                    ),
-                ],
-                selected: {_priority},
-                onSelectionChanged: (s) => setState(() => _priority = s.single),
-              ),
+            PeekPriorityRow(
+              labels: widget.priorityLabels,
+              icons: widget.priorityIcons,
+              value: _priority,
+              onChanged: (p) => setState(() => _priority = p),
             ),
             const SizedBox(height: 8),
-            // Notes field height range: 72..160 dp.
-            SizedBox(
-              height: 120,
-              child: TextField(
-                controller: _notes,
-                decoration: InputDecoration(labelText: widget.notesLabel),
-                maxLines: null,
-                expands: true,
-                keyboardType: TextInputType.multiline,
-              ),
-            ),
+            PeekNotesField(controller: _notes, label: widget.notesLabel),
             const SizedBox(height: 8),
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              children: [
-                TextButton(onPressed: _cancel, child: Text(widget.cancelLabel)),
-                FilledButton(onPressed: _save, child: Text(widget.saveLabel)),
-              ],
+            PeekActions(
+              saveLabel: widget.saveLabel,
+              cancelLabel: widget.cancelLabel,
+              onSave: _save,
+              onCancel: _cancel,
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _TimeField extends StatelessWidget {
-  const _TimeField({this.label, required this.value, this.onTap});
-  final String? label;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: InputDecorator(
-        decoration: InputDecoration(labelText: label),
-        child: Text(value),
-      ),
-    );
-  }
-}
-
-class _ListSelector extends StatelessWidget {
-  const _ListSelector({
-    this.label,
-    this.options,
-    required this.listId,
-    required this.listName,
-    this.onPickList,
-    required this.onChanged,
-  });
-
-  final String? label;
-  final List<PeekListOption>? options;
-  final String? listId;
-  final String? listName;
-  final Future<String?> Function(BuildContext context)? onPickList;
-  final void Function(String? id, String? name) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    if (options != null && options!.isNotEmpty) {
-      return DropdownButtonFormField<String?>(
-        initialValue: listId,
-        decoration: InputDecoration(labelText: label),
-        items: [
-          const DropdownMenuItem<String?>(
-            value: null,
-            child: SizedBox.shrink(),
-          ),
-          for (final o in options!)
-            DropdownMenuItem<String?>(value: o.id, child: Text(o.name)),
-        ],
-        onChanged: (v) {
-          final name = v == null
-              ? null
-              : options!.firstWhere((o) => o.id == v).name;
-          onChanged(v, name);
-        },
-      );
-    }
-    return InkWell(
-      onTap: onPickList == null
-          ? null
-          : () async {
-              final v = await onPickList!(context);
-              onChanged(v, listName);
-            },
-      child: InputDecorator(
-        decoration: InputDecoration(labelText: label),
-        child: Text(listName ?? ''),
       ),
     );
   }

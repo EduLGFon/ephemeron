@@ -12,6 +12,7 @@ class PeekPanel extends StatefulWidget {
     required this.data,
     this.expanded = true,
     this.expandedListenable,
+    this.editorKey,
     required this.formatTime,
     required this.priorityLabels,
     required this.saveLabel,
@@ -25,11 +26,16 @@ class PeekPanel extends StatefulWidget {
     this.listOptions,
     this.onPickTime,
     this.onPickList,
+    this.addEndLabel,
+    this.clearEndLabel,
+    this.emptyTitleLabel,
+    this.endBeforeStartLabel,
   });
 
   final PeekData data;
   final bool expanded;
   final ValueListenable<bool>? expandedListenable;
+  final GlobalKey<PeekEditorState>? editorKey;
   final String Function(int ms) formatTime;
   final List<String> priorityLabels;
   final String saveLabel;
@@ -43,28 +49,35 @@ class PeekPanel extends StatefulWidget {
   final List<PeekListOption>? listOptions;
   final Future<int?> Function(BuildContext context, int currentMs)? onPickTime;
   final Future<String?> Function(BuildContext context)? onPickList;
+  final String? addEndLabel;
+  final String? clearEndLabel;
+  final String? emptyTitleLabel;
+  final String? endBeforeStartLabel;
 
   @override
   State<PeekPanel> createState() => _PeekPanelState();
 }
 
 class _PeekPanelState extends State<PeekPanel> {
-  bool _expanded = true;
+  late bool _expanded = widget.expanded;
+  late ValueListenable<bool>? _listenable = widget.expandedListenable;
+  late final GlobalKey<PeekEditorState> _editorKey =
+      widget.editorKey ?? GlobalKey<PeekEditorState>();
 
   @override
   void initState() {
     super.initState();
-    _expanded = widget.expanded;
-    widget.expandedListenable?.addListener(_onListen);
+    _listenable?.addListener(_onListen);
   }
 
   void _onListen() {
-    setState(() => _expanded = widget.expandedListenable!.value);
+    if (_listenable == null) return;
+    setState(() => _expanded = _listenable!.value);
   }
 
   @override
   void dispose() {
-    widget.expandedListenable?.removeListener(_onListen);
+    _listenable?.removeListener(_onListen);
     super.dispose();
   }
 
@@ -75,10 +88,25 @@ class _PeekPanelState extends State<PeekPanel> {
         widget.expandedListenable == null) {
       _expanded = widget.expanded;
     }
+    if (oldWidget.expandedListenable != widget.expandedListenable) {
+      _listenable?.removeListener(_onListen);
+      _listenable = widget.expandedListenable;
+      _listenable?.addListener(_onListen);
+      if (_listenable != null) {
+        _expanded = _listenable!.value;
+      }
+    }
+  }
+
+  bool get _isDirty {
+    if (_editorKey.currentState != null) {
+      return _editorKey.currentState!.hasChanges;
+    }
+    return widget.isDirty?.call() ?? false;
   }
 
   void _close() {
-    if (widget.isDirty != null && widget.isDirty!()) {
+    if (_isDirty) {
       widget.onDiscardRequested();
     } else {
       widget.onCancel();
@@ -103,6 +131,7 @@ class _PeekPanelState extends State<PeekPanel> {
                 ],
               ),
               PeekEditor(
+                key: _editorKey,
                 data: widget.data,
                 formatTime: widget.formatTime,
                 priorityLabels: widget.priorityLabels,
@@ -114,6 +143,10 @@ class _PeekPanelState extends State<PeekPanel> {
                 listOptions: widget.listOptions,
                 onPickTime: widget.onPickTime,
                 onPickList: widget.onPickList,
+                addEndLabel: widget.addEndLabel,
+                clearEndLabel: widget.clearEndLabel,
+                emptyTitleLabel: widget.emptyTitleLabel,
+                endBeforeStartLabel: widget.endBeforeStartLabel,
               ),
             ],
           )
