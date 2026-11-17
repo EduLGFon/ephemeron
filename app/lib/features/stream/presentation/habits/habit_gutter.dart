@@ -32,7 +32,7 @@ class HabitGutter extends StatelessWidget {
   final double Function(int timeMinutes)? timeToY;
   final double hourHeight;
   final double topOffset;
-  final String? currentDayKey;
+  final String currentDayKey;
   final double scrollOffset;
   final double allDaySlotHeight;
   final void Function(HabitGutterItem item)? onLongPress;
@@ -129,7 +129,6 @@ class HabitGutter extends StatelessWidget {
   }
 
   bool _isDone(HabitGutterItem item) {
-    if (currentDayKey == null) return false;
     return item.doneByDay[currentDayKey] ?? false;
   }
 }

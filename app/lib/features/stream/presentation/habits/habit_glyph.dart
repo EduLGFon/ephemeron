@@ -5,8 +5,9 @@ import '../../design/stream_tokens.dart';
 /// Returns black or white depending on the luminance of [color], so the check
 /// mark stays visible on any hue.
 Color contrastColorFor(Color color) {
+  // Aligned with painter_helpers.dart (_contrast uses 0.55) for consistency.
   final luminance = color.computeLuminance();
-  return luminance > 0.5 ? Colors.black : Colors.white;
+  return luminance > 0.55 ? Colors.black : Colors.white;
 }
 
 /// Small habit glyph. Done state is conveyed by filled vs outlined shape plus

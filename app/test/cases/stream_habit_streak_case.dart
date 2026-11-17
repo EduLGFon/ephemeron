@@ -31,6 +31,16 @@ void main() {
     expect(layout.dots, 0);
   });
 
+  test('pure layout: single day draws a dot', () {
+    final layout = computeHabitStreakLayout(
+      done: const [true],
+      showDots: true,
+      progress: 1,
+    );
+    expect(layout.dots, 1);
+    expect(layout.filledDots, 1);
+  });
+
   test('pure keys: DST transition unique', () {
     final keys = habitStreakDayKeys(
       dayCount: 10,
@@ -51,7 +61,6 @@ void main() {
             dayKeys: const ['0', '1', '2'],
             cellWidth: 40,
             colorArgb: 0xFF4CAF50,
-            currentDayKey: '0',
             weekLevel: false,
             semanticsLabel: 'Habit',
             streakCurrent: 3,
@@ -76,7 +85,6 @@ void main() {
             dayKeys: const ['0', '1', '2'],
             cellWidth: 40,
             colorArgb: 0xFF4CAF50,
-            currentDayKey: '0',
             weekLevel: false,
           ),
         ),
@@ -97,7 +105,6 @@ void main() {
             dayKeys: const ['0'],
             cellWidth: 40,
             colorArgb: 0xFF4CAF50,
-            currentDayKey: '0',
             weekLevel: true,
           ),
         ),
@@ -110,7 +117,10 @@ void main() {
   testWidgets('a Month range with 31 days is deterministic', (tester) async {
     final done = <String, bool>{};
     for (var i = 0; i < 31; i++) {
-      done['$i'] = i % 2 == 0;
+      final d = DateTime(2026, 1, 1 + i);
+      final key =
+          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      done[key] = i % 2 == 0;
     }
     await tester.pumpWidget(
       MaterialApp(
@@ -123,7 +133,6 @@ void main() {
             startDate: DateTime(2026, 1, 1),
             cellWidth: 10,
             colorArgb: 0xFF4CAF50,
-            currentDayKey: '0',
             weekLevel: false,
           ),
         ),
@@ -144,7 +153,6 @@ void main() {
             dayCount: 0,
             cellWidth: 40,
             colorArgb: 0xFF4CAF50,
-            currentDayKey: '0',
             weekLevel: false,
           ),
         ),
@@ -155,18 +163,24 @@ void main() {
   });
 
   testWidgets('DST transition yields unique day keys', (tester) async {
+    final done = <String, bool>{};
+    for (var i = 0; i < 10; i++) {
+      final d = DateTime(2026, 10, 30 + i);
+      final key =
+          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      done[key] = i.isEven;
+    }
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(
           width: 10 * 20,
           height: 24,
           child: HabitStreakLine(
-            doneByDay: const {},
+            doneByDay: done,
             dayCount: 10,
             startDate: DateTime(2026, 10, 30),
             cellWidth: 20,
             colorArgb: 0xFF4CAF50,
-            currentDayKey: '0',
             weekLevel: false,
           ),
         ),
@@ -189,7 +203,6 @@ void main() {
               dayKeys: const ['0', '1'],
               cellWidth: 40,
               colorArgb: 0xFF4CAF50,
-              currentDayKey: '0',
               weekLevel: true,
             ),
           ),
@@ -211,7 +224,6 @@ void main() {
             dayKeys: const ['0'],
             cellWidth: 40,
             colorArgb: 0xFF4CAF50,
-            currentDayKey: '0',
             weekLevel: true,
             semanticsLabel: 'Habit',
             streakCurrent: 5,

@@ -8,7 +8,7 @@ List<String> habitStreakDayKeys({
   int? dayCount,
   DateTime? startDate,
 }) {
-  if (dayKeys != null) return dayKeys;
+  if (dayKeys != null) return List.unmodifiable(dayKeys);
   final count = dayCount ?? 0;
   if (count <= 0) return const <String>[];
   assert(startDate != null, 'startDate is required when dayCount > 0');
@@ -28,11 +28,21 @@ class HabitStreakLayout {
     required this.segments,
     required this.dots,
     required this.filledDots,
+    required this.visibleCount,
+    required this.segmentStarts,
+    required this.filledDotIndices,
+    required this.emptyDotIndices,
+    required this.isEmpty,
   });
 
   final int segments;
   final int dots;
   final int filledDots;
+  final int visibleCount;
+  final List<int> segmentStarts;
+  final List<int> filledDotIndices;
+  final List<int> emptyDotIndices;
+  final bool isEmpty;
 }
 
 HabitStreakLayout computeHabitStreakLayout({
@@ -41,20 +51,29 @@ HabitStreakLayout computeHabitStreakLayout({
   required double progress,
 }) {
   final visibleCount = (done.length * progress).ceil().clamp(0, done.length);
-  var segments = 0;
+  final segmentStarts = <int>[];
   for (var i = 0; i + 1 < visibleCount; i++) {
-    if (done[i] && done[i + 1]) segments++;
+    if (done[i] && done[i + 1]) segmentStarts.add(i);
   }
+  final segments = segmentStarts.length;
+  final filledDotIndices = <int>[];
+  final emptyDotIndices = <int>[];
   var dots = 0;
   var filledDots = 0;
   if (showDots) {
-    dots = visibleCount;
     for (var i = 0; i < visibleCount; i++) {
-      if (done[i]) filledDots++;
+      if (done[i]) {
+        filledDotIndices.add(i);
+        filledDots++;
+      } else {
+        emptyDotIndices.add(i);
+      }
     }
+    dots = visibleCount;
   } else {
     for (var i = 0; i < visibleCount; i++) {
       if (done[i]) {
+        filledDotIndices.add(i);
         dots++;
         filledDots++;
       }
@@ -64,6 +83,11 @@ HabitStreakLayout computeHabitStreakLayout({
     segments: segments,
     dots: dots,
     filledDots: filledDots,
+    visibleCount: visibleCount,
+    segmentStarts: List.unmodifiable(segmentStarts),
+    filledDotIndices: List.unmodifiable(filledDotIndices),
+    emptyDotIndices: List.unmodifiable(emptyDotIndices),
+    isEmpty: done.isEmpty,
   );
 }
 
@@ -74,7 +98,7 @@ class HabitStreakLine extends StatelessWidget {
     required this.doneByDay,
     required this.cellWidth,
     required this.colorArgb,
-    required this.currentDayKey,
+    this.currentDayKey,
     this.dayKeys,
     this.dayCount,
     this.startDate,
@@ -89,7 +113,10 @@ class HabitStreakLine extends StatelessWidget {
   final Map<String, bool> doneByDay;
   final double cellWidth;
   final int colorArgb;
-  final String currentDayKey;
+
+  /// Unused day key retained for backwards compatibility; the streak line
+  /// does not highlight a single day. See ARCHITECTURE.md.
+  final String? currentDayKey;
   final List<String>? dayKeys;
   final int? dayCount;
   final DateTime? startDate;
@@ -163,7 +190,7 @@ class _StreakPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (done.isEmpty) return;
+    if (layout.isEmpty) return;
     final linePaint = Paint()
       ..color = color
       ..strokeWidth = 2
@@ -174,32 +201,28 @@ class _StreakPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
-    final visibleCount = (done.length * progress).ceil().clamp(0, done.length);
+    if (layout.isEmpty) return;
 
-    for (var i = 0; i + 1 < visibleCount; i++) {
-      if (done[i] && done[i + 1]) {
-        final x0 = i * cellWidth + cellWidth / 2;
-        final x1 = (i + 1) * cellWidth + cellWidth / 2;
-        final y = size.height / 2;
-        canvas.drawLine(Offset(x0, y), Offset(x1, y), linePaint);
-      }
+    for (final i in layout.segmentStarts) {
+      final x0 = i * cellWidth + cellWidth / 2;
+      final x1 = (i + 1) * cellWidth + cellWidth / 2;
+      final y = size.height / 2;
+      canvas.drawLine(Offset(x0, y), Offset(x1, y), linePaint);
     }
 
     if (showDots) {
-      for (var i = 0; i < visibleCount; i++) {
+      for (final i in layout.filledDotIndices) {
         final center = Offset(i * cellWidth + cellWidth / 2, size.height / 2);
-        if (done[i]) {
-          canvas.drawCircle(center, 3, dotPaint);
-        } else {
-          canvas.drawCircle(center, 3, emptyDotPaint);
-        }
+        canvas.drawCircle(center, 3, dotPaint);
+      }
+      for (final i in layout.emptyDotIndices) {
+        final center = Offset(i * cellWidth + cellWidth / 2, size.height / 2);
+        canvas.drawCircle(center, 3, emptyDotPaint);
       }
     } else {
-      for (var i = 0; i < visibleCount; i++) {
-        if (done[i]) {
-          final center = Offset(i * cellWidth + cellWidth / 2, size.height / 2);
-          canvas.drawCircle(center, 3, dotPaint);
-        }
+      for (final i in layout.filledDotIndices) {
+        final center = Offset(i * cellWidth + cellWidth / 2, size.height / 2);
+        canvas.drawCircle(center, 3, dotPaint);
       }
     }
   }
@@ -210,5 +233,6 @@ class _StreakPainter extends CustomPainter {
       old.cellWidth != cellWidth ||
       old.color != color ||
       old.showDots != showDots ||
-      old.progress != progress;
+      old.progress != progress ||
+      old.layout != layout;
 }
