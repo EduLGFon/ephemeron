@@ -11,7 +11,12 @@ void main() {
           body: SizedBox(
             width: 280,
             height: 400,
-            child: MonthView(month: DateTime(2026, 1, 1), cellSize: 40),
+            child: MonthView(
+              month: DateTime(2026, 1, 1),
+              cellSize: 40,
+              daySemanticsLabel: (day, count) => 'Day $day: $count',
+              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
+            ),
           ),
         ),
       ),
@@ -31,6 +36,8 @@ void main() {
               month: DateTime(2026, 1, 1),
               dayCounts: List.generate(31, (i) => i % 5),
               cellSize: 40,
+              daySemanticsLabel: (day, count) => 'Day $day: $count',
+              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
             ),
           ),
         ),
@@ -55,6 +62,8 @@ void main() {
             child: MonthView(
               month: DateTime(2026, 1, 1),
               cellSize: 40,
+              daySemanticsLabel: (day, count) => 'Day $day: $count',
+              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
               habitStreaks: [streak],
             ),
           ),
@@ -76,6 +85,8 @@ void main() {
             child: MonthView(
               month: DateTime(2026, 1, 1),
               cellSize: 40,
+              daySemanticsLabel: (day, count) => 'Day $day: $count',
+              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
               onDateTap: (d) => tapped = d,
             ),
           ),
@@ -99,6 +110,8 @@ void main() {
             child: MonthView(
               month: DateTime(2026, 1, 1),
               cellSize: 40,
+              daySemanticsLabel: (day, count) => 'Day $day: $count',
+              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
               visibleStartDay: 5,
               visibleEndDay: 10,
               onCulledCount: (c) => culled = c,
@@ -108,7 +121,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(culled, 6);
+    expect(culled, 25);
   });
 
   testWidgets('semantics per day and streak', (tester) async {
@@ -126,6 +139,8 @@ void main() {
             child: MonthView(
               month: DateTime(2026, 1, 1),
               cellSize: 40,
+              daySemanticsLabel: (day, count) => 'Day $day: $count',
+              streakSemanticsLabel: (s) => '${s.habitId}: ${s.streakLabel}',
               habitStreaks: [streak],
             ),
           ),

@@ -1,13 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../application/stream_day_mark.dart';
 import 'level_data.dart';
 
-/// Caller-supplied dot row for habits at week level: an id plus one done flag
-/// per day of the week (7 entries).
 class WeekHabitDotRow {
   const WeekHabitDotRow({required this.id, required this.done});
 
@@ -15,7 +14,6 @@ class WeekHabitDotRow {
   final List<bool> done;
 }
 
-/// L3 week level: 7 compact day columns. Presentation only; data injected.
 class WeekView extends StatefulWidget {
   const WeekView({
     super.key,
@@ -23,56 +21,52 @@ class WeekView extends StatefulWidget {
     this.dayMarks,
     this.marks,
     required this.cellWidth,
-    this.height,
-    this.cellHeight,
+    required this.cellHeight,
     this.visibleStart,
     this.visibleEnd,
     this.visibleRangeStartMs,
     this.visibleRangeEndMs,
-    this.dayHeaders,
-    this.dayHeaderBuilder,
+    required this.dayHeaderBuilder,
+    required this.daySemanticsLabel,
     this.habitRows,
     this.maxChips = 3,
     this.overflowLabelBuilder,
     this.onDayTap,
     this.onMarkTap,
     this.onCulledCount,
-    this.daySemanticsLabels,
-    this.markSemanticsLabel,
+    required this.markSemanticsLabel,
     this.onCompleteMark,
     this.onPushMark,
     this.onRescheduleMark,
     this.onDeleteMark,
-    this.markActionLabels,
-  }) : assert(height != null || cellHeight != null);
+    required this.markActionLabels,
+  });
 
   final DateTime weekStart;
   final List<List<StreamDayMark>>? dayMarks;
   final List<StreamDayMark>? marks;
   final double cellWidth;
-  final double? height;
-  final double? cellHeight;
+  final double cellHeight;
   final DateTime? visibleStart;
   final DateTime? visibleEnd;
   final int? visibleRangeStartMs;
   final int? visibleRangeEndMs;
-  final List<String>? dayHeaders;
-  final String Function(int dayIndex, DateTime date)? dayHeaderBuilder;
+  final String Function(int dayIndex, DateTime date) dayHeaderBuilder;
+  final String Function(int dayIndex, [DateTime? date]) daySemanticsLabel;
   final List<WeekHabitDotRow>? habitRows;
   final int maxChips;
   final String Function(int remaining)? overflowLabelBuilder;
   final void Function(DateTime date)? onDayTap;
   final void Function(String markId)? onMarkTap;
   final void Function(int culledCount)? onCulledCount;
-  final List<String>? daySemanticsLabels;
-  final String Function(StreamDayMark mark)? markSemanticsLabel;
+  final String Function(StreamDayMark mark) markSemanticsLabel;
   final void Function(String markId)? onCompleteMark;
   final void Function(String markId)? onPushMark;
   final void Function(String markId)? onRescheduleMark;
   final void Function(String markId)? onDeleteMark;
-  final Map<String, String>? markActionLabels;
+  final Map<String, String> markActionLabels;
 
-  double get resolvedHeight => height ?? cellHeight!;
+  double get resolvedHeight => cellHeight;
 
   @override
   State<WeekView> createState() => _WeekViewState();
@@ -83,11 +77,14 @@ typedef WeekLevelView = WeekView;
 
 class _WeekViewState extends State<WeekView> {
   late List<List<StreamDayMark>> _buckets;
+  double _textScale = 1.0;
+  int? _lastCulled;
 
   @override
   void initState() {
     super.initState();
     _prepare();
+    _scheduleCulled();
   }
 
   @override
@@ -95,9 +92,12 @@ class _WeekViewState extends State<WeekView> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.marks, widget.marks) ||
         !identical(oldWidget.dayMarks, widget.dayMarks) ||
-        oldWidget.weekStart != widget.weekStart) {
+        oldWidget.weekStart != widget.weekStart ||
+        oldWidget.visibleStart != widget.visibleStart ||
+        oldWidget.visibleEnd != widget.visibleEnd) {
       _prepare();
     }
+    _scheduleCulled();
   }
 
   void _prepare() {
@@ -133,12 +133,52 @@ class _WeekViewState extends State<WeekView> {
     return a.id.compareTo(b.id);
   }
 
-  Rect _chipRect(int dayIndex, int chipIndex, double height) {
-    const headerH = 20.0;
-    const chipH = 14.0;
-    const gap = 2.0;
+  bool _dayVisible(int dayIndex) {
+    final date = widget.weekStart.add(Duration(days: dayIndex));
+    if (widget.visibleStart != null && date.isBefore(widget.visibleStart!)) {
+      return false;
+    }
+    if (widget.visibleEnd != null && date.isAfter(widget.visibleEnd!)) {
+      return false;
+    }
+    if (widget.visibleRangeStartMs != null &&
+        date.millisecondsSinceEpoch < widget.visibleRangeStartMs!) {
+      return false;
+    }
+    if (widget.visibleRangeEndMs != null &&
+        date.millisecondsSinceEpoch > widget.visibleRangeEndMs!) {
+      return false;
+    }
+    return true;
+  }
+
+  int _culledCount() {
+    final total =
+        widget.marks?.length ??
+        (widget.dayMarks?.fold<int>(0, (a, b) => a + b.length) ?? 0);
+    var visible = 0;
+    for (var day = 0; day < 7; day++) {
+      if (!_dayVisible(day)) continue;
+      visible += _buckets[day].length;
+    }
+    return total - visible;
+  }
+
+  void _scheduleCulled() {
+    final value = _culledCount();
+    if (value == _lastCulled) return;
+    _lastCulled = value;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onCulledCount?.call(value);
+    });
+  }
+
+  Rect _chipRect(int dayIndex, int chipIndex) {
+    final headerH = 20.0 * _textScale;
+    final chipH = 14.0 * _textScale;
+    final gap = 2.0 * _textScale;
     final x = dayIndex * widget.cellWidth;
-    final y = headerH + 4 + chipIndex * (chipH + gap);
+    final y = headerH + 4 * _textScale + chipIndex * (chipH + gap);
     return Rect.fromLTWH(x + 2, y, widget.cellWidth - 4, chipH);
   }
 
@@ -150,12 +190,10 @@ class _WeekViewState extends State<WeekView> {
   Widget _markSemanticsOverlay(int dayIndex, int chipIndex) {
     final bucket = _buckets[dayIndex];
     final m = bucket[chipIndex];
-    final r = _chipRect(dayIndex, chipIndex, widget.resolvedHeight);
-    final label = widget.markSemanticsLabel != null
-        ? widget.markSemanticsLabel!(m)
-        : m.title;
+    final r = _chipRect(dayIndex, chipIndex);
+    final label = widget.markSemanticsLabel(m);
     final actions = <CustomSemanticsAction, VoidCallback>{};
-    final labels = widget.markActionLabels ?? const <String, String>{};
+    final labels = widget.markActionLabels;
     String actionLabel(String key, String fallback) => labels[key] ?? fallback;
     if (widget.onCompleteMark != null) {
       actions[CustomSemanticsAction(
@@ -188,6 +226,9 @@ class _WeekViewState extends State<WeekView> {
         child: Semantics(
           label: label,
           textDirection: TextDirection.ltr,
+          onTap: widget.onMarkTap != null
+              ? () => widget.onMarkTap!(m.id)
+              : null,
           customSemanticsActions: actions.isEmpty ? null : actions,
           child: const SizedBox.expand(),
         ),
@@ -197,19 +238,21 @@ class _WeekViewState extends State<WeekView> {
 
   @override
   Widget build(BuildContext context) {
-    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    _textScale = MediaQuery.textScalerOf(context).scale(1.0);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapUp: (details) {
         final dayIndex = _hitDay(details.localPosition.dx);
         final date = widget.weekStart.add(Duration(days: dayIndex));
-        // check chips
+        if (!_dayVisible(dayIndex)) {
+          widget.onDayTap?.call(date);
+          return;
+        }
         String? markId;
         for (var ci = 0; ci < widget.maxChips; ci++) {
-          final idx = dayIndex;
-          final bucket = _buckets[idx];
+          final bucket = _buckets[dayIndex];
           if (ci >= bucket.length) break;
-          final r = _chipRect(dayIndex, ci, widget.resolvedHeight);
+          final r = _chipRect(dayIndex, ci);
           if (r.contains(details.localPosition)) {
             markId = bucket[ci].id;
             break;
@@ -229,15 +272,15 @@ class _WeekViewState extends State<WeekView> {
               buckets: _buckets,
               cellWidth: widget.cellWidth,
               height: widget.resolvedHeight,
-              textScale: textScale,
-              dayHeaders: widget.dayHeaders,
+              textScale: _textScale,
               dayHeaderBuilder: widget.dayHeaderBuilder,
+              daySemanticsLabel: widget.daySemanticsLabel,
               habitRows: widget.habitRows ?? const <WeekHabitDotRow>[],
               maxChips: widget.maxChips,
               overflowLabelBuilder: widget.overflowLabelBuilder,
-              daySemanticsLabels: widget.daySemanticsLabels,
+              dayVisible: _dayVisible,
               markSemanticsLabel: widget.markSemanticsLabel,
-              onCulledCount: widget.onCulledCount,
+              onDayTap: widget.onDayTap,
               onCompleteMark: widget.onCompleteMark,
               onPushMark: widget.onPushMark,
               onRescheduleMark: widget.onRescheduleMark,
@@ -246,16 +289,14 @@ class _WeekViewState extends State<WeekView> {
             ),
             size: Size(widget.cellWidth * 7, widget.resolvedHeight),
           ),
-          // Overlay Semantics nodes for visible marks. CustomPainterSemantics
-          // does not transfer customSemanticsActions in this SDK, so an overlay
-          // is required to expose complete/push/reschedule/delete actions.
           for (var day = 0; day < 7; day++)
-            for (
-              var ci = 0;
-              ci < math.min(widget.maxChips, _buckets[day].length);
-              ci++
-            )
-              _markSemanticsOverlay(day, ci),
+            if (_dayVisible(day))
+              for (
+                var ci = 0;
+                ci < math.min(widget.maxChips, _buckets[day].length);
+                ci++
+              )
+                _markSemanticsOverlay(day, ci),
         ],
       ),
     );
@@ -269,19 +310,19 @@ class _WeekPainter extends CustomPainter {
     required this.cellWidth,
     required this.height,
     required this.textScale,
-    this.dayHeaders,
-    this.dayHeaderBuilder,
+    required this.dayHeaderBuilder,
+    required this.daySemanticsLabel,
     required this.habitRows,
     required this.maxChips,
     this.overflowLabelBuilder,
-    this.daySemanticsLabels,
-    this.markSemanticsLabel,
-    this.onCulledCount,
+    required this.dayVisible,
+    required this.markSemanticsLabel,
+    this.onDayTap,
     this.onCompleteMark,
     this.onPushMark,
     this.onRescheduleMark,
     this.onDeleteMark,
-    this.markActionLabels,
+    required this.markActionLabels,
   });
 
   final DateTime weekStart;
@@ -289,55 +330,36 @@ class _WeekPainter extends CustomPainter {
   final double cellWidth;
   final double height;
   final double textScale;
-  final List<String>? dayHeaders;
-  final String Function(int, DateTime)? dayHeaderBuilder;
+  final String Function(int, DateTime) dayHeaderBuilder;
+  final String Function(int, [DateTime?]) daySemanticsLabel;
   final List<WeekHabitDotRow> habitRows;
   final int maxChips;
   final String Function(int)? overflowLabelBuilder;
-  final List<String>? daySemanticsLabels;
-  final String Function(StreamDayMark)? markSemanticsLabel;
-  final void Function(int)? onCulledCount;
+  final bool Function(int) dayVisible;
+  final String Function(StreamDayMark) markSemanticsLabel;
+  final void Function(DateTime)? onDayTap;
   final void Function(String)? onCompleteMark;
   final void Function(String)? onPushMark;
   final void Function(String)? onRescheduleMark;
   final void Function(String)? onDeleteMark;
-  final Map<String, String>? markActionLabels;
+  final Map<String, String> markActionLabels;
 
-  static const double _headerH = 20.0;
-  static const double _chipH = 14.0;
-  static const double _gap = 2.0;
+  double get _headerH => 20.0 * textScale;
+  double get _chipH => 14.0 * textScale;
+  double get _gap => 2.0 * textScale;
 
-  String _header(int i) {
-    if (dayHeaders != null && i < dayHeaders!.length) return dayHeaders![i];
-    if (dayHeaderBuilder != null) {
-      return dayHeaderBuilder!(i, weekStart.add(Duration(days: i)));
-    }
-    final d = weekStart.add(Duration(days: i));
-    return '${d.weekday} ${d.day}';
-  }
+  String _header(int i) =>
+      dayHeaderBuilder(i, weekStart.add(Duration(days: i)));
 
-  String _daySemantics(int i) {
-    if (daySemanticsLabels != null && i < daySemanticsLabels!.length) {
-      return daySemanticsLabels![i];
-    }
-    return _header(i);
-  }
-
-  int _culledCount() {
-    var n = 0;
-    for (final b in buckets) {
-      n += b.length;
-    }
-    return n;
-  }
+  String _daySemantics(int i) =>
+      daySemanticsLabel(i, weekStart.add(Duration(days: i)));
 
   @override
   void paint(Canvas canvas, Size size) {
-    onCulledCount?.call(_culledCount());
     final paint = Paint()..style = PaintingStyle.fill;
     for (var day = 0; day < 7; day++) {
+      if (!dayVisible(day)) continue;
       final x = day * cellWidth;
-      // header
       final tp = TextPainter(
         text: TextSpan(
           text: _header(day),
@@ -348,17 +370,17 @@ class _WeekPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
         maxLines: 1,
+        ellipsis: '\u2026',
       );
       tp.layout(maxWidth: cellWidth - 4);
       tp.paint(canvas, Offset(x + 2, 2));
-      // chips
       final bucket = buckets[day];
       final shown = math.min(maxChips, bucket.length);
       for (var ci = 0; ci < shown; ci++) {
         final m = bucket[ci];
         final rect = Rect.fromLTWH(
           x + 2,
-          _headerH + 4 + ci * (_chipH + _gap),
+          _headerH + 4 * textScale + ci * (_chipH + _gap),
           cellWidth - 4,
           _chipH,
         );
@@ -376,10 +398,7 @@ class _WeekPainter extends CustomPainter {
         final oTp = TextPainter(
           text: TextSpan(
             text: label,
-            style: TextStyle(
-              fontSize: 10 * textScale,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+            style: TextStyle(fontSize: 10 * textScale),
           ),
           textDirection: TextDirection.ltr,
           maxLines: 1,
@@ -387,22 +406,22 @@ class _WeekPainter extends CustomPainter {
         oTp.layout(maxWidth: cellWidth - 4);
         oTp.paint(
           canvas,
-          Offset(x + 2, _headerH + 4 + shown * (_chipH + _gap)),
+          Offset(x + 2, _headerH + 4 * textScale + shown * (_chipH + _gap)),
         );
       }
     }
-    // habit dot rows
-    var hy = height - (habitRows.length * 12.0);
-    if (hy < _headerH + 4) hy = _headerH + 4;
+    var hy = height - ((habitRows.length) * 12.0 * textScale);
+    if (hy < _headerH + 4 * textScale) hy = _headerH + 4 * textScale;
     for (final row in habitRows) {
       for (var day = 0; day < 7; day++) {
+        if (!dayVisible(day)) continue;
         final done = day < row.done.length && row.done[day];
         final cx = day * cellWidth + cellWidth / 2;
-        final cy = hy + 5;
+        final cy = hy + 5 * textScale;
         paint.color = done ? const Color(0xFF4CAF50) : const Color(0xFFBDBDBD);
-        canvas.drawCircle(Offset(cx, cy), 3, paint);
+        canvas.drawCircle(Offset(cx, cy), 3 * textScale, paint);
       }
-      hy += 12;
+      hy += 12.0 * textScale;
     }
   }
 
@@ -410,19 +429,19 @@ class _WeekPainter extends CustomPainter {
   SemanticsBuilderCallback get semanticsBuilder => (Size size) {
     final result = <CustomPainterSemantics>[];
     for (var day = 0; day < 7; day++) {
+      if (!dayVisible(day)) continue;
       final x = day * cellWidth;
+      final date = weekStart.add(Duration(days: day));
       result.add(
         CustomPainterSemantics(
           rect: Rect.fromLTWH(x, 0, cellWidth, height),
           properties: SemanticsProperties(
             label: _daySemantics(day),
             textDirection: TextDirection.ltr,
+            onTap: onDayTap != null ? () => onDayTap!(date) : null,
           ),
         ),
       );
-      // Mark semantics are provided by an overlay of Semantics widgets
-      // (see _WeekViewState.build): CustomPainterSemantics in this SDK does
-      // not transfer customSemanticsActions, so custom actions would be lost.
     }
     return result;
   };
