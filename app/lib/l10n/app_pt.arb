@@ -109,5 +109,14 @@
   "streamWeekdaySun": "Dom",
   "streamCapturePriorityLow": "Baixa",
   "streamCapturePriorityMedium": "Média",
-  "streamCapturePriorityHigh": "Alta"
+  "streamCapturePriorityHigh": "Alta",
+  "streamSettingsSheetTitle": "Ajustes do Stream",
+  "streamSettingsSheetClose": "Fechar",
+  "streamSettingsThemeSection": "Tema",
+  "streamSettingsThemeLight": "Claro",
+  "streamSettingsThemeDark": "Escuro",
+  "streamSettingsThemeTrueBlack": "Preto absoluto",
+  "streamSettingsThemeSystem": "Sistema",
+  "streamSettingsMore": "Mais ajustes",
+  "streamSettingsReplaySchool": "Repetir Escola de Gestos"
 }

@@ -132,6 +132,7 @@ import 'cases/stream_platform_case.dart' as stream_platform;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
 import 'cases/stream_school_preferences_case.dart' as stream_school_preferences;
 import 'cases/stream_screen_case.dart' as stream_screen;
+import 'cases/stream_settings_sheet_case.dart' as stream_settings_sheet;
 import 'cases/stream_slipped_data_case.dart' as stream_slipped_data;
 import 'cases/stream_slipped_keyboard_case.dart' as stream_slipped_keyboard;
 import 'cases/stream_slipped_trail_case.dart' as stream_slipped_trail;
@@ -320,6 +321,7 @@ const _included = <String>{
   'stream_route_params_case.dart',
   'stream_school_preferences_case.dart',
   'stream_screen_case.dart',
+  'stream_settings_sheet_case.dart',
   'stream_slipped_data_case.dart',
   'stream_slipped_keyboard_case.dart',
   'stream_slipped_trail_case.dart',
@@ -514,6 +516,7 @@ void main() {
   group('stream_route_params', stream_route_params.main);
   group('stream_school_preferences', stream_school_preferences.main);
   group('stream_screen', stream_screen.main);
+  group('stream_settings_sheet', stream_settings_sheet.main);
   group('stream_slipped_data', stream_slipped_data.main);
   group('stream_slipped_keyboard', stream_slipped_keyboard.main);
   group('stream_slipped_trail', stream_slipped_trail.main);
