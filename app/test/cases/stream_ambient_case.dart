@@ -234,16 +234,98 @@ void main() {
   });
 
   group('ambient providers', () {
-    test('habit items follow habit, entry and streak sources', () async {
-      final habits = StreamController<List<Habit>>.broadcast();
-      final entries = StreamController<List<HabitCalendarEntry>>.broadcast();
+    test(
+      'habit items follow habit and entry sources without streak queries',
+      () async {
+        final habits = StreamController<List<Habit>>.broadcast();
+        final entries = StreamController<List<HabitCalendarEntry>>.broadcast();
+        var streakQueries = 0;
+        final container = ProviderContainer(
+          overrides: [
+            habitsProvider.overrideWith((ref, _) => habits.stream),
+            calendarHabitEntriesProvider.overrideWith(
+              (ref, _) => entries.stream,
+            ),
+            habitStreakProvider.overrideWith((ref, _) {
+              streakQueries++;
+              return (current: 4, best: 9);
+            }),
+          ],
+        );
+        const range = StreamHabitRange(
+          fromKey: '2026-03-01',
+          toKey: '2026-03-31',
+          currentDayKey: '2026-03-10',
+        );
+        final sub = container.listen(
+          streamHabitGutterItemsProvider(range),
+          (_, _) {},
+        );
+        addTearDown(() async {
+          sub.close();
+          container.dispose();
+          await habits.close();
+          await entries.close();
+        });
+        final timed = _habit('h1', name: 'Run', reminderTime: '07:30');
+        final allDay = _habit('h2', name: 'Read');
+        habits.add([timed]);
+        entries.add([
+          _entry(
+            habitId: 'h1',
+            habitName: 'Run',
+            dayKey: '2026-03-10',
+            timeMinutes: 450,
+            done: true,
+          ),
+        ]);
+        await pumpEventQueue();
+        var items = await container.read(
+          streamHabitGutterItemsProvider(range).future,
+        );
+        expect(items.single.id, 'h1');
+        expect(items.single.timeMinutes, 450);
+        expect(items.single.doneByDay['2026-03-10'], isTrue);
+        expect(items.single.streakCurrent, 0);
+        expect(items.single.streakBest, 0);
+        expect(items.single.colorArgb, streamAmbientHabitColorArgb);
+        expect(streakQueries, 0);
+
+        habits.add([timed, allDay]);
+        await pumpEventQueue();
+        items = await container.read(
+          streamHabitGutterItemsProvider(range).future,
+        );
+        expect(items.map((i) => i.id), ['h2', 'h1']);
+        expect(items.first.timeMinutes, isNull);
+      },
+    );
+
+    test('500 habits start no streak query; single lookup is lazy', () async {
+      final habits = [
+        for (var i = 0; i < 500; i++)
+          _habit('h${i.toString().padLeft(3, '0')}', name: 'Habit $i'),
+      ];
+      final entries = [
+        for (var i = 0; i < 500; i++)
+          _entry(
+            habitId: habits[i].id,
+            habitName: habits[i].name,
+            dayKey: '2026-03-10',
+            timeMinutes: i % 1440,
+          ),
+      ];
+      var streakQueries = 0;
       final container = ProviderContainer(
         overrides: [
-          habitsProvider.overrideWith((ref, _) => habits.stream),
-          calendarHabitEntriesProvider.overrideWith((ref, _) => entries.stream),
-          habitStreakProvider.overrideWith(
-            (ref, _) async => (current: 4, best: 9),
+          habitsProvider.overrideWith((ref, _) => Stream.value(habits)),
+          calendarHabitEntriesProvider.overrideWith(
+            (ref, _) => Stream.value(entries),
           ),
+          habitStreakProvider.overrideWith((ref, _) {
+            streakQueries++;
+            return (current: 6, best: 12);
+          }),
         ],
       );
       const range = StreamHabitRange(
@@ -255,42 +337,27 @@ void main() {
         streamHabitGutterItemsProvider(range),
         (_, _) {},
       );
-      addTearDown(() async {
+      addTearDown(() {
         sub.close();
         container.dispose();
-        await habits.close();
-        await entries.close();
       });
-      final timed = _habit('h1', name: 'Run', reminderTime: '07:30');
-      final allDay = _habit('h2', name: 'Read');
-      habits.add([timed]);
-      entries.add([
-        _entry(
-          habitId: 'h1',
-          habitName: 'Run',
-          dayKey: '2026-03-10',
-          timeMinutes: 450,
-          done: true,
-        ),
-      ]);
       await pumpEventQueue();
-      var items = await container.read(
+      final items = await container.read(
         streamHabitGutterItemsProvider(range).future,
       );
-      expect(items.single.id, 'h1');
-      expect(items.single.timeMinutes, 450);
-      expect(items.single.doneByDay['2026-03-10'], isTrue);
-      expect(items.single.streakCurrent, 4);
-      expect(items.single.streakBest, 9);
-      expect(items.single.colorArgb, streamAmbientHabitColorArgb);
+      expect(items.length, 500);
+      expect(streakQueries, 0);
+      expect(
+        items.every((i) => i.streakCurrent == 0 && i.streakBest == 0),
+        isTrue,
+      );
 
-      habits.add([timed, allDay]);
-      await pumpEventQueue();
-      items = await container.read(
-        streamHabitGutterItemsProvider(range).future,
+      final streak = await container.read(
+        streamHabitStreakProvider('h042').future,
       );
-      expect(items.map((i) => i.id), ['h2', 'h1']);
-      expect(items.first.timeMinutes, isNull);
+      expect(streak.current, 6);
+      expect(streak.best, 12);
+      expect(streakQueries, 1);
     });
 
     test('countdown items follow the countdown source', () async {

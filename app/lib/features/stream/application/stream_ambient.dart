@@ -3,7 +3,11 @@
 // Pure mapping plus Riverpod providers over the existing habit/countdown
 // sources. No UI and no writes. Drift Habit/Countdown rows have no colour
 // column, so callers supply the default (and may pass a resolver for a future
-// colour source). See ARCHITECTURE.md.
+// colour source).
+//
+// Streaks are lazy: the gutter provider never fans out per habit. Items carry
+// 0/0; the surface asks [streamHabitStreakProvider] for the single habit whose
+// streak it shows. See ARCHITECTURE.md.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/drift/app_database.dart' show Countdown, Habit;
@@ -151,6 +155,16 @@ CalendarRange _calendarRangeFor(StreamHabitRange range) {
   );
 }
 
+/// Single-habit streak lookup for the surface. Call it only for the habit
+/// whose streak is currently shown (long-press/completion), never per row.
+final streamHabitStreakProvider =
+    FutureProvider.family<({int current, int best}), String>((ref, habitId) {
+      return ref.watch(habitStreakProvider(habitId).future);
+    });
+
+/// Gutter items for [range]. Streaks are intentionally not loaded here; one
+/// query per habit would fan out to hundreds of habit/log reads. Items carry
+/// 0/0 and callers use [streamHabitStreakProvider] for the visible habit.
 final streamHabitGutterItemsProvider =
     StreamProvider.family<List<HabitGutterItem>, StreamHabitRange>((
       ref,
@@ -169,38 +183,15 @@ final streamHabitGutterItemsProvider =
       final habits = habitsAsync.value;
       final entries = entriesAsync.value;
       if (habits == null || entries == null) return const Stream.empty();
-      final streakFutures = <String, Future<({int current, int best})>>{
-        for (final habit in habits)
-          habit.id: ref.watch(habitStreakProvider(habit.id).future),
-      };
-      return Stream.fromFuture(
-        _buildHabitItems(
+      return Stream.value(
+        habitGutterItemsFrom(
           habits: habits,
           entries: entries,
-          streakFutures: streakFutures,
+          streaks: const {},
           currentDayKey: range.currentDayKey,
         ),
       );
     });
-
-Future<List<HabitGutterItem>> _buildHabitItems({
-  required List<Habit> habits,
-  required List<HabitCalendarEntry> entries,
-  required Map<String, Future<({int current, int best})>> streakFutures,
-  required String currentDayKey,
-}) async {
-  final ids = streakFutures.keys.toList(growable: false);
-  final resolved = await Future.wait(streakFutures.values);
-  final streaks = <String, ({int current, int best})>{
-    for (var i = 0; i < ids.length; i++) ids[i]: resolved[i],
-  };
-  return habitGutterItemsFrom(
-    habits: habits,
-    entries: entries,
-    streaks: streaks,
-    currentDayKey: currentDayKey,
-  );
-}
 
 final streamCountdownLandmarkItemsProvider =
     StreamProvider<List<CountdownLandmarkItem>>((ref) {
