@@ -26,18 +26,28 @@ class FocusBandPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = color;
+    if (size.height <= 0 || size.width <= 0) return;
     if (mode == FocusBandMode.active) {
       final end = (size.height * progress).clamp(0.0, size.height);
-      canvas.drawRect(Rect.fromLTWH(0, 0, thickness, end), paint);
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, thickness.clamp(0.0, size.width), end),
+        paint,
+      );
     } else {
       final top = (size.height * segmentStart).clamp(0.0, size.height);
       final bottom = (size.height * segmentEnd).clamp(0.0, size.height);
+      final rawHeight = (bottom - top).abs();
+      final drawnHeight = rawHeight < thickness
+          ? (thickness <= size.height ? thickness : size.height)
+          : rawHeight.clamp(0.0, size.height);
+      if (drawnHeight <= 0) return;
+      final clampedTop = top.clamp(0.0, size.height - drawnHeight);
       canvas.drawRect(
         Rect.fromLTWH(
           0,
-          top,
-          thickness,
-          (bottom - top).abs().clamp(thickness, size.height),
+          clampedTop,
+          thickness.clamp(0.0, size.width),
+          drawnHeight,
         ),
         paint,
       );
@@ -84,7 +94,7 @@ class FocusBand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: semanticsLabel,
+      label: semanticsLabel ?? label,
       value: elapsedText,
       child: RepaintBoundary(
         child: CustomPaint(

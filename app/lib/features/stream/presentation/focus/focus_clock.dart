@@ -20,6 +20,8 @@ class FocusClock {
     Duration.zero,
   );
 
+  final ValueNotifier<bool> running = ValueNotifier<bool>(false);
+
   DateTime? _runStart;
   Duration _baseElapsed = Duration.zero;
   bool _running = false;
@@ -31,6 +33,7 @@ class FocusClock {
     _baseElapsed = Duration.zero;
     _runStart = now();
     _running = true;
+    running.value = true;
     _startTimer();
     _tick();
   }
@@ -40,6 +43,7 @@ class FocusClock {
     _baseElapsed += now().difference(_runStart!);
     _runStart = null;
     _running = false;
+    running.value = false;
     _stopTimer();
     elapsed.value = _baseElapsed;
   }
@@ -48,6 +52,7 @@ class FocusClock {
     if (_running || _runStart != null) return;
     _runStart = now();
     _running = true;
+    running.value = true;
     _startTimer();
     _tick();
   }
@@ -57,6 +62,7 @@ class FocusClock {
       _baseElapsed += now().difference(_runStart!);
       _runStart = null;
       _running = false;
+      running.value = false;
     }
     _stopTimer();
     elapsed.value = _baseElapsed;
@@ -65,6 +71,7 @@ class FocusClock {
   void dispose() {
     _stopTimer();
     elapsed.dispose();
+    running.dispose();
   }
 
   void _startTimer() {

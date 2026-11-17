@@ -66,34 +66,40 @@ class FocusTimerControls extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        ValueListenableBuilder<Duration>(
-          valueListenable: clock.elapsed,
-          builder: (context, _, child) {
-            final running = clock.isRunning;
+        ValueListenableBuilder<bool>(
+          valueListenable: clock.running,
+          builder: (context, running, _) {
             final label = running ? pauseLabel : resumeLabel;
             final semantics = running
                 ? (pauseSemanticsLabel ?? pauseLabel)
                 : (resumeSemanticsLabel ?? resumeLabel);
+            final canToggle = running
+                ? (onPause != null || onPauseResume != null)
+                : (onResume != null || onPauseResume != null);
             return Semantics(
               button: true,
+              enabled: canToggle,
               label: semantics,
               child: IconButton(
                 icon: Icon(running ? Icons.pause : Icons.play_arrow),
                 tooltip: label,
-                onPressed: () {
-                  if (running) {
-                    onPause?.call();
-                  } else {
-                    onResume?.call();
-                  }
-                  onPauseResume?.call();
-                },
+                onPressed: canToggle
+                    ? () {
+                        if (running) {
+                          onPause?.call();
+                        } else {
+                          onResume?.call();
+                        }
+                        onPauseResume?.call();
+                      }
+                    : null,
               ),
             );
           },
         ),
         Semantics(
           button: true,
+          enabled: onStop != null,
           label: stopSemanticsLabel ?? stopLabel,
           child: IconButton(
             icon: const Icon(Icons.stop),
