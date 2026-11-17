@@ -16,6 +16,8 @@ import 'day/day_canvas.dart';
 import 'day/day_gestures.dart';
 import 'now_pill.dart';
 import 'stream_time_format.dart';
+import 'surface/stream_slipped_sheet.dart';
+import 'surface/stream_slipped_trail_host.dart';
 
 class StreamDayBodyView extends StatelessWidget {
   const StreamDayBodyView({
@@ -200,13 +202,30 @@ class StreamDayBodyView extends StatelessWidget {
           ListenableBuilder(
             listenable: viewport,
             builder: (context, _) {
-              final nowMs = now.millisecondsSinceEpoch;
-              final y = viewport.timeToPx(nowMs);
-              return Positioned(
-                top: y - 10,
-                left: 56,
-                right: scrubberWidth,
-                child: NowLine(label: timeLabel, liveRegion: true),
+              final nowY = viewport.timeToPx(now.millisecondsSinceEpoch);
+              return Positioned.fill(
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: nowY - 10,
+                      left: 56,
+                      right: scrubberWidth,
+                      child: NowLine(label: timeLabel, liveRegion: true),
+                    ),
+                    Positioned(
+                      top: nowY + 28,
+                      left: 56,
+                      right: scrubberWidth,
+                      child: Align(
+                        alignment: AlignmentDirectional.topStart,
+                        heightFactor: 1,
+                        child: StreamSlippedTrailHost(
+                          onOpenTriage: () => showStreamSlippedTriage(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               );
             },
           ),

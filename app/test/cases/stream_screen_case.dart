@@ -12,6 +12,8 @@ import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_day_providers.dart';
 import 'package:ephemeron/features/stream/application/stream_command_actions.dart';
 import 'package:ephemeron/features/stream/application/stream_peek_target.dart';
+import 'package:ephemeron/features/stream/application/stream_school_preferences.dart';
+import 'package:ephemeron/features/stream/application/stream_slipped_data.dart';
 import 'package:ephemeron/features/stream/application/stream_sync_status.dart';
 import 'package:ephemeron/features/stream/application/stream_theme_provider.dart';
 import 'package:ephemeron/features/stream/application/stream_tray.dart';
@@ -27,6 +29,8 @@ import 'package:ephemeron/features/stream/presentation/chrome/scrubber.dart';
 import 'package:ephemeron/features/stream/presentation/now_pill.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_data.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_panel.dart';
+import 'package:ephemeron/features/stream/presentation/school/gesture_school_overlay.dart';
+import 'package:ephemeron/features/stream/presentation/slipped/slipped_item.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/time_rail.dart';
 import 'package:ephemeron/features/stream/presentation/stream_screen.dart';
 import 'package:ephemeron/features/stream/presentation/chrome/now_line.dart';
@@ -59,6 +63,15 @@ class _FixedStreamThemeNotifier extends StreamThemeNotifier {
   final StreamThemeMode mode;
   @override
   StreamThemeMode build() => mode;
+}
+
+class _FixedSchoolNotifier extends StreamSchoolCompletedNotifier {
+  _FixedSchoolNotifier(this.completed);
+  final bool completed;
+  @override
+  Future<bool> build() async => completed;
+  @override
+  Future<void> markCompleted() async => state = const AsyncData(true);
 }
 
 /// Interface filler: the fake actions below override submit, so no gateway
@@ -187,6 +200,7 @@ List<Override> _overrides({
   List<TrayItem> tray = const <TrayItem>[],
   _FakeCaptureActions? actions,
   _FakeCacheGateway? cache,
+  bool schoolCompleted = true,
 }) => <Override>[
   streamMarksForDayProvider.overrideWith(
     (ref, key) async => StreamDayMarks(marks: _fakeMarks, skippedCount: 0),
@@ -200,6 +214,12 @@ List<Override> _overrides({
   streamDayCacheGatewayProvider.overrideWithValue(cache ?? _FakeCacheGateway()),
   streamCaptureActionsProvider.overrideWithValue(
     actions ?? _FakeCaptureActions(),
+  ),
+  streamSlippedItemsProvider.overrideWith(
+    (ref) => Stream<List<SlippedItem>>.value(const <SlippedItem>[]),
+  ),
+  streamSchoolCompletedProvider.overrideWith(
+    () => _FixedSchoolNotifier(schoolCompleted),
   ),
 ];
 
@@ -1255,5 +1275,23 @@ void main() {
       expect(header.syncLabel, expected);
       expect(find.bySemanticsLabel(expected), findsWidgets);
     }
+  });
+
+  testWidgets('first-run school overlay covers the stream', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(
+        overrides: _overrides(schoolCompleted: false),
+        date: DateTime(2026, 11, 17),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(GestureSchoolOverlay), findsOneWidget);
   });
 }
