@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../design/stream_tokens.dart';
 import 'peek_data.dart';
-import 'peek_editor.dart';
+import 'peek_editor_state.dart';
 import 'peek_panel_content.dart';
 
 /// Expanding inline container for a Stream Peek.

@@ -1,9 +1,21 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_data.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_editor.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:ephemeron/features/stream/presentation/peek/peek_editor_state.dart';
 
 Widget _app(Widget home) => MaterialApp(home: Scaffold(body: home));
+
+class _BuildCounter extends StatelessWidget {
+  const _BuildCounter({required this.onBuild, required this.child});
+  final VoidCallback onBuild;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    onBuild();
+    return child;
+  }
+}
 
 void main() {
   testWidgets('reseed on mark change', (tester) async {
@@ -36,32 +48,43 @@ void main() {
   });
 
   testWidgets('equal data preserves typing and cursor', (tester) async {
-    final data = ValueNotifier(const PeekData(id: 'a', title: 'A', startMs: 1));
-    await tester.pumpWidget(
-      _app(
-        ValueListenableBuilder<PeekData>(
-          valueListenable: data,
-          builder: (_, d, _) => PeekEditor(
-            data: d,
-            formatTime: (ms) => 'T$ms',
-            priorityLabels: const ['None', 'Low', 'Medium', 'High'],
-            saveLabel: 'Save',
-            cancelLabel: 'Cancel',
-            emptyTitleLabel: 'Title required',
-            endBeforeStartLabel: 'End after start',
-            onSave: (_) {},
-            onCancel: () {},
-            onDiscardRequested: () {},
-          ),
+    int builds = 0;
+    PeekData data = PeekData(id: 'a', title: 'A', startMs: 1);
+    Widget wrap(PeekData d) => _app(
+      _BuildCounter(
+        onBuild: () => builds++,
+        child: PeekEditor(
+          data: d,
+          formatTime: (ms) => 'T$ms',
+          priorityLabels: const ['None', 'Low', 'Medium', 'High'],
+          saveLabel: 'Save',
+          cancelLabel: 'Cancel',
+          emptyTitleLabel: 'Title required',
+          endBeforeStartLabel: 'End after start',
+          onSave: (_) {},
+          onCancel: () {},
+          onDiscardRequested: () {},
         ),
       ),
     );
+    await tester.pumpWidget(wrap(data));
     await tester.pump();
-    await tester.enterText(find.byType(TextField).first, 'A typed');
+    final titleFinder = find.byWidgetPredicate(
+      (w) => w is TextField && w.key == const ValueKey('peek_title_field'),
+    );
+    await tester.enterText(titleFinder, 'A typed');
     await tester.pump();
-    data.value = const PeekData(id: 'a', title: 'A', startMs: 1);
+    final controller = tester.widget<TextField>(titleFinder).controller!;
+    controller.selection = const TextSelection.collapsed(offset: 2);
     await tester.pump();
-    expect(find.text('A typed'), findsOneWidget);
+    final beforeBuilds = builds;
+    data = PeekData(id: 'a', title: 'A', startMs: 1);
+    await tester.pumpWidget(wrap(data));
+    await tester.pump();
+    expect(builds, greaterThan(beforeBuilds));
+    final afterController = tester.widget<TextField>(titleFinder).controller!;
+    expect(afterController.text, 'A typed');
+    expect(afterController.selection, const TextSelection.collapsed(offset: 2));
   });
 
   testWidgets('add and clear end time', (tester) async {
@@ -143,6 +166,8 @@ void main() {
     final field = find.text('T50');
     await tester.tap(field);
     await tester.pump();
+    final state = tester.state<PeekEditorState>(find.byType(PeekEditor));
+    expect(state.hasChanges, isFalse);
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(saved!.endMs, 50);
@@ -167,7 +192,12 @@ void main() {
                 listName: 'x' * 300,
               ),
               formatTime: (ms) => 'T',
-              priorityLabels: const ['None', 'Low', 'Medium', 'High'],
+              priorityLabels: const [
+                'Minimal',
+                'LowPrio',
+                'MediumPrio',
+                'Critical',
+              ],
               saveLabel: 'Save',
               cancelLabel: 'Cancel',
               emptyTitleLabel: 'Title required',

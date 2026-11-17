@@ -1,9 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'peek_editor_state.dart';
 import 'peek_data.dart';
-
-export 'peek_editor_state.dart';
+import 'peek_editor_state.dart';
 
 /// Inline editor body for a Stream Peek.
 class PeekEditor extends StatefulWidget {

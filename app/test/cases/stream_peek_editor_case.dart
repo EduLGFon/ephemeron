@@ -1,8 +1,9 @@
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_data.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_editor.dart';
-import 'package:flutter/services.dart' show LogicalKeyboardKey;
-import 'package:material_ui/material_ui.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:ephemeron/features/stream/presentation/peek/peek_editor_state.dart';
 
 Widget _app(Widget home) => MaterialApp(home: Scaffold(body: home));
 
@@ -224,7 +225,12 @@ void main() {
                 notes: 'b' * 500,
               ),
               formatTime: (ms) => 'T' * 20,
-              priorityLabels: const ['None', 'Low', 'Medium', 'High'],
+              priorityLabels: const [
+                'Minimal',
+                'LowPrio',
+                'MediumPrio',
+                'Critical',
+              ],
               saveLabel: 'Save',
               cancelLabel: 'Cancel',
               emptyTitleLabel: 'Title required',

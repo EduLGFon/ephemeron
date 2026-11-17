@@ -24,11 +24,12 @@ class PeekPriorityRow extends StatelessWidget {
         SegmentedButton<PeekPriority>(
           segments: [
             for (var i = 0; i < labels.length; i++)
-              ButtonSegment<PeekPriority>(
-                value: PeekPriority.values[i],
-                label: Text(labels[i]),
-                icon: Icon(icons[i]),
-              ),
+              if (i < PeekPriority.values.length && i < icons.length)
+                ButtonSegment<PeekPriority>(
+                  value: PeekPriority.values[i],
+                  label: Text(labels[i]),
+                  icon: Icon(icons[i]),
+                ),
           ],
           selected: {value},
           onSelectionChanged: (s) => onChanged(s.single),

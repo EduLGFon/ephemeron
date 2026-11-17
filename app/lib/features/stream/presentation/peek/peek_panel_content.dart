@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'peek_data.dart';
 import 'peek_editor.dart';
+import 'peek_editor_state.dart';
 
 class PeekPanelContent extends StatelessWidget {
   const PeekPanelContent({
@@ -21,8 +22,8 @@ class PeekPanelContent extends StatelessWidget {
     this.onPickList,
     this.addEndLabel,
     this.clearEndLabel,
-    this.emptyTitleLabel,
-    this.endBeforeStartLabel,
+    required this.emptyTitleLabel,
+    required this.endBeforeStartLabel,
     this.titleLabel,
     this.startLabel,
     this.endLabel,
@@ -46,8 +47,8 @@ class PeekPanelContent extends StatelessWidget {
   final Future<String?> Function(BuildContext context)? onPickList;
   final String? addEndLabel;
   final String? clearEndLabel;
-  final String? emptyTitleLabel;
-  final String? endBeforeStartLabel;
+  final String emptyTitleLabel;
+  final String endBeforeStartLabel;
   final String? titleLabel;
   final String? startLabel;
   final String? endLabel;
@@ -85,8 +86,8 @@ class PeekPanelContent extends StatelessWidget {
           onPickList: onPickList,
           addEndLabel: addEndLabel,
           clearEndLabel: clearEndLabel,
-          emptyTitleLabel: emptyTitleLabel ?? '',
-          endBeforeStartLabel: endBeforeStartLabel ?? '',
+          emptyTitleLabel: emptyTitleLabel,
+          endBeforeStartLabel: endBeforeStartLabel,
           titleLabel: titleLabel,
           startLabel: startLabel,
           endLabel: endLabel,

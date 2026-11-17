@@ -61,7 +61,7 @@ class PeekEditorState extends State<PeekEditor> {
     super.didUpdateWidget(oldWidget);
     if (widget.data.id != oldWidget.data.id) {
       _reseed(widget.data);
-    } else if (!hasChanges && widget.data != oldWidget.data) {
+    } else if (widget.data != oldWidget.data) {
       _reseed(widget.data);
     }
   }
