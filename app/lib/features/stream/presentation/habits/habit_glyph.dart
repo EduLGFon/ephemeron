@@ -2,6 +2,13 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../design/stream_tokens.dart';
 
+/// Returns black or white depending on the luminance of [color], so the check
+/// mark stays visible on any hue.
+Color contrastColorFor(Color color) {
+  final luminance = color.computeLuminance();
+  return luminance > 0.5 ? Colors.black : Colors.white;
+}
+
 /// Small habit glyph. Done state is conveyed by filled vs outlined shape plus
 /// semantics, never by colour alone. The hit target is at least 48 dp even
 /// though the visual is small.
@@ -26,7 +33,7 @@ class HabitGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color(colorArgb);
-    final checkColor = Theme.of(context).colorScheme.onPrimary;
+    final checkColor = contrastColorFor(color);
     final visual = SizedBox(
       width: size + StreamSpacing.x1 * 2,
       height: size + StreamSpacing.x1 * 2,
@@ -68,7 +75,6 @@ class _HabitGlyphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 3 dp colour bar on the leading edge.
     final bar = Rect.fromLTWH(0, 0, 3, size.height);
     canvas.drawRect(bar, Paint()..color = color);
 

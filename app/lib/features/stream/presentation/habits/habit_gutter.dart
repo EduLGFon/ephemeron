@@ -20,7 +20,7 @@ class HabitGutter extends StatelessWidget {
     this.timeToY,
     this.hourHeight = 56,
     this.topOffset = 0,
-    this.currentDayKey,
+    required this.currentDayKey,
     this.scrollOffset = 0,
     this.allDaySlotHeight = 48,
     this.onLongPress,

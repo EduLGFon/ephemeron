@@ -33,7 +33,7 @@ void main() {
       ),
     );
     await tester.pump();
-    // timeToY maps 60 min -> 56; gutter adds the 48 px all-day slot once.
+    // Default mapping maps 60 min -> 56; gutter adds the 48 px all-day slot once.
     expect(tester.getTopLeft(find.byType(HabitGlyph).first).dy, 48 + 56);
   });
 
