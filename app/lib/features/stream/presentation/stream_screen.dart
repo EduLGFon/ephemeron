@@ -8,11 +8,14 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 
+import '../../../../core/time/device_date_format.dart';
 import '../../../../core/ui/app_feedback.dart';
 import '../../../../core/ui/app_sheet.dart';
 import '../application/stream_command_actions.dart';
 import '../application/stream_day_cache_scope.dart';
+import '../application/stream_day_mark.dart' show StreamDayMarkKind;
 import '../application/stream_day_providers.dart' show StreamDayKey;
+import '../application/stream_level_data.dart';
 import '../application/stream_school_preferences.dart';
 import '../application/stream_sync_status.dart';
 import '../application/stream_theme_provider.dart';
@@ -25,8 +28,25 @@ import 'stream_route_params.dart';
 import 'surface/stream_command_overlay.dart';
 import 'surface/stream_dock_host.dart';
 import 'surface/stream_launcher.dart';
+import 'surface/stream_level_host.dart';
 import 'surface/stream_school_host.dart';
 import 'surface/stream_settings_sheet.dart';
+
+String _weekdayShort(AppLocalizations l, int weekday) => switch (weekday) {
+  DateTime.monday => l.streamWeekdayMon,
+  DateTime.tuesday => l.streamWeekdayTue,
+  DateTime.wednesday => l.streamWeekdayWed,
+  DateTime.thursday => l.streamWeekdayThu,
+  DateTime.friday => l.streamWeekdayFri,
+  DateTime.saturday => l.streamWeekdaySat,
+  _ => l.streamWeekdaySun,
+};
+
+String _levelLabel(AppLocalizations l, StreamLevel level) => switch (level) {
+  StreamLevel.day => l.streamDay,
+  StreamLevel.week => l.streamWeek,
+  StreamLevel.month => l.streamMonth,
+};
 
 class StreamScreen extends ConsumerStatefulWidget {
   const StreamScreen({
@@ -138,6 +158,78 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
     );
   }
 
+  /// Day taps drill into the day level and keep the route authoritative.
+  void _openDay(DateTime day) {
+    widget.onDateChanged?.call(day);
+    GoRouter.maybeOf(context)?.go('/stream/${formatStreamDate(day)}/day');
+  }
+
+  Widget _bodyFor({
+    required StreamLevel level,
+    required StreamRouteParams params,
+    required DateTime now,
+    required AppLocalizations l,
+  }) {
+    if (level == StreamLevel.day) {
+      return StreamDayCacheScope(
+        day: StreamDayKey(
+          year: params.date.year,
+          month: params.date.month,
+          day: params.date.day,
+        ),
+        child: StreamDayBody(
+          date: params.date,
+          now: now,
+          onDateChanged: _openDay,
+          onReturnToNow: widget.onReturnToNow,
+        ),
+      );
+    }
+    return StreamLevelHost(
+      level: level,
+      date: params.date,
+      firstDayOfWeek: DateTime.monday,
+      dayHeaderBuilder: (_, day) => _weekdayShort(l, day.weekday),
+      daySemanticsLabel: (_, day) => l.streamWeekDaySemantics(
+        _weekdayShort(l, day.weekday),
+        DeviceDateFormat.shortDate(context, day),
+      ),
+      monthDaySemanticsLabel: (day, count) => l.streamMonthDaySemantics(
+        DeviceDateFormat.shortDate(
+          context,
+          DateTime(params.date.year, params.date.month, day),
+        ),
+        count,
+      ),
+      streakSemanticsLabel: (_, firstDay, lastDay) =>
+          l.streamMonthStreakSemantics(
+            lastDay - firstDay + 1,
+            firstDay,
+            lastDay,
+          ),
+      markSemanticsLabel: (mark) => l.streamMarkSemantics(
+        mark.kind == StreamDayMarkKind.task
+            ? l.streamChipKindTask
+            : l.streamChipKindEvent,
+        mark.title,
+      ),
+      markActionLabels: <String, String>{
+        'complete': l.streamMarkActionComplete,
+        'push': l.streamMarkActionPush,
+        'reschedule': l.streamMarkActionReschedule,
+        'delete': l.streamMarkActionDelete,
+      },
+      emptyLabel: l.streamLevelEmpty,
+      loadingLabel: l.streamLevelLoading,
+      errorLabel: l.streamLevelError,
+      onDayTap: _openDay,
+      onDateTap: _openDay,
+      // Mark actions stay out of scope: the host exposes no complete, push,
+      // reschedule or delete callbacks, so week mark chips are read-only and
+      // onMarkTap is intentionally not wired.
+    );
+  }
+
   /// Opens the Stream settings sheet. Navigation and school replay stay with
   /// this caller; the sheet only reports the intent.
   void _openSettings() {
@@ -240,6 +332,7 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
   @override
   Widget build(BuildContext context) {
     final params = _resolveParams();
+    final level = streamLevelForZoom(params.zoom);
     final mode = ref.watch(streamThemeProvider);
     final brightness = MediaQuery.platformBrightnessOf(context);
     final theme = streamThemeData(mode, brightness);
@@ -257,7 +350,7 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
         dateLabel:
             '${DateFormat('EEE d MMM').format(params.date)} '
             '(${formatStreamDate(params.date)})',
-        levelLabel: l.streamDay,
+        levelLabel: _levelLabel(l, level),
         slippedCount: 0,
         onOpenCommand: _onBreadcrumbTap,
         menuLabel: l.streamLauncherMenu,
@@ -268,22 +361,7 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
         onOpenSettings: _openSettings,
       ),
     );
-    final body = StreamDayCacheScope(
-      day: StreamDayKey(
-        year: params.date.year,
-        month: params.date.month,
-        day: params.date.day,
-      ),
-      child: StreamDayBody(
-        date: params.date,
-        now: now,
-        onDateChanged: (day) {
-          widget.onDateChanged?.call(day);
-          GoRouter.maybeOf(context)?.go('/stream/${formatStreamDate(day)}/day');
-        },
-        onReturnToNow: widget.onReturnToNow,
-      ),
-    );
+    final body = _bodyFor(level: level, params: params, now: now, l: l);
     final dock = StreamDockHost(now: now, locale: _captureLocale(context));
 
     return Theme(

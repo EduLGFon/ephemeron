@@ -116,14 +116,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
     ],
     redirect: (context, state) {
-      // Canonicalize unsupported stream zoom levels (such as hour) to day so
-      // the URL and the rendered level agree.
+      // Canonicalize unsupported stream zoom levels (such as hour) to day and
+      // lowercase valid ones, so the URL and the rendered level agree.
       if (streamUiEnabled) {
         final match = RegExp(r'^/stream/([^/]+)/([^/]+)/?$')
             .firstMatch(state.uri.path);
-        if (match != null && match.group(2) != 'day') {
-          final query = state.uri.hasQuery ? '?${state.uri.query}' : '';
-          return '/stream/${match.group(1)}/day$query';
+        if (match != null) {
+          final zoom = normalizeStreamZoom(match.group(2));
+          if (zoom != match.group(2)) {
+            final query = state.uri.hasQuery ? '?${state.uri.query}' : '';
+            return '/stream/${match.group(1)}/$zoom$query';
+          }
         }
       }
       // Widget taps deliver ephemeron://widget/... through the platform

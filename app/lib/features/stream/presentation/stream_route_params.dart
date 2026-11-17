@@ -2,17 +2,38 @@
 
 library;
 
+import '../application/stream_level_data.dart';
+
 ///
-/// The date segment is `yyyy-MM-dd`; the only valid zoom level for this unit
-/// is `day`. Invalid or missing values fall back to today's date and `day`.
+/// The date segment is `yyyy-MM-dd`; valid zoom levels are `day`, `week` and
+/// `month`. Invalid or missing values fall back to today's date and `day`.
 
 const String streamDefaultZoom = 'day';
 
-bool isValidStreamZoom(String? value) =>
-    value != null && value.trim().toLowerCase() == streamDefaultZoom;
+const Set<String> _streamZoomLevels = <String>{'day', 'week', 'month'};
+
+String? _normalizedStreamZoom(String? value) {
+  final normalized = value?.trim().toLowerCase();
+  return normalized != null && _streamZoomLevels.contains(normalized)
+      ? normalized
+      : null;
+}
+
+bool isValidStreamZoom(String? value) => _normalizedStreamZoom(value) != null;
 
 String normalizeStreamZoom(String? value) =>
-    isValidStreamZoom(value) ? value!.trim().toLowerCase() : streamDefaultZoom;
+    _normalizedStreamZoom(value) ?? streamDefaultZoom;
+
+/// Maps a route zoom segment to the level rendered by the Stream surface.
+///
+/// Unknown values normalize to [streamDefaultZoom], so this always returns a
+/// valid level.
+StreamLevel streamLevelForZoom(String? value) =>
+    switch (normalizeStreamZoom(value)) {
+      'week' => StreamLevel.week,
+      'month' => StreamLevel.month,
+      _ => StreamLevel.day,
+    };
 
 String formatStreamDate(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-'
