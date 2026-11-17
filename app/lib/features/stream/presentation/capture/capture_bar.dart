@@ -120,7 +120,11 @@ class _CaptureBarState extends State<CaptureBar> {
       textInputAction: TextInputAction.done,
       onSubmitted: (_) => _submit(),
       decoration: InputDecoration(
-        labelText: widget.label.isEmpty ? null : widget.label,
+        // When an explicit semantics label is supplied, keep it as the only
+        // announced label to avoid "label\\nhint"-style duplicates.
+        labelText: widget.semanticsLabel != null
+            ? null
+            : (widget.label.isEmpty ? null : widget.label),
         hintText: widget.hintText.isEmpty ? null : widget.hintText,
       ),
       minLines: 1,
@@ -157,9 +161,10 @@ class _CaptureBarState extends State<CaptureBar> {
             ),
             Row(
               children: <Widget>[
-                Expanded(child: fieldNode),
+                Expanded(flex: 4, child: fieldNode),
                 if (widget.clearLabel != null && widget.clearLabel!.isNotEmpty)
                   Flexible(
+                    flex: 1,
                     child: TextButton(
                       onPressed: () => _controller.clear(),
                       child: Text(
@@ -171,6 +176,7 @@ class _CaptureBarState extends State<CaptureBar> {
                   ),
                 if (widget.closeLabel != null && widget.closeLabel!.isNotEmpty)
                   Flexible(
+                    flex: 1,
                     child: TextButton(
                       onPressed: _dismiss,
                       child: Text(
@@ -183,6 +189,7 @@ class _CaptureBarState extends State<CaptureBar> {
                 if (widget.submitLabel != null &&
                     widget.submitLabel!.isNotEmpty)
                   Flexible(
+                    flex: 1,
                     child: TextButton(
                       onPressed: _submit,
                       child: Text(

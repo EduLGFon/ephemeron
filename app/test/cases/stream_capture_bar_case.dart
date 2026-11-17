@@ -4,7 +4,15 @@ import 'package:ephemeron/features/stream/presentation/capture/capture_bar.dart'
 import 'package:ephemeron/features/stream/presentation/capture/capture_preview_chips.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+String _fmt(DateTime dt) =>
+    '${dt.year.toString().padLeft(4, '0')}-'
+    '${dt.month.toString().padLeft(2, '0')}-'
+    '${dt.day.toString().padLeft(2, '0')} '
+    '${dt.hour.toString().padLeft(2, '0')}:'
+    '${dt.minute.toString().padLeft(2, '0')}';
 
 void main() {
   final now = DateTime(2026, 11, 16, 9, 0);
@@ -15,11 +23,14 @@ void main() {
       label: 'kind:${d.kind.name}',
     ),
     if (d.date != null)
-      CapturePreviewChip(kind: CaptureChipKind.date, label: 'date:${d.date}'),
+      CapturePreviewChip(
+        kind: CaptureChipKind.date,
+        label: 'date:${_fmt(d.date!)}',
+      ),
     if (d.startTime != null)
       CapturePreviewChip(
         kind: CaptureChipKind.time,
-        label: 'time:${d.startTime}',
+        label: 'time:${_fmt(d.startTime!)}',
       ),
     if (d.repeat != null)
       CapturePreviewChip(
@@ -120,6 +131,10 @@ void main() {
     expect(count, 1);
     expect(received, isNotNull);
     expect(find.text('hello'), findsNothing);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,
+      isTrue,
+    );
     await tester.enterText(find.byType(TextField), 'world');
     await tester.pump();
     expect(find.text('world'), findsOneWidget);
@@ -183,21 +198,24 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        home: MediaQuery(
-          data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
-          child: Scaffold(
-            body: SizedBox(
-              width: 320,
-              child: CaptureBar(
-                now: now,
-                locale: CaptureLocale.en,
-                hintText: 'a very long hint text that should not overflow the available width',
-                label: 'capture field label',
-                semanticsLabel: 'capture field',
-                submitLabel: 'submit',
-                clearLabel: 'clear',
-                closeLabel: 'close',
-                chipsBuilder: chipsFor,
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2.0)),
+            child: Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: CaptureBar(
+                  now: now,
+                  locale: CaptureLocale.en,
+                  hintText: 'a very long hint text that should not overflow the available width',
+                  label: 'capture field label',
+                  semanticsLabel: 'capture field',
+                  submitLabel: 'submit',
+                  clearLabel: 'clear',
+                  closeLabel: 'close',
+                  chipsBuilder: chipsFor,
+                ),
               ),
             ),
           ),
@@ -207,12 +225,15 @@ void main() {
     await tester.enterText(find.byType(TextField), 'call dentist tomorrow 3pm');
     await tester.pump();
     expect(tester.takeException(), isNull);
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).decoration?.labelText,
-      contains('capture'),
-    );
-    final chips = find.byType(ActionChip);
-    expect(chips, findsWidgets);
+    final fieldNode = tester.getSemantics(find.byType(TextField));
+    expect(fieldNode.label, startsWith('capture field'));
+    expect(fieldNode.label, isNot(contains('capture field label')));
+    expect(find.bySemanticsLabel('submit'), findsOneWidget);
+    expect(find.bySemanticsLabel('clear'), findsOneWidget);
+    expect(find.bySemanticsLabel('close'), findsOneWidget);
+    // Input stays usable at narrow widths.
+    final inputWidth = tester.getSize(find.byType(TextField)).width;
+    expect(inputWidth, greaterThanOrEqualTo(140));
   });
 
   testWidgets('one semantics node per chip', (tester) async {
@@ -230,8 +251,47 @@ void main() {
       ),
     );
     await tester.pump();
-    final nodes = find.byType(Semantics);
-    // At least the two chip semantics nodes exist; no crash.
-    expect(nodes, findsWidgets);
+    for (final label in <String>['kind', 'date']) {
+      final chipFinder = find.text(label);
+      final node = tester.getSemantics(chipFinder);
+      expect(node.label, label);
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      expect(find.bySemanticsLabel(label), findsOneWidget);
+    }
+  });
+
+  testWidgets('didUpdateWidget re-parses chips', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CaptureBar(
+            now: now,
+            locale: CaptureLocale.en,
+            hintText: 'hint',
+            label: 'capture',
+            chipsBuilder: chipsFor,
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'tomorrow 3pm');
+    await tester.pump();
+    expect(find.textContaining('date:2026-11-17'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CaptureBar(
+            now: now.add(const Duration(days: 1)),
+            locale: CaptureLocale.en,
+            hintText: 'hint',
+            label: 'capture',
+            chipsBuilder: chipsFor,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining('date:2026-11-18'), findsOneWidget);
   });
 }
