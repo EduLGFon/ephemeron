@@ -137,5 +137,21 @@
   "streamSchoolPinchTitle": "Aproxime para ampliar",
   "streamSchoolPinchBody": "Aproxime ou afaste dois dedos na linha do tempo para ajustar o zoom.",
   "streamSchoolPinchHint": "Use dois dedos",
-  "streamSchoolDone": "Concluir"
+  "streamSchoolDone": "Concluir",
+  "streamSlippedTitle": "Tarefas atrasadas",
+  "streamSlippedEmpty": "Nada está atrasado.",
+  "streamSlippedLoading": "Carregando tarefas atrasadas",
+  "streamSlippedLoadError": "Não foi possível carregar as tarefas atrasadas.",
+  "streamSlippedActionError": "Não foi possível atualizar a tarefa.",
+  "streamSlippedClose": "Fechar",
+  "streamSlippedDone": "Concluir",
+  "streamSlippedTomorrow": "Amanhã",
+  "streamSlippedPickTime": "Escolher hora",
+  "streamSlippedDrop": "Descartar",
+  "streamSlippedHint": "D concluir, T amanhã, P escolher hora, X descartar",
+  "streamSlippedDaysOverdue": "{days, plural, =1{1 dia de atraso} other{{days} dias de atraso}}",
+  "streamSlippedDoneMessage": "Tarefa concluída",
+  "streamSlippedTomorrowMessage": "Movida para amanhã",
+  "streamSlippedPickTimeMessage": "Hora definida",
+  "streamSlippedDropMessage": "Tarefa descartada"
 }

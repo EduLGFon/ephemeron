@@ -148,5 +148,28 @@
   "streamSchoolPinchTitle": "Pinch to zoom",
   "streamSchoolPinchBody": "Pinch the timeline to zoom in or out.",
   "streamSchoolPinchHint": "Pinch with two fingers",
-  "streamSchoolDone": "Done"
+  "streamSchoolDone": "Done",
+  "streamSlippedTitle": "Slipped tasks",
+  "streamSlippedEmpty": "Nothing has slipped.",
+  "streamSlippedLoading": "Loading slipped tasks",
+  "streamSlippedLoadError": "Could not load slipped tasks.",
+  "streamSlippedActionError": "Could not update the task.",
+  "streamSlippedClose": "Close",
+  "streamSlippedDone": "Done",
+  "streamSlippedTomorrow": "Tomorrow",
+  "streamSlippedPickTime": "Pick time",
+  "streamSlippedDrop": "Drop",
+  "streamSlippedHint": "D done, T tomorrow, P pick time, X drop",
+  "streamSlippedDaysOverdue": "{days, plural, =1{1 day overdue} other{{days} days overdue}}",
+  "@streamSlippedDaysOverdue": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "streamSlippedDoneMessage": "Task completed",
+  "streamSlippedTomorrowMessage": "Moved to tomorrow",
+  "streamSlippedPickTimeMessage": "Time set",
+  "streamSlippedDropMessage": "Task dropped"
 }
