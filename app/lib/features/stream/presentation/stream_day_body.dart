@@ -8,6 +8,7 @@ import '../application/stream_day_mark.dart';
 import '../application/stream_day_providers.dart';
 import '../engine/stream_time_viewport.dart';
 import 'stream_day_body_view.dart';
+import 'stream_day_controller.dart';
 import 'stream_time_format.dart';
 
 class StreamDayBody extends ConsumerStatefulWidget {
@@ -18,6 +19,7 @@ class StreamDayBody extends ConsumerStatefulWidget {
     this.clock,
     this.onDateChanged,
     this.onReturnToNow,
+    this.controller,
   });
 
   final DateTime date;
@@ -25,6 +27,7 @@ class StreamDayBody extends ConsumerStatefulWidget {
   final DateTime Function()? clock;
   final ValueChanged<DateTime>? onDateChanged;
   final VoidCallback? onReturnToNow;
+  final StreamDayBodyController? controller;
 
   @override
   ConsumerState<StreamDayBody> createState() => _StreamDayBodyState();
@@ -56,6 +59,7 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
     _viewport = StreamTimeViewport(
       baseEpochMs: _dayStart.millisecondsSinceEpoch,
     );
+    _attachController(widget.controller);
     _timeLabel = ValueNotifier<String>('');
     _away = ValueNotifier<bool>(false);
     _timer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -74,6 +78,10 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
   @override
   void didUpdateWidget(covariant StreamDayBody oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final controllerChanged = oldWidget.controller != widget.controller;
+    if (controllerChanged) {
+      oldWidget.controller?.detach(_viewport);
+    }
     if (oldWidget.date != widget.date) {
       _centerRetries = 0;
       _viewport.removeListener(_updateAway);
@@ -82,22 +90,34 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
         baseEpochMs: _dayStart.millisecondsSinceEpoch,
       );
       _viewport.addListener(_updateAway);
+      _attachController(widget.controller);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _centerViewport();
         _updateAway();
       });
+    } else if (controllerChanged) {
+      _attachController(widget.controller);
     }
   }
 
   @override
   void dispose() {
+    widget.controller?.detach(_viewport);
     _timer?.cancel();
     _viewport.removeListener(_updateAway);
     _viewport.dispose();
     _timeLabel.dispose();
     _away.dispose();
     super.dispose();
+  }
+
+  void _attachController(StreamDayBodyController? controller) {
+    controller?.attach(
+      viewport: _viewport,
+      date: widget.date,
+      clock: () => _now,
+    );
   }
 
   void _centerViewport() {

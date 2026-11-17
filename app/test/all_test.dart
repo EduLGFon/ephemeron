@@ -106,6 +106,7 @@ import 'cases/stream_countdown_math_case.dart' as stream_countdown_math;
 import 'cases/stream_culler_case.dart' as stream_culler;
 import 'cases/stream_day_cache_case.dart' as stream_day_cache;
 import 'cases/stream_day_canvas_case.dart' as stream_day_canvas;
+import 'cases/stream_day_controller_case.dart' as stream_day_controller;
 import 'cases/stream_day_gestures_case.dart' as stream_day_gestures;
 import 'cases/stream_drag_overlay_case.dart' as stream_drag_overlay;
 import 'cases/stream_focus_case.dart' as stream_focus;
@@ -289,6 +290,7 @@ const _included = <String>{
   'stream_culler_case.dart',
   'stream_day_cache_case.dart',
   'stream_day_canvas_case.dart',
+  'stream_day_controller_case.dart',
   'stream_day_gestures_case.dart',
   'stream_drag_overlay_case.dart',
   'stream_focus_case.dart',
@@ -478,6 +480,7 @@ void main() {
   group('stream_culler', stream_culler.main);
   group('stream_day_cache', stream_day_cache.main);
   group('stream_day_canvas', stream_day_canvas.main);
+  group('stream_day_controller', stream_day_controller.main);
   group('stream_day_gestures', stream_day_gestures.main);
   group('stream_drag_overlay', stream_drag_overlay.main);
   group('stream_focus', stream_focus.main);
