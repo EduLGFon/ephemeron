@@ -13,7 +13,10 @@ void main() {
             doneByDay: const {'0': true, '1': true, '2': true},
             dayCount: 3,
             cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
             weekLevel: false,
+            semanticsLabel: 'habit',
+            streakCurrent: 3,
           ),
         ),
       ),
@@ -21,6 +24,7 @@ void main() {
     await tester.pump();
     expect(find.byType(HabitStreakLine), findsOneWidget);
     expect(tester.takeException(), isNull);
+    expect(find.byType(CustomPaint), findsWidgets);
   });
 
   testWidgets('a gap breaks it', (tester) async {
@@ -33,6 +37,7 @@ void main() {
             doneByDay: const {'0': true, '1': false, '2': true},
             dayCount: 3,
             cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
             weekLevel: false,
           ),
         ),
@@ -52,6 +57,7 @@ void main() {
             doneByDay: const {'0': true},
             dayCount: 1,
             cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
             weekLevel: true,
           ),
         ),
@@ -75,6 +81,7 @@ void main() {
             doneByDay: done,
             dayCount: 31,
             cellWidth: 10,
+            colorArgb: 0xFF4CAF50,
             weekLevel: false,
           ),
         ),
@@ -94,6 +101,7 @@ void main() {
             doneByDay: const {},
             dayCount: 0,
             cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
             weekLevel: false,
           ),
         ),
@@ -101,5 +109,73 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(HabitStreakLine), findsOneWidget);
+  });
+
+  testWidgets('DST transition yields unique day keys', (tester) async {
+    final start = DateTime(2026, 10, 30);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 10 * 20,
+          height: 24,
+          child: HabitStreakLine(
+            doneByDay: const {},
+            dayCount: 10,
+            startDate: start,
+            cellWidth: 20,
+            colorArgb: 0xFF4CAF50,
+            weekLevel: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reduce motion is instant', (tester) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: SizedBox(
+            width: 120,
+            height: 24,
+            child: HabitStreakLine(
+              doneByDay: const {'0': true, '1': true},
+              dayCount: 2,
+              cellWidth: 40,
+              colorArgb: 0xFF4CAF50,
+              weekLevel: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('semantics exposes label and streak', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 120,
+          height: 24,
+          child: HabitStreakLine(
+            doneByDay: const {'0': true},
+            dayCount: 1,
+            cellWidth: 40,
+            colorArgb: 0xFF4CAF50,
+            weekLevel: true,
+            semanticsLabel: 'Habit',
+            streakCurrent: 5,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final node = tester.getSemantics(find.byType(HabitStreakLine));
+    expect(node.getSemanticsData().label, contains('Habit'));
   });
 }

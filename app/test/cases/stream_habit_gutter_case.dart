@@ -33,7 +33,8 @@ void main() {
       ),
     );
     await tester.pump();
-    // Glyphs exist.
+    // timeToY maps 60 min -> 56; gutter adds the 48 px all-day slot once.
+    expect(tester.getTopLeft(find.byType(HabitGlyph).first).dy, 48 + 56);
   });
 
   testWidgets('all-day items go to the top slot', (tester) async {
@@ -53,6 +54,8 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(HabitGlyph), findsOneWidget);
+    // All-day items occupy the top slot.
+    expect(tester.getTopLeft(find.byType(HabitGlyph)).dy, 0);
   });
 
   testWidgets('tapping calls onToggle once with the id', (tester) async {
@@ -195,5 +198,81 @@ void main() {
       semantics.getSemanticsData().flagsCollection.isToggled.name,
       'isFalse',
     );
+  });
+
+  testWidgets('out-of-range time is treated as all-day', (tester) async {
+    final items = [_item('a', 2000)];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 120,
+          height: 400,
+          child: HabitGutter(
+            habits: items,
+            currentDayKey: '2026-01-01',
+            onToggle: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(HabitGlyph), findsOneWidget);
+  });
+
+  testWidgets('done on another day does not render done', (tester) async {
+    final item = HabitGutterItem(
+      id: 'a',
+      name: 'a',
+      colorArgb: 0xFF4CAF50,
+      timeMinutes: 60,
+      doneByDay: {'2026-01-02': true},
+      streakCurrent: 3,
+      streakBest: 5,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 120,
+          height: 400,
+          child: HabitGutter(
+            habits: [item],
+            currentDayKey: '2026-01-01',
+            onToggle: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final semantics = tester.getSemantics(find.byType(HabitGlyph));
+    expect(
+      semantics.getSemanticsData().flagsCollection.isToggled.name,
+      'isFalse',
+    );
+  });
+
+  testWidgets('duplicate ids toggle independently', (tester) async {
+    final items = [_item('a', 60), _item('a', 120)];
+    final toggled = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 120,
+          height: 400,
+          child: HabitGutter(
+            habits: items,
+            currentDayKey: '2026-01-01',
+            onToggle: toggled.add,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final glyphs = find.byType(HabitGlyph);
+    expect(glyphs, findsNWidgets(2));
+    await tester.tap(glyphs.first);
+    await tester.pump();
+    await tester.tap(glyphs.last);
+    await tester.pump();
+    expect(toggled, ['a', 'a']);
   });
 }

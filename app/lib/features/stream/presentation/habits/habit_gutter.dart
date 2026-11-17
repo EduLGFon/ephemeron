@@ -6,15 +6,17 @@ import '../platform/stream_feedback.dart';
 
 /// Gutter column of habit glyphs positioned by their time of day.
 ///
-/// All-day habits (timeMinutes == null) go into a horizontal slot at the top.
-/// Timed habits are positioned with the caller-supplied vertical mapping and
-/// only those inside the visible viewport are built.
+/// All-day habits (timeMinutes == null, or outside 0..1439) go into a
+/// horizontal slot at the top. Timed habits are positioned with the
+/// caller-supplied vertical mapping (`timeToY`), which returns an offset
+/// relative to the marks area below the all-day slot; the gutter adds the
+/// all-day slot height once via layout, not in `timeToY`. Only those inside
+/// the visible viewport are built.
 class HabitGutter extends StatelessWidget {
   const HabitGutter({
     super.key,
     required this.habits,
     required this.onToggle,
-    this.timeToOffset,
     this.timeToY,
     this.hourHeight = 56,
     this.topOffset = 0,
@@ -23,12 +25,10 @@ class HabitGutter extends StatelessWidget {
     this.allDaySlotHeight = 48,
     this.onLongPress,
     this.streakLabelFor,
-    this.streakLabel,
   });
 
   final List<HabitGutterItem> habits;
   final void Function(String habitId) onToggle;
-  final double Function(int timeMinutes)? timeToOffset;
   final double Function(int timeMinutes)? timeToY;
   final double hourHeight;
   final double topOffset;
@@ -37,25 +37,21 @@ class HabitGutter extends StatelessWidget {
   final double allDaySlotHeight;
   final void Function(HabitGutterItem item)? onLongPress;
   final String Function(HabitGutterItem item)? streakLabelFor;
-  final String Function(HabitGutterItem item)? streakLabel;
 
   double _yFor(int minutes) {
-    final fn = timeToOffset ?? timeToY;
-    if (fn != null) return fn(minutes);
+    if (timeToY != null) return timeToY!(minutes);
     return (minutes / 60.0) * hourHeight + topOffset;
   }
 
-  String? _streakText(HabitGutterItem item) {
-    final f = streakLabelFor ?? streakLabel;
-    return f?.call(item);
-  }
+  String? _streakText(HabitGutterItem item) => streakLabelFor?.call(item);
 
   @override
   Widget build(BuildContext context) {
     final allDay = <HabitGutterItem>[];
     final timed = <HabitGutterItem>[];
     for (final h in habits) {
-      if (h.timeMinutes == null) {
+      final t = h.timeMinutes;
+      if (t == null || t < 0 || t > 1439) {
         allDay.add(h);
       } else {
         timed.add(h);
@@ -133,18 +129,7 @@ class HabitGutter extends StatelessWidget {
   }
 
   bool _isDone(HabitGutterItem item) {
-    if (currentDayKey != null) {
-      return item.doneByDay[currentDayKey] ?? false;
-    }
-    if (item.doneByDay.length == 1) {
-      return item.doneByDay.values.first;
-    }
-    final now = DateTime.now();
-    final today =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    if (item.doneByDay.containsKey(today)) {
-      return item.doneByDay[today] ?? false;
-    }
-    return item.doneByDay.values.any((v) => v);
+    if (currentDayKey == null) return false;
+    return item.doneByDay[currentDayKey] ?? false;
   }
 }

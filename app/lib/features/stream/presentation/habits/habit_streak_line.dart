@@ -6,18 +6,21 @@ import '../../design/stream_tokens.dart';
 ///
 /// Connects consecutive done days; breaks across gaps. Optional dots (Week
 /// level) are drawn per day.
-class HabitStreakLine extends StatefulWidget {
+class HabitStreakLine extends StatelessWidget {
   const HabitStreakLine({
     super.key,
     required this.doneByDay,
     required this.cellWidth,
+    required this.colorArgb,
     this.dayKeys,
     this.days,
     this.dayCount,
     this.startDate,
-    this.colorArgb = 0xFF4CAF50,
     this.weekLevel = true,
     this.showDots,
+    this.semanticsLabel,
+    this.streakCurrent = 0,
+    this.duration = StreamMotion.fast,
   });
 
   final Map<String, bool> doneByDay;
@@ -29,48 +32,65 @@ class HabitStreakLine extends StatefulWidget {
   final int colorArgb;
   final bool weekLevel;
   final bool? showDots;
+  final String? semanticsLabel;
+  final int streakCurrent;
+  final Duration duration;
 
-  @override
-  State<HabitStreakLine> createState() => _HabitStreakLineState();
-}
-
-class _HabitStreakLineState extends State<HabitStreakLine> {
   @override
   Widget build(BuildContext context) {
     final keys = _resolveKeys();
-    final done = <bool>[for (final k in keys) widget.doneByDay[k] ?? false];
-    final dots = widget.showDots ?? widget.weekLevel;
+    final done = <bool>[for (final k in keys) doneByDay[k] ?? false];
+    final dots = showDots ?? weekLevel;
     final disable = MediaQuery.disableAnimationsOf(context);
-    return AnimatedOpacity(
-      opacity: 1,
-      duration: disable ? Duration.zero : StreamMotion.fast,
-      child: CustomPaint(
-        size: Size(widget.cellWidth * keys.length, 24),
-        painter: _StreakPainter(
-          done: done,
-          cellWidth: widget.cellWidth,
-          color: Color(widget.colorArgb),
-          showDots: dots,
-        ),
-      ),
+    final effectiveDuration = disable ? Duration.zero : duration;
+
+    Widget content = TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: effectiveDuration,
+      builder: (context, value, child) {
+        return CustomPaint(
+          size: Size(cellWidth * keys.length, 24),
+          painter: _StreakPainter(
+            done: done,
+            cellWidth: cellWidth,
+            color: Color(colorArgb),
+            showDots: dots,
+            progress: value,
+          ),
+        );
+      },
     );
+
+    if (semanticsLabel != null) {
+      content = Semantics(
+        label: '$semanticsLabel, streak $streakCurrent',
+        child: content,
+      );
+    }
+
+    return content;
   }
 
   List<String> _resolveKeys() {
-    if (widget.dayKeys != null) return widget.dayKeys!;
-    if (widget.days != null) return widget.days!;
-    final count = widget.dayCount ?? 0;
+    if (dayKeys != null) return dayKeys!;
+    if (days != null) return days!;
+    final count = dayCount ?? 0;
     if (count <= 0) return const <String>[];
-    if (widget.startDate != null) {
+    if (startDate != null) {
       final out = <String>[];
       for (var i = 0; i < count; i++) {
-        final d = widget.startDate!.add(Duration(days: i));
+        final d = DateTime(
+          startDate!.year,
+          startDate!.month,
+          startDate!.day + i,
+        );
         out.add(
           '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
         );
       }
       return out;
     }
+    // Fallback keys (rarely match date maps); prefer dayKeys/days/startDate.
     return List<String>.generate(count, (i) => '$i');
   }
 }
@@ -81,12 +101,14 @@ class _StreakPainter extends CustomPainter {
     required this.cellWidth,
     required this.color,
     required this.showDots,
+    required this.progress,
   });
 
   final List<bool> done;
   final double cellWidth;
   final Color color;
   final bool showDots;
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -101,8 +123,10 @@ class _StreakPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
+    final visibleCount = (done.length * progress).ceil().clamp(0, done.length);
+
     // Draw line segments between consecutive done days.
-    for (var i = 0; i + 1 < done.length; i++) {
+    for (var i = 0; i + 1 < visibleCount; i++) {
       if (done[i] && done[i + 1]) {
         final x0 = i * cellWidth + cellWidth / 2;
         final x1 = (i + 1) * cellWidth + cellWidth / 2;
@@ -112,7 +136,7 @@ class _StreakPainter extends CustomPainter {
     }
 
     if (showDots) {
-      for (var i = 0; i < done.length; i++) {
+      for (var i = 0; i < visibleCount; i++) {
         final center = Offset(i * cellWidth + cellWidth / 2, size.height / 2);
         if (done[i]) {
           canvas.drawCircle(center, 3, dotPaint);
@@ -121,8 +145,7 @@ class _StreakPainter extends CustomPainter {
         }
       }
     } else {
-      // Month level: dot only on done days.
-      for (var i = 0; i < done.length; i++) {
+      for (var i = 0; i < visibleCount; i++) {
         if (done[i]) {
           final center = Offset(i * cellWidth + cellWidth / 2, size.height / 2);
           canvas.drawCircle(center, 3, dotPaint);
@@ -136,5 +159,6 @@ class _StreakPainter extends CustomPainter {
       old.done != done ||
       old.cellWidth != cellWidth ||
       old.color != color ||
-      old.showDots != showDots;
+      old.showDots != showDots ||
+      old.progress != progress;
 }

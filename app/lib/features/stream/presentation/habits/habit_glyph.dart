@@ -26,11 +26,16 @@ class HabitGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color(colorArgb);
+    final checkColor = Theme.of(context).colorScheme.onPrimary;
     final visual = SizedBox(
       width: size + StreamSpacing.x1 * 2,
       height: size + StreamSpacing.x1 * 2,
       child: CustomPaint(
-        painter: _HabitGlyphPainter(done: done, color: color),
+        painter: _HabitGlyphPainter(
+          done: done,
+          color: color,
+          checkColor: checkColor,
+        ),
       ),
     );
     return Semantics(
@@ -51,10 +56,15 @@ class HabitGlyph extends StatelessWidget {
 }
 
 class _HabitGlyphPainter extends CustomPainter {
-  _HabitGlyphPainter({required this.done, required this.color});
+  _HabitGlyphPainter({
+    required this.done,
+    required this.color,
+    required this.checkColor,
+  });
 
   final bool done;
   final Color color;
+  final Color checkColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -71,7 +81,7 @@ class _HabitGlyphPainter extends CustomPainter {
     canvas.drawCircle(center, radius, paint);
     if (done) {
       final check = Paint()
-        ..color = Colors.white
+        ..color = checkColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6
         ..strokeCap = StrokeCap.round;
@@ -85,5 +95,5 @@ class _HabitGlyphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _HabitGlyphPainter old) =>
-      old.done != done || old.color != color;
+      old.done != done || old.color != color || old.checkColor != checkColor;
 }
