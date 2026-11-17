@@ -98,6 +98,7 @@ import 'cases/stream_command_palette_case.dart' as stream_command_palette;
 import 'cases/stream_command_parser_case.dart' as stream_command_parser;
 import 'cases/stream_culler_case.dart' as stream_culler;
 import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
+import 'cases/stream_gesture_school_case.dart' as stream_gesture_school;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_platform_case.dart' as stream_platform;
@@ -249,6 +250,7 @@ const _included = <String>{
   'stream_command_parser_case.dart',
   'stream_culler_case.dart',
   'stream_fuzzy_case.dart',
+  'stream_gesture_school_case.dart',
   'stream_layout_mode_case.dart',
   'stream_mark_mapper_case.dart',
   'stream_platform_case.dart',
@@ -406,6 +408,7 @@ void main() {
   group('stream_command_parser', stream_command_parser.main);
   group('stream_culler', stream_culler.main);
   group('stream_fuzzy', stream_fuzzy.main);
+  group('stream_gesture_school', stream_gesture_school.main);
   group('stream_layout_mode', stream_layout_mode.main);
   group('stream_mark_mapper', stream_mark_mapper.main);
   group('stream_platform', stream_platform.main);
