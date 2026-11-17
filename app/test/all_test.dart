@@ -109,6 +109,7 @@ import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_platform_case.dart' as stream_platform;
 import 'cases/stream_route_params_case.dart' as stream_route_params;
+import 'cases/stream_screen_case.dart' as stream_screen;
 import 'cases/stream_slipped_keyboard_case.dart' as stream_slipped_keyboard;
 import 'cases/stream_slipped_trail_case.dart' as stream_slipped_trail;
 import 'cases/stream_slipped_triage_case.dart' as stream_slipped_triage;
@@ -268,6 +269,7 @@ const _included = <String>{
   'stream_mark_mapper_case.dart',
   'stream_platform_case.dart',
   'stream_route_params_case.dart',
+  'stream_screen_case.dart',
   'stream_slipped_keyboard_case.dart',
   'stream_slipped_trail_case.dart',
   'stream_slipped_triage_case.dart',
@@ -433,6 +435,7 @@ void main() {
   group('stream_mark_mapper', stream_mark_mapper.main);
   group('stream_platform', stream_platform.main);
   group('stream_route_params', stream_route_params.main);
+  group('stream_screen', stream_screen.main);
   group('stream_slipped_keyboard', stream_slipped_keyboard.main);
   group('stream_slipped_trail', stream_slipped_trail.main);
   group('stream_slipped_triage', stream_slipped_triage.main);

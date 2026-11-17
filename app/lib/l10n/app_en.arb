@@ -1,7 +1,9 @@
 {
   "@@locale": "en",
   "searchTitle": "Search",
-  "@searchTitle": { "description": "Global search screen title" },
+  "@searchTitle": {
+    "description": "Global search screen title"
+  },
   "searchHint": "Search everything",
   "searchEmpty": "Type to search.",
   "searchAll": "All",
@@ -19,7 +21,11 @@
   "backupRestoreBody": "This replaces all current on-device data with the backup. Export first if you need the current state.",
   "backupCancel": "Cancel",
   "backupExported": "Backup saved: {name}",
-  "@backupExported": { "placeholders": { "name": {} } },
+  "@backupExported": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "backupExportFailed": "Export failed.",
   "backupRestored": "Backup restored.",
   "onboardingSkip": "Skip",
@@ -28,8 +34,12 @@
   "onboardingStep": "Step {current} of {total}",
   "@onboardingStep": {
     "placeholders": {
-      "current": { "type": "int" },
-      "total": { "type": "int" }
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "onboardingP1Title": "Your time, offline first",
@@ -41,5 +51,27 @@
   "languageTitle": "Language",
   "languageSystem": "System",
   "languageEnglish": "English",
-  "languagePortuguese": "Portuguese"
+  "languagePortuguese": "Portuguese",
+  "streamNow": "Now",
+  "streamDay": "Day",
+  "streamHour": "Hour",
+  "streamGoTo": "Go to",
+  "streamSyncSynced": "Synced",
+  "streamSyncSyncing": "Syncing",
+  "streamSyncOffline": "Offline",
+  "streamSyncAttention": "Needs attention",
+  "streamSettings": "Settings",
+  "streamAgenda": "Agenda",
+  "streamScrubber": "Timeline position",
+  "now": "Now",
+  "day": "Day",
+  "hour": "Hour",
+  "goTo": "Go to",
+  "synced": "Synced",
+  "syncing": "Syncing",
+  "offline": "Offline",
+  "attention": "Needs attention",
+  "settings": "Settings",
+  "agenda": "Agenda",
+  "scrubber": "Timeline position"
 }

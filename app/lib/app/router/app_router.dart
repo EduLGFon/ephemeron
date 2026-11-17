@@ -15,7 +15,7 @@ import '../../features/notes/presentation/notes_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/stream/presentation/stream_spike_screen.dart';
-import '../../features/stream/presentation/stream_placeholder_screen.dart';
+import '../../features/stream/presentation/stream_screen.dart';
 import '../../features/stream/presentation/stream_route_params.dart';
 import '../../features/stream/stream_flags.dart';
 
@@ -109,7 +109,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (streamUiEnabled)
         GoRoute(
           path: '/stream/:date/:zoom',
-          builder: (context, state) => const StreamPlaceholderScreen(),
+          builder: (context, state) => StreamScreen(
+            date: tryParseStreamDate(state.pathParameters['date']),
+            zoom: state.pathParameters['zoom'],
+          ),
         ),
     ],
     redirect: (context, state) {
