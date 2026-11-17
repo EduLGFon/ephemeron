@@ -63,6 +63,62 @@
     }
   },
   "streamDay": "Day",
+  "streamWeek": "Week",
+  "streamMonth": "Month",
+  "streamLevelEmpty": "Nothing scheduled here",
+  "streamLevelLoading": "Loading marks",
+  "streamLevelError": "Could not load marks",
+  "streamWeekDaySemantics": "{weekday}, {date}",
+  "@streamWeekDaySemantics": {
+    "placeholders": {
+      "weekday": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "streamMonthDaySemantics": "{date}: {count, plural, =1{1 item} other{{count} items}}",
+  "@streamMonthDaySemantics": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "streamMonthStreakSemantics": "{count, plural, =1{Habit streak on day {first}} other{Habit streak, days {first} to {last}}}",
+  "@streamMonthStreakSemantics": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "first": {
+        "type": "int"
+      },
+      "last": {
+        "type": "int"
+      }
+    }
+  },
+  "streamMarkSemantics": "{kind}: {title}",
+  "@streamMarkSemantics": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "streamMarkActionComplete": "Complete",
+  "streamMarkActionPush": "Push to tomorrow",
+  "streamMarkActionReschedule": "Reschedule",
+  "streamMarkActionDelete": "Delete",
   "streamSettings": "Settings",
   "streamScrubber": "Timeline position",
   "streamLauncherTitle": "Go to",
