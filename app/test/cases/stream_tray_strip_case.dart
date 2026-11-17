@@ -280,4 +280,27 @@ void main() {
     await tester.pump();
     expect(find.bySemanticsLabel('1 task'), findsOneWidget);
   });
+  testWidgets('strip expand handle at least 48x48', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: TrayStrip(
+              items: const [],
+              countSemanticsLabel: '0 tasks',
+              handleSemanticsLabel: 'expand',
+              emptyLabel: 'Empty',
+              onExpandRequested: () {},
+              onTap: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final size = tester.getSize(find.bySemanticsLabel('expand'));
+    expect(size.width, greaterThanOrEqualTo(48));
+    expect(size.height, greaterThanOrEqualTo(48));
+  });
 }

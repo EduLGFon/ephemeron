@@ -20,9 +20,10 @@ class TrayPanelHeaderRow extends TrayPanelRow {
 }
 
 class TrayPanelItemRow extends TrayPanelRow {
-  const TrayPanelItemRow(this.item);
+  const TrayPanelItemRow(this.item, {required this.listName});
 
   final TrayItem item;
+  final String listName;
 }
 
 List<TrayPanelRow> buildTrayPanelRows(
@@ -41,7 +42,11 @@ List<TrayPanelRow> buildTrayPanelRows(
   final rows = <TrayPanelRow>[];
   for (final entry in groups.entries) {
     final m = meta[entry.key]!;
-    final name = m.listName.isEmpty ? unnamedLabel : m.listName;
+    final named = entry.value.firstWhere(
+      (i) => i.listName.isNotEmpty,
+      orElse: () => entry.value.first,
+    );
+    final name = named.listName.isEmpty ? unnamedLabel : named.listName;
     rows.add(
       TrayPanelHeaderRow(
         listId: entry.key,
@@ -51,7 +56,7 @@ List<TrayPanelRow> buildTrayPanelRows(
       ),
     );
     for (final item in entry.value) {
-      rows.add(TrayPanelItemRow(item));
+      rows.add(TrayPanelItemRow(item, listName: name));
     }
   }
   return rows;

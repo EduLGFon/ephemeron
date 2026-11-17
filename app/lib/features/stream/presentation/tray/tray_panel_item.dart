@@ -8,12 +8,12 @@ class TrayPanelItem extends StatefulWidget {
   const TrayPanelItem({
     super.key,
     required this.item,
-    required this.unnamedGroupLabel,
+    required this.listName,
     this.onTap,
   });
 
   final TrayItem item;
-  final String unnamedGroupLabel;
+  final String listName;
   final VoidCallback? onTap;
 
   @override
@@ -40,9 +40,7 @@ class _TrayPanelItemState extends State<TrayPanelItem> {
     super.dispose();
   }
 
-  String get _listName => widget.item.listName.isEmpty
-      ? widget.unnamedGroupLabel
-      : widget.item.listName;
+  String get _listName => widget.listName;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +54,9 @@ class _TrayPanelItemState extends State<TrayPanelItem> {
       onTap: widget.onTap,
       child: Focus(
         focusNode: _focusNode,
+        canRequestFocus: actionable,
         onKeyEvent: (node, event) {
+          if (!actionable) return KeyEventResult.ignored;
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.enter ||
                   event.logicalKey == LogicalKeyboardKey.space)) {

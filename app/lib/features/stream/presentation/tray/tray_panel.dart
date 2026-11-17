@@ -61,7 +61,7 @@ class TrayPanel extends StatelessWidget {
               return TrayPanelItem(
                 key: ValueKey('i:${itemRow.item.id}'),
                 item: itemRow.item,
-                unnamedGroupLabel: unnamedGroupLabel,
+                listName: itemRow.listName,
                 onTap: onItemTap == null
                     ? null
                     : () => onItemTap!(itemRow.item.id),
