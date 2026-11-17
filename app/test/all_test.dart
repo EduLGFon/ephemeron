@@ -122,6 +122,7 @@ import 'cases/stream_interactions_case.dart' as stream_interactions;
 import 'cases/stream_launcher_case.dart' as stream_launcher;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
 import 'cases/stream_level_data_case.dart' as stream_level_data;
+import 'cases/stream_level_host_case.dart' as stream_level_host;
 import 'cases/stream_level_transition_case.dart' as stream_level_transition;
 import 'cases/stream_mark_hit_test_case.dart' as stream_mark_hit_test;
 import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
@@ -319,6 +320,7 @@ const _included = <String>{
   'stream_launcher_case.dart',
   'stream_layout_mode_case.dart',
   'stream_level_data_case.dart',
+  'stream_level_host_case.dart',
   'stream_level_transition_case.dart',
   'stream_mark_hit_test_case.dart',
   'stream_mark_layout_case.dart',
@@ -521,6 +523,7 @@ void main() {
   group('stream_launcher', stream_launcher.main);
   group('stream_layout_mode', stream_layout_mode.main);
   group('stream_level_data', stream_level_data.main);
+  group('stream_level_host', stream_level_host.main);
   group('stream_level_transition', stream_level_transition.main);
   group('stream_mark_hit_test', stream_mark_hit_test.main);
   group('stream_mark_layout', stream_mark_layout.main);
