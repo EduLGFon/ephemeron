@@ -12,6 +12,7 @@ import '../../../../core/ui/sheet_padding.dart';
 import '../../application/stream_day_mark.dart';
 import '../../application/stream_peek_actions.dart';
 import '../../application/stream_peek_target.dart';
+import '../../../tasks/application/tasks_providers.dart' show taskListsProvider;
 import '../peek/peek_data.dart';
 import '../peek/peek_editor_state.dart';
 import '../peek/peek_panel.dart';
@@ -24,12 +25,15 @@ Future<void> showStreamPeek(
   BuildContext context, {
   required StreamDayMark mark,
 }) {
-  return showAppSheet<void>(
+  return showGuardedAppSheet<void>(
     context,
     builder: (sheetContext) => StreamPeekSheet(
       mark: mark,
       onClose: () => Navigator.of(sheetContext).pop(),
     ),
+    isDismissible: false,
+    enableDrag: false,
+    showDragHandle: false,
   );
 }
 
@@ -56,10 +60,42 @@ class _StreamPeekSheetState extends ConsumerState<StreamPeekSheet> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final target = ref.watch(streamPeekTargetProvider(widget.mark));
-    return Padding(
-      padding: sheetPadding(context),
-      child: SingleChildScrollView(child: _body(context, l, target)),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _requestClose();
+      },
+      child: Padding(
+        padding: sheetPadding(context),
+        child: SingleChildScrollView(child: _body(context, l, target)),
+      ),
     );
+  }
+
+  void _requestClose() {
+    if (_editorKey.currentState?.hasChanges ?? false) {
+      unawaited(_confirmDiscard());
+    } else {
+      widget.onClose();
+    }
+  }
+
+  Future<int?> _pickTime(BuildContext context, int currentMs) async {
+    final current = DateTime.fromMillisecondsSinceEpoch(currentMs);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(current),
+      initialEntryMode: TimePickerEntryMode.input,
+    );
+    if (picked == null) return null;
+    return DateTime(
+      current.year,
+      current.month,
+      current.day,
+      picked.hour,
+      picked.minute,
+    ).millisecondsSinceEpoch;
   }
 
   Widget _body(
@@ -112,6 +148,20 @@ class _StreamPeekSheetState extends ConsumerState<StreamPeekSheet> {
     AppLocalizations l,
     StreamPeekTarget target,
   ) {
+    final lists = ref.watch(taskListsProvider).value;
+    final options = lists == null
+        ? null
+        : [
+            for (final list in lists)
+              PeekListOption(id: list.id, name: list.name),
+          ];
+    final currentListId = target.data.listId;
+    final listOptions =
+        options != null &&
+            currentListId != null &&
+            !options.any((option) => option.id == currentListId)
+        ? null
+        : options;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -121,6 +171,8 @@ class _StreamPeekSheetState extends ConsumerState<StreamPeekSheet> {
           expanded: true,
           editorKey: _editorKey,
           formatTime: (ms) => _formatTime(context, ms),
+          onPickTime: _pickTime,
+          listOptions: listOptions,
           priorityLabels: [
             l.streamPeekPriorityNone,
             l.streamPeekPriorityLow,

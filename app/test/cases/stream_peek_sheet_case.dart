@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ephemeron/data/drift/app_database.dart' show TaskList;
 import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_peek_actions.dart';
 import 'package:ephemeron/features/stream/application/stream_peek_gateway.dart';
@@ -7,6 +8,8 @@ import 'package:ephemeron/features/stream/application/stream_peek_target.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_data.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_editor.dart';
 import 'package:ephemeron/features/stream/presentation/surface/stream_peek_sheet.dart';
+import 'package:ephemeron/features/tasks/application/tasks_providers.dart'
+    show taskListsProvider;
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -92,6 +95,15 @@ StreamPeekTarget _eventTarget() => StreamPeekTarget(
   editable: false,
 );
 
+TaskList _list(String id, String name) => TaskList(
+  id: id,
+  name: name,
+  sortOrder: 0,
+  createdAt: 0,
+  updatedAt: 0,
+  dirty: false,
+);
+
 Finder get _titleField => find.byWidgetPredicate(
   (widget) =>
       widget is TextField && widget.key == const ValueKey('peek_title_field'),
@@ -102,18 +114,23 @@ Future<AppLocalizations> _openSheet(
   required StreamDayMark mark,
   required AsyncValue<StreamPeekTarget?> target,
   StreamPeekActions? actions,
+  List<TaskList> lists = const <TaskList>[],
   double textScale = 1,
+  bool use24Hour = false,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         streamPeekTargetProvider(mark).overrideWithValue(target),
         streamPeekActionsProvider.overrideWithValue(actions ?? _FakeActions()),
+        taskListsProvider.overrideWith((ref) => Stream.value(lists)),
       ],
       child: MaterialApp(
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+            alwaysUse24HourFormat: use24Hour,
+          ),
           child: child!,
         ),
         localizationsDelegates: const [
@@ -169,6 +186,17 @@ void main() {
 
     await tester.enterText(_titleField, 'Edited');
     await tester.pump();
+
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.byType(StreamPeekSheet), findsOneWidget);
+    expect(find.text(l.streamPeekDiscardTitle), findsNothing);
+
+    await tester.drag(find.byType(StreamPeekSheet), const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(find.byType(StreamPeekSheet), findsOneWidget);
+    expect(find.text(l.streamPeekDiscardTitle), findsNothing);
+
     await tester.tap(find.byIcon(Icons.close));
     await tester.pumpAndSettle();
 
@@ -201,6 +229,79 @@ void main() {
 
     expect(find.text(l.streamPeekDiscardTitle), findsNothing);
     expect(find.byType(StreamPeekSheet), findsNothing);
+  });
+
+  testWidgets('selecting a list saves the new list id', (tester) async {
+    final mark = _taskMark();
+    final actions = _FakeActions();
+    final l = await _openSheet(
+      tester,
+      mark: mark,
+      target: AsyncValue<StreamPeekTarget?>.data(_taskTarget()),
+      actions: actions,
+      lists: [_list('l1', 'Work'), _list('l2', 'Home')],
+    );
+
+    await tester.tap(find.byType(DropdownButtonFormField<String?>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Home').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l.streamPeekSave));
+    await tester.pumpAndSettle();
+
+    expect(actions.calls, hasLength(1));
+    expect(actions.calls.single.$2.listId, 'l2');
+  });
+
+  testWidgets('picking start and end times saves both', (tester) async {
+    final mark = _taskMark();
+    final actions = _FakeActions();
+    final l = await _openSheet(
+      tester,
+      mark: mark,
+      target: AsyncValue<StreamPeekTarget?>.data(_taskTarget()),
+      actions: actions,
+      use24Hour: true,
+    );
+
+    final material = MaterialLocalizations.of(
+      tester.element(find.byType(StreamPeekSheet)),
+    );
+    String label(int hour, int minute) => material.formatTimeOfDay(
+      TimeOfDay(hour: hour, minute: minute),
+      alwaysUse24HourFormat: true,
+    );
+
+    await tester.tap(find.text(label(9, 0)));
+    await tester.pumpAndSettle();
+    var fields = find.descendant(
+      of: find.byType(TimePickerDialog),
+      matching: find.byType(TextField),
+    );
+    expect(fields, findsNWidgets(2));
+    await tester.enterText(fields.at(0), '14');
+    await tester.enterText(fields.at(1), '45');
+    await tester.tap(find.text(material.okButtonLabel));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(label(10, 0)));
+    await tester.pumpAndSettle();
+    fields = find.descendant(
+      of: find.byType(TimePickerDialog),
+      matching: find.byType(TextField),
+    );
+    expect(fields, findsNWidgets(2));
+    await tester.enterText(fields.at(0), '16');
+    await tester.enterText(fields.at(1), '30');
+    await tester.tap(find.text(material.okButtonLabel));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(l.streamPeekSave));
+    await tester.pumpAndSettle();
+
+    expect(actions.calls, hasLength(1));
+    expect(actions.calls.single.$2.startMs, _at(14, 45));
+    expect(actions.calls.single.$2.endMs, _at(16, 30));
   });
 
   testWidgets('event target is read-only with no save', (tester) async {
