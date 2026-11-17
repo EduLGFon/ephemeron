@@ -64,7 +64,7 @@ class DayGestureRegionState extends State<DayGestureRegion>
       if (_ticker.isActive) _ticker.stop();
       return;
     }
-    widget.viewport.panBy(-_velocity * dt);
+    widget.viewport.panBy(_velocity * dt);
     _velocity *= pow(0.9, dt * 60).toDouble();
     if (_velocity.abs() < 5) {
       _momentum = false;

@@ -32,14 +32,19 @@ class StreamTimeViewport extends ChangeNotifier {
   double get minutesPerPixel => _minutesPerPixel;
   StreamZoomPreset get zoomPreset => _preset;
   double get viewportHeight => _viewportHeight;
+  double get maxOffsetPx => _maxOffset();
 
   static const double _minMinutesPerPixel = hourMinutesPerPixel;
   static const double _maxMinutesPerPixel = dayMinutesPerPixel;
 
-  void setViewportHeight(double h) {
-    if (h == _viewportHeight) return;
+  void notify() => notifyListeners();
+
+  bool setViewportHeight(double h, {bool notify = true}) {
+    if (h == _viewportHeight) return false;
     _viewportHeight = h;
-    notifyListeners();
+    _offsetPx = _offsetPx.clamp(0.0, _maxOffset());
+    if (notify) notifyListeners();
+    return true;
   }
 
   void setOffset(double v, {bool notify = true}) {

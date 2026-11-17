@@ -3,6 +3,7 @@ import 'package:ephemeron/features/stream/engine/stream_time_viewport.dart';
 import 'package:ephemeron/features/stream/presentation/day/day_canvas.dart';
 import 'package:ephemeron/features/stream/presentation/day/day_gestures.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -431,17 +432,20 @@ void main() {
     );
     await tester.pump();
     final before = vp.offsetPx;
+    final state = tester.state<DayGestureRegionState>(
+      find.byType(DayGestureRegion),
+    );
     await tester.fling(
       find.byType(DayGestureRegion),
       const Offset(0, -400),
       2000,
     );
     await tester.pump(const Duration(milliseconds: 0));
+    await tester.pump(const Duration(milliseconds: 0));
+    final afterZeros = vp.offsetPx;
+    expect(state.tickerIsActive, isTrue);
     await tester.pump(const Duration(milliseconds: 100));
-    final state = tester.state<DayGestureRegionState>(
-      find.byType(DayGestureRegion),
-    );
-    // Pump until stopped.
+    expect(vp.offsetPx, isNot(afterZeros));
     for (int i = 0; i < 300 && state.tickerIsActive; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
@@ -636,5 +640,113 @@ void main() {
 
     final after = findMarkNode().rect;
     expect((after.top - before.top).abs(), closeTo(40.0, 1.0));
+  });
+
+  testWidgets('momentum continues fling direction', (tester) async {
+    final vp = StreamTimeViewport(baseEpochMs: 0);
+    vp.setViewportHeight(400);
+    vp.setZoom(StreamTimeViewport.dayMinutesPerPixel);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            height: 400,
+            child: DayGestureRegion(
+              viewport: vp,
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final before = vp.offsetPx;
+    await tester.fling(
+      find.byType(DayGestureRegion),
+      const Offset(0, -400),
+      2000,
+    );
+    final atEnd = vp.offsetPx;
+    await tester.pump(const Duration(milliseconds: 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    final afterFirst = vp.offsetPx;
+    expect(atEnd, greaterThan(before));
+    expect(afterFirst, greaterThan(atEnd));
+  });
+
+  testWidgets('4px wide canvas no exception', (tester) async {
+    final vp = StreamTimeViewport(baseEpochMs: 0);
+    vp.setViewportHeight(400);
+    vp.setZoom(StreamTimeViewport.dayMinutesPerPixel);
+    final marks = [
+      StreamDayMark(
+        id: 'm0',
+        kind: StreamDayMarkKind.event,
+        startMs: 0,
+        endMs: 60 * 60 * 1000,
+        title: 'title',
+        colorArgb: 0xFF000000,
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 4,
+            height: 400,
+            child: DayCanvas(
+              viewport: vp,
+              marks: marks,
+              timeFormatter: (ms) => '$ms',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ctrl wheel zoom changes zoom and keeps focal time', (
+    tester,
+  ) async {
+    final vp = StreamTimeViewport(baseEpochMs: 0);
+    vp.setViewportHeight(400);
+    vp.setZoom(StreamTimeViewport.dayMinutesPerPixel);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            height: 400,
+            child: DayGestureRegion(
+              viewport: vp,
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final beforeMpp = vp.minutesPerPixel;
+    final focal = 200.0;
+    final timeBefore = vp.pxToTime(focal);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    GestureBinding.instance.handlePointerEvent(
+      PointerScrollEvent(
+        timeStamp: Duration.zero,
+        position: const Offset(180, 200),
+        scrollDelta: const Offset(0, -50),
+        device: 1,
+        kind: PointerDeviceKind.mouse,
+      ),
+    );
+    await tester.pump();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    expect(vp.minutesPerPixel, isNot(beforeMpp));
+    final timeAfter = vp.pxToTime(focal);
+    expect((timeAfter - timeBefore).abs(), lessThanOrEqualTo(2 * 60 * 1000));
   });
 }

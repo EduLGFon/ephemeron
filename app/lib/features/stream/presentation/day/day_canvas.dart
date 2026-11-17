@@ -11,7 +11,6 @@ class DayCanvas extends StatefulWidget {
     required this.viewport,
     required this.marks,
     required this.timeFormatter,
-    this.onMarkTap,
     this.onCulledCount,
     this.onPaint,
   });
@@ -19,7 +18,6 @@ class DayCanvas extends StatefulWidget {
   final StreamTimeViewport viewport;
   final List<StreamDayMark> marks;
   final String Function(int epochMs) timeFormatter;
-  final void Function(StreamDayMark mark)? onMarkTap;
   final void Function(int culledCount)? onCulledCount;
   final void Function()? onPaint;
 
@@ -36,13 +34,33 @@ class _DayCanvasState extends State<DayCanvas> {
   void initState() {
     super.initState();
     _prepare();
+    widget.viewport.addListener(_onViewportChanged);
   }
 
   @override
   void didUpdateWidget(covariant DayCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.viewport, widget.viewport)) {
+      oldWidget.viewport.removeListener(_onViewportChanged);
+      widget.viewport.addListener(_onViewportChanged);
+    }
     if (!identical(oldWidget.marks, widget.marks)) {
       _prepare();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.viewport.removeListener(_onViewportChanged);
+    super.dispose();
+  }
+
+  void _onViewportChanged() {
+    final ro = context.findRenderObject();
+    if (ro != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (ro.attached) ro.markNeedsSemanticsUpdate();
+      });
     }
   }
 
@@ -61,7 +79,15 @@ class _DayCanvasState extends State<DayCanvas> {
     return RepaintBoundary(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          widget.viewport.setViewportHeight(constraints.maxHeight);
+          final changed = widget.viewport.setViewportHeight(
+            constraints.maxHeight,
+            notify: false,
+          );
+          if (changed) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              widget.viewport.notify();
+            });
+          }
           return CustomPaint(
             painter: DayCanvasPainter(
               viewport: widget.viewport,

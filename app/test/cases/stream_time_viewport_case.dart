@@ -41,4 +41,15 @@ void main() {
     );
     expect(vp.minutesPerPixel, closeTo(60.0 / 160.0, 1e-9));
   });
+
+  test('setViewportHeight re-clamps offset', () {
+    final vp = StreamTimeViewport(baseEpochMs: 0);
+    vp.setViewportHeight(100);
+    vp.setZoom(StreamTimeViewport.dayMinutesPerPixel);
+    vp.setOffset(1e9);
+    final before = vp.offsetPx;
+    vp.setViewportHeight(400);
+    expect(vp.offsetPx, lessThan(before));
+    expect(vp.offsetPx, closeTo(vp.maxOffsetPx, 1e-6));
+  });
 }

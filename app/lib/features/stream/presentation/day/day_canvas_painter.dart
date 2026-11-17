@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/rendering.dart';
 
 import '../../application/stream_day_mark.dart';
@@ -32,15 +34,31 @@ class DayCanvasPainter extends CustomPainter {
   static const double _minBlockPx = 2.0;
   static const double _barWidth = 3.0;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    onPaint?.call();
+  _CulledMarks _cull(Size size) {
     final t0 = viewport.pxToTime(0);
     final t1 = viewport.pxToTime(size.height);
     final range = cullMarks(starts, ends, t0, t1);
-    onCulledCount?.call(range.end - range.start);
+    final visible = marks.sublist(range.start, range.end);
+    final intervals = visible
+        .map((m) => MarkInterval(startMs: m.startMs, endMs: m.endMs, id: m.id))
+        .toList(growable: false);
+    final layout = layoutMarkColumns(intervals);
+    return _CulledMarks(visible: visible, layout: layout, t0: t0, t1: t1);
+  }
 
-    // Hour hairlines.
+  Rect _blockRect(StreamDayMark m, MarkLayout l, Size size) {
+    var top = viewport.timeToPx(m.startMs);
+    var bottom = viewport.timeToPx(m.endMs);
+    if (bottom - top < _minBlockPx) bottom = top + _minBlockPx;
+    final cols = l.columnCount < 1 ? 1 : l.columnCount;
+    final available = (size.width - 8).clamp(1.0, double.infinity);
+    final colWidth = available / cols;
+    final left = 4 + l.column * colWidth;
+    final right = math.max(left, left + colWidth - 4);
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  void _paintHairlines(Canvas canvas, Size size, int t0, int t1) {
     final hairline = Paint()
       ..color = style.hairline
       ..strokeWidth = 1;
@@ -50,55 +68,54 @@ class DayCanvasPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), hairline);
       cursor += 60 * 60 * 1000;
     }
+  }
 
-    // Layout visible marks into overlap columns.
-    final visible = marks.sublist(range.start, range.end);
-    final intervals = visible
-        .map((m) => MarkInterval(startMs: m.startMs, endMs: m.endMs, id: m.id))
-        .toList(growable: false);
-    final layout = layoutMarkColumns(intervals);
+  @override
+  void paint(Canvas canvas, Size size) {
+    onPaint?.call();
+    final culled = _cull(size);
+    onCulledCount?.call(culled.visible.length);
+    _paintHairlines(canvas, size, culled.t0, culled.t1);
 
     final textPainter = TextPainter(
       textDirection: TextDirection.ltr,
       maxLines: 1,
       ellipsis: '…',
     );
-    for (var i = 0; i < visible.length; i++) {
-      final m = visible[i];
-      final l = layout[i];
-      var top = viewport.timeToPx(m.startMs);
-      var bottom = viewport.timeToPx(m.endMs);
-      if (bottom - top < _minBlockPx) bottom = top + _minBlockPx;
-      final cols = l.columnCount < 1 ? 1 : l.columnCount;
-      final colWidth = (size.width - 8) / cols;
-      final left = 4 + l.column * colWidth;
-      final rect = Rect.fromLTRB(left, top, left + colWidth - 4, bottom);
+    for (var i = 0; i < culled.visible.length; i++) {
+      final m = culled.visible[i];
+      final l = culled.layout[i];
+      final rect = _blockRect(m, l, size);
       final color = Color(m.colorArgb);
-      final fill = Paint()
-        ..color = color.withValues(alpha: style.blockFillAlpha);
-      canvas.drawRect(rect, fill);
       canvas.drawRect(
-        Rect.fromLTRB(rect.left, top, rect.left + _barWidth, bottom),
+        rect,
+        Paint()..color = color.withValues(alpha: style.blockFillAlpha),
+      );
+      canvas.drawRect(
+        Rect.fromLTRB(rect.left, rect.top, rect.left + _barWidth, rect.bottom),
         Paint()..color = color,
       );
 
-      final blockHeight = bottom - top;
       textPainter.text = TextSpan(
         text: m.title,
         style: TextStyle(color: style.title, fontSize: 12 * textScale),
       );
-      textPainter.layout(maxWidth: rect.width - 4);
-      textPainter.paint(canvas, Offset(rect.left + 2, top + 2));
+      textPainter.layout(
+        maxWidth: (rect.width - 4).clamp(0.0, double.infinity),
+      );
+      textPainter.paint(canvas, Offset(rect.left + 2, rect.top + 2));
 
-      if (blockHeight > 28 * textScale) {
+      if (rect.bottom - rect.top > 28 * textScale) {
         textPainter.text = TextSpan(
           text: timeFormatter(m.startMs),
           style: TextStyle(color: style.subtitle, fontSize: 10 * textScale),
         );
-        textPainter.layout(maxWidth: rect.width - 4);
+        textPainter.layout(
+          maxWidth: (rect.width - 4).clamp(0.0, double.infinity),
+        );
         textPainter.paint(
           canvas,
-          Offset(rect.left + 2, top + 2 + 14 * textScale),
+          Offset(rect.left + 2, rect.top + 2 + 14 * textScale),
         );
       }
     }
@@ -106,25 +123,13 @@ class DayCanvasPainter extends CustomPainter {
 
   @override
   SemanticsBuilderCallback get semanticsBuilder => (Size size) {
-    final t0 = viewport.pxToTime(0);
-    final t1 = viewport.pxToTime(size.height);
-    final range = cullMarks(starts, ends, t0, t1);
-    final visible = marks.sublist(range.start, range.end);
-    final intervals = visible
-        .map((m) => MarkInterval(startMs: m.startMs, endMs: m.endMs, id: m.id))
-        .toList(growable: false);
-    final layout = layoutMarkColumns(intervals);
+    final culled = _cull(size);
     final result = <CustomPainterSemantics>[];
-    for (var i = 0; i < visible.length; i++) {
-      final m = visible[i];
-      final l = layout[i];
-      var top = viewport.timeToPx(m.startMs);
-      var bottom = viewport.timeToPx(m.endMs);
-      if (bottom - top < _minBlockPx) bottom = top + _minBlockPx;
-      final cols = l.columnCount < 1 ? 1 : l.columnCount;
-      final colWidth = (size.width - 8) / cols;
-      final left = 4 + l.column * colWidth;
-      final rect = Rect.fromLTRB(left, top, left + colWidth - 4, bottom);
+    for (var i = 0; i < culled.visible.length; i++) {
+      final m = culled.visible[i];
+      final l = culled.layout[i];
+      final rect = _blockRect(m, l, size);
+      if (rect.width <= 0) continue;
       result.add(
         CustomPainterSemantics(
           rect: rect,
@@ -143,6 +148,20 @@ class DayCanvasPainter extends CustomPainter {
     return oldDelegate.viewport != viewport ||
         !identical(oldDelegate.marks, marks) ||
         oldDelegate.textScale != textScale ||
-        oldDelegate.style != style;
+        oldDelegate.style != style ||
+        oldDelegate.timeFormatter != timeFormatter;
   }
+}
+
+class _CulledMarks {
+  const _CulledMarks({
+    required this.visible,
+    required this.layout,
+    required this.t0,
+    required this.t1,
+  });
+  final List<StreamDayMark> visible;
+  final List<MarkLayout> layout;
+  final int t0;
+  final int t1;
 }
