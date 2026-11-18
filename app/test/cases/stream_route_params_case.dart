@@ -19,7 +19,7 @@ void main() {
   test('invalid zoom falls back to day', () {
     final p = parseStreamRouteParams(
       date: '2026-01-02',
-      zoom: 'week',
+      zoom: 'hour',
       clock: clock,
     );
     expect(formatStreamDate(p.date), '2026-01-02');
