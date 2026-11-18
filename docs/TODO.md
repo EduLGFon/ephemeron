@@ -61,6 +61,8 @@
 - Generated l10n keeps a header ignore for deprecated_member_use because Flutter gen-l10n still emits legacy delegates; app code uses material_ui delegates. Revisit when the generator migrates.
 - Release build warns the CupertinoIcons font is absent; no app code uses CupertinoIcons.
 - AGP 9.5.1, Gradle 9.9.1, Kotlin 2.4.21 are above Flutter 3.50 max-known versions but latest stable; debug and arm64 release builds pass.
+- Google Calendar incremental sync for the primary calendar currently receives HTTP 410 on each run; the client falls back to a full resync and reports no error. Follow-up: find why the stored v2 token is rejected (token/account binding) and avoid the repeated full resync.
+- WorkManager background sync can overlap a foreground sync or occurrence-cache rebuild in the same process; one DriftRemoteException burst was observed immediately after install, not reproduced in two later syncs. Follow-up: serialize background and foreground sync or isolate the database connection.
 
 ## Ephemeron domains rollout (u10d, 2026-11-10)
 
