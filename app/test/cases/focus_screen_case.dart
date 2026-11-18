@@ -15,19 +15,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 void _mockPlatformChannels() {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  const alarms = MethodChannel('ephemeron/alarms');
+  const system = MethodChannel('ephemeron/system');
+  const wakelockToggle =
+      'dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle';
+  messenger.setMockMethodCallHandler(alarms, (call) async => null);
   messenger.setMockMethodCallHandler(
-    const MethodChannel('ephemeron/alarms'),
-    (call) async => null,
-  );
-  messenger.setMockMethodCallHandler(
-    const MethodChannel('ephemeron/system'),
+    system,
     (call) async => call.method == 'canPostNotifications' ? true : null,
   );
   messenger.setMockMessageHandler(
-    'dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle',
+    wakelockToggle,
     (message) async =>
         const StandardMessageCodec().encodeMessage(const <Object?>[]),
   );
+  // Handlers installed on the default messenger persist across widget tests in
+  // this file, so reset them before the next file runs.
+  addTearDown(() {
+    messenger.setMockMethodCallHandler(alarms, null);
+    messenger.setMockMethodCallHandler(system, null);
+    messenger.setMockMessageHandler(wakelockToggle, null);
+  });
 }
 
 void main() {
