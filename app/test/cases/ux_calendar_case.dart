@@ -113,7 +113,12 @@ void main() {
           appDatabaseProvider.overrideWithValue(db),
           calendarStateProvider.overrideWith(() => _FixedWindow(window)),
         ],
-        child: const MaterialApp(home: Scaffold(body: MonthView())),
+        child: MaterialApp(
+          // The default sparkle splash needs a Vulkan-only shader that the
+          // Skia test backend cannot load.
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
+          home: const Scaffold(body: MonthView()),
+        ),
       ),
     );
     await tester.pump();
