@@ -67,10 +67,10 @@ abstract final class EphemeronTheme {
         .apply(bodyColor: c.onSurface, displayColor: c.onSurface);
     final line = BorderSide(color: c.outlineVariant);
     final md = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(DsRadius.md),
+      borderRadius: BorderRadius.circular(DsRadius.r12),
     );
     final lg = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(DsRadius.lg),
+      borderRadius: BorderRadius.circular(DsRadius.r16),
     );
 
     return ThemeData(
@@ -100,7 +100,7 @@ abstract final class EphemeronTheme {
         elevation: 0,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DsRadius.lg),
+          borderRadius: BorderRadius.circular(DsRadius.r16),
           side: line,
         ),
       ),
@@ -149,7 +149,7 @@ abstract final class EphemeronTheme {
         clipBehavior: Clip.antiAlias,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(DsRadius.xl),
+            top: Radius.circular(DsRadius.r24),
           ),
         ),
       ),
@@ -158,7 +158,7 @@ abstract final class EphemeronTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DsRadius.xl),
+          borderRadius: BorderRadius.circular(DsRadius.r24),
           side: line,
         ),
         titleTextStyle: t.headlineSmall?.copyWith(color: c.onSurface),
@@ -244,7 +244,7 @@ ButtonStyle _button(
   side: side == null ? null : WidgetStatePropertyAll<BorderSide?>(side),
   shape: const WidgetStatePropertyAll<OutlinedBorder?>(
     RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(DsRadius.md)),
+      borderRadius: BorderRadius.all(Radius.circular(DsRadius.r12)),
     ),
   ),
   minimumSize: const WidgetStatePropertyAll<Size?>(Size(0, 48)),
@@ -292,6 +292,6 @@ WidgetStateProperty<Color?> _overlay(Color color) {
 
 OutlineInputBorder _inputBorder(Color color, [double width = 1]) =>
     OutlineInputBorder(
-      borderRadius: BorderRadius.circular(DsRadius.md),
+      borderRadius: BorderRadius.circular(DsRadius.r12),
       borderSide: BorderSide(color: color, width: width),
     );

@@ -107,6 +107,29 @@ void main() {
       }
     });
 
+    test('background overrides keep both foregrounds readable', () {
+      final cases = <(String, Color?)>[
+        ('light', null),
+        ('dark', null),
+        ('light', const Color(0xFF808080)),
+      ];
+      for (final (mode, background) in cases) {
+        final scheme = EphemeronTheme.build(
+          mode: mode,
+          platformBrightness: Brightness.light,
+          background: background,
+        ).colorScheme;
+        expect(
+          _contrast(scheme.onSurface, scheme.surface),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          _contrast(scheme.onSurfaceVariant, scheme.surface),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
+    });
+
     test('component surfaces stay flat with no elevation', () {
       final theme = EphemeronTheme.build(
         mode: 'light',
@@ -180,6 +203,14 @@ void main() {
       expect(layoutForWidth(839.9), AppLayout.medium);
       expect(layoutForWidth(840), AppLayout.expanded);
       expect(layoutForWidth(1440), AppLayout.expanded);
+    });
+
+    test('radius tokens match the component contract', () {
+      expect(
+        <double>[DsRadius.r8, DsRadius.r12, DsRadius.r16, DsRadius.r24],
+        <double>[8, 12, 16, 24],
+      );
+      expect(DsRadius.pill, 999);
     });
 
     testWidgets('scope exposes the layout and is optional', (tester) async {

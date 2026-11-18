@@ -1,6 +1,8 @@
 // Design tokens for the Ephemeron UI. Screens and components read spacing,
 // radii, breakpoints, motion and icon sizes from here so the whole app stays
 // on one scale instead of re-inventing values per screen.
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 /// Spacing scale. Layout code should stay on these steps.
@@ -16,10 +18,10 @@ abstract final class DsSpace {
 
 /// Corner radii. [pill] caps to a full capsule at any practical size.
 abstract final class DsRadius {
-  static const double sm = 8;
-  static const double md = 12;
-  static const double lg = 16;
-  static const double xl = 24;
+  static const double r8 = 8;
+  static const double r12 = 12;
+  static const double r16 = 16;
+  static const double r24 = 24;
   static const double pill = 999;
 }
 
@@ -106,8 +108,17 @@ abstract final class DsColorScheme {
     final base = ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
     final dark =
         ThemeData.estimateBrightnessForColor(surface) == Brightness.dark;
-    final on = dark ? DsSurfaces.onDark : DsSurfaces.onLight;
-    final variant = dark ? DsSurfaces.variantOnDark : DsSurfaces.variantOnLight;
+    // Prefer the warm foreground, but fall back to pure black or white when a
+    // user-supplied mid-luminance background would fail AA.
+    final on = _readable(
+      surface,
+      dark ? DsSurfaces.onDark : DsSurfaces.onLight,
+    );
+    final variant = _readable(
+      surface,
+      dark ? DsSurfaces.variantOnDark : DsSurfaces.variantOnLight,
+      fallback: on,
+    );
     final line = amoled
         ? DsSurfaces.hairlineAmoled
         : dark
@@ -148,6 +159,39 @@ abstract final class DsColorScheme {
       inverseSurface: on,
       onInverseSurface: surface,
     );
+  }
+
+  /// Returns [preferred] when it reaches WCAG AA on [surface], else [fallback]
+  /// when that passes, else whichever of black and white has more contrast.
+  /// The black/white fallback always clears 4.5:1, including mid-luminance
+  /// custom backgrounds where neither warm foreground can.
+  static Color _readable(Color surface, Color preferred, {Color? fallback}) {
+    if (_contrast(preferred, surface) >= 4.5) return preferred;
+    if (fallback != null && _contrast(fallback, surface) >= 4.5) {
+      return fallback;
+    }
+    return _contrast(Colors.white, surface) >= _contrast(Colors.black, surface)
+        ? Colors.white
+        : Colors.black;
+  }
+
+  static double _contrast(Color a, Color b) {
+    final values = <double>[_luminance(a), _luminance(b)]..sort();
+    return (values.last + 0.05) / (values.first + 0.05);
+  }
+
+  static double _luminance(Color color) {
+    double channel(int value) {
+      final c = value / 255.0;
+      return c <= 0.03928
+          ? c / 12.92
+          : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
+    }
+
+    final argb = color.toARGB32();
+    return 0.2126 * channel((argb >> 16) & 0xFF) +
+        0.7152 * channel((argb >> 8) & 0xFF) +
+        0.0722 * channel(argb & 0xFF);
   }
 
   static Color _mix(Color base, Color overlay, double opacity) =>
