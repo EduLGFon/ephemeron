@@ -113,6 +113,7 @@ import 'cases/stream_day_canvas_case.dart' as stream_day_canvas;
 import 'cases/stream_day_controller_case.dart' as stream_day_controller;
 import 'cases/stream_day_gestures_case.dart' as stream_day_gestures;
 import 'cases/stream_drag_overlay_case.dart' as stream_drag_overlay;
+import 'cases/stream_focus_band_case.dart' as stream_focus_band;
 import 'cases/stream_focus_case.dart' as stream_focus;
 import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
 import 'cases/stream_gesture_school_case.dart' as stream_gesture_school;
@@ -317,6 +318,7 @@ const _included = <String>{
   'stream_day_controller_case.dart',
   'stream_day_gestures_case.dart',
   'stream_drag_overlay_case.dart',
+  'stream_focus_band_case.dart',
   'stream_focus_case.dart',
   'stream_fuzzy_case.dart',
   'stream_gesture_school_case.dart',
@@ -526,6 +528,7 @@ void main() {
   group('stream_day_controller', stream_day_controller.main);
   group('stream_day_gestures', stream_day_gestures.main);
   group('stream_drag_overlay', stream_drag_overlay.main);
+  group('stream_focus_band', stream_focus_band.main);
   group('stream_focus', stream_focus.main);
   group('stream_fuzzy', stream_fuzzy.main);
   group('stream_gesture_school', stream_gesture_school.main);

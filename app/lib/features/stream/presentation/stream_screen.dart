@@ -32,6 +32,7 @@ import 'stream_route_params.dart';
 import 'stream_time_format.dart';
 import 'surface/stream_command_overlay.dart';
 import 'surface/stream_dock_host.dart';
+import 'surface/stream_focus_band_host.dart';
 import 'surface/stream_launcher.dart';
 import 'surface/stream_level_host.dart';
 import 'surface/stream_offline_banner_host.dart';
@@ -497,7 +498,12 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
         onOpenSettings: _openSettings,
       ),
     );
-    final body = _levelBody(level: level, params: params, now: now, l: l);
+    // Focus band mounts at screen level as a Stack overlay above the level
+    // body: the pill floats below the header, above the dock, and never
+    // absorbs canvas gestures outside its own bounds.
+    final body = StreamFocusBandHost(
+      child: _levelBody(level: level, params: params, now: now, l: l),
+    );
     final dock = StreamDockHost(now: now, locale: _captureLocale(context));
 
     return Theme(
