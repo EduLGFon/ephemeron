@@ -19,9 +19,9 @@ class GoogleReconsentAccounts extends Notifier<List<String>> {
       state = state.where((a) => a != account).toList();
 }
 
-/// Highest-priority Google failure from the last sync run. Null means no
-/// Google issue. Backend (and Microsoft) failures are tracked separately so
-/// they never raise a Google reconnect prompt.
+/// Highest-priority Google or Microsoft failure from the last sync run. Null
+/// means no such issue. Backend failures are tracked separately so they never
+/// raise a Google reconnect prompt.
 final syncIssueProvider = NotifierProvider<SyncIssueNotifier, SyncErrorKind?>(
   SyncIssueNotifier.new,
 );
@@ -89,11 +89,20 @@ int _googleIssuePriority(SyncErrorKind? kind) => switch (kind) {
   SyncErrorKind.none || null => 0,
 };
 
-SyncErrorKind? _higherGoogleIssue(
-  SyncErrorKind? current,
-  SyncErrorKind? next,
-) =>
+SyncErrorKind? _higherSyncIssue(SyncErrorKind? current, SyncErrorKind? next) =>
     _googleIssuePriority(next) > _googleIssuePriority(current) ? next : current;
+
+/// Classifies a Microsoft failure that escaped `MicrosoftSyncEngine.syncNow`
+/// (after its bounded retry) so a Graph outage is not reported as an
+/// unexplained failure. 401/403 stay auth so the reconnect path is preserved.
+SyncErrorKind microsoftFailureKind(Object error) {
+  if (error is MicrosoftGraphException) {
+    if (error.isUnauthorized || error.isForbidden) return SyncErrorKind.auth;
+    if (error.isRateLimited) return SyncErrorKind.rateLimited;
+    if (error.status >= 500) return SyncErrorKind.server;
+  }
+  return SyncErrorKind.unknown;
+}
 
 final microsoftReconsentAccountsProvider =
     NotifierProvider<MicrosoftReconsentAccounts, List<String>>(
@@ -172,7 +181,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               hasAuthFailure = true;
               googleAttempted = true;
               anyAttempted = true;
-              googleIssue = _higherGoogleIssue(googleIssue, SyncErrorKind.auth);
+              googleIssue = _higherSyncIssue(googleIssue, SyncErrorKind.auth);
               continue;
             }
             if (!result.attempted) {
@@ -185,7 +194,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               anyPulled = true;
             } else if (result.status == SyncStatus.error) {
               hasRealError = true;
-              googleIssue = _higherGoogleIssue(
+              googleIssue = _higherSyncIssue(
                 googleIssue,
                 result.errorKind == SyncErrorKind.none
                     ? SyncErrorKind.unknown
@@ -197,10 +206,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             hasRealError = true;
             anyAttempted = true;
             googleAttempted = true;
-            googleIssue = _higherGoogleIssue(
-              googleIssue,
-              SyncErrorKind.unknown,
-            );
+            googleIssue = _higherSyncIssue(googleIssue, SyncErrorKind.unknown);
           }
         }
         if (googleAttempted) {
@@ -214,7 +220,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             !hasAuthFailure &&
             !hasRealError &&
             googleUnavailable) {
-          googleIssue = _higherGoogleIssue(googleIssue, SyncErrorKind.network);
+          googleIssue = _higherSyncIssue(googleIssue, SyncErrorKind.network);
         }
         ref
             .read(syncIssueProvider.notifier)
@@ -232,6 +238,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
 
       // Microsoft
       final needReconnectMs = <String>[];
+      SyncErrorKind? msIssue;
       if (msAccounts.isNotEmpty) {
         for (final acct in msAccounts) {
           try {
@@ -253,15 +260,37 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               anyPulled = true;
             }
             anyAttempted = true;
+          } on MicrosoftGraphException catch (e) {
+            // The engine handles 401/403 and To Do 404/410 itself, so this is
+            // an unsuppressed failure (calendars, events, or an exhausted
+            // transient retry). Classify it; log status only, never content.
+            final kind = microsoftFailureKind(e);
+            if (kind == SyncErrorKind.auth) {
+              needReconnectMs.add(acct);
+              hasAuthFailure = true;
+            } else {
+              hasRealError = true;
+              msIssue = _higherSyncIssue(msIssue, kind);
+            }
+            anyAttempted = true;
+            debugPrint(
+              '[sync] microsoft account failed kind=${kind.name} status=${e.status}',
+            );
           } catch (e) {
             debugPrint('[sync] microsoft account failed type=${e.runtimeType}');
             hasRealError = true;
             anyAttempted = true;
+            msIssue = _higherSyncIssue(msIssue, SyncErrorKind.unknown);
           }
         }
         ref
             .read(microsoftReconsentAccountsProvider.notifier)
             .set(needReconnectMs);
+        if (msIssue != null) {
+          ref
+              .read(syncIssueProvider.notifier)
+              .set(_higherSyncIssue(ref.read(syncIssueProvider), msIssue));
+        }
       }
 
       if (!anyAttempted) {
