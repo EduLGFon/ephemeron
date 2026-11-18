@@ -1027,6 +1027,117 @@ void main() {
     )..where((o) => o.entityId.equals('ok'))).get();
     expect(created, isEmpty);
   });
+
+  test(
+    'tasks: first pull with no cursor fetches once and stores a cursor',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final listId = await _seedTaskList(db);
+      final fake = _TaskPullFake()..page('cursor-1');
+      final engine = SyncEngine(db, clientFactory: () => fake);
+      await engine.syncNow();
+      expect(fake.pulledTaskLists, hasLength(1));
+      expect(fake.updatedMins, [null]);
+      expect(await _cursorOf(db, listId), 'cursor-1');
+      expect(engine.status, SyncStatus.synced);
+    },
+  );
+
+  test('tasks: no-change incremental makes exactly one request', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final listId = await _seedTaskList(db);
+    await _seedCursor(db, listId, 'cursor-1');
+    await _seedTaskRow(db, id: 't0', listId: listId, remoteId: 'g0');
+    final fake = _TaskPullFake()..page('cursor-2');
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+    expect(fake.pulledTaskLists, hasLength(1));
+    expect(fake.updatedMins, ['cursor-1']);
+    expect(await _cursorOf(db, listId), 'cursor-2');
+    expect(engine.status, SyncStatus.synced);
+  });
+
+  for (final status in [400, 410]) {
+    test(
+      'tasks: invalid cursor $status triggers exactly one full retry',
+      () async {
+        final db = _db();
+        addTearDown(db.close);
+        final listId = await _seedTaskList(db);
+        await _seedCursor(db, listId, 'cursor-1');
+        await _seedTaskRow(db, id: 't0', listId: listId, remoteId: 'g0');
+        final fake = _TaskPullFake()
+          ..fail(status)
+          ..page(
+            'cursor-3',
+            items: [
+              {
+                'id': 'g1',
+                'etag': 'e1',
+                'title': 'One',
+                'status': 'needsAction',
+              },
+            ],
+          );
+        final engine = SyncEngine(db, clientFactory: () => fake);
+        await engine.syncNow();
+        expect(fake.pulledTaskLists, hasLength(2));
+        expect(fake.updatedMins, ['cursor-1', null]);
+        expect(await _cursorOf(db, listId), 'cursor-3');
+        expect(engine.status, SyncStatus.synced);
+        final rows = await (db.select(
+          db.tasks,
+        )..where((t) => t.remoteId.equals('g1'))).get();
+        expect(rows, hasLength(1));
+      },
+    );
+  }
+
+  test(
+    'tasks: local-empty list with cursor does at most one full fetch',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final listId = await _seedTaskList(db);
+      await _seedCursor(db, listId, 'cursor-1');
+      // No local task rows: the only recovery allowed is one bounded fetch.
+      final fake = _TaskPullFake()
+        ..page('cursor-2') // incremental: empty
+        ..page('cursor-3'); // one bounded full fetch: empty
+      final engine = SyncEngine(db, clientFactory: () => fake);
+      await engine.syncNow();
+      expect(fake.pulledTaskLists, hasLength(2));
+      expect(fake.updatedMins, ['cursor-1', null]);
+      expect(await _cursorOf(db, listId), 'cursor-3');
+      expect(engine.status, SyncStatus.synced);
+    },
+  );
+
+  test(
+    'tasks: failed full retry keeps cursor and does not duplicate rows',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      final listId = await _seedTaskList(db);
+      await _seedCursor(db, listId, 'cursor-1');
+      await _seedTaskRow(db, id: 't0', listId: listId, remoteId: 'g0');
+      final fake = _TaskPullFake()
+        ..fail(400)
+        ..fail(500); // the single full retry also fails
+      final engine = SyncEngine(db, clientFactory: () => fake);
+      await engine.syncNow();
+      expect(fake.pulledTaskLists, hasLength(2));
+      expect(fake.updatedMins, ['cursor-1', null]);
+      expect(await _cursorOf(db, listId), 'cursor-1');
+      final rows = await (db.select(
+        db.tasks,
+      )..where((t) => t.remoteId.equals('g0'))).get();
+      expect(rows, hasLength(1));
+      expect(engine.status, SyncStatus.error);
+    },
+  );
 }
 
 class _RateLimitedOnce extends FakeGoogle {
@@ -1046,4 +1157,94 @@ class _MissingInstanceDelete extends FakeGoogle {
   Future<void> eventDelete(String calendarId, String eventId) async {
     throw GoogleApiException(404, 'not found');
   }
+}
+
+class _TaskFetch {
+  _TaskFetch.page(this.cursor, {this.items = const []}) : status = null;
+  _TaskFetch.fail(this.status) : cursor = null, items = const [];
+
+  final String? cursor;
+  final List<Map<String, dynamic>> items;
+  final int? status;
+}
+
+/// Scripted `tasksList` responses with full call tracing for cursor tests.
+class _TaskPullFake extends FakeGoogle {
+  final List<_TaskFetch> queue = [];
+  final List<String?> updatedMins = [];
+
+  void page(String cursor, {List<Map<String, dynamic>> items = const []}) =>
+      queue.add(_TaskFetch.page(cursor, items: items));
+  void fail(int status) => queue.add(_TaskFetch.fail(status));
+
+  @override
+  Future<TasksPage> tasksList(String id, {String? updatedMin}) async {
+    pulledTaskLists.add(id);
+    updatedMins.add(updatedMin);
+    if (queue.isEmpty) {
+      return TasksPage(items: [], nextUpdatedMin: 'cursor-fallback');
+    }
+    final next = queue.removeAt(0);
+    if (next.status != null) throw GoogleApiException(next.status!, 'error');
+    return TasksPage(items: List.of(next.items), nextUpdatedMin: next.cursor);
+  }
+}
+
+Future<String> _seedTaskList(
+  AppDatabase db, {
+  String id = 'tl1',
+  String remoteId = 'rtasklist1',
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.taskLists)
+      .insert(
+        TaskListsCompanion.insert(
+          id: id,
+          remoteId: Value(remoteId),
+          name: 'Tasks',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+  return id;
+}
+
+Future<void> _seedCursor(AppDatabase db, String listId, String value) async {
+  await db
+      .into(db.syncState)
+      .insert(
+        SyncStateCompanion.insert(
+          key: 'tasks:$listId:updatedMin',
+          value: Value(value),
+        ),
+      );
+}
+
+Future<void> _seedTaskRow(
+  AppDatabase db, {
+  required String id,
+  required String listId,
+  required String remoteId,
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.tasks)
+      .insert(
+        TasksCompanion.insert(
+          id: id,
+          listId: Value(listId),
+          remoteId: Value(remoteId),
+          title: const Value('Local'),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+}
+
+Future<String?> _cursorOf(AppDatabase db, String listId) async {
+  final row = await (db.select(
+    db.syncState,
+  )..where((s) => s.key.equals('tasks:$listId:updatedMin'))).getSingleOrNull();
+  return row?.value;
 }

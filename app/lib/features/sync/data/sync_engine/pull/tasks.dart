@@ -16,54 +16,132 @@ extension on SyncEngine {
       final remoteId = list.remoteId;
       if (remoteId == null) continue;
       if (!_pullableTaskList(list)) continue;
-      var updatedMin = await _syncValue('tasks:${list.id}:updatedMin');
+
+      final key = 'tasks:${list.id}:updatedMin';
+      final oldCursor = await _syncValue(key);
+      // A bounded safety net is only for a list that has a cursor but no
+      // live local rows. Count before the pull so a page that returns items
+      // is merged without a redundant full fetch. It is never keyed on an
+      // empty page alone (that made every no-change sync refetch).
+      final liveCount = _db.tasks.id.count();
+      final countRow =
+          await (_db.selectOnly(_db.tasks)
+                ..addColumns([liveCount])
+                ..where(
+                  _db.tasks.listId.equals(list.id) &
+                      _db.tasks.deletedAt.isNull(),
+                ))
+              .getSingle();
+      final localEmpty = (countRow.read(liveCount) ?? 0) == 0;
+
+      TasksPage page;
+      var cursor = oldCursor;
+      var fullFetch = false;
       try {
-        var page = await client.tasksList(remoteId, updatedMin: updatedMin);
-        if (updatedMin != null && page.items.isEmpty) {
-          page = await client.tasksList(remoteId);
-          debugPrint(
-            '[sync] tasksList retry without updatedMin got ${page.items.length} items',
-          );
-        }
-        debugPrint('[sync] tasksList got ${page.items.length} items');
-        for (final g in page.items) {
-          if (await _mergeTask(list, g)) total++;
-        }
-        if (page.nextUpdatedMin != null) {
-          await _setSyncValue(
-            'tasks:${list.id}:updatedMin',
-            page.nextUpdatedMin!,
-          );
-        }
-        await _setSyncMeta('tasks:${list.id}', error: null);
-      } on GoogleApiException catch (e) {
-        debugPrint('[sync] tasks pull failed status=${e.status}');
-        // Keep rows for every failure. Auth, rate, network and server
-        // failures are account-wide; 404/forbidden are list-only and must
-        // not demand reconnect.
-        late final String label;
-        if (e.isAuthFailure) {
-          _recordFailure(e);
-          label = 'Google auth';
-        } else if (e.isRateLimited) {
-          _recordFailure(e);
-          label = 'rate limited';
-        } else if (e.isForbidden) {
-          label = 'forbidden';
-        } else if (e.status == 404) {
-          label = 'Google 404';
+        page = await client.tasksList(remoteId, updatedMin: cursor);
+      } catch (e) {
+        // A bad `updatedMin` (Google 400/410) is the only reason to discard
+        // the cursor. Do exactly one full fetch, then store a fresh cursor.
+        if (e is GoogleApiException &&
+            cursor != null &&
+            _isInvalidTaskCursor(e.status)) {
+          cursor = null; // ignore the bad cursor
+          try {
+            page = await client.tasksList(remoteId);
+            fullFetch = true;
+            debugPrint(
+              '[sync] tasksList cursor retry got ${page.items.length} items',
+            );
+          } catch (retryError) {
+            await _recordTaskPullError(list, retryError);
+            continue;
+          }
         } else {
-          _recordFailure(e);
-          label = 'Google ${e.status}';
+          await _recordTaskPullError(list, e);
+          continue;
         }
-        await _setSyncMeta('tasks:${list.id}', error: label);
-      } on Exception catch (e) {
-        debugPrint('[sync] tasks pull failed type=${e.runtimeType}');
-        _recordFailure(e);
-        await _setSyncMeta('tasks:${list.id}', error: 'sync failed');
       }
+
+      // Local state is clearly empty while a cursor exists: at most one
+      // bounded full fetch per list per run, and only when the incremental
+      // page yielded nothing. Not done on every empty page.
+      if (!fullFetch && oldCursor != null && page.items.isEmpty && localEmpty) {
+        try {
+          page = await client.tasksList(remoteId);
+          fullFetch = true;
+          debugPrint(
+            '[sync] tasksList empty-state retry got ${page.items.length} items',
+          );
+        } catch (retryError) {
+          await _recordTaskPullError(list, retryError);
+          continue;
+        }
+      }
+
+      debugPrint('[sync] tasksList got ${page.items.length} items');
+      for (final g in page.items) {
+        if (await _mergeTask(list, g)) total++;
+      }
+      await _setTaskCursor(key, cursor, page.nextUpdatedMin);
+      await _setSyncMeta('tasks:${list.id}', error: null);
     }
     return total;
+  }
+
+  /// Whether [status] signals an unusable `updatedMin` cursor.
+  static bool _isInvalidTaskCursor(int status) =>
+      status == 400 || status == 410;
+
+  /// Persists [candidate] only when it does not move [current] backwards.
+  /// A null [current] (first pull, or a discarded bad cursor) always accepts
+  /// it. Cursors are RFC3339 UTC strings; on a failed fetch there is no call
+  /// here at all, so a failure never advances the stored value.
+  Future<void> _setTaskCursor(
+    String key,
+    String? current,
+    String? candidate,
+  ) async {
+    if (candidate == null) return;
+    if (current != null) {
+      final prev = DateTime.tryParse(current);
+      final next = DateTime.tryParse(candidate);
+      if (prev != null && next != null && next.isBefore(prev)) {
+        debugPrint('[sync] tasksList cursor kept (would regress)');
+        return;
+      }
+    }
+    await _setSyncValue(key, candidate);
+  }
+
+  /// Records a task-pull failure without touching the stored cursor or rows.
+  /// Failure labels are fixed; no task content or ids are logged.
+  Future<void> _recordTaskPullError(TaskList list, Object error) async {
+    if (error is GoogleApiException) {
+      debugPrint('[sync] tasks pull failed status=${error.status}');
+      // Keep rows for every failure. Auth, rate, network and server
+      // failures are account-wide; 404/forbidden are list-only and must
+      // not demand reconnect.
+      late final String label;
+      if (error.isAuthFailure) {
+        _recordFailure(error);
+        label = 'Google auth';
+      } else if (error.isRateLimited) {
+        _recordFailure(error);
+        label = 'rate limited';
+      } else if (error.isForbidden) {
+        label = 'forbidden';
+      } else if (error.status == 404) {
+        label = 'Google 404';
+      } else {
+        _recordFailure(error);
+        label = 'Google ${error.status}';
+      }
+      await _setSyncMeta('tasks:${list.id}', error: label);
+    } else {
+      debugPrint('[sync] tasks pull failed type=${error.runtimeType}');
+      _recordFailure(error);
+      await _setSyncMeta('tasks:${list.id}', error: 'sync failed');
+    }
   }
 
   /// Whether [list] may be pulled under the active account. Same rule as
