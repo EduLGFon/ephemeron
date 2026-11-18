@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/design/components/visuals.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/features/tasks/presentation/matrix_screen.dart';
@@ -216,7 +217,7 @@ void main() {
     }
   });
 
-  testWidgets('next row is partially visible at scroll offset zero', (
+  testWidgets('field fills its viewport and scrolls to the remaining rows', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -243,15 +244,21 @@ void main() {
     final listRect = tester.getRect(
       find.byKey(const ValueKey('matrix-list-doFirst')),
     );
-    final partiallyVisible = ids.where((id) {
+    final visibleRows = ids.where((id) {
       final finder = find.byKey(ValueKey('matrix-task-$id'));
       if (finder.evaluate().isEmpty) return false;
       final rect = tester.getRect(finder);
-      return rect.top >= listRect.top &&
-          rect.top < listRect.bottom &&
-          rect.bottom > listRect.bottom;
+      return rect.top >= listRect.top && rect.bottom <= listRect.bottom;
     });
-    expect(partiallyVisible, isNotEmpty);
+    expect(visibleRows.length, greaterThanOrEqualTo(6));
+    expect(find.byKey(ValueKey('matrix-task-${ids.last}')), findsNothing);
+
+    await tester.drag(
+      find.byKey(const ValueKey('matrix-list-doFirst')),
+      const Offset(0, -2000),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('matrix-task-${ids.last}')), findsOneWidget);
 
     await _dispose(tester, db);
   });
@@ -334,7 +341,10 @@ void main() {
       find.byKey(const ValueKey('matrix-field-doFirst')),
     );
     final checkboxRect = tester.getRect(
-      find.byKey(ValueKey('matrix-complete-$lastId')),
+      find.descendant(
+        of: find.byKey(ValueKey('matrix-task-$lastId')),
+        matching: find.byType(AppCheckmark),
+      ),
     );
     final textRect = tester.getRect(
       find.descendant(
@@ -571,12 +581,12 @@ void main() {
     final rowHeight = tester
         .getSize(find.byKey(ValueKey('matrix-task-$id')))
         .height;
-    expect(rowHeight, lessThanOrEqualTo(40));
+    expect(rowHeight, lessThanOrEqualTo(56));
 
     await _dispose(tester, db);
   });
 
-  testWidgets('late task title is red, future task title is not', (
+  testWidgets('late task shows an overdue marker, future task does not', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -601,13 +611,21 @@ void main() {
 
     await _pumpMatrix(tester, db);
 
-    final lateText = tester.widget<Text>(find.text('Late task'));
-    final futureText = tester.widget<Text>(find.text('Future task'));
-    final errorColor = Theme.of(tester.element(find.text('Late task')))
-        .colorScheme
-        .error;
-    expect(lateText.style?.color, errorColor);
-    expect(futureText.style?.color, isNot(errorColor));
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('matrix-field-doFirst')),
+        matching: find.text('Overdue'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('matrix-field-doFirst')),
+        matching: find.byIcon(Icons.warning_amber_rounded),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Future task'), findsOneWidget);
 
     await _dispose(tester, db);
   });

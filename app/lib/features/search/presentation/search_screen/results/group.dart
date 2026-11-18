@@ -4,38 +4,66 @@ class _Group<T> extends StatelessWidget {
   const _Group({
     required this.title,
     required this.async,
+    required this.strings,
     required this.onRetry,
-    required this.tile,
+    required this.row,
   });
 
   final String title;
   final AsyncValue<List<T>> async;
+  final SearchStrings strings;
   final VoidCallback onRetry;
-  final Widget Function(T item) tile;
+  final Widget Function(T item) row;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return async.maybeWhen(
       data: (items) {
         if (items.isEmpty) return const SizedBox.shrink();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Text(
-                '$title (${items.length})',
-                style: Theme.of(context).textTheme.titleSmall,
+        return Padding(
+          padding: const EdgeInsets.only(bottom: DsSpace.x8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SectionTitle(title: title, count: items.length),
+              AppSurface(
+                padding: EdgeInsets.zero,
+                radius: DsRadius.r12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < items.length; i++) ...[
+                      if (i > 0)
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                      row(items[i]),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            for (final item in items) tile(item),
-          ],
+            ],
+          ),
         );
       },
-      error: (_, _) => ListTile(
-        leading: const Icon(Icons.error_outline),
-        title: Text('$title failed to load'),
-        trailing: TextButton(onPressed: onRetry, child: const Text('Retry')),
+      error: (_, _) => Padding(
+        padding: const EdgeInsets.only(bottom: DsSpace.x8),
+        child: AppSurface(
+          padding: EdgeInsets.zero,
+          radius: DsRadius.r12,
+          child: _ResultRow(
+            icon: Icons.error_outline,
+            title: strings.groupFailed(title),
+            trailing: AppButton(
+              label: strings.retry,
+              variant: AppButtonVariant.ghost,
+              onPressed: onRetry,
+            ),
+          ),
+        ),
       ),
       orElse: () => const SizedBox.shrink(),
     );

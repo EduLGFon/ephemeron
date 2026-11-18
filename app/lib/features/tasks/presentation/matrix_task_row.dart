@@ -1,15 +1,18 @@
-// Task row for the matrix board. Keeps the complete checkbox and the
+// Task row for the matrix board. Keeps the complete control and the
 // tap-to-edit area in separate gesture regions, and wraps the row in a long
 // press draggable only when the board is in priority mode.
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 
+import '../../../core/design/components/rows.dart';
+import '../../../core/design/tokens.dart';
 import '../../../core/ui/app_feedback.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/sources/microsoft_source.dart';
 import '../application/tasks_providers.dart';
 import 'task_editor_sheet.dart';
+import 'task_list_dialogs.dart';
 
 class MatrixTaskRow extends ConsumerWidget {
   const MatrixTaskRow({super.key, required this.task, required this.draggable});
@@ -27,14 +30,22 @@ class MatrixTaskRow extends ConsumerWidget {
       listMicrosoftAccount: list?.microsoftAccount,
     );
     final readOnly = isMs;
-    final content = _MatrixTaskRowContent(task: task, readOnly: readOnly);
+    final content = _MatrixTaskRowContent(
+      task: task,
+      list: list,
+      readOnly: readOnly,
+    );
     if (!draggable || readOnly) return content;
     return LongPressDraggable<Task>(
       data: task,
       feedback: _TaskDragFeedback(title: task.title),
       childWhenDragging: Opacity(
         opacity: 0.4,
-        child: _MatrixTaskRowContent(task: task, readOnly: readOnly),
+        child: _MatrixTaskRowContent(
+          task: task,
+          list: list,
+          readOnly: readOnly,
+        ),
       ),
       child: content,
     );
@@ -42,78 +53,26 @@ class MatrixTaskRow extends ConsumerWidget {
 }
 
 class _MatrixTaskRowContent extends ConsumerWidget {
-  const _MatrixTaskRowContent({required this.task, this.readOnly = false});
+  const _MatrixTaskRowContent({
+    required this.task,
+    this.list,
+    this.readOnly = false,
+  });
 
   final Task task;
+  final TaskList? list;
   final bool readOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final dueLabel = _dueLabel(context);
-    final isLate = _isLate();
-    final titleColor = isLate ? theme.colorScheme.error : null;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Tooltip(
-            message: 'Mark "${task.title}" concluded',
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: Checkbox(
-                key: ValueKey('matrix-complete-${task.id}'),
-                value: false,
-                shape: const CircleBorder(),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                onChanged: readOnly ? null : (_) => _complete(context, ref),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(6),
-              onTap: readOnly
-                  ? null
-                  : () => showTaskEditor(context, task: task),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      task.title,
-                      key: ValueKey('matrix-title-${task.id}'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: titleColor,
-                      ),
-                    ),
-                    if (dueLabel != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        dueLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return AppTaskRow(
+      title: task.title,
+      subtitle: _dueLabel(context),
+      listColor: list == null ? null : taskListColor(list!),
+      overdue: _isLate(),
+      dense: true,
+      onTap: readOnly ? null : () => showTaskEditor(context, task: task),
+      onToggle: readOnly ? null : () => _complete(context, ref),
     );
   }
 
@@ -156,14 +115,20 @@ class _TaskDragFeedback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Material(
-      elevation: 6,
-      borderRadius: BorderRadius.circular(8),
-      color: theme.colorScheme.surfaceContainerHighest,
+      color: scheme.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DsRadius.r12),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 220),
+        constraints: const BoxConstraints(maxWidth: 240),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DsSpace.x12,
+            vertical: DsSpace.x8,
+          ),
           child: Text(
             title,
             maxLines: 1,

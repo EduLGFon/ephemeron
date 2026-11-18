@@ -7,75 +7,73 @@ class _TagTasksSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = SearchStrings.of(context);
     final tasks = ref.watch(searchTasksForTagProvider(tag.id));
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.tag, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  tag.name,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Flexible(
-            child: tasks.when(
-              data: (items) {
-                if (items.isEmpty) {
-                  return const EmptyState(
-                    icon: Icons.inbox_outlined,
-                    title: 'No open tasks',
-                    compact: true,
-                  );
-                }
-                final atCap = items.length >= tagTaskLimit;
-                return ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: items.length + (atCap ? 1 : 0),
-                  itemBuilder: (_, i) {
-                    if (atCap && i == items.length) {
-                      final theme = Theme.of(context);
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                        child: Text(
-                          'Showing the first $tagTaskLimit open tasks',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      );
-                    }
-                    final task = items[i];
-                    return ListTile(
-                      leading: const Icon(Icons.checklist_outlined),
-                      title: Text(task.title),
-                      onTap: () => showTaskEditor(context, task: task),
-                    );
-                  },
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppSheetHeader(
+          title: tag.name,
+          leading: const Icon(Icons.tag, size: DsIcon.md),
+        ),
+        Flexible(
+          child: tasks.when(
+            data: (items) {
+              if (items.isEmpty) {
+                return AppEmptyState(
+                  icon: Icons.inbox_outlined,
+                  title: strings.noOpenTasks,
                 );
-              },
-              loading: () => AppSkeleton.list(context, itemCount: 4),
-              error: (_, _) => EmptyState(
-                icon: Icons.error_outline,
-                title: 'Could not load tasks',
-                compact: true,
-                actionLabel: 'Retry',
-                onAction: () =>
-                    ref.invalidate(searchTasksForTagProvider(tag.id)),
-              ),
+              }
+              final atCap = items.length >= tagTaskLimit;
+              return ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(
+                  DsSpace.x16,
+                  0,
+                  DsSpace.x16,
+                  DsSpace.x16,
+                ),
+                itemCount: items.length + (atCap ? 1 : 0),
+                itemBuilder: (_, i) {
+                  if (atCap && i == items.length) {
+                    final theme = Theme.of(context);
+                    return Padding(
+                      padding: const EdgeInsets.only(
+                        left: DsSpace.x12,
+                        top: DsSpace.x8,
+                      ),
+                      child: Text(
+                        strings.tagTaskCap(tagTaskLimit),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }
+                  final task = items[i];
+                  return _ResultRow(
+                    icon: Icons.checklist_outlined,
+                    title: task.title,
+                    onTap: () => showTaskEditor(context, task: task),
+                  );
+                },
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.all(DsSpace.x16),
+              child: AppSkeletonList(rows: 4),
+            ),
+            error: (_, _) => AppEmptyState(
+              icon: Icons.error_outline,
+              title: strings.couldNotLoadTasks,
+              actionLabel: strings.retry,
+              onAction: () => ref.invalidate(searchTasksForTagProvider(tag.id)),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

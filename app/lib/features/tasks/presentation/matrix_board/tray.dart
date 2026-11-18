@@ -55,78 +55,56 @@ class _UnclassifiedTrayState extends State<_UnclassifiedTray> {
     // overflow a fixed cap; populated trays get a modestly scaled scroll cap.
     final constraints = tasks.isEmpty
         ? const BoxConstraints()
-        : BoxConstraints(maxHeight: 112 * textScale.clamp(1.0, 2.0));
-    return ConstrainedBox(
+        : BoxConstraints(maxHeight: _trayMaxHeight * textScale.clamp(1.0, 2.0));
+    return _MatrixSurface(
+      key: const ValueKey('matrix-unclassified'),
+      hovering: hovering,
       constraints: constraints,
-      child: Card(
-        key: const ValueKey('matrix-unclassified'),
-        margin: EdgeInsets.zero,
-        color: hovering ? theme.colorScheme.primaryContainer : null,
-        shape: _dropShape(theme, hovering),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Unclassified',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${tasks.length}',
-                    key: const ValueKey('matrix-count-unclassified'),
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _FieldHeader(
+            title: 'Unclassified',
+            count: tasks.length,
+            countKey: const ValueKey('matrix-count-unclassified'),
+          ),
+          if (tasks.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: DsSpace.x4),
+              child: Text(
+                'No unclassified tasks',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-              if (tasks.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'No unclassified tasks',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              else
-                Flexible(
-                  child: Scrollbar(
-                    key: const ValueKey('matrix-scrollbar-unclassified'),
-                    controller: _controller,
-                    thickness: 2.5,
-                    radius: const Radius.circular(2),
-                    thumbVisibility: true,
-                    interactive: false,
-                    child: ListView.builder(
-                      key: const ValueKey('matrix-list-unclassified'),
-                      controller: _controller,
-                      physics: const ClampingScrollPhysics(), // keep inner lists scrollable; outer scroll reaches tray
-                      padding: EdgeInsets.zero,
-                      itemCount: tasks.length,
-                      itemBuilder: (context, index) => MatrixTaskRow(
-                        key: ValueKey('matrix-task-${tasks[index].id}'),
-                        task: tasks[index],
-                        draggable: widget.dragEnabled,
-                      ),
-                    ),
+            )
+          else
+            Flexible(
+              child: Scrollbar(
+                key: const ValueKey('matrix-scrollbar-unclassified'),
+                controller: _controller,
+                thickness: 2,
+                radius: const Radius.circular(2),
+                thumbVisibility: true,
+                interactive: false,
+                child: ListView.builder(
+                  key: const ValueKey('matrix-list-unclassified'),
+                  controller: _controller,
+                  physics: const ClampingScrollPhysics(), // keep inner lists scrollable; outer scroll reaches tray
+                  padding: const EdgeInsets.only(top: DsSpace.x4),
+                  itemCount: tasks.length,
+                  itemBuilder: (context, index) => MatrixTaskRow(
+                    key: ValueKey('matrix-task-${tasks[index].id}'),
+                    task: tasks[index],
+                    draggable: widget.dragEnabled,
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
