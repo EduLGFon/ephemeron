@@ -19,6 +19,7 @@ import '../tray/tray_item.dart';
 import '../tray/tray_panel.dart';
 import 'stream_capture_chips.dart';
 import 'stream_capture_dock.dart';
+import 'stream_permission_banner_host.dart';
 
 class StreamDockHost extends ConsumerWidget {
   const StreamDockHost({super.key, required this.now, required this.locale});
@@ -32,26 +33,32 @@ class StreamDockHost extends ConsumerWidget {
         ref.watch(streamTrayItemsProvider).value ?? const <TrayItem>[];
     final l = AppLocalizations.of(context);
     final localeName = Localizations.localeOf(context).toLanguageTag();
-    return StreamCaptureDock(
-      now: now,
-      locale: locale,
-      items: items,
-      labels: StreamCaptureDockLabels(
-        captureHint: l.streamCaptureHint,
-        captureLabel: l.streamCaptureLabel,
-        submitLabel: l.streamCaptureSubmit,
-        clearLabel: l.streamCaptureClear,
-        closeLabel: l.streamCaptureClose,
-        trayEmpty: l.streamTrayEmpty,
-        trayCount: l.streamTrayCount(items.length),
-        trayHandle: l.streamTrayHandle,
-      ),
-      chipsBuilder: (draft) =>
-          buildStreamCaptureChips(draft, l: l, localeName: localeName),
-      onSubmitted: (draft) => unawaited(_submit(context, ref, draft)),
-      onDismiss: () => FocusScope.of(context).unfocus(),
-      onExpandRequested: () => _expand(context, ref, l, items),
-      onItemTap: (id) => _openTask(context, ref, id),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const StreamPermissionBannerHost(),
+        StreamCaptureDock(
+          now: now,
+          locale: locale,
+          items: items,
+          labels: StreamCaptureDockLabels(
+            captureHint: l.streamCaptureHint,
+            captureLabel: l.streamCaptureLabel,
+            submitLabel: l.streamCaptureSubmit,
+            clearLabel: l.streamCaptureClear,
+            closeLabel: l.streamCaptureClose,
+            trayEmpty: l.streamTrayEmpty,
+            trayCount: l.streamTrayCount(items.length),
+            trayHandle: l.streamTrayHandle,
+          ),
+          chipsBuilder: (draft) =>
+              buildStreamCaptureChips(draft, l: l, localeName: localeName),
+          onSubmitted: (draft) => unawaited(_submit(context, ref, draft)),
+          onDismiss: () => FocusScope.of(context).unfocus(),
+          onExpandRequested: () => _expand(context, ref, l, items),
+          onItemTap: (id) => _openTask(context, ref, id),
+        ),
+      ],
     );
   }
 
