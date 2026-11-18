@@ -65,7 +65,7 @@ surface, the rest are not yet mounted:
 - settings sheet (wired)
 - progressive hints
 - permission banners
-- old UI removal
+- old UI NOT removed: tabs remain fully reachable and remembered; Stream is default branch for fresh installs
 
 ## Verification status
 
