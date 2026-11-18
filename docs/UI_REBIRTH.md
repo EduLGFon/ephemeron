@@ -175,7 +175,26 @@ data is hard-deleted.
 
 ## Verification
 
-Commands run from `app/` in this worktree on 2026-11-18:
+Re-verified on the integration branch (2026-11-18), including three review
+fixes:
+
+- Calendar cold start: the dirty occurrence invalidation is deferred to a
+  microtask with a mounted guard, so `occurrenceDirty` can no longer invalidate
+  the calendar cache coordinator during the first build after install. Covered
+  by `calendar_screen_ui_case` ("dirty cold start does not invalidate the cache
+  during build") and by five device cold starts with no `setState()` or
+  `markNeedsBuild()` error.
+- Shared header inset: `AppPageHeader` now defaults its top padding to
+  `MediaQuery.paddingOf(context).top + DsSpace.x12`; Settings and Onboarding no
+  longer double-wrap `SafeArea`. Today keeps its explicit padding. Calendar,
+  Tasks, Habits, Focus, Today and Settings headers clear the Android status bar
+  on device.
+- Compact nav at 320dp/200%: `NavigationBar` labels are hidden
+  (`alwaysHide`) when the width is under 360dp or the scaled 12dp label height
+  exceeds 18dp, keeping tooltips and semantics; 411dp keeps labels. Tests assert
+  the selected indicator stays slot-width and contained.
+
+Commands run from `app/`:
 
 - `flutter pub get` - exit 0 (no new packages; dependencies unchanged).
 - `dart run tools/gen_test_runner.dart` - exit 0, 212 case files, guard test
@@ -184,32 +203,46 @@ Commands run from `app/` in this worktree on 2026-11-18:
 - `dart format --output=none --set-exit-if-changed lib test` - exit 0, 868
   files, 0 changed.
 - `flutter analyze` - exit 0, "No issues found!".
-- `flutter test` (single generated entrypoint, serial) - the first run had
-  1821 passed and 3 order-dependent failures (`habits_timer 320dp trailing no
-  overflow with timer`, `l10n search screen localizes titles`, `todo_coverage
-  drag handle reorders tasks and persists sortOrder`). Each failed test passed
-  alone and the immediate full rerun passed: 1824 passed, 0 failed. These are
-  recorded as flakes, not regressions.
+- `flutter test` (single generated entrypoint, serial) - the third run passed
+  1832 tests, 0 failed. Two earlier runs hit the known order-dependent flakes
+  (`todo_coverage` drag, `habits_timer` 320dp overflow, `l10n` search screen);
+  each case passes alone and the failures were not code regressions.
 - `flutter build web --release` - exit 0.
 - `flutter build apk --release --target-platform android-arm64` - exit 0.
 
 ## Measured sizes
 
-- Web: `build/web/main.dart.js` gzip = 1,901,457 B. Budget 2,097,152 B
-  (2 MiB); previous baseline 1,761,101 B. Delta +140,356 B (+8.0%) and under
+- Web: `build/web/main.dart.js` gzip = 1,901,463 B. Budget 2,097,152 B
+  (2 MiB); previous baseline 1,761,101 B. Delta +140,362 B (+8.0%) and under
   budget.
 - Android arm64 release APK: 29,594,116 B. Previous baseline 28,346,708 B.
   Delta +1,247,408 B (+4.4%). Build warnings about CupertinoIcons and three
   plugins applying the Kotlin Gradle Plugin are pre-existing and unrelated to
   the UI work.
 
-## Unmeasured performance
+## Device and web checks
 
-No Android device or emulator is available in this environment. Frame
-build/raster timings, cold/warm start, idle RAM, battery, long-list scroll and
-120Hz behaviour were not measured; do not treat architecture.md budgets as
-verified. Dynamic colour on Android 12+, notification/exact-alarm denied
-states, the 320dp/200% visual pass and the alarm/ring flows remain device owner
+Functional checks in this pass; no timings are claimed.
+
+- Release web build in Chrome 157 headless: Today, Tasks, Calendar, Habits,
+  Focus and Settings render at desktop, medium and mobile layouts, the mobile
+  More sheet opens, Stream enabled shows Stream and disabled shows Today. Zero
+  uncaught exceptions and zero console errors; the only log noise is
+  `manifest.json`/favicon 404s. The app intentionally uses hash URLs (`/#/...`),
+  as `docs/PAGES_DEPLOY.md` documents.
+- Android release: Motorola One Fusion, Android 11, 720x1600. Arm64 release APK
+  (29,594,116 B) installed over existing data with `adb install -r`; five cold
+  starts produced no FATAL EXCEPTION, `E/flutter`, `setState()` or other
+  exception. Screenshots confirm Today/Tasks/Calendar/Habits/Focus/Settings
+  headers clear the status bar. At 320dp with 200% text the compact nav is
+  icon-only with no wrapped or clipped labels; density and font scale were
+  restored (280/1.0) and accessibility turned off afterwards.
+
+Still unmeasured: frame build/raster timings, cold/warm start benchmarks, idle
+RAM, battery use, long-list scroll and 120Hz behaviour. Dynamic colour needs
+Android 12+ and cannot be tested on the Android 11 device. Notification and
+exact-alarm denied states, plus the remaining 320dp/200% screens (Calendar,
+Habits, Focus, Countdowns, Notes, Matrix, Search, Quick Add), stay device owner
 checks. iOS, macOS and Windows builds were not run on this Linux host; Linux
 desktop was also not built in this pass because it needs webkit2gtk-4.0.
 
@@ -220,8 +253,9 @@ desktop was also not built in this pass because it needs webkit2gtk-4.0.
   security/privacy claims are unchanged.
 - Stream stays opt-in with all old features reachable; no data migration was
   needed.
-- Widget tests are the evidence for 320dp/200% behaviour; they do not replace a
-  device visual pass.
+- Widget tests plus the 2026-11-18 device pass are the evidence for 320dp/200%
+  behaviour; the device pass covered Today/Tasks/Settings and the compact nav,
+  not every screen.
 
 ## Follow-ups
 
@@ -234,6 +268,13 @@ desktop was also not built in this pass because it needs webkit2gtk-4.0.
   limit; always run `dart format` after regeneration (the integration gate does).
 - Stabilize the three order-dependent tests recorded above (habits_timer/l10n/
   todo_coverage) so the first combined run is green.
+- Web cold-boot deep links: the router starts at a fixed `initialLocation` and
+  session restore then calls `goBranch`, so a `/#/tasks` bookmark lands on the
+  restored tab. Acceptable for the in-shell surface; follow-up only if
+  bookmarks must survive reload.
+- `app/web` carries no tracked `manifest.json` or `favicon.png` (gitignored)
+  while `index.html` references both, so release web logs 404s for them. Add
+  the assets or drop the tags.
 - Device checks listed in `docs/TODO.md`: profile frame timings, dynamic colour
-  on Android 12+, denied notification/exact-alarm layouts, 320dp/200% visual
-  pass, and iOS/macOS/Windows builds.
+  on Android 12+, denied notification/exact-alarm layouts, the remaining
+  320dp/200% screens, and iOS/macOS/Windows builds.

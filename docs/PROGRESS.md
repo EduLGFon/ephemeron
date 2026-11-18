@@ -93,11 +93,43 @@ they are recorded as flakes. `flutter build web --release` exit 0:
 android-arm64` exit 0: 29,594,116 B (baseline 28,346,708 B, +1,247,408 B /
 +4.4%).
 
-Limits: no Android device/emulator here, so frame build/raster, cold start,
-idle RAM, battery, long-list scroll and 120Hz behaviour are unmeasured; dynamic
-colour on Android 12+, notification/exact-alarm denied states and the
-320dp/200% visual pass are owner device checks. iOS/macOS/Windows builds were
-not run (Linux host), and Linux desktop needs webkit2gtk-4.0. Release build
-warnings about the absent CupertinoIcons font and three plugins applying the
-Kotlin Gradle Plugin are pre-existing. Design and engineering detail:
+Limits: frame build/raster, cold start, idle RAM, battery, long-list scroll and
+120Hz behaviour are unmeasured; the device/web section below covers the
+functional checks. Dynamic colour needs Android 12+, and notification/
+exact-alarm denied states remain owner device checks. iOS/macOS/Windows builds
+were not run (Linux host), and Linux desktop needs webkit2gtk-4.0. Release
+build warnings about the absent CupertinoIcons font and three plugins applying
+the Kotlin Gradle Plugin are pre-existing. Design and engineering detail:
 `docs/UI_REBIRTH.md`.
+
+## Device and web verification (2026-11-18)
+
+Done. On the integration branch (`47e5a299`) three review fixes landed:
+calendar cold-start dirty invalidation is deferred to a microtask with a
+mounted guard and a regression test; `AppPageHeader` adds
+`MediaQuery.paddingOf(context).top + DsSpace.x12` by default and the
+Settings/Onboarding double `SafeArea` wrappers are gone; compact nav hides
+labels below 360dp or when the scaled 12dp label exceeds 18dp, keeping
+tooltips/semantics and 411dp labels. Verified from `app/`: `dart format
+--output=none --set-exit-if-changed lib test` 868 files/0 changed; `flutter
+analyze` No issues found; full serial `flutter test` 1832 passed, 0 failed on
+the third run (two earlier runs hit the known `todo_coverage`/`habits_timer`/
+`l10n` order-dependent flakes; not code regressions). Sizes: web release
+`main.dart.js` gzip 1,901,463 B (budget 2,097,152 B); arm64 release APK
+29,594,116 B.
+
+Release web in headless Chrome 157: Today, Tasks, Calendar, Habits, Focus and
+Settings render at desktop, medium and mobile layouts, the mobile More sheet
+works, Stream enabled shows Stream and disabled shows Today, with zero uncaught
+exceptions and zero console errors (only `manifest.json`/favicon 404 noise).
+Android: Motorola One Fusion, Android 11, 720x1600; the release arm64 APK was
+installed over existing data with `adb install -r`. Five cold starts produced
+no FATAL EXCEPTION, `E/flutter` or setState error; the six checked headers
+clear the status bar, and 320dp/200% gives an icon-only compact nav with no
+wrapped or clipped labels. Limits: no frame, cold-start, RAM, battery or 120Hz
+numbers; dynamic colour needs Android 12+; Calendar/Habits/Focus/Countdowns/
+Notes/Matrix/Search/Quick Add still need the 320dp/200% device pass; iOS/macOS/
+Windows builds were not run and Linux desktop needs webkit2gtk-4.0. Web
+cold-boot hash deep links are overridden by the router's `initialLocation` and
+session restore, and the missing web manifest/favicon should be added or their
+tags dropped.

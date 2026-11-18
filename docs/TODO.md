@@ -1,6 +1,6 @@
 # TODO
 
-## Owner/device verification (no devices or SDK here)
+## Owner/device verification (open)
 
 - Week calendar home widget: Android build/launcher behavior; warm/cold tap navigation; Motorola One Fusion 4x2 setup dialog.
 - Alarm ring flow on device: audio/flashlight; cold/warm notification taps open /ring; Snooze/Dismiss/Open stop native audio; Android 14+ without full-screen intent permission; alarms with notifications disabled marked missed; locked-device full-screen ring over keyguard with biometric; minute repeats do not re-alert. Verify the 2026-11-16 changes: no multi-alarm ring after hibernation, overdue rows appear as missed, long audio starts only on the rendered RingScreen and a >2-minute active ring survives resume, leaving the screen auto-snoozes 10 min with a toast, and stale deliveries without a fire time do not ring.
@@ -13,8 +13,14 @@
 - New UI (2026-11-18): Android profile run for Today/Tasks/Calendar frame build/raster on a mid-range 60Hz device and a 120Hz device; cold/warm start and idle RAM; battery while idle and while a focus session runs. No numbers are claimed before this run.
 - New UI dynamic colour on Android 12+: system accent changes, light/dark/AMOLED, and the fallback when the platform channel returns null.
 - New UI denied states on device: notifications denied, exact alarms denied, full-screen intent denied, and the Settings fix-it rows at 320dp/200%.
-- New UI 320dp/200% visual pass on device for Today, Tasks, Calendar, Habits, Focus, Countdowns, Notes, Matrix, Search, Settings and Quick Add; check focus rings and 48dp targets with a keyboard and touch.
-- New UI Stream opt-in: enable in Settings, verify More/sidebar entry and direct `/stream`; disable and verify the entry disappears, `/stream` redirects to Today and restore does not reopen Stream.
+- New UI 320dp/200% visual pass: Today, Tasks and Settings plus the compact nav
+  passed on the Android 11 device (icon-only nav, no wrapped or clipped labels).
+  Remaining: Calendar, Habits, Focus, Countdowns, Notes, Matrix, Search and
+  Quick Add, including focus rings and 48dp targets with a keyboard and touch.
+- New UI Stream opt-in: done (2026-11-18) in the release web build - Stream
+  enabled shows Stream and disabled shows Today. Widget tests cover the
+  More/sidebar entry, direct `/stream` redirect and restore not reopening
+  Stream; repeat the direct-link/restore check on device.
 - New UI platform builds: iOS, macOS and Windows (not run on the Linux integration host); Linux desktop after installing webkit2gtk-4.0.
 
 ## Owner console, legal, store
@@ -47,8 +53,10 @@
 - Linked countdowns are local-only; they are not sent to the backend. Event/task date changes update linked target dates, but a countdown can still be edited independently afterward.
 - Habit statistics use local logs and existing streak rules; weekly-target stats show the current week only. No schema or backend change was added.
 - `todo_coverage` long-press task reorder is timing-flaky in the combined 849-test suite: it passed alone and in subsequent full runs, but failed once during this pass. Follow-up: stabilize the gesture timing in that widget test.
-- UI rebirth full-suite order dependence (2026-11-18): the first combined run failed `habits_timer 320dp trailing no overflow with timer` (32px RenderFlex overflow), `l10n search screen localizes titles` (drift stream-disposal pending timer) and `todo_coverage drag handle reorders tasks and persists sortOrder` (drag did not reorder). Each case file passes alone and the immediate full rerun passed 1824/1824, so they are recorded as flakes. Follow-up: isolate platform-channel/stream state so the first combined run is green.
+- UI rebirth full-suite order dependence (2026-11-18): the first combined run failed `habits_timer 320dp trailing no overflow with timer` (32px RenderFlex overflow), `l10n search screen localizes titles` (drift stream-disposal pending timer) and `todo_coverage drag handle reorders tasks and persists sortOrder` (drag did not reorder). Each case file passes alone and later full runs passed (the third run 1832/1832), so they are recorded as flakes. Follow-up: isolate platform-channel/stream state so the first combined run is green.
 - `app/lib/app/shell/app_sections.dart` has no imports after the adaptive shell and is dead code. Follow-up: delete it in a unit that owns the file.
+- Web cold-boot hash deep links (`/#/tasks`) are overridden by the router's fixed `initialLocation` and by session restore calling `goBranch`; a reload lands on the restored tab. Follow-up only if bookmarks must survive reload.
+- `app/web` has no tracked `manifest.json` or `favicon.png` (gitignored) while `index.html` references both, so release web logs 404s. Follow-up: add the assets or drop the tags.
 - Three plugins still apply Kotlin Gradle Plugin (flutter_web_auth_2, home_widget, workmanager_android); Flutter warns this will fail in a future release. All are latest, so this is upstream.
 - Generated l10n keeps a header ignore for deprecated_member_use because Flutter gen-l10n still emits legacy delegates; app code uses material_ui delegates. Revisit when the generator migrates.
 - Release build warns the CupertinoIcons font is absent; no app code uses CupertinoIcons.
