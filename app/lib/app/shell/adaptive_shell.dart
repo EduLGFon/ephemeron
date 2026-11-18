@@ -36,6 +36,13 @@ class AdaptiveShell extends StatelessWidget {
 
   int get _primarySlot => primary.indexOf(currentIndex);
 
+  /// Compact widths below this value cannot fit six labelled destinations.
+  static const double _compactLabelMinWidth = 360;
+
+  /// Compact text scaling above this value cannot fit six labelled
+  /// destinations. The reference size is the label's 12dp base height.
+  static const double _compactLabelMaxScaledHeight = 18;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -44,7 +51,7 @@ class AdaptiveShell extends StatelessWidget {
         return AppLayoutScope(
           layout: layout,
           child: switch (layout) {
-            AppLayout.compact => _buildCompact(context),
+            AppLayout.compact => _buildCompact(context, constraints),
             AppLayout.medium => _buildMedium(context),
             AppLayout.expanded => _buildExpanded(context),
           },
@@ -62,13 +69,25 @@ class AdaptiveShell extends StatelessWidget {
     child: const Icon(Icons.add),
   );
 
-  Widget _buildCompact(BuildContext context) {
+  Widget _buildCompact(BuildContext context, BoxConstraints constraints) {
     final slot = _primarySlot;
+    // Six destinations on a narrow screen or with large text cannot fit their
+    // labels: hide them instead of wrapping or clipping. The destinations keep
+    // their tooltips and semantics, so every tab stays identifiable.
+    final scaledLabelHeight = MediaQuery.textScalerOf(context).scale(12);
+    final labelBehavior =
+        constraints.maxWidth < _compactLabelMinWidth ||
+            scaledLabelHeight > _compactLabelMaxScaledHeight
+        ? NavigationDestinationLabelBehavior.alwaysHide
+        : NavigationDestinationLabelBehavior.alwaysShow;
     return Scaffold(
       body: content,
       floatingActionButton: _fab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      // NavigationBar wraps its content in a bottom SafeArea, so the selection
+      // indicator stays above the system gesture inset.
       bottomNavigationBar: NavigationBar(
+        labelBehavior: labelBehavior,
         selectedIndex: slot >= 0 ? slot : primary.length,
         onDestinationSelected: (index) {
           if (index >= primary.length) {

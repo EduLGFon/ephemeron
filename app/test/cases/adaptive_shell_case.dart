@@ -7,6 +7,7 @@ Widget _harness({
   List<int> secondary = const <int>[5, 6, 7],
   int currentIndex = 0,
   double textScale = 1,
+  EdgeInsets padding = EdgeInsets.zero,
   ValueChanged<int>? onSelected,
   VoidCallback? onMore,
   VoidCallback? onSettings,
@@ -15,7 +16,10 @@ Widget _harness({
 }) {
   return MaterialApp(
     home: MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      data: MediaQueryData(
+        textScaler: TextScaler.linear(textScale),
+        padding: padding,
+      ),
       child: AdaptiveShell(
         currentIndex: currentIndex,
         content: content ?? const Center(child: Text('Body')),
@@ -35,6 +39,21 @@ void _setSize(WidgetTester tester, Size size) {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+NavigationBar _bar(WidgetTester tester) =>
+    tester.widget<NavigationBar>(find.byType(NavigationBar));
+
+/// Opacity of the label fade inside the destination that shows [label].
+double _labelOpacity(WidgetTester tester, String label) =>
+    _labelFade(tester, label).opacity.value;
+
+FadeTransition _labelFade(WidgetTester tester, String label) {
+  return tester.widget<FadeTransition>(
+    find
+        .ancestor(of: find.text(label), matching: find.byType(FadeTransition))
+        .first,
+  );
 }
 
 void main() {
@@ -115,14 +134,118 @@ void main() {
     expect(find.text('Matrix'), findsOneWidget);
   });
 
-  testWidgets('320dp at 200% text does not overflow', (tester) async {
+  testWidgets('320dp at 200% text hides labels instead of clipping', (
+    tester,
+  ) async {
     _setSize(tester, const Size(320, 640));
     await tester.pumpWidget(
       _harness(primary: const <int>[0, 1, 2, 3, 4], textScale: 2),
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    final bar = _bar(tester);
+    expect(bar.destinations, hasLength(6));
+    expect(
+      bar.labelBehavior,
+      NavigationDestinationLabelBehavior.alwaysHide,
+      reason: 'narrow widths must not wrap six destination labels',
+    );
+    for (final label in <String>[
+      'Today',
+      'Tasks',
+      'Calendar',
+      'Habits',
+      'Focus',
+      'More',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+      expect(_labelOpacity(tester, label), 0, reason: '$label stays hidden');
+    }
+    // Hiding labels must not drop tooltips or semantics.
+    final tooltips = tester
+        .widgetList<Tooltip>(
+          find.descendant(
+            of: find.byType(NavigationBar),
+            matching: find.byType(Tooltip),
+          ),
+        )
+        .map((tooltip) => tooltip.message)
+        .toList();
+    expect(tooltips, hasLength(6));
+    expect(tooltips, contains('Today (1)'));
+    expect(tooltips, contains('More (C)'));
+    // The faded label stays in the semantics tree for screen readers.
+    expect(_labelFade(tester, 'Today').alwaysIncludeSemantics, isTrue);
+  });
+
+  testWidgets('411dp at normal text keeps compact labels visible', (
+    tester,
+  ) async {
+    _setSize(tester, const Size(411, 891));
+    await tester.pumpWidget(
+      _harness(primary: const <int>[0, 1, 2, 3, 4], textScale: 1),
+    );
+
+    expect(tester.takeException(), isNull);
+    final bar = _bar(tester);
+    expect(bar.destinations, hasLength(6));
+    expect(
+      bar.labelBehavior,
+      NavigationDestinationLabelBehavior.alwaysShow,
+      reason: 'labels must remain visible at normal phone widths',
+    );
+    for (final label in <String>['Today', 'Tasks', 'Calendar', 'More']) {
+      expect(find.text(label), findsOneWidget);
+      expect(_labelOpacity(tester, label), 1, reason: '$label stays visible');
+    }
+  });
+
+  testWidgets('selected indicator stays inside the bar at 320dp/200%', (
+    tester,
+  ) async {
+    _setSize(tester, const Size(320, 640));
+    for (final slot in <int>[0, 4]) {
+      await tester.pumpWidget(
+        _harness(
+          primary: const <int>[0, 1, 2, 3, 4],
+          currentIndex: slot,
+          textScale: 2,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final bar = tester.getRect(find.byType(NavigationBar));
+      final indicator = tester.getRect(
+        find.byType(NavigationIndicator).at(slot),
+      );
+      // Six destinations leave a slot narrower than the 64dp Material default,
+      // so the indicator is clamped to the slot and must stay on screen for
+      // both the first and last destination.
+      expect(indicator.left, greaterThanOrEqualTo(bar.left));
+      expect(indicator.right, lessThanOrEqualTo(bar.right));
+      expect(indicator.width, lessThanOrEqualTo(bar.width / 6 + 0.01));
+      expect(indicator.width, greaterThan(0));
+    }
+  });
+
+  testWidgets('compact bar keeps destinations above the bottom inset', (
+    tester,
+  ) async {
+    _setSize(tester, const Size(411, 891));
+    // Three-button Android navigation bars reserve about this much space.
+    const gestureInset = 48.0;
+    await tester.pumpWidget(
+      _harness(
+        primary: const <int>[0, 1, 2, 3, 4],
+        padding: const EdgeInsets.only(bottom: gestureInset),
+      ),
+    );
+
+    final bar = tester.getRect(find.byType(NavigationBar));
+    final icon = tester.getRect(find.byIcon(Icons.today_outlined));
+    // NavigationBar owns a bottom SafeArea; its content must stay clear of the
+    // gesture area instead of painting under it.
+    expect(icon.bottom, lessThanOrEqualTo(bar.bottom - gestureInset));
   });
 
   testWidgets('pushed pages keep a back affordance over the shell', (
