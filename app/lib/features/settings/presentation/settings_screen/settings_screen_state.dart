@@ -9,7 +9,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // without rebuilding the whole screen through a provider refresh.
   String _primaryHex = colorToHex(primaryPresets.first);
   String _backgroundHex = colorToHex(backgroundPresets.first);
-  AppBrightness _brightness = AppBrightness.light;
+  String _brightnessName = 'light';
   String _localeCode = 'system';
   PowerSavingMode _powerSavingMode = PowerSavingMode.auto;
   bool _reduceAnimations = false;
@@ -19,11 +19,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _biometricSupported = false;
   int _syncIntervalMin = 30;
   int _backendSyncIntervalMin = 0;
+  bool _streamEnabled = false;
+  bool _dynamicColor = false;
+  String _uiDensity = 'comfortable';
+  bool _time24h = true;
+  int _weekStart = DateTime.monday;
+  bool _focusDnd = false;
+  bool _searchOpen = false;
+  String _query = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -67,10 +82,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         repo.backgroundColorHex,
         colorToHex(backgroundPresets.first),
       );
-      _brightness = AppBrightness.values.firstWhere(
-        (b) => b.name == repo.brightness,
-        orElse: () => AppBrightness.light,
-      );
+      _brightnessName = repo.brightness;
       _localeCode = repo.localeCode;
       _powerSavingMode = repo.powerSavingMode;
       _reduceAnimations = repo.reduceAnimations;
@@ -79,6 +91,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _biometricLock = repo.biometricLock;
       _syncIntervalMin = repo.syncIntervalMin;
       _backendSyncIntervalMin = repo.backendSyncIntervalMin;
+      _streamEnabled = repo.streamEnabled;
+      _dynamicColor = repo.dynamicColor;
+      _uiDensity = repo.uiDensity;
+      _time24h = repo.time24h;
+      _weekStart = repo.weekStart;
+      _focusDnd = repo.focusDnd;
     });
   }
 
@@ -116,7 +134,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (mounted) _applyRepoState(repo);
       }
       if (!mounted) return;
-      showErrorSnackBar(context, 'Could not save this setting.');
+      showErrorSnackBar(context, SettingsStrings.of(context).saveFailed);
       return;
     }
     if (mounted) ref.invalidate(settingsRepositoryProvider);
@@ -138,9 +156,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _setBrightness(AppBrightness brightness) async {
-    setState(() => _brightness = brightness);
-    await _persist((r) => r.setBrightness(brightness.name));
+  Future<void> _setBrightness(String brightness) async {
+    setState(() => _brightnessName = brightness);
+    await _persist((r) => r.setBrightness(brightness));
   }
 
   Future<void> _setLocale(String localeCode) async {
@@ -208,6 +226,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await ref.read(backendAutoSyncServiceProvider).reschedule();
   }
 
+  Future<void> _setStreamEnabled(bool value) async {
+    setState(() => _streamEnabled = value);
+    await _persist((r) => r.setStreamEnabled(value));
+  }
+
+  Future<void> _setDynamicColor(bool value) async {
+    if (!AppPlatform.isAndroid) return;
+    setState(() => _dynamicColor = value);
+    await _persist((r) => r.setDynamicColor(value));
+  }
+
+  Future<void> _setDensity(String density) async {
+    setState(() => _uiDensity = density);
+    await _persist((r) => r.setUiDensity(density));
+  }
+
+  Future<void> _setTime24h(bool value) async {
+    setState(() => _time24h = value);
+    await _persist((r) => r.setTime24h(value));
+  }
+
+  Future<void> _setWeekStart(int weekday) async {
+    setState(() => _weekStart = weekday);
+    await _persist((r) => r.setWeekStart(weekday));
+  }
+
+  Future<void> _setFocusDnd(bool value) async {
+    if (!AppPlatform.isAndroid) return;
+    if (value && !await SystemLauncher.hasDndAccess) {
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        SettingsStrings.of(context).dndAccessMessage,
+        icon: Icons.do_not_disturb_on_outlined,
+      );
+      await SystemLauncher.openDndSettings();
+      return;
+    }
+    setState(() => _focusDnd = value);
+    await _persist((r) => r.setFocusDnd(value));
+  }
+
   Future<void> _openNavOrder() async {
     final repo = _repo;
     if (repo == null) return;
@@ -218,45 +278,55 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _toggleSearch() {
+    setState(() {
+      _searchOpen = !_searchOpen;
+      if (!_searchOpen) {
+        _query = '';
+        _searchController.clear();
+      }
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _query = value);
+  }
+
+  bool _sectionMatches(String title, String keywords) {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    return title.toLowerCase().contains(query) ||
+        keywords.toLowerCase().contains(query);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final strings = SettingsStrings.of(context);
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Settings')),
-        body: const Center(child: CircularProgressIndicator()),
+      return AppPage(
+        header: _settingsHeader(this, strings),
+        child: ListView(children: const <Widget>[AppSkeletonList(rows: 6)]),
       );
     }
     if (_failed || _repo == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Settings')),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Could not load settings.'),
-              const SizedBox(height: 8),
-              FilledButton(onPressed: _load, child: const Text('Retry')),
-            ],
-          ),
+      return AppPage(
+        header: _settingsHeader(this, strings),
+        child: AppErrorState(
+          title: strings.loadErrorTitle,
+          message: strings.loadErrorMessage,
+          onRetry: _load,
         ),
       );
     }
 
-    final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
-        children: [
-          ..._appearanceSection(this, l10n),
-          ..._behaviorSection(this),
-          ..._notificationsSection(this),
-          ..._accountsSection(this),
-          ..._securitySection(this),
-          ..._dataSection(this, context),
-          ..._navigationSection(this),
-        ],
-      ),
+    final reconsent = ref.watch(googleReconsentAccountsProvider);
+    final reconnectFlag = ref.watch(googleReconnectNeededProvider);
+    final needsReconnect =
+        reconsent.isNotEmpty || (reconnectFlag ?? false) == true;
+
+    return AppPage(
+      header: _settingsHeader(this, strings),
+      child: _settingsBody(this, strings, needsReconnect: needsReconnect),
     );
   }
 }

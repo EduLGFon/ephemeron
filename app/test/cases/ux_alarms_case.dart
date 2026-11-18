@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/design/theme.dart';
 import 'package:ephemeron/core/ui/app_feedback.dart';
 import 'package:ephemeron/core/ui/app_messenger.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -14,6 +15,8 @@ import 'package:ephemeron/features/alarms/presentation/alarm_source_route.dart';
 import 'package:ephemeron/features/alarms/presentation/ring_screen.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
+import 'package:ephemeron/features/settings/presentation/settings_screen.dart';
+import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -366,6 +369,79 @@ void main() {
 
     expect(fullScreenCalls, greaterThan(1));
     expect(find.text('Granted'), findsNWidgets(2));
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('settings shows the notification denied banner and fix action', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    tester.view.physicalSize = const Size(600, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var openAppSettingsCalls = 0;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('ephemeron/system'),
+      (call) async {
+        if (call.method == 'canPostNotifications') return false;
+        if (call.method == 'openAppSettings') {
+          openAppSettingsCalls++;
+          return true;
+        }
+        if (call.method == 'canUseFullScreenIntent') return true;
+        if (call.method == 'hasDndAccess') return true;
+        return null;
+      },
+    );
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('ephemeron/alarms'),
+      (call) async {
+        if (call.method == 'canScheduleExact') return true;
+        return null;
+      },
+    );
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('ephemeron/system'),
+        null,
+      );
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('ephemeron/alarms'),
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: EphemeronTheme.build(
+            mode: 'light',
+            platformBrightness: Brightness.light,
+          ),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const SettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Notifications are off'), findsOneWidget);
+    expect(find.text('Allow notifications'), findsOneWidget);
+
+    await tester.tap(find.text('App settings'));
+    await tester.pumpAndSettle();
+
+    expect(openAppSettingsCalls, 1);
     debugDefaultTargetPlatformOverride = null;
   });
 

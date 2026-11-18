@@ -1,15 +1,17 @@
-// First-run onboarding: 3 pages max, skip always available.
-// Permissions are explained at the moment of need, not all upfront.
-import 'dart:math' as math;
-
-import 'package:material_ui/material_ui.dart';
-import 'package:ephemeron/core/theme/theme_tokens.dart';
+// First-run onboarding: three skippable pages, local-first by default.
+// Notifications are explained here but never requested now; accounts are
+// optional and can be added later. Skipping never blocks local use.
+import 'package:ephemeron/core/design/components/app_buttons.dart';
+import 'package:ephemeron/core/design/components/app_headers.dart';
+import 'package:ephemeron/core/design/components/app_page.dart';
+import 'package:ephemeron/core/design/tokens.dart';
 import 'package:ephemeron/core/ui/app_feedback.dart';
-import 'package:ephemeron/core/ui/app_motion.dart';
-import 'package:ephemeron/l10n/src/app_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/presentation/auth_screen.dart';
 import '../application/settings_providers.dart';
+import 'settings_strings.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -21,7 +23,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   static const _pageCount = 3;
 
-  final _pages = PageController();
+  final PageController _pages = PageController();
   int _index = 0;
 
   @override
@@ -31,180 +33,276 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
-    final repo = await ref.read(settingsRepositoryProvider.future);
-    await repo.setOnboarded();
-    if (!mounted) return;
-    ref.invalidate(settingsRepositoryProvider);
+    final strings = SettingsStrings.of(context);
+    try {
+      final repo = await ref.read(settingsRepositoryProvider.future);
+      await repo.setOnboarded();
+      if (!mounted) return;
+      ref.invalidate(settingsRepositoryProvider);
+    } catch (_) {
+      if (!mounted) return;
+      showErrorSnackBar(context, strings.onboardingSaveFailed);
+    }
   }
 
   void _advance() {
     AppFeedback.tap();
     if (_index < _pageCount - 1) {
       _pages.nextPage(
-        duration: AppMotion.duration(context, AppDurations.normal),
-        curve: Curves.easeOut,
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : DsMotion.normal,
+        curve: DsMotion.standard,
       );
     } else {
       _finish();
     }
   }
 
+  void _openAccounts() {
+    AppFeedback.tap();
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const AuthScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
+    final strings = SettingsStrings.of(context);
     final isLast = _index == _pageCount - 1;
-    return Scaffold(
-      appBar: AppBar(
-        actions: [
-          TextButton(onPressed: _finish, child: Text(l10n.onboardingSkip)),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.xl),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  l10n.onboardingStep(_index + 1, _pageCount),
-                  key: const ValueKey('onboarding-step'),
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpace.sm),
-            Expanded(
-              child: PageView(
-                controller: _pages,
-                onPageChanged: (i) {
-                  AppFeedback.selection();
-                  setState(() => _index = i);
-                },
-                children: [
-                  _Page(
-                    icon: Icons.calendar_month_outlined,
-                    title: l10n.onboardingP1Title,
-                    body: l10n.onboardingP1Body,
-                  ),
-                  _Page(
-                    icon: Icons.alarm_outlined,
-                    title: l10n.onboardingP2Title,
-                    body: l10n.onboardingP2Body,
-                  ),
-                  _Page(
-                    icon: Icons.sync_outlined,
-                    title: l10n.onboardingP3Title,
-                    body: l10n.onboardingP3Body,
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.xl),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0, end: (_index + 1) / _pageCount),
-                duration: AppMotion.duration(context, AppDurations.normal),
-                curve: Curves.easeOut,
-                builder: (context, value, _) => ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                  child: LinearProgressIndicator(
-                    key: const ValueKey('onboarding-progress'),
-                    value: value,
-                    minHeight: 6,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpace.xl),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey('onboarding-primary'),
-                  onPressed: _advance,
-                  child: Text(
-                    isLast ? l10n.onboardingDone : l10n.onboardingNext,
-                  ),
-                ),
-              ),
+    return AppPage(
+      header: SafeArea(
+        bottom: false,
+        child: AppPageHeader(
+          title: Text(strings.onboardingBrand),
+          subtitle: Text(strings.onboardingTagline),
+          actions: <Widget>[
+            AppButton(
+              key: const ValueKey('onboarding-skip'),
+              label: strings.onboardingSkip,
+              variant: AppButtonVariant.ghost,
+              onPressed: _finish,
             ),
           ],
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            strings.onboardingStep(_index + 1, _pageCount),
+            key: const ValueKey('onboarding-step'),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: DsSpace.x8),
+          Expanded(
+            child: PageView(
+              controller: _pages,
+              onPageChanged: (index) {
+                AppFeedback.selection();
+                setState(() => _index = index);
+              },
+              children: <Widget>[
+                _OnboardingPage(
+                  key: const ValueKey('onboarding-page-1'),
+                  icon: Icons.event_available_outlined,
+                  title: strings.onboardingP1Title,
+                  body: strings.onboardingP1Body,
+                ),
+                _OnboardingPage(
+                  key: const ValueKey('onboarding-page-2'),
+                  icon: Icons.alarm_outlined,
+                  title: strings.onboardingP2Title,
+                  body: strings.onboardingP2Body,
+                  note: strings.onboardingNotificationsNote,
+                ),
+                _OnboardingPage(
+                  key: const ValueKey('onboarding-page-3'),
+                  icon: Icons.sync_outlined,
+                  title: strings.onboardingP3Title,
+                  body: strings.onboardingP3Body,
+                  note: strings.onboardingLocalNote,
+                  action: AppButton(
+                    key: const ValueKey('onboarding-google'),
+                    label: strings.onboardingGoogle,
+                    icon: Icons.account_circle_outlined,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: _openAccounts,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: DsSpace.x16),
+          _PageProgress(
+            index: _index,
+            count: _pageCount,
+            semanticsLabel: strings.onboardingProgress(_index + 1, _pageCount),
+          ),
+          const SizedBox(height: DsSpace.x16),
+          AppButton(
+            key: const ValueKey('onboarding-primary'),
+            label: isLast ? strings.onboardingDone : strings.onboardingNext,
+            expand: true,
+            onPressed: _advance,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _Page extends StatelessWidget {
-  const _Page({required this.icon, required this.title, required this.body});
+class _OnboardingPage extends StatelessWidget {
+  const _OnboardingPage({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.note,
+    this.action,
+  });
 
   final IconData icon;
   final String title;
   final String body;
+  final String? note;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final minHeight = math.max(
-          0.0,
-          constraints.maxHeight - AppSpace.xl * 2,
-        );
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.xxl,
-            vertical: AppSpace.xl,
+            horizontal: DsSpace.x8,
+            vertical: DsSpace.x16,
           ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: minHeight),
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - DsSpace.x32).clamp(
+                0,
+                double.infinity,
+              ),
+            ),
             child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 104,
-                    height: 104,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(
-                        alpha: 0.55,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer.withValues(
+                            alpha: 0.55,
+                          ),
+                          borderRadius: BorderRadius.circular(DsRadius.r16),
+                        ),
+                        child: Icon(
+                          icon,
+                          size: DsIcon.lg,
+                          color: scheme.onPrimaryContainer,
+                        ),
                       ),
-                      shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      icon,
-                      size: 48,
-                      color: theme.colorScheme.onPrimaryContainer,
+                    const SizedBox(height: DsSpace.x24),
+                    Text(
+                      title,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpace.xl),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: AppSpace.md),
-                  Text(
-                    body,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(height: DsSpace.x12),
+                    Text(
+                      body,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
+                    if (note != null) ...<Widget>[
+                      const SizedBox(height: DsSpace.x16),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: DsIcon.sm,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(width: DsSpace.x8),
+                          Expanded(
+                            child: Text(
+                              note!,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (action != null) ...<Widget>[
+                      const SizedBox(height: DsSpace.x24),
+                      action!,
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _PageProgress extends StatelessWidget {
+  const _PageProgress({
+    required this.index,
+    required this.count,
+    required this.semanticsLabel,
+  });
+
+  final int index;
+  final int count;
+  final String semanticsLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : DsMotion.normal;
+    return Semantics(
+      key: const ValueKey('onboarding-progress'),
+      label: semanticsLabel,
+      child: Row(
+        children: <Widget>[
+          for (var i = 0; i < count; i++) ...<Widget>[
+            if (i > 0) const SizedBox(width: DsSpace.x8),
+            Expanded(
+              child: AnimatedContainer(
+                duration: duration,
+                curve: DsMotion.standard,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: i <= index ? scheme.primary : scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(DsRadius.pill),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

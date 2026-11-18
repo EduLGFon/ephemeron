@@ -1,3 +1,4 @@
+import 'package:ephemeron/core/design/theme.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/settings/presentation/settings_screen.dart';
@@ -42,6 +43,10 @@ Widget _settingsApp({List overrides = const []}) {
   return ProviderScope(
     overrides: overrides.cast(),
     child: MaterialApp(
+      theme: EphemeronTheme.build(
+        mode: 'light',
+        platformBrightness: Brightness.light,
+      ),
       localizationsDelegates: const [
         AppLocalizations.delegate,
         ...GlobalMaterialLocalizations.delegates,
@@ -62,7 +67,11 @@ Widget _bannerApp({List overrides = const []}) {
 Future<void> _scrollToLastSync(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 500));
-  await tester.drag(find.byType(ListView), const Offset(0, -1200));
+  await tester.scrollUntilVisible(
+    find.byKey(const ValueKey('settings-last-sync')),
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 200));
 }

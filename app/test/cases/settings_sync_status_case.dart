@@ -1,3 +1,4 @@
+import 'package:ephemeron/core/design/theme.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/features/settings/presentation/settings_screen.dart';
 import 'package:ephemeron/features/sync/application/sync_providers.dart';
@@ -13,10 +14,14 @@ class _SyncingStatusNotifier extends SyncStatusNotifier {
   SyncStatus build() => SyncStatus.syncing;
 }
 
+ThemeData _theme() =>
+    EphemeronTheme.build(mode: 'light', platformBrightness: Brightness.light);
+
 Widget _settingsApp({List overrides = const []}) {
   return ProviderScope(
     overrides: overrides.cast(),
     child: MaterialApp(
+      theme: _theme(),
       localizationsDelegates: const [
         AppLocalizations.delegate,
         ...GlobalMaterialLocalizations.delegates,
@@ -25,6 +30,18 @@ Widget _settingsApp({List overrides = const []}) {
       home: const SettingsScreen(),
     ),
   );
+}
+
+Future<void> _scrollToLastSync(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.scrollUntilVisible(
+    find.byKey(const ValueKey('settings-last-sync')),
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
 }
 
 void main() {
@@ -39,11 +56,7 @@ void main() {
     const ms = 1700000000000;
     SharedPreferences.setMockInitialValues({'sync.lastGoogleSyncAtMs': ms});
     await tester.pumpWidget(_settingsApp());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.drag(find.byType(ListView), const Offset(0, -1200));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
+    await _scrollToLastSync(tester);
 
     expect(find.textContaining('Synced'), findsWidgets);
 
@@ -67,11 +80,7 @@ void main() {
         ],
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.drag(find.byType(ListView), const Offset(0, -1200));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
+    await _scrollToLastSync(tester);
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.textContaining('Syncing'), findsWidgets);
@@ -87,11 +96,7 @@ void main() {
 
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(_settingsApp());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.drag(find.byType(ListView), const Offset(0, -1200));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
+    await _scrollToLastSync(tester);
 
     expect(find.textContaining('Not synced yet'), findsOneWidget);
     expect(find.textContaining('Synced'), findsNothing);
