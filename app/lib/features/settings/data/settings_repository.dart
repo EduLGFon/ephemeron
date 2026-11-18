@@ -7,13 +7,23 @@ class SettingsRepository {
   final SharedPreferences _prefs;
 
   /// Default section order: Calendar, Tasks, Notes, Habits, Focus,
-  /// Countdowns, Matrix.
+  /// Countdowns, Matrix. Kept for the legacy settings screen until it is
+  /// replaced; the new shell reads [navOrderV2].
   static const List<int> defaultNavOrder = <int>[0, 1, 6, 3, 5, 4, 2];
+
+  /// Primary destinations in default order: Today, Tasks, Calendar, Habits,
+  /// Focus.
+  static const List<int> defaultNavOrderV2 = <int>[0, 1, 2, 3, 4];
 
   static const _kPrimary = 'settings.primaryColor';
   static const _kBackground = 'settings.backgroundColor';
   static const _kBrightness = 'settings.brightness';
   static const _kNavOrder = 'settings.navOrder';
+  static const _kNavOrderV2 = 'settings.navOrderV2';
+  static const _kStreamEnabled = 'settings.streamEnabled';
+  static const _kDynamicColor = 'settings.dynamicColor';
+  static const _kUiDensity = 'settings.uiDensity';
+  static const _kTime24h = 'settings.time24h';
   static const _kPower = 'settings.powerSaving';
   static const _kReduceAnim = 'settings.reduceAnimations';
   static const _kHaptics = 'settings.haptics';
@@ -38,6 +48,50 @@ class SettingsRepository {
 
   Future<void> setNavOrder(List<int> order) =>
       _prefs.setStringList(_kNavOrder, order.map((e) => e.toString()).toList());
+
+  /// Primary destination ids (0..4) in the order the shell shows them.
+  ///
+  /// Stored values are normalized on read: unknown ids and duplicates are
+  /// dropped, and every primary destination that is missing is appended in
+  /// canonical order. A valid stored order is always returned.
+  List<int> get navOrderV2 {
+    final raw = _prefs.getStringList(_kNavOrderV2);
+    if (raw == null) return defaultNavOrderV2;
+    final seen = <int>{};
+    final out = <int>[];
+    for (final value in raw) {
+      final id = int.tryParse(value.trim());
+      if (id == null || id < 0 || id > 4 || !seen.add(id)) continue;
+      out.add(id);
+    }
+    for (final id in defaultNavOrderV2) {
+      if (seen.add(id)) out.add(id);
+    }
+    return out;
+  }
+
+  Future<void> setNavOrderV2(List<int> order) => _prefs.setStringList(
+    _kNavOrderV2,
+    order.map((e) => e.toString()).toList(),
+  );
+
+  /// Stream is opt-in. Hidden from navigation until the user enables it.
+  bool get streamEnabled => _prefs.getBool(_kStreamEnabled) ?? false;
+  Future<void> setStreamEnabled(bool v) => _prefs.setBool(_kStreamEnabled, v);
+
+  /// Follow the Android system accent when available.
+  bool get dynamicColor => _prefs.getBool(_kDynamicColor) ?? false;
+  Future<void> setDynamicColor(bool v) => _prefs.setBool(_kDynamicColor, v);
+
+  /// `comfortable` or `compact`; anything else falls back to comfortable.
+  String get uiDensity =>
+      _prefs.getString(_kUiDensity) == 'compact' ? 'compact' : 'comfortable';
+  Future<void> setUiDensity(String v) =>
+      _prefs.setString(_kUiDensity, v == 'compact' ? 'compact' : 'comfortable');
+
+  /// 24-hour clock display. Defaults to true to preserve prior behavior.
+  bool get time24h => _prefs.getBool(_kTime24h) ?? true;
+  Future<void> setTime24h(bool v) => _prefs.setBool(_kTime24h, v);
 
   PowerSavingMode get powerSavingMode {
     final v = _prefs.getString(_kPower) ?? 'auto';
@@ -66,6 +120,12 @@ class SettingsRepository {
   static const _kLastTab = 'session.lastTab';
   int get lastTabIndex => _prefs.getInt(_kLastTab) ?? 0;
   Future<void> setLastTabIndex(int v) => _prefs.setInt(_kLastTab, v);
+
+  /// Navigation schema version. 0/1 are the legacy `/tabN` order; 2 is the
+  /// Today-first branch order.
+  static const _kNavVersion = 'session.navVersion';
+  int get navVersion => _prefs.getInt(_kNavVersion) ?? 0;
+  Future<void> setNavVersion(int v) => _prefs.setInt(_kNavVersion, v);
 
   /// Last top-level route for session restore (`/tab0`..`/tab6`,
   /// `/search`, `/settings`, `/alarm-settings`, `note:<id>`).

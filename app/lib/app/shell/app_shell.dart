@@ -38,7 +38,8 @@ import '../../features/tasks/presentation/task_editor_sheet.dart';
 import '../../data/services/home_widget_data_binder.dart';
 import '../../data/services/week_widget_options.dart';
 import '../../data/services/week_calendar_data.dart';
-import 'app_sections.dart';
+import 'adaptive_shell.dart';
+import 'destinations.dart';
 import '../../features/tasks/application/tasks_providers.dart';
 import '../../features/habits/application/habits_providers.dart';
 import '../../features/countdowns/application/countdowns_providers.dart';
@@ -224,14 +225,20 @@ class _AppShellState extends ConsumerState<AppShell>
       orElse: () => true,
     );
     if (!onboarded) return const OnboardingScreen();
-    final order = orderAsync.maybeWhen(
-      data: (r) => r.navOrder,
-      orElse: () => SettingsRepository.defaultNavOrder,
+    final primary = orderAsync.maybeWhen(
+      data: (r) => r.navOrderV2,
+      orElse: () => SettingsRepository.defaultNavOrderV2,
     );
-    final pinned = order.take(5).toList();
-    final more = order.skip(5).toList();
+    final streamEnabled = orderAsync.maybeWhen(
+      data: (r) => r.streamEnabled,
+      orElse: () => false,
+    );
+    final secondary = <int>[
+      ...AppDestination.secondaryIds,
+      if (streamEnabled) AppDestination.stream.id,
+    ];
 
-    final shortcuts = _buildShortcuts(more, order);
+    final shortcuts = _buildShortcuts(primary, secondary);
     _shortcuts = shortcuts;
     return Focus(
       autofocus: true,
@@ -249,35 +256,22 @@ class _AppShellState extends ConsumerState<AppShell>
       },
       child: AlarmActionHandler(
         child: AlarmListener(
-          child: Scaffold(
-            body: Column(
-              children: [
-                const SyncReconnectBanner(),
-                Expanded(child: widget.navigationShell),
-              ],
-            ),
-            bottomNavigationBar: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: NavigationBar(
-                selectedIndex:
-                    pinned.contains(widget.navigationShell.currentIndex)
-                    ? pinned.indexOf(widget.navigationShell.currentIndex)
-                    : 5,
-                onDestinationSelected: (i) =>
-                    _onDestinationSelected(i, pinned, more, order),
-                destinations: [
-                  for (final idx in pinned)
-                    NavigationDestination(
-                      icon: Icon(AppSection.values[idx].icon),
-                      label: AppSection.values[idx].title,
-                    ),
-                  const NavigationDestination(
-                    icon: Icon(Icons.more_horiz),
-                    label: 'More',
-                  ),
-                ],
+          child: Column(
+            children: [
+              const SyncReconnectBanner(),
+              Expanded(
+                child: AdaptiveShell(
+                  currentIndex: widget.navigationShell.currentIndex,
+                  content: widget.navigationShell,
+                  primary: primary,
+                  secondary: secondary,
+                  onDestinationSelected: _onDestinationSelected,
+                  onMore: () => _showMore(context, secondary, primary),
+                  onSettings: _openSettings,
+                  onQuickAdd: () => showQuickAdd(context),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

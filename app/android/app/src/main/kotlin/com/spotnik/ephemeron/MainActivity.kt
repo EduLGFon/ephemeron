@@ -89,6 +89,22 @@ class MainActivity : FlutterFragmentActivity() {
                     pendingRingRequest = null
                     result.success(requestCode)
                 }
+                // Android 12+ system accent from the wallpaper palette.
+                // Older releases report null so the brand seed is used.
+                "getSystemAccent" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        try {
+                            val id = resources.getIdentifier(
+                                "system_accent1_500", "color", "android",
+                            )
+                            if (id != 0) result.success(getColor(id)) else result.success(null)
+                        } catch (_: Exception) {
+                            result.success(null)
+                        }
+                    } else {
+                        result.success(null)
+                    }
+                }
                 "openUrl" -> {
                     val url = call.argument<String>("url")
                     if (url.isNullOrEmpty()) {

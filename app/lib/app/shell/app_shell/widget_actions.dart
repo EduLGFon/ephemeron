@@ -53,15 +53,15 @@ extension _AppShellWidgetActions on _AppShellState {
         case 'new_task':
           await showQuickAdd(context);
         case 'new_event':
-          _onTabSelected(AppSection.calendar.index);
+          _onTabSelected(AppDestination.calendar.branch);
         case 'start_focus':
-          _onTabSelected(AppSection.focus.index);
+          _onTabSelected(AppDestination.focus.branch);
         case 'focus_start_break':
         case 'focus_start_focus':
           ref
               .read(pendingFocusNextProvider.notifier)
               .set(action == 'focus_start_break' ? 'break' : 'focus');
-          _onTabSelected(AppSection.focus.index);
+          _onTabSelected(AppDestination.focus.branch);
       }
     }
     if (!mounted) return;
@@ -103,7 +103,7 @@ extension _AppShellWidgetActions on _AppShellState {
         ref
             .read(pendingFocusNextProvider.notifier)
             .set(widgetAction == 'focus_start_break' ? 'break' : 'focus');
-        _onTabSelected(AppSection.focus.index);
+        _onTabSelected(AppDestination.focus.branch);
         return;
       }
       final tap = parseWeekWidgetAction(widgetAction);
@@ -149,7 +149,7 @@ extension _AppShellWidgetActions on _AppShellState {
   /// the configured first day of the week.
   Future<void> _openWeekCalendar(DateTime day) async {
     if (!mounted) return;
-    await _onTabSelected(AppSection.calendar.index);
+    await _onTabSelected(AppDestination.calendar.branch);
     if (!mounted) return;
     var firstDay = DateTime.monday;
     try {

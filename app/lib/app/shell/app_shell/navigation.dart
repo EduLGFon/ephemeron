@@ -1,17 +1,9 @@
 part of '../app_shell.dart';
 
 extension _AppShellNavigation on _AppShellState {
-  void _onDestinationSelected(
-    int selected,
-    List<int> pinned,
-    List<int> more,
-    List<int> order,
-  ) {
-    if (selected >= 5) {
-      _showMore(context, more, order);
-      return;
-    }
-    final branchIndex = pinned[selected];
+  /// Handles a tap on a branch destination. Double-tapping Calendar jumps
+  /// back to today, the only hidden gesture in the shell.
+  void _onDestinationSelected(int branchIndex) {
     final now = DateTime.now();
     final isDoubleTap =
         _lastTabTapIndex == branchIndex &&
@@ -19,9 +11,7 @@ extension _AppShellNavigation on _AppShellState {
         now.difference(_lastTabTapAt!) <= const Duration(milliseconds: 350);
     _lastTabTapIndex = branchIndex;
     _lastTabTapAt = now;
-    // Double-tapping the active Calendar tab is the only hidden gesture:
-    // it jumps back to today.
-    if (isDoubleTap && branchIndex == AppSection.calendar.index) {
+    if (isDoubleTap && branchIndex == AppDestination.calendar.branch) {
       AppFeedback.selection();
       ref.read(calendarStateProvider.notifier).goToday();
       return;
@@ -30,21 +20,59 @@ extension _AppShellNavigation on _AppShellState {
   }
 
   Future<void> _onTabSelected(int branchIndex) async {
-    if (widget.navigationShell.currentIndex != branchIndex) {
+    var target = branchIndex.clamp(0, AppDestination.all.length - 1).toInt();
+    SettingsRepository? repo;
+    try {
+      repo = await ref.read(settingsRepositoryProvider.future);
+    } catch (_) {}
+    // Stream is opt-in. A stale shortcut, widget action or restored route
+    // must never open it while disabled.
+    final enabled = repo?.streamEnabled ?? false;
+    if (target == AppDestination.stream.branch && !enabled) {
+      target = AppDestination.today.branch;
+    }
+    if (!mounted) return;
+    if (widget.navigationShell.currentIndex != target) {
       AppFeedback.selection();
     }
-    widget.navigationShell.goBranch(branchIndex);
-    if (branchIndex == AppSection.calendar.index) {
+    widget.navigationShell.goBranch(target);
+    if (target == AppDestination.calendar.branch) {
       ref.read(timelineNowControllerProvider).refresh();
     }
     try {
-      final repo = await ref.read(settingsRepositoryProvider.future);
-      await repo.setLastTabIndex(branchIndex);
-      await repo.setLastRoute('/tab$branchIndex');
+      final SettingsRepository settingsRepo;
+      if (repo != null) {
+        settingsRepo = repo;
+      } else {
+        settingsRepo = await ref.read(settingsRepositoryProvider.future);
+      }
+      await settingsRepo.setNavVersion(2);
+      await settingsRepo.setLastTabIndex(target);
+      await settingsRepo.setLastRoute(AppDestination.pathForBranch(target));
     } catch (_) {}
   }
 
-  void _showMore(BuildContext context, List<int> more, List<int> order) {
+  void _openSettings() {
+    context.push('/settings');
+    Future.microtask(() async {
+      try {
+        final repo = await ref.read(settingsRepositoryProvider.future);
+        await repo.setLastRoute('/settings');
+      } catch (_) {}
+    });
+  }
+
+  void _openSearch() {
+    context.push('/search');
+    Future.microtask(() async {
+      try {
+        final repo = await ref.read(settingsRepositoryProvider.future);
+        await repo.setLastRoute('/search');
+      } catch (_) {}
+    });
+  }
+
+  void _showMore(BuildContext context, List<int> secondary, List<int> primary) {
     final navigator = Navigator.of(context);
 
     Future<void> record(String route) async {
@@ -58,14 +86,14 @@ extension _AppShellNavigation on _AppShellState {
       context,
       builder: (ctx) => EscapeToClose(
         child: MoreSheet(
-          more: more,
+          secondary: secondary,
           onSelected: (idx) {
             Navigator.of(ctx).pop();
-            _onTabSelected(idx);
+            _onDestinationSelected(idx);
           },
           onReorder: () async {
             Navigator.of(ctx).pop();
-            await _reorderSheet(context, order);
+            await _reorderSheet(context, primary);
           },
           onSearch: () {
             Navigator.of(ctx).pop();
@@ -126,8 +154,8 @@ extension _AppShellNavigation on _AppShellState {
     }
   }
 
-  Future<void> _reorderSheet(BuildContext context, List<int> order) async {
-    final current = List<int>.from(order);
+  Future<void> _reorderSheet(BuildContext context, List<int> primary) async {
+    final current = List<int>.from(primary);
     await showAppSheet<void>(
       context,
       builder: (ctx) => EscapeToClose(
@@ -143,7 +171,7 @@ extension _AppShellNavigation on _AppShellState {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Reorder sections',
+                      'Reorder primary destinations',
                       style: Theme.of(ctx).textTheme.titleMedium,
                     ),
                   ),
@@ -157,11 +185,11 @@ extension _AppShellNavigation on _AppShellState {
                         });
                       },
                       children: [
-                        for (final idx in current)
+                        for (final id in current)
                           ListTile(
-                            key: ValueKey(idx),
-                            leading: Icon(AppSection.values[idx].icon),
-                            title: Text(AppSection.values[idx].title),
+                            key: ValueKey<int>(id),
+                            leading: Icon(AppDestination.byId(id).icon),
+                            title: Text(AppDestination.byId(id).title),
                             trailing: const Icon(Icons.drag_handle),
                           ),
                       ],
@@ -174,7 +202,7 @@ extension _AppShellNavigation on _AppShellState {
                         final repo = await ref.read(
                           settingsRepositoryProvider.future,
                         );
-                        await repo.setNavOrder(current);
+                        await repo.setNavOrderV2(current);
                         ref.invalidate(settingsRepositoryProvider);
                         if (ctx.mounted) Navigator.of(ctx).pop();
                       },
