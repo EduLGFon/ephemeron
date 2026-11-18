@@ -51,7 +51,6 @@ import 'package:ephemeron/features/stream/presentation/tray/tray_chip.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_item.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_panel.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_strip.dart';
-import 'package:ephemeron/features/stream/stream_flags.dart';
 import 'package:ephemeron/features/stream/presentation/stream_route_params.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
@@ -66,6 +65,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ephemeron/app/router/app_router.dart';
+import 'package:ephemeron/app/shell/app_shell.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FixedStreamThemeNotifier extends StreamThemeNotifier {
@@ -391,8 +392,46 @@ String _location(GoRouter router) =>
     router.routerDelegate.currentConfiguration.last.matchedLocation;
 
 void main() {
-  test('streamUiEnabled defaults to false', () {
-    expect(streamUiEnabled, isFalse);
+  testWidgets('/ redirects to stream day view and mounts AppShell', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    GoRouter? captured;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: Consumer(
+          builder: (context, ref, _) {
+            final router = ref.watch(appRouterProvider);
+            captured = router;
+            return MaterialApp.router(
+              routerConfig: router,
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                ...GlobalMaterialLocalizations.delegates,
+              ],
+              supportedLocales: AppLocalizations.supportedLocales,
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(AppShell), findsOneWidget);
+    expect(
+      captured?.routerDelegate.currentConfiguration.last.matchedLocation,
+      '/stream/${formatStreamDate(DateTime.now())}/day',
+    );
+    // Unmount before the test ends so Riverpod disposes its drift stream
+    // subscriptions while pumps still run. Drift defers stream teardown to
+    // a zero-duration timer; leaving it pending fails the post-test
+    // invariant check, and awaiting db.close() deadlocks on the same timer.
+    // The in-memory database needs no teardown; the process reclaims it.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   test('invalid date and zoom fall back', () {
@@ -442,7 +481,11 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      _app(overrides: _overrides(), date: DateTime(2026, 11, 17)),
+      _app(
+        overrides: _overrides(),
+        date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 12),
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -925,6 +968,7 @@ void main() {
       _app(
         overrides: _overrides(),
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 12),
         onOpenCommand: () => openCommand++,
         onOpenSettings: () => openSettings++,
         onReturnToNow: () => returnToNow++,
