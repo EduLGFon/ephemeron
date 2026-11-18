@@ -10,7 +10,12 @@
 - Microsoft web sign-in: Entra SPA redirect registration for http://localhost:8080/auth.html. Android primary target.
 - Real-account checks: shared Google/Microsoft calendars, freeBusyReader, recurring exceptions moved/cancelled, Google single-occurrence edit/delete, multi-account restart + reconnect banner, device-calendar refresh, force-sync error paths.
 - Visual/device checks: themes, More command center, onboarding, quick add, search, calendar, tasks, notes/auth, habits/focus/countdowns, alarm ring navigation, matrix density/peek at 2.5x/3x text, notes grid perf, 320dp large-text layouts.
-- Device profile run for startup and calendar rebuild timings.
+- New UI (2026-11-18): Android profile run for Today/Tasks/Calendar frame build/raster on a mid-range 60Hz device and a 120Hz device; cold/warm start and idle RAM; battery while idle and while a focus session runs. No numbers are claimed before this run.
+- New UI dynamic colour on Android 12+: system accent changes, light/dark/AMOLED, and the fallback when the platform channel returns null.
+- New UI denied states on device: notifications denied, exact alarms denied, full-screen intent denied, and the Settings fix-it rows at 320dp/200%.
+- New UI 320dp/200% visual pass on device for Today, Tasks, Calendar, Habits, Focus, Countdowns, Notes, Matrix, Search, Settings and Quick Add; check focus rings and 48dp targets with a keyboard and touch.
+- New UI Stream opt-in: enable in Settings, verify More/sidebar entry and direct `/stream`; disable and verify the entry disappears, `/stream` redirects to Today and restore does not reopen Stream.
+- New UI platform builds: iOS, macOS and Windows (not run on the Linux integration host); Linux desktop after installing webkit2gtk-4.0.
 
 ## Owner console, legal, store
 
@@ -42,6 +47,8 @@
 - Linked countdowns are local-only; they are not sent to the backend. Event/task date changes update linked target dates, but a countdown can still be edited independently afterward.
 - Habit statistics use local logs and existing streak rules; weekly-target stats show the current week only. No schema or backend change was added.
 - `todo_coverage` long-press task reorder is timing-flaky in the combined 849-test suite: it passed alone and in subsequent full runs, but failed once during this pass. Follow-up: stabilize the gesture timing in that widget test.
+- UI rebirth full-suite order dependence (2026-11-18): the first combined run failed `habits_timer 320dp trailing no overflow with timer` (32px RenderFlex overflow), `l10n search screen localizes titles` (drift stream-disposal pending timer) and `todo_coverage drag handle reorders tasks and persists sortOrder` (drag did not reorder). Each case file passes alone and the immediate full rerun passed 1824/1824, so they are recorded as flakes. Follow-up: isolate platform-channel/stream state so the first combined run is green.
+- `app/lib/app/shell/app_sections.dart` has no imports after the adaptive shell and is dead code. Follow-up: delete it in a unit that owns the file.
 - Three plugins still apply Kotlin Gradle Plugin (flutter_web_auth_2, home_widget, workmanager_android); Flutter warns this will fail in a future release. All are latest, so this is upstream.
 - Generated l10n keeps a header ignore for deprecated_member_use because Flutter gen-l10n still emits legacy delegates; app code uses material_ui delegates. Revisit when the generator migrates.
 - Release build warns the CupertinoIcons font is absent; no app code uses CupertinoIcons.
@@ -53,7 +60,12 @@
 - Backend hardening deferred to deploy: reverse-proxy client_max_body_size (~1MB), strip/overwrite X-Forwarded-For at proxy, run API as non-root with least-privilege deno flags.
 - Code follow-ups: wrap server/src/jwt.ts atob in try/catch (500-vs-401); bound or TTL-sweep server/main.ts rate-limit buckets; 400 on since=NaN in pull; rename weak expired-refresh test and add real-expiry case; app/web gitignored so future app/web/* static files need git add -f (like CNAME); add that note to docs/PAGES_DEPLOY.md as one line.
 
-## Stream UI (v3)
+## Stream UI (v3, opt-in)
+
+Stream is opt-in via `settings.streamEnabled` (default off) and is reachable
+from the secondary More/sidebar entries only when enabled. Direct `/stream/...`
+redirects to `/today` when off and session restore never opens it. All Stream
+components and features are retained; no Stream feature was removed.
 
 - [x] Wire capture bar into the day surface.
 - [x] Wire command palette into the day surface.
@@ -71,7 +83,9 @@
 - [ ] Implement progressive hints.
 - [ ] Wire permission banners.
 - [x] Wire sync/offline states into the surface.
-- [ ] Remove old UI after Phase 8 acceptance.
+- [x] Remove the legacy tab shell and old screen chrome; the adaptive shell and
+      `core/design` components replaced them. Stream remains an optional
+      secondary surface.
 - [ ] Run Phase 0 perf gate (frame build/raster, cold start, memory, 2000-mark scroll) after the spike fix.
 - [ ] Review follow-up: week/month painters over 300 lines.
 - [ ] Review follow-up: palette duplication in the emitter.

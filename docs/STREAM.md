@@ -2,17 +2,20 @@
 
 ## What it is
 
-The app's default time-centric "Stream" UI, registered inside `AppShell` as
-the 8th branch (index 7); the legacy tabs keep indices 0..6.
+The app's time-centric "Stream" UI, retained as an optional secondary surface.
+It is registered inside `AppShell` as branch 8 (index 8) after the five primary
+and three secondary destinations.
 
 - Route: `/stream/<yyyy-MM-dd>/<zoom>` (zoom is `day`/`week`/`month`/...),
-  registered unconditionally in `app/lib/app/router/app_router.dart`.
-- `/` redirects to today's Stream day view. Unsupported zoom levels canonicalize
-  to `day` and valid ones lowercase in the router redirect.
-- Session restore reopens the persisted branch, clamped to 0..7. A fresh install
-  has no `session.lastTab`, so it keeps the Stream landing page; existing users
-  keep their persisted tab.
-- The More sheet has a Stream entry that selects branch 7.
+  registered in `app/lib/app/router/app_router.dart`.
+- Opt-in: `settings.streamEnabled` is additive and defaults to `false`. When
+  off, More and the sidebar hide Stream, direct `/stream/...` redirects to
+  `/today`, legacy `/tab7` maps to Today and session restore never opens it.
+- When enabled, the More sheet and the expanded sidebar show a Stream entry.
+  Unsupported zoom levels canonicalize to `day` and valid ones lowercase in the
+  router redirect.
+- Session restore migrates `session.navVersion <2` from the legacy tab order
+  and never opens a disabled Stream. A fresh install lands on `/today`.
 - The compile-time `STREAM_UI` flag and `stream_flags.dart` have been removed.
 
 ## What exists and is merged on v3
@@ -65,15 +68,20 @@ surface, the rest are not yet mounted:
 - settings sheet (wired)
 - progressive hints
 - permission banners
-- old UI NOT removed: tabs remain fully reachable and remembered; Stream is default branch for fresh installs
+
+The legacy tab shell and old screen chrome were removed by the UI rebirth
+(2026-11-18); Stream itself remains available when opted in. The items above
+without (wired) are component units with tests that are not mounted yet.
 
 ## Verification status
 
 Every component unit passes its targeted tests and `flutter analyze`. The
-stream-default tree passed the full serial suite and analyze (see
-`docs/PROGRESS.md`, 2026-11-18). Phase 0 performance budgets (frame
-build/raster, cold start, memory, 2000-mark scroll) are UNMEASURED after the
-spike fix; do not claim otherwise.
+UI-rebirth tree (2026-11-18) passed the full serial suite on rerun: 1824 passed,
+0 failed, with three order-dependent flakes (habits_timer/l10n/todo_coverage)
+that passed alone and on the rerun. Web and arm64 release builds passed. Phase 0
+performance budgets (frame build/raster, cold start, memory, 2000-mark scroll)
+are UNMEASURED after the spike fix; no Android device or emulator is available.
+Do not claim measurements.
 
 ## Data-model gaps (suggested only, no schema change)
 
@@ -89,7 +97,10 @@ spike fix; do not claim otherwise.
 
 ## How to run and verify
 
-- Run: `flutter run` from `app/`; Stream opens at `/`.
+- Run: `flutter run` from `app/`; `/` opens Today. Enable Settings > Stream,
+  then open Stream from More (compact/medium) or the sidebar (expanded), or
+  navigate directly to `/stream/<yyyy-MM-dd>/day`. With Stream disabled,
+  `/stream/...` redirects to `/today`.
 - Targeted: `flutter test test/cases/<file>_case.dart`.
 - Codegen: `dart run tools/gen_test_runner.dart`, `flutter gen-l10n`.
 - Analyze: `flutter analyze`.

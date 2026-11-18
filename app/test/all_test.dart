@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'cases/account_email_case.dart' as account_email;
+import 'cases/adaptive_shell_case.dart' as adaptive_shell;
 import 'cases/alarm_migration_v4v5_case.dart' as alarm_migration_v4v5;
 import 'cases/alarm_notification_actions_case.dart'
     as alarm_notification_actions;
@@ -21,16 +22,22 @@ import 'cases/backend_auth_case.dart' as backend_auth;
 import 'cases/backend_sync_case.dart' as backend_sync;
 import 'cases/backup_case.dart' as backup;
 import 'cases/calendar_atomic_load_case.dart' as calendar_atomic_load;
+import 'cases/calendar_cache_coordinator_case.dart'
+    as calendar_cache_coordinator;
 import 'cases/calendar_color_case.dart' as calendar_color;
 import 'cases/calendar_header_case.dart' as calendar_header;
 import 'cases/calendar_list_pagination_case.dart' as calendar_list_pagination;
 import 'cases/calendar_perf_case.dart' as calendar_perf;
+import 'cases/calendar_screen_ui_case.dart' as calendar_screen_ui;
 import 'cases/calendar_swipe_case.dart' as calendar_swipe;
 import 'cases/calendar_ux_source_case.dart' as calendar_ux_source;
 import 'cases/calendar_week_nav_case.dart' as calendar_week_nav;
 import 'cases/countdown_link_case.dart' as countdown_link;
 import 'cases/countdowns_screen_case.dart' as countdowns_screen;
 import 'cases/db_case.dart' as db;
+import 'cases/design_components_case.dart' as design_components;
+import 'cases/design_data_components_case.dart' as design_data_components;
+import 'cases/design_foundation_case.dart' as design_foundation;
 import 'cases/device_calendar_import_case.dart' as device_calendar_import;
 import 'cases/dirty_guard_case.dart' as dirty_guard;
 import 'cases/event_editor_time_case.dart' as event_editor_time;
@@ -76,9 +83,11 @@ import 'cases/note_repository_case.dart' as note_repository;
 import 'cases/notes_screen_grid_case.dart' as notes_screen_grid;
 import 'cases/occurrence_cache_case.dart' as occurrence_cache;
 import 'cases/onboarding_case.dart' as onboarding;
+import 'cases/onboarding_screen_case.dart' as onboarding_screen;
 import 'cases/parser_case.dart' as parser;
 import 'cases/picker_memory_case.dart' as picker_memory;
 import 'cases/quick_add_case.dart' as quick_add;
+import 'cases/quick_add_sheet_case.dart' as quick_add_sheet;
 import 'cases/recurrence_case.dart' as recurrence;
 import 'cases/search_case.dart' as search;
 import 'cases/session_restore_case.dart' as session_restore;
@@ -190,6 +199,7 @@ import 'cases/task_repository_recurrence_case.dart'
     as task_repository_recurrence;
 import 'cases/task_repository_smart_filter_case.dart'
     as task_repository_smart_filter;
+import 'cases/tasks_screen_ui_case.dart' as tasks_screen_ui;
 import 'cases/timeline_layout_case.dart' as timeline_layout;
 import 'cases/timeline_multiday_overflow_case.dart'
     as timeline_multiday_overflow;
@@ -197,9 +207,12 @@ import 'cases/timeline_now_controller_case.dart' as timeline_now_controller;
 import 'cases/timeline_persist_case.dart' as timeline_persist;
 import 'cases/timeline_title_wrap_case.dart' as timeline_title_wrap;
 import 'cases/timeline_view_case.dart' as timeline_view;
+import 'cases/today_providers_case.dart' as today_providers;
+import 'cases/today_screen_case.dart' as today_screen;
 import 'cases/todo_coverage_case.dart' as todo_coverage;
 import 'cases/todo_layout_scale_case.dart' as todo_layout_scale;
 import 'cases/todo_sync_status_case.dart' as todo_sync_status;
+import 'cases/ui_preferences_case.dart' as ui_preferences;
 import 'cases/ux_alarms_case.dart' as ux_alarms;
 import 'cases/ux_calendar_case.dart' as ux_calendar;
 import 'cases/ux_foundation_case.dart' as ux_foundation;
@@ -210,6 +223,7 @@ import 'cases/ux_tasks_case.dart' as ux_tasks;
 import 'cases/ux_wellness_case.dart' as ux_wellness;
 import 'cases/week_calendar_case.dart' as week_calendar;
 import 'cases/week_widget_options_case.dart' as week_widget_options;
+import 'cases/wellness_ui_case.dart' as wellness_ui;
 import 'cases/widget_case.dart' as widget;
 import 'cases/widget_config_case.dart' as widget_config;
 import 'cases/widget_image_case.dart' as widget_image;
@@ -218,6 +232,7 @@ import 'cases/year_view_case.dart' as year_view;
 
 const _included = <String>{
   'account_email_case.dart',
+  'adaptive_shell_case.dart',
   'alarm_migration_v4v5_case.dart',
   'alarm_notification_actions_case.dart',
   'alarm_overdue_case.dart',
@@ -230,16 +245,21 @@ const _included = <String>{
   'backend_sync_case.dart',
   'backup_case.dart',
   'calendar_atomic_load_case.dart',
+  'calendar_cache_coordinator_case.dart',
   'calendar_color_case.dart',
   'calendar_header_case.dart',
   'calendar_list_pagination_case.dart',
   'calendar_perf_case.dart',
+  'calendar_screen_ui_case.dart',
   'calendar_swipe_case.dart',
   'calendar_ux_source_case.dart',
   'calendar_week_nav_case.dart',
   'countdown_link_case.dart',
   'countdowns_screen_case.dart',
   'db_case.dart',
+  'design_components_case.dart',
+  'design_data_components_case.dart',
+  'design_foundation_case.dart',
   'device_calendar_import_case.dart',
   'dirty_guard_case.dart',
   'event_editor_time_case.dart',
@@ -283,9 +303,11 @@ const _included = <String>{
   'notes_screen_grid_case.dart',
   'occurrence_cache_case.dart',
   'onboarding_case.dart',
+  'onboarding_screen_case.dart',
   'parser_case.dart',
   'picker_memory_case.dart',
   'quick_add_case.dart',
+  'quick_add_sheet_case.dart',
   'recurrence_case.dart',
   'search_case.dart',
   'session_restore_case.dart',
@@ -392,15 +414,19 @@ const _included = <String>{
   'task_repository_lists_case.dart',
   'task_repository_recurrence_case.dart',
   'task_repository_smart_filter_case.dart',
+  'tasks_screen_ui_case.dart',
   'timeline_layout_case.dart',
   'timeline_multiday_overflow_case.dart',
   'timeline_now_controller_case.dart',
   'timeline_persist_case.dart',
   'timeline_title_wrap_case.dart',
   'timeline_view_case.dart',
+  'today_providers_case.dart',
+  'today_screen_case.dart',
   'todo_coverage_case.dart',
   'todo_layout_scale_case.dart',
   'todo_sync_status_case.dart',
+  'ui_preferences_case.dart',
   'ux_alarms_case.dart',
   'ux_calendar_case.dart',
   'ux_foundation_case.dart',
@@ -411,6 +437,7 @@ const _included = <String>{
   'ux_wellness_case.dart',
   'week_calendar_case.dart',
   'week_widget_options_case.dart',
+  'wellness_ui_case.dart',
   'widget_case.dart',
   'widget_config_case.dart',
   'widget_image_case.dart',
@@ -430,6 +457,7 @@ void main() {
   });
 
   group('account_email', account_email.main);
+  group('adaptive_shell', adaptive_shell.main);
   group('alarm_migration_v4v5', alarm_migration_v4v5.main);
   group('alarm_notification_actions', alarm_notification_actions.main);
   group('alarm_overdue', alarm_overdue.main);
@@ -442,16 +470,21 @@ void main() {
   group('backend_sync', backend_sync.main);
   group('backup', backup.main);
   group('calendar_atomic_load', calendar_atomic_load.main);
+  group('calendar_cache_coordinator', calendar_cache_coordinator.main);
   group('calendar_color', calendar_color.main);
   group('calendar_header', calendar_header.main);
   group('calendar_list_pagination', calendar_list_pagination.main);
   group('calendar_perf', calendar_perf.main);
+  group('calendar_screen_ui', calendar_screen_ui.main);
   group('calendar_swipe', calendar_swipe.main);
   group('calendar_ux_source', calendar_ux_source.main);
   group('calendar_week_nav', calendar_week_nav.main);
   group('countdown_link', countdown_link.main);
   group('countdowns_screen', countdowns_screen.main);
   group('db', db.main);
+  group('design_components', design_components.main);
+  group('design_data_components', design_data_components.main);
+  group('design_foundation', design_foundation.main);
   group('device_calendar_import', device_calendar_import.main);
   group('dirty_guard', dirty_guard.main);
   group('event_editor_time', event_editor_time.main);
@@ -495,9 +528,11 @@ void main() {
   group('notes_screen_grid', notes_screen_grid.main);
   group('occurrence_cache', occurrence_cache.main);
   group('onboarding', onboarding.main);
+  group('onboarding_screen', onboarding_screen.main);
   group('parser', parser.main);
   group('picker_memory', picker_memory.main);
   group('quick_add', quick_add.main);
+  group('quick_add_sheet', quick_add_sheet.main);
   group('recurrence', recurrence.main);
   group('search', search.main);
   group('session_restore', session_restore.main);
@@ -604,15 +639,19 @@ void main() {
   group('task_repository_lists', task_repository_lists.main);
   group('task_repository_recurrence', task_repository_recurrence.main);
   group('task_repository_smart_filter', task_repository_smart_filter.main);
+  group('tasks_screen_ui', tasks_screen_ui.main);
   group('timeline_layout', timeline_layout.main);
   group('timeline_multiday_overflow', timeline_multiday_overflow.main);
   group('timeline_now_controller', timeline_now_controller.main);
   group('timeline_persist', timeline_persist.main);
   group('timeline_title_wrap', timeline_title_wrap.main);
   group('timeline_view', timeline_view.main);
+  group('today_providers', today_providers.main);
+  group('today_screen', today_screen.main);
   group('todo_coverage', todo_coverage.main);
   group('todo_layout_scale', todo_layout_scale.main);
   group('todo_sync_status', todo_sync_status.main);
+  group('ui_preferences', ui_preferences.main);
   group('ux_alarms', ux_alarms.main);
   group('ux_calendar', ux_calendar.main);
   group('ux_foundation', ux_foundation.main);
@@ -623,6 +662,7 @@ void main() {
   group('ux_wellness', ux_wellness.main);
   group('week_calendar', week_calendar.main);
   group('week_widget_options', week_widget_options.main);
+  group('wellness_ui', wellness_ui.main);
   group('widget', widget.main);
   group('widget_config', widget_config.main);
   group('widget_image', widget_image.main);

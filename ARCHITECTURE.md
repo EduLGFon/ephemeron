@@ -27,11 +27,11 @@ Feature-first clean architecture.
 
 ```
 lib/
-  core/      time, ids, result types, logger, db, platform channels, theme
+  core/      time, ids, result types, logger, db, platform channels, theme, design system (core/design: tokens, typography, theme, layout, components)
   data/      drift tables, DAOs, remote clients, mappers, repositories
   domain/    pure Dart: entities, recurrence, parsers, use cases
-  features/  calendar, tasks, matrix, habits, countdowns, focus, notes, tags, settings, auth, sync, alarms
-  app/       shell, router, session restore, quick add
+  features/  today, calendar, tasks, matrix, habits, countdowns, focus, notes, tags, search, settings, auth, sync, alarms, stream
+  app/       adaptive shell, destinations, router, session restore, quick add
 ```
 
 Rules:
@@ -39,6 +39,8 @@ Rules:
 - UI reads only from Drift streams (single source of truth). Network never feeds UI directly.
 - Writes: optimistic local write, enqueue outbox row, sync engine pushes. User never waits for network.
 - Dependency direction: features -> data -> core; features/data -> domain; domain imports nothing from Flutter/networking. Widgets hold no business logic.
+- Presentation: `core/design` is the shared UI kit (tokens, typography, theme, `AppLayoutScope`, components). Screens do not add parallel styling systems. The adaptive shell decides compact/medium/expanded once. Primary destinations are Today, Tasks, Calendar, Habits and Focus; secondary destinations are Countdowns, Notes, Matrix and Settings.
+- Stream is an opt-in secondary surface (`settings.streamEnabled`, default off); it is not a primary destination and direct `/stream` resolves to `/today` while disabled. No Stream feature was removed.
 
 ## 4. Platform priority
 
