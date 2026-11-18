@@ -21,7 +21,7 @@ Task lists: custom (local sortOrder; default), name (case-insensitive), created 
 Comparators in features/tasks/application/task_sorting.dart. Pinned tasks stay on top in every mode except explicit custom order. Ties fall back to sortOrder then id. Normal list chips follow active list sort. Smart lists keep sort inside filter JSON; selecting one does not apply global task sort.
 
 ## Drag UX
-Custom task order uses single reorderable task list, no overdue/rest split. Long-press to drag; swipe complete/delete and tap edit remain. List updates optimistically and persists sortOrder 0..n in one transaction.
+Custom task order uses single reorderable task list, no overdue/rest split. An explicit drag handle reorders; long-press opens the row action sheet; swipe complete/delete and tap edit remain. Search disables reorder. List updates optimistically and persists sortOrder 0..n in one transaction.
 List manager uses same long-press in custom mode. Changing to Name/Created hides dragging and sorts visible lists without rewriting stored positions, so returning to Custom restores arrangement.
 Reorder local-only. Google Tasks has no position field, so no updated timestamps or outbox ops.
 
