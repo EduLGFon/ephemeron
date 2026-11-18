@@ -1,4 +1,6 @@
 import 'package:drift/native.dart';
+import 'package:ephemeron/core/design/components/app_chips.dart';
+import 'package:ephemeron/core/design/theme.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/alarms/application/alarm_providers.dart';
 import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
@@ -24,22 +26,54 @@ class _FakeAlarmRepo extends AlarmRepository {
   }
 }
 
-Widget _settingsApp() {
+ThemeData _theme() =>
+    EphemeronTheme.build(mode: 'light', platformBrightness: Brightness.light);
+
+Widget _settingsApp({List overrides = const [], double textScale = 1}) {
   return ProviderScope(
+    overrides: overrides.cast(),
     child: MaterialApp(
-      localizationsDelegates: const [
+      theme: _theme(),
+      localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
         AppLocalizations.delegate,
         ...GlobalMaterialLocalizations.delegates,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: const SettingsScreen(),
     ),
   );
 }
 
+void _setViewport(
+  WidgetTester tester, {
+  double width = 600,
+  double height = 6000,
+}) {
+  tester.view.physicalSize = Size(width, height);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+Future<void> _pumpSettings(
+  WidgetTester tester, {
+  List overrides = const [],
+  double textScale = 1,
+}) async {
+  await tester.pumpWidget(
+    _settingsApp(overrides: overrides, textScale: textScale),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   test('theme and accessibility settings round trip', () async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues(<String, Object>{});
     final repo = SettingsRepository(await SharedPreferences.getInstance());
 
     expect(repo.primaryColorHex, isNull);
@@ -47,6 +81,11 @@ void main() {
     expect(repo.localeCode, 'system');
     expect(repo.powerSavingMode, PowerSavingMode.auto);
     expect(repo.haptics, isTrue);
+    expect(repo.streamEnabled, isFalse);
+    expect(repo.dynamicColor, isFalse);
+    expect(repo.uiDensity, 'comfortable');
+    expect(repo.time24h, isTrue);
+    expect(repo.navOrderV2, SettingsRepository.defaultNavOrderV2);
 
     await repo.setPrimaryColorHex('#112233');
     await repo.setBackgroundColorHex('#fbf7f0');
@@ -55,6 +94,11 @@ void main() {
     await repo.setPowerSavingMode(PowerSavingMode.off);
     await repo.setReduceAnimations(true);
     await repo.setHaptics(false);
+    await repo.setStreamEnabled(true);
+    await repo.setDynamicColor(true);
+    await repo.setUiDensity('compact');
+    await repo.setTime24h(false);
+    await repo.setNavOrderV2(<int>[4, 0, 1, 2, 3]);
 
     expect(repo.primaryColorHex, '#112233');
     expect(repo.backgroundColorHex, '#fbf7f0');
@@ -63,23 +107,23 @@ void main() {
     expect(repo.powerSavingMode, PowerSavingMode.off);
     expect(repo.reduceAnimations, isTrue);
     expect(repo.haptics, isFalse);
+    expect(repo.streamEnabled, isTrue);
+    expect(repo.dynamicColor, isTrue);
+    expect(repo.uiDensity, 'compact');
+    expect(repo.time24h, isFalse);
+    expect(repo.navOrderV2, <int>[4, 0, 1, 2, 3]);
   });
 
   testWidgets('color presets and brightness show the current selection', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(500, 1400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    SharedPreferences.setMockInitialValues({
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{
       'settings.primaryColor': '#E53935',
       'settings.backgroundColor': '#121212',
       'settings.brightness': 'dark',
     });
-    await tester.pumpWidget(_settingsApp());
-    await tester.pumpAndSettle();
+    await _pumpSettings(tester);
 
     expect(
       find.byKey(const ValueKey('primary-selected-#e53935')),
@@ -91,7 +135,7 @@ void main() {
     );
     expect(
       tester
-          .widget<ChoiceChip>(find.byKey(const ValueKey('brightness-dark')))
+          .widget<AppChip>(find.byKey(const ValueKey('brightness-dark')))
           .selected,
       isTrue,
     );
@@ -114,34 +158,41 @@ void main() {
       '#00897b',
     );
 
-    await tester.tap(find.byKey(const ValueKey('brightness-light')));
+    await tester.tap(find.byKey(const ValueKey('brightness-amoled')));
     await tester.pumpAndSettle();
-
     expect(
       tester
-          .widget<ChoiceChip>(find.byKey(const ValueKey('brightness-light')))
+          .widget<AppChip>(find.byKey(const ValueKey('brightness-amoled')))
           .selected,
       isTrue,
     );
     expect(
       (await SharedPreferences.getInstance()).getString('settings.brightness'),
-      'light',
+      'amoled',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('brightness-system')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<AppChip>(find.byKey(const ValueKey('brightness-system')))
+          .selected,
+      isTrue,
+    );
+    expect(
+      (await SharedPreferences.getInstance()).getString('settings.brightness'),
+      'system',
     );
   });
 
   testWidgets('custom hex fields show values and keep validation', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(500, 1400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    SharedPreferences.setMockInitialValues({
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{
       'settings.primaryColor': '#112233',
     });
-    await tester.pumpWidget(_settingsApp());
-    await tester.pumpAndSettle();
+    await _pumpSettings(tester);
 
     final field = find.byKey(const ValueKey('primary-hex-field'));
     expect(tester.widget<TextField>(field).controller?.text, '#112233');
@@ -165,85 +216,41 @@ void main() {
     );
   });
 
-  testWidgets('settings screen does not overflow on a narrow screen', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(320, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(_settingsApp());
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -2400));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('due tomorrow reminder reflects stored value', (tester) async {
-    tester.view.physicalSize = const Size(500, 1400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    SharedPreferences.setMockInitialValues({
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{
       'alarms.taskDueTomorrowReminder': false,
     });
     final fakeAlarm = _FakeAlarmRepo();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [alarmRepositoryProvider.overrideWithValue(fakeAlarm)],
-        child: MaterialApp(
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            ...GlobalMaterialLocalizations.delegates,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const SettingsScreen(),
-        ),
-      ),
+    await _pumpSettings(
+      tester,
+      overrides: [alarmRepositoryProvider.overrideWithValue(fakeAlarm)],
     );
-    await tester.pumpAndSettle();
 
-    final tile = find.widgetWithText(SwitchListTile, 'Due tomorrow reminder');
-    expect(tester.widget<SwitchListTile>(tile).value, isFalse);
+    final toggle = tester.widget<Switch>(
+      find.byKey(const ValueKey('due-tomorrow-switch')),
+    );
+    expect(toggle.value, isFalse);
   });
 
   testWidgets('due tomorrow reminder toggle persists and rebuilds alarms', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(500, 1400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    SharedPreferences.setMockInitialValues({});
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
     final fakeAlarm = _FakeAlarmRepo();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [alarmRepositoryProvider.overrideWithValue(fakeAlarm)],
-        child: MaterialApp(
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            ...GlobalMaterialLocalizations.delegates,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const SettingsScreen(),
-        ),
-      ),
+    await _pumpSettings(
+      tester,
+      overrides: [alarmRepositoryProvider.overrideWithValue(fakeAlarm)],
     );
+
+    final switchKey = find.byKey(const ValueKey('due-tomorrow-switch'));
+    expect(tester.widget<Switch>(switchKey).value, isTrue);
+
+    await tester.tap(switchKey);
     await tester.pumpAndSettle();
 
-    final tile = find.widgetWithText(SwitchListTile, 'Due tomorrow reminder');
-    expect(tester.widget<SwitchListTile>(tile).value, isTrue);
-
-    await tester.tap(tile);
-    await tester.pumpAndSettle();
-
-    expect(tester.widget<SwitchListTile>(tile).value, isFalse);
+    expect(tester.widget<Switch>(switchKey).value, isFalse);
     expect(
       (await SharedPreferences.getInstance()).getBool(
         'alarms.taskDueTomorrowReminder',
@@ -252,5 +259,155 @@ void main() {
     );
     expect(fakeAlarm.rebuildCalls, 1);
     expect(fakeAlarm.lastDueTomorrow, isFalse);
+  });
+
+  testWidgets('appearance, time and stream controls persist', (tester) async {
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'settings.brightness': 'system',
+      'settings.streamEnabled': true,
+      'settings.dynamicColor': true,
+      'settings.uiDensity': 'compact',
+      'settings.time24h': false,
+    });
+    await _pumpSettings(tester);
+
+    expect(
+      tester
+          .widget<AppChip>(find.byKey(const ValueKey('brightness-system')))
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<AppChip>(find.byKey(const ValueKey('density-compact')))
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester.widget<Switch>(find.byKey(const ValueKey('stream-toggle'))).value,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<Switch>(find.byKey(const ValueKey('time-24h-switch')))
+          .value,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<Switch>(find.byKey(const ValueKey('dynamic-color-switch')))
+          .value,
+      isTrue,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('brightness-dark')));
+    await tester.pumpAndSettle();
+    expect(
+      (await SharedPreferences.getInstance()).getString('settings.brightness'),
+      'dark',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('density-comfortable')));
+    await tester.pumpAndSettle();
+    expect(
+      (await SharedPreferences.getInstance()).getString('settings.uiDensity'),
+      'comfortable',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('stream-toggle')));
+    await tester.pumpAndSettle();
+    expect(
+      (await SharedPreferences.getInstance()).getBool('settings.streamEnabled'),
+      isFalse,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('time-24h-switch')));
+    await tester.pumpAndSettle();
+    expect(
+      (await SharedPreferences.getInstance()).getBool('settings.time24h'),
+      isTrue,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('dynamic-color-switch')));
+    await tester.pumpAndSettle();
+    expect(
+      (await SharedPreferences.getInstance()).getBool('settings.dynamicColor'),
+      isFalse,
+    );
+  });
+
+  testWidgets('navigation order shows the saved order and persists changes', (
+    tester,
+  ) async {
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'settings.navOrderV2': <String>['4', '0', '1', '2', '3'],
+    });
+    await _pumpSettings(tester);
+
+    expect(
+      find.textContaining(
+        'Current order: Focus > Today > Tasks > Calendar > Habits',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('settings-nav-order')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('nav-order-item-4')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('nav-order-reset')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('nav-order-save')));
+    await tester.pumpAndSettle();
+
+    expect(
+      (await SharedPreferences.getInstance()).getStringList(
+        'settings.navOrderV2',
+      ),
+      <String>['0', '1', '2', '3', '4'],
+    );
+  });
+
+  testWidgets('search filters sections and reports no matches', (tester) async {
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await _pumpSettings(tester);
+
+    await tester.tap(find.byKey(const ValueKey('settings-search-toggle')));
+    await tester.pumpAndSettle();
+
+    final field = find.descendant(
+      of: find.byKey(const ValueKey('settings-search-field')),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(field, 'stream');
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('settings-stream')), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings-brightness')), findsNothing);
+
+    await tester.enterText(field, 'nothing-matches-this');
+    await tester.pumpAndSettle();
+    expect(find.text('No settings match'), findsOneWidget);
+  });
+
+  testWidgets('settings screen does not overflow at 320dp and 200% text', (
+    tester,
+  ) async {
+    _setViewport(tester, width: 320, height: 640);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await _pumpSettings(tester, textScale: 2);
+    expect(tester.takeException(), isNull);
+
+    await tester.scrollUntilVisible(
+      find.text('About'),
+      600,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('About'), findsOneWidget);
   });
 }
