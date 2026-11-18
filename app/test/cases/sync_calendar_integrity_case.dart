@@ -113,6 +113,60 @@ Future<void> _cal(AppDatabase db, String id, {String? remoteId}) async {
       );
 }
 
+Future<void> _seedEvent(
+  AppDatabase db,
+  String id, {
+  required String calendarId,
+  String? remoteId,
+  bool dirty = false,
+  List<String> attendeeEmails = const [],
+}) async {
+  final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+  await db
+      .into(db.events)
+      .insert(
+        EventsCompanion.insert(
+          id: id,
+          calendarId: calendarId,
+          remoteId: Value(remoteId),
+          dirty: Value(dirty),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+  for (var i = 0; i < attendeeEmails.length; i++) {
+    await db
+        .into(db.eventAttendees)
+        .insert(
+          EventAttendeesCompanion.insert(
+            id: '$id-attendee-$i',
+            eventId: id,
+            email: attendeeEmails[i],
+          ),
+        );
+  }
+}
+
+Future<List<String>> _attendeeEmailsForLocal(
+  AppDatabase db,
+  String eventId,
+) async {
+  final rows = await (db.select(
+    db.eventAttendees,
+  )..where((a) => a.eventId.equals(eventId))).get();
+  return [for (final row in rows) row.email]..sort();
+}
+
+Future<List<String>> _attendeeEmailsForRemote(
+  AppDatabase db,
+  String remoteId,
+) async {
+  final event = await (db.select(
+    db.events,
+  )..where((e) => e.remoteId.equals(remoteId))).getSingle();
+  return _attendeeEmailsForLocal(db, event.id);
+}
+
 void main() {
   test('full resync uses unbounded eventsList and v2 token key', () async {
     final db = _db();
@@ -486,5 +540,208 @@ void main() {
     final engine = SyncEngine(db, clientFactory: () => fake);
     await engine.syncNow();
     expect(fake.lastSyncTokenSeen, 'saved-tok');
+  });
+
+  test('full resync clears attendees before deleting parent events', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db, 'c1');
+    // Two synced events with attendee rows and no v2 token: the full resync
+    // hard-deletes both parents, which violates the attendee FK without a
+    // dependent delete first.
+    await _seedEvent(
+      db,
+      'local-one',
+      calendarId: 'c1',
+      remoteId: 'ev-one',
+      attendeeEmails: ['old-one@example.test', 'old-two@example.test'],
+    );
+    await _seedEvent(
+      db,
+      'local-two',
+      calendarId: 'c1',
+      remoteId: 'ev-two',
+      attendeeEmails: ['old-three@example.test'],
+    );
+    final fake = _FakeGoogle()
+      ..eventsByCal['remote-c1'] = [
+        {
+          'id': 'ev-one',
+          'etag': 'a',
+          'summary': 'One',
+          'status': 'confirmed',
+          'start': {'dateTime': '2026-03-02T09:00:00Z'},
+          'end': {'dateTime': '2026-03-02T10:00:00Z'},
+          'attendees': [
+            {'email': 'new-one@example.test', 'responseStatus': 'accepted'},
+            {'email': 'new-two@example.test', 'responseStatus': 'declined'},
+          ],
+        },
+        {
+          'id': 'ev-three',
+          'etag': 'b',
+          'summary': 'Three',
+          'status': 'confirmed',
+          'start': {'dateTime': '2026-03-03T09:00:00Z'},
+          'end': {'dateTime': '2026-03-03T10:00:00Z'},
+          'attendees': [
+            {'email': 'new-three@example.test', 'responseStatus': 'tentative'},
+          ],
+        },
+      ];
+
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    expect(engine.status, SyncStatus.synced);
+    expect(engine.errorKind, SyncErrorKind.none);
+    expect(await engine.watchSyncStateIssues().first, isEmpty);
+    final events = await db.select(db.events).get();
+    expect(
+      events.map((e) => e.remoteId),
+      unorderedEquals(['ev-one', 'ev-three']),
+    );
+    expect(await _attendeeEmailsForRemote(db, 'ev-one'), [
+      'new-one@example.test',
+      'new-two@example.test',
+    ]);
+    expect(await _attendeeEmailsForRemote(db, 'ev-three'), [
+      'new-three@example.test',
+    ]);
+    expect(await db.select(db.eventAttendees).get(), hasLength(3));
+    final token = await (db.select(
+      db.syncState,
+    )..where((s) => s.key.equals('cal:v2:c1:token'))).getSingleOrNull();
+    expect(token?.value, 'tokv2');
+  });
+
+  test(
+    'full resync keeps dirty rows and clears attendees for deleted events',
+    () async {
+      final db = _db();
+      addTearDown(db.close);
+      await _cal(db, 'c1');
+      await _seedEvent(
+        db,
+        'keep',
+        calendarId: 'c1',
+        remoteId: 'ev-keep',
+        dirty: true,
+        attendeeEmails: ['local-owner@example.test'],
+      );
+      await _seedEvent(
+        db,
+        'gone',
+        calendarId: 'c1',
+        remoteId: 'ev-gone',
+        attendeeEmails: ['gone-one@example.test', 'gone-two@example.test'],
+      );
+      await _seedEvent(
+        db,
+        'gone-empty',
+        calendarId: 'c1',
+        remoteId: 'ev-gone-empty',
+      );
+      final fake = _FakeGoogle()
+        ..eventsByCal['remote-c1'] = [
+          {
+            'id': 'ev-new',
+            'etag': 'c',
+            'summary': 'New',
+            'status': 'confirmed',
+            'start': {'dateTime': '2026-03-04T09:00:00Z'},
+            'end': {'dateTime': '2026-03-04T10:00:00Z'},
+            'attendees': [
+              {'email': 'new-owner@example.test', 'responseStatus': 'accepted'},
+            ],
+          },
+        ];
+
+      final engine = SyncEngine(db, clientFactory: () => fake);
+      await engine.syncNow();
+
+      expect(engine.status, SyncStatus.synced);
+      expect(engine.errorKind, SyncErrorKind.none);
+      final events = await db.select(db.events).get();
+      expect(
+        events.map((e) => e.remoteId),
+        unorderedEquals(['ev-keep', 'ev-new']),
+      );
+      final kept = events.singleWhere((e) => e.remoteId == 'ev-keep');
+      expect(kept.dirty, isTrue);
+      expect(await _attendeeEmailsForLocal(db, kept.id), [
+        'local-owner@example.test',
+      ]);
+      expect(await _attendeeEmailsForRemote(db, 'ev-new'), [
+        'new-owner@example.test',
+      ]);
+      expect(await db.select(db.eventAttendees).get(), hasLength(2));
+    },
+  );
+
+  test('full resync deletes attendee rows across multiple chunks', () async {
+    final db = _db();
+    addTearDown(db.close);
+    await _cal(db, 'c1');
+    const bulkEvents = 520; // More than one 500-id delete chunk.
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db.batch((batch) {
+      for (var i = 0; i < bulkEvents; i++) {
+        batch.insert(
+          db.events,
+          EventsCompanion.insert(
+            id: 'bulk-$i',
+            calendarId: 'c1',
+            remoteId: Value('remote-bulk-$i'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+        batch.insert(
+          db.eventAttendees,
+          EventAttendeesCompanion.insert(
+            id: 'bulk-attendee-$i',
+            eventId: 'bulk-$i',
+            email: 'person-$i@example.test',
+          ),
+        );
+      }
+      batch.insert(
+        db.events,
+        EventsCompanion.insert(
+          id: 'dirty-keep',
+          calendarId: 'c1',
+          remoteId: const Value('remote-dirty'),
+          dirty: const Value(true),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      batch.insert(
+        db.eventAttendees,
+        EventAttendeesCompanion.insert(
+          id: 'dirty-attendee',
+          eventId: 'dirty-keep',
+          email: 'local-owner@example.test',
+        ),
+      );
+    });
+    final fake = _FakeGoogle()..eventsByCal['remote-c1'] = [];
+
+    final engine = SyncEngine(db, clientFactory: () => fake);
+    await engine.syncNow();
+
+    expect(engine.status, SyncStatus.synced);
+    expect(engine.errorKind, SyncErrorKind.none);
+    final events = await db.select(db.events).get();
+    expect(events, hasLength(1));
+    expect(events.single.id, 'dirty-keep');
+    final attendees = await db.select(db.eventAttendees).get();
+    expect(attendees, hasLength(1));
+    expect(attendees.single.eventId, 'dirty-keep');
+    final token = await (db.select(
+      db.syncState,
+    )..where((s) => s.key.equals('cal:v2:c1:token'))).getSingleOrNull();
+    expect(token?.value, 'tokv2');
   });
 }

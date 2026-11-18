@@ -113,13 +113,20 @@ extension on SyncEngine {
                 (e) => e.calendarId.equals(cal.id) & e.deletedAt.isNull(),
               ))
               .get();
-      for (final e in local) {
-        if (e.remoteId != null && !(keepDirty && e.dirty)) {
-          // Keep occurrence rows until the single post-pull rebuild replaces
-          // the window atomically; deleting per calendar makes events flicker
-          // out mid-sync.
-          await (_db.delete(_db.events)..where((x) => x.id.equals(e.id))).go();
-        }
+      final removedIds = [
+        for (final e in local)
+          if (e.remoteId != null && !(keepDirty && e.dirty)) e.id,
+      ];
+      // event_attendees.event_id references events.id without ON DELETE
+      // CASCADE, and foreign keys are enforced. Deleting a parent that still
+      // has attendees aborts the whole resync transaction, so clear the
+      // dependents first.
+      await _deleteAttendeesForEvents(removedIds);
+      for (final id in removedIds) {
+        // Keep occurrence rows until the single post-pull rebuild replaces
+        // the window atomically; deleting per calendar makes events flicker
+        // out mid-sync.
+        await (_db.delete(_db.events)..where((x) => x.id.equals(id))).go();
       }
       final n = await _mergeEvents(cal, page.items);
       debugPrint('[sync] full resync merged $n events');
@@ -132,5 +139,20 @@ extension on SyncEngine {
       )..where((s) => s.key.equals('cal:${cal.id}:token'))).go();
       return n;
     });
+  }
+
+  /// Deletes attendee rows for events that are about to be hard-deleted.
+  ///
+  /// Chunked to stay below SQLite's host-parameter limit. An empty list is a
+  /// no-op.
+  Future<void> _deleteAttendeesForEvents(List<String> eventIds) async {
+    const chunkSize = 500;
+    for (var i = 0; i < eventIds.length; i += chunkSize) {
+      final end = min(i + chunkSize, eventIds.length);
+      final chunk = eventIds.sublist(i, end);
+      await (_db.delete(
+        _db.eventAttendees,
+      )..where((a) => a.eventId.isIn(chunk))).go();
+    }
   }
 }
