@@ -44,7 +44,7 @@ class _EventWhenSection extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => onPickTime(true),
-                  child: Text(_fmtTime(start)),
+                  child: Text(DeviceDateFormat.time(context, start)),
                 ),
               ),
           ],
@@ -63,7 +63,7 @@ class _EventWhenSection extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => onPickTime(false),
-                  child: Text(_fmtTime(end)),
+                  child: Text(DeviceDateFormat.time(context, end)),
                 ),
               ),
           ],
