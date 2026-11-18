@@ -25,6 +25,7 @@ import '../application/stream_sync_status.dart';
 import '../application/stream_theme_provider.dart';
 import '../capture/capture_parser.dart' show CaptureLocale;
 import '../design/stream_theme.dart';
+import '../design/stream_tokens.dart';
 import 'stream_day_body.dart';
 import 'stream_header.dart';
 import 'stream_layout_mode.dart';
@@ -32,6 +33,7 @@ import 'stream_route_params.dart';
 import 'stream_time_format.dart';
 import 'surface/stream_command_overlay.dart';
 import 'surface/stream_dock_host.dart';
+import 'surface/stream_focus_band_host.dart';
 import 'surface/stream_launcher.dart';
 import 'surface/stream_level_host.dart';
 import 'surface/stream_offline_banner_host.dart';
@@ -323,6 +325,8 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
     );
   }
 
+  /// Agenda switch with the focus control in the same chrome row, so the
+  /// focus entry and session pill never float over interactive canvas chrome.
   Widget _agendaToggle(AppLocalizations l, bool open) => Padding(
     padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 8, 0),
     child: Row(
@@ -335,6 +339,8 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
           value: open,
           onChanged: (value) => _agendaOpen.value = value,
         ),
+        const SizedBox(width: StreamSpacing.x2),
+        Flexible(child: StreamFocusBandHost()),
       ],
     ),
   );
@@ -497,6 +503,9 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
         onOpenSettings: _openSettings,
       ),
     );
+    // Focus control mounts at screen level inside the chrome row under the
+    // header (see _agendaToggle): entry button when idle, elapsed pill while
+    // a session runs, never floating over interactive canvas chrome.
     final body = _levelBody(level: level, params: params, now: now, l: l);
     final dock = StreamDockHost(now: now, locale: _captureLocale(context));
 
