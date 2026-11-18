@@ -1,8 +1,9 @@
 // Drop target for Tray chips dragged onto the Stream.
 //
-// Accepts a String id payload (Draggable data contract). A drag that started
-// from a Tray chip is owned by the Draggable/DragTarget gesture arena, so it
-// does not become a stream pan; place this wrapper around the stream canvas.
+// Accepts a String id payload (Draggable data contract). Tray chips only start
+// this drag after a long press and anchor it to the pointer, so a normal canvas
+// pan or pinch never starts a drag and the drop time follows the finger; place
+// this wrapper around the stream canvas without adding pan recognizers.
 
 import 'package:material_ui/material_ui.dart';
 
