@@ -8,16 +8,13 @@ class _SnippetLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final emphasis = Theme.of(context).textTheme.bodySmall
+        ?.copyWith(fontWeight: FontWeight.w700);
     return Text.rich(
       TextSpan(
         children: [
           for (final span in highlightSnippet(snippet, sanitizeSearch(query)))
-            TextSpan(
-              text: span.text,
-              style: span.bold
-                  ? const TextStyle(fontWeight: FontWeight.bold)
-                  : null,
-            ),
+            TextSpan(text: span.text, style: span.bold ? emphasis : null),
         ],
       ),
       maxLines: 2,

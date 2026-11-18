@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/design/components/visuals.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
@@ -276,7 +277,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    await tester.tap(find.byKey(ValueKey('matrix-complete-$id')));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(ValueKey('matrix-task-$id')),
+        matching: find.byType(AppCheckmark),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(TextField), findsNothing);
@@ -336,6 +342,45 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('matrix-unclassified')), findsOneWidget);
     expect(find.byKey(const Key('matrix-add-task')), findsOneWidget);
+
+    await _dispose(tester, db);
+  });
+
+  testWidgets('board renders at 320dp with 200 percent text', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    tester.view.physicalSize = const Size(320, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = TaskRepository(db);
+    for (var i = 0; i < 6; i++) {
+      await repo.createTask(title: 'Task number $i', priority: i % 4);
+    }
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+            child: const MatrixScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('matrix-unclassified')), findsOneWidget);
+    expect(find.byKey(const Key('matrix-add-task')), findsOneWidget);
+    expect(find.text('Auto'), findsOneWidget);
+    expect(find.text('Priority'), findsOneWidget);
 
     await _dispose(tester, db);
   });

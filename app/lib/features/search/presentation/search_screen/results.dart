@@ -7,12 +7,14 @@ class _Results extends ConsumerWidget {
   const _Results({
     required this.scope,
     required this.l,
+    required this.strings,
     required this.query,
     required this.onClear,
   });
 
   final SearchScope scope;
   final AppLocalizations l;
+  final SearchStrings strings;
   final String query;
   final Future<void> Function() onClear;
 
@@ -95,22 +97,28 @@ class _Results extends ConsumerWidget {
     final anyError = states.any((state) => state.hasError);
 
     if (!hasRows && anyError) {
-      return EmptyState(
-        icon: Icons.error_outline,
-        title: 'Search failed',
-        subtitle: 'Some results could not be loaded.',
-        actionLabel: 'Retry',
-        onAction: () => _retry(ref),
+      return SingleChildScrollView(
+        child: AppEmptyState(
+          icon: Icons.error_outline,
+          title: strings.searchFailedTitle,
+          message: strings.searchFailedMessage,
+          actionLabel: strings.retry,
+          onAction: () => _retry(ref),
+        ),
       );
     }
-    if (!hasRows && anyLoading) return AppSkeleton.list(context);
+    if (!hasRows && anyLoading) {
+      return const SingleChildScrollView(child: AppSkeletonList(rows: 5));
+    }
     if (!hasRows) {
-      return EmptyState(
-        icon: Icons.search_off,
-        title: 'No results',
-        subtitle: 'Nothing matched "$query".',
-        actionLabel: 'Clear search',
-        onAction: () => onClear(),
+      return SingleChildScrollView(
+        child: AppEmptyState(
+          icon: Icons.search_off,
+          title: strings.noResults,
+          message: strings.nothingMatched(query),
+          actionLabel: strings.clearSearch,
+          onAction: () => onClear(),
+        ),
       );
     }
 
@@ -120,8 +128,9 @@ class _Results extends ConsumerWidget {
         _Group<Task>(
           title: l.searchTasks,
           async: tasks,
+          strings: strings,
           onRetry: () => ref.invalidate(searchTasksProvider),
-          tile: (t) {
+          row: (t) {
             final list = t.listId == null ? null : listsById[t.listId];
             final source = sourceLabel(
               name: list?.name,
@@ -134,20 +143,15 @@ class _Results extends ConsumerWidget {
                 microsoftAccount: list?.microsoftAccount,
               ),
             );
-            return ListTile(
-              leading: const Icon(Icons.checklist_outlined),
-              title: Text(t.title),
-              subtitle: (source == null && t.dueDate == null)
-                  ? null
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (source != null) Text(source),
-                        if (t.dueDate != null)
-                          Text(DeviceDateFormat.dateIso(context, t.dueDate!)),
-                      ],
-                    ),
+            final meta = <String>[
+              ?source,
+              if (t.dueDate != null)
+                DeviceDateFormat.dateIso(context, t.dueDate!),
+            ].join(' · ');
+            return _ResultRow(
+              icon: Icons.checklist_outlined,
+              title: t.title,
+              subtitle: meta.isEmpty ? null : Text(meta),
               onTap: () => showTaskEditor(context, task: t),
             );
           },
@@ -159,8 +163,9 @@ class _Results extends ConsumerWidget {
         _Group<Event>(
           title: l.searchEvents,
           async: events,
+          strings: strings,
           onRetry: () => ref.invalidate(searchEventsProvider),
-          tile: (e) {
+          row: (e) {
             final calendar = calendarsById[e.calendarId];
             final source = sourceLabel(
               name: calendar?.name,
@@ -177,19 +182,11 @@ class _Results extends ConsumerWidget {
                   (calendar.source != 'google' &&
                       calendar.source != 'microsoft'),
             );
-            return ListTile(
-              leading: const Icon(Icons.calendar_month_outlined),
-              title: Text(e.title.isEmpty ? '(no title)' : e.title),
-              subtitle: (source == null && e.location == null)
-                  ? null
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (source != null) Text(source),
-                        if (e.location != null) Text(e.location!),
-                      ],
-                    ),
+            final meta = <String>[?source, ?e.location].join(' · ');
+            return _ResultRow(
+              icon: Icons.calendar_month_outlined,
+              title: e.title.isEmpty ? strings.noTitle : e.title,
+              subtitle: meta.isEmpty ? null : Text(meta),
               onTap: () => showEventDetails(context, e.id),
             );
           },
@@ -201,10 +198,11 @@ class _Results extends ConsumerWidget {
         _Group<NoteSearchHit>(
           title: l.searchNotes,
           async: notes,
+          strings: strings,
           onRetry: () => ref.invalidate(searchNotesProvider),
-          tile: (h) => ListTile(
-            leading: const Icon(Icons.note_outlined),
-            title: Text(h.note.title.isEmpty ? '(no title)' : h.note.title),
+          row: (h) => _ResultRow(
+            icon: Icons.note_outlined,
+            title: h.note.title.isEmpty ? strings.noTitle : h.note.title,
             subtitle: _SnippetLine(snippet: h.snippet, query: query),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
@@ -220,10 +218,11 @@ class _Results extends ConsumerWidget {
         _Group<Habit>(
           title: l.searchHabits,
           async: habits,
+          strings: strings,
           onRetry: () => ref.invalidate(searchHabitsProvider),
-          tile: (h) => ListTile(
-            leading: const Icon(Icons.repeat_outlined),
-            title: Text(h.name),
+          row: (h) => _ResultRow(
+            icon: Icons.repeat_outlined,
+            title: h.name,
             onTap: () => showHabitEditor(context, habit: h),
           ),
         ),
@@ -234,10 +233,11 @@ class _Results extends ConsumerWidget {
         _Group<Countdown>(
           title: l.searchCountdowns,
           async: countdowns,
+          strings: strings,
           onRetry: () => ref.invalidate(searchCountdownsProvider),
-          tile: (c) => ListTile(
-            leading: const Icon(Icons.hourglass_bottom_outlined),
-            title: Text(c.title),
+          row: (c) => _ResultRow(
+            icon: Icons.hourglass_bottom_outlined,
+            title: c.title,
             subtitle: c.targetDate == null
                 ? null
                 : Text(DeviceDateFormat.dateIso(context, c.targetDate!)),
@@ -251,10 +251,11 @@ class _Results extends ConsumerWidget {
         _Group<Tag>(
           title: l.searchTags,
           async: tags,
+          strings: strings,
           onRetry: () => ref.invalidate(searchTagsProvider),
-          tile: (t) => ListTile(
-            leading: const Icon(Icons.tag),
-            title: Text(t.name),
+          row: (t) => _ResultRow(
+            icon: Icons.tag,
+            title: t.name,
             trailing: const Icon(Icons.chevron_right),
             onTap: () => showAppSheet<void>(
               context,
@@ -266,6 +267,7 @@ class _Results extends ConsumerWidget {
     }
     return RepaintBoundary(
       child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: DsSpace.x24),
         itemCount: items.length,
         itemBuilder: (_, i) => items[i],
       ),

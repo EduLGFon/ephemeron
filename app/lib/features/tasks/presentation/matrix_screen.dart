@@ -3,10 +3,17 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/ui/empty_state.dart';
+import '../../../core/design/components/app_chips.dart';
+import '../../../core/design/components/app_headers.dart';
+import '../../../core/design/components/app_page.dart';
+import '../../../core/design/components/app_states.dart';
+import '../../../core/design/components/sync_indicator.dart';
+import '../../../core/design/tokens.dart';
+import '../../../core/ui/app_feedback.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/tasks/eisenhower.dart';
-import '../../sync/presentation/sync_title.dart';
+import '../../sync/application/sync_providers.dart';
+import '../../sync/data/sync_engine.dart';
 import '../application/tasks_providers.dart';
 import 'matrix_board.dart';
 import 'quick_add_sheet.dart';
@@ -23,34 +30,66 @@ class MatrixScreen extends ConsumerWidget {
     // real error falls back to Auto.
     final mode =
         modeAsync.value ?? (modeAsync.hasError ? MatrixMode.auto : null);
-    return Scaffold(
-      appBar: AppBar(title: const SyncTitle(text: 'Matrix')),
-      floatingActionButton: FloatingActionButton(
+    return AppPage(
+      header: AppPageHeader(
+        title: const Text(
+          'Matrix',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          Consumer(
+            builder: (context, ref, _) {
+              final status = ref.watch(combinedSyncStatusProvider);
+              return AppSyncIndicator(
+                state: switch (status) {
+                  SyncStatus.synced => AppSyncState.synced,
+                  SyncStatus.syncing => AppSyncState.syncing,
+                  SyncStatus.offline => AppSyncState.offline,
+                  SyncStatus.error => AppSyncState.attention,
+                },
+                tooltip: 'Sync now',
+                onTap: () {
+                  AppFeedback.tap();
+                  ref.read(syncAllProvider)();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(DsSpace.x16, 0, DsSpace.x16, 0),
+      fab: FloatingActionButton(
         key: const Key('matrix-add-task'),
         heroTag: 'matrixFab',
         tooltip: 'Add task',
         onPressed: () => showQuickAdd(context),
         child: const Icon(Icons.add),
       ),
-      body: mode == null
+      child: mode == null
           ? const Center(
-              child: CircularProgressIndicator(key: Key('matrix-mode-loading')),
+              child: SizedBox.square(
+                dimension: DsSpace.x24,
+                child: CircularProgressIndicator(
+                  key: Key('matrix-mode-loading'),
+                  strokeWidth: 2,
+                ),
+              ),
             )
           : tasksAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => EmptyState(
-                icon: Icons.cloud_off_outlined,
+              loading: () => const AppSkeletonList(rows: 4),
+              error: (e, _) => AppErrorState(
                 title: 'Could not load matrix',
-                subtitle: 'Check your connection and try again.',
-                actionLabel: 'Retry',
-                onAction: () => ref.invalidate(openTasksProvider(null)),
+                message: 'Check your connection and try again.',
+                onRetry: () => ref.invalidate(openTasksProvider(null)),
               ),
               data: (tasks) {
                 final grouped = _groupTasks(tasks, mode);
                 return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                      padding: const EdgeInsets.only(bottom: DsSpace.x8),
                       child: _ModeSelector(mode: mode),
                     ),
                     Expanded(
@@ -75,16 +114,29 @@ class _ModeSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return SegmentedButton<MatrixMode>(
-      segments: const [
-        ButtonSegment(value: MatrixMode.auto, label: Text('Auto')),
-        ButtonSegment(value: MatrixMode.priority, label: Text('Priority')),
-      ],
-      selected: {mode},
-      showSelectedIcon: false,
-      onSelectionChanged: (selected) {
-        ref.read(matrixModeProvider.notifier).select(selected.single);
-      },
+    void select(MatrixMode next) {
+      if (next == mode) return;
+      ref.read(matrixModeProvider.notifier).select(next);
+    }
+
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Wrap(
+        spacing: DsSpace.x8,
+        runSpacing: DsSpace.x4,
+        children: [
+          AppChip(
+            label: 'Auto',
+            selected: mode == MatrixMode.auto,
+            onTap: () => select(MatrixMode.auto),
+          ),
+          AppChip(
+            label: 'Priority',
+            selected: mode == MatrixMode.priority,
+            onTap: () => select(MatrixMode.priority),
+          ),
+        ],
+      ),
     );
   }
 }

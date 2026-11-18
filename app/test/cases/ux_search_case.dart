@@ -4,6 +4,8 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/design/components/app_chips.dart';
+import 'package:ephemeron/core/design/components/app_states.dart';
 import 'package:ephemeron/core/search/limits.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/note_repository.dart';
@@ -156,9 +158,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Type to search.'), findsOneWidget);
-    expect(find.widgetWithText(ActionChip, 'milk'), findsOneWidget);
-    expect(find.widgetWithText(ActionChip, 'meeting'), findsOneWidget);
-    expect(find.widgetWithText(ActionChip, 'gym'), findsOneWidget);
+    expect(find.widgetWithText(AppChip, 'milk'), findsOneWidget);
+    expect(find.widgetWithText(AppChip, 'meeting'), findsOneWidget);
+    expect(find.widgetWithText(AppChip, 'gym'), findsOneWidget);
   });
 
   testWidgets('escape clears a non-empty query', (tester) async {
@@ -178,12 +180,12 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('search-field')), 'milk');
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('search-clear')), findsOneWidget);
+    expect(find.byTooltip('Clear search'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('search-clear')), findsNothing);
+    expect(find.byTooltip('Clear search'), findsNothing);
     expect(find.text('Type to search.'), findsOneWidget);
   });
 
@@ -213,7 +215,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('search-field')), 'zzzz');
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('search-clear')), findsOneWidget);
+    expect(find.byTooltip('Clear search'), findsOneWidget);
     expect(find.text('No results'), findsOneWidget);
     expect(find.text('Nothing matched "zzzz".'), findsOneWidget);
     expect(find.text('Clear search'), findsOneWidget);
@@ -330,7 +332,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('search-field')), 'zzzz');
     await tester.pump();
 
-    expect(find.byKey(const ValueKey('app-skeleton-list')), findsOneWidget);
+    expect(find.byType(AppSkeletonList), findsOneWidget);
 
     tasks.complete(<Task>[]);
     events.complete(<Event>[]);
@@ -341,5 +343,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No results'), findsOneWidget);
+  });
+
+  testWidgets('search renders at 320dp with 200 percent text', (tester) async {
+    tester.view.physicalSize = const Size(320, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = _db();
+    addTearDown(db.close);
+    final settings = await _settings();
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        settingsRepositoryProvider.overrideWith((ref) async => settings),
+        searchTasksProvider.overrideWith((ref) async => <Task>[]),
+        searchEventsProvider.overrideWith((ref) async => <Event>[]),
+        searchNotesProvider.overrideWith((ref) async => <NoteSearchHit>[]),
+        searchHabitsProvider.overrideWith((ref) async => <Habit>[]),
+        searchCountdownsProvider.overrideWith((ref) async => <Countdown>[]),
+        searchTagsProvider.overrideWith((ref) async => <Tag>[]),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+            child: const SearchScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Search'), findsOneWidget);
+    expect(find.byKey(const Key('search-field')), findsOneWidget);
+    expect(find.text('Type to search.'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('search-field')), 'zzzz');
+    await tester.pumpAndSettle();
+
+    expect(find.text('No results'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

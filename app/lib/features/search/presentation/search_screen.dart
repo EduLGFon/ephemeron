@@ -3,13 +3,20 @@
 // editor or detail sheet so search is a navigation surface, not a dead end.
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:ephemeron/core/design/components/app_chips.dart';
+import 'package:ephemeron/core/design/components/app_fields.dart';
+import 'package:ephemeron/core/design/components/app_headers.dart';
+import 'package:ephemeron/core/design/components/app_page.dart';
+import 'package:ephemeron/core/design/components/app_states.dart';
+import 'package:ephemeron/core/design/components/app_surface.dart';
+import 'package:ephemeron/core/design/components/app_buttons.dart';
+import 'package:ephemeron/core/design/components/app_overlays.dart';
+import 'package:ephemeron/core/design/tokens.dart';
 import 'package:ephemeron/core/search/limits.dart';
 import 'package:ephemeron/core/search/sanitize.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/core/ui/app_feedback.dart';
 import 'package:ephemeron/core/ui/app_sheet.dart';
-import 'package:ephemeron/core/ui/app_skeleton.dart';
-import 'package:ephemeron/core/ui/empty_state.dart';
 import 'package:ephemeron/core/ui/escape_to_close.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,9 +34,11 @@ import 'package:ephemeron/features/tasks/application/tasks_providers.dart';
 import 'package:ephemeron/features/tasks/presentation/task_editor_sheet.dart';
 
 import '../application/search_providers.dart';
+import 'search_strings.dart';
 
 part 'search_screen/results.dart';
 part 'search_screen/results/group.dart';
+part 'search_screen/results/result_row.dart';
 part 'search_screen/results/snippet.dart';
 part 'search_screen/results/tag_tasks_sheet.dart';
 
@@ -52,23 +61,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
-  final _focusNode = FocusNode();
   bool _restored = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode.onKeyEvent = _onSearchKeyEvent;
-  }
-
-  KeyEventResult _onSearchKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.escape) {
-      _handleEscape();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
 
   @override
   void didChangeDependencies() {
@@ -118,7 +111,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Future<void> _clearQuery() async {
     if (_controller.text.isEmpty) return;
     _controller.clear();
-    _focusNode.requestFocus();
     await _onQueryChanged('');
   }
 
@@ -127,7 +119,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       text: example,
       selection: TextSelection.collapsed(offset: example.length),
     );
-    _focusNode.requestFocus();
     _onQueryChanged(example);
   }
 
@@ -143,7 +134,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   void dispose() {
     _controller.dispose();
-    _focusNode.dispose();
     super.dispose();
   }
 
@@ -152,7 +142,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final scope = ref.watch(searchScopeProvider);
     final query = ref.watch(searchQueryProvider);
     final l = AppLocalizations.of(context);
+    final strings = SearchStrings.of(context);
     final trimmed = query.trim();
+    final canPop = Navigator.of(context).canPop();
     return Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.escape, includeRepeats: false):
@@ -167,55 +159,68 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             },
           ),
         },
-        child: Scaffold(
-          appBar: AppBar(title: Text(l.searchTitle)),
-          body: Column(
+        child: AppPage(
+          padding: const EdgeInsets.fromLTRB(DsSpace.x16, 0, DsSpace.x16, 0),
+          header: AppPageHeader(
+            title: Text(
+              l.searchTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            leading: canPop
+                ? AppIconButton(
+                    icon: Icons.arrow_back,
+                    tooltip: strings.back,
+                    onPressed: () => Navigator.maybePop(context),
+                  )
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.all(12),
-                child: TextField(
-                  key: const Key('search-field'),
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  decoration: InputDecoration(
+                padding: const EdgeInsets.only(top: DsSpace.x8),
+                child: Focus(
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.escape) {
+                      _handleEscape();
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: AppSearchField(
+                    key: const Key('search-field'),
+                    controller: _controller,
                     hintText: l.searchHint,
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: trimmed.isEmpty
-                        ? null
-                        : IconButton(
-                            key: const Key('search-clear'),
-                            tooltip: 'Clear',
-                            icon: const Icon(Icons.close),
-                            onPressed: _clearQuery,
-                          ),
+                    autofocus: true,
+                    onChanged: _onQueryChanged,
                   ),
-                  autofocus: true,
-                  textInputAction: TextInputAction.search,
-                  onChanged: _onQueryChanged,
                 ),
               ),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(vertical: DsSpace.x8),
                 child: Row(
                   children: [
                     for (final s in SearchScope.values) ...[
-                      ChoiceChip(
-                        label: Text(_scopeLabels(l)[s]!),
+                      AppFilterChip(
+                        label: _scopeLabels(l)[s] ?? s.name,
                         selected: scope == s,
                         onSelected: (_) => _onScopeChanged(s),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: DsSpace.x8),
                     ],
                   ],
                 ),
               ),
               Expanded(
                 child: trimmed.isEmpty
-                    ? _SearchHint(l: l, onExample: _onExample)
+                    ? _SearchHint(l: l, strings: strings, onExample: _onExample)
                     : _Results(
                         scope: scope,
                         l: l,
+                        strings: strings,
                         query: trimmed,
                         onClear: _clearQuery,
                       ),
@@ -229,56 +234,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 }
 
 class _SearchHint extends StatelessWidget {
-  const _SearchHint({required this.l, required this.onExample});
-
-  static const _examples = ['milk', 'meeting', 'gym'];
+  const _SearchHint({
+    required this.l,
+    required this.strings,
+    required this.onExample,
+  });
 
   final AppLocalizations l;
+  final SearchStrings strings;
   final ValueChanged<String> onExample;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.manage_search,
-              size: 56,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              l.searchEmpty,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try one of these searches:',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final example in _examples)
-                  ActionChip(
-                    label: Text(example),
-                    onPressed: () => onExample(example),
-                  ),
-              ],
-            ),
-          ],
-        ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: DsSpace.x16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppEmptyState(
+            icon: Icons.manage_search,
+            title: l.searchEmpty,
+            message: strings.examplesIntro,
+          ),
+          const SizedBox(height: DsSpace.x12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: DsSpace.x8,
+            runSpacing: DsSpace.x8,
+            children: [
+              for (final example in strings.examples)
+                AppChip(label: example, onTap: () => onExample(example)),
+            ],
+          ),
+        ],
       ),
     );
   }
