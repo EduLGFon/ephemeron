@@ -26,16 +26,19 @@ Widget _app(
   AppLayout layout = AppLayout.compact,
   double textScale = 1,
   bool disableAnimations = false,
+  EdgeInsets? padding,
 }) {
   return AppLayoutScope(
     layout: layout,
     child: MaterialApp(
       theme: _theme(),
       builder: (context, child) {
+        final media = MediaQuery.of(context);
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
+          data: media.copyWith(
             textScaler: TextScaler.linear(textScale),
             disableAnimations: disableAnimations,
+            padding: padding ?? media.padding,
           ),
           child: child ?? const SizedBox.shrink(),
         );
@@ -548,6 +551,40 @@ void main() {
       expect(find.text('Projects'), findsOneWidget);
       expect(find.text('4'), findsOneWidget);
       expect(find.text('All open projects'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('default padding clears the status bar inset', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          const Scaffold(body: AppPageHeader(title: Text('Inset'))),
+          padding: const EdgeInsets.only(top: 24),
+        ),
+      );
+      expect(tester.getTopLeft(find.text('Inset')).dy, 24 + DsSpace.x12);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('explicit padding overrides the status bar inset', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          Scaffold(
+            body: AppPageHeader(
+              padding: const EdgeInsets.fromLTRB(
+                DsSpace.x16,
+                24 + DsSpace.x12,
+                DsSpace.x16,
+                DsSpace.x8,
+              ),
+              title: const Text('Explicit'),
+            ),
+          ),
+          padding: const EdgeInsets.only(top: 24),
+        ),
+      );
+      expect(tester.getTopLeft(find.text('Explicit')).dy, 24 + DsSpace.x12);
       expect(tester.takeException(), isNull);
     });
   });

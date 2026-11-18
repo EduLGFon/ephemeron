@@ -1,6 +1,8 @@
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/design/components/app_chips.dart';
+import 'package:ephemeron/core/design/components/app_headers.dart';
 import 'package:ephemeron/core/design/theme.dart';
+import 'package:ephemeron/core/design/tokens.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/alarms/application/alarm_providers.dart';
 import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
@@ -31,7 +33,11 @@ class _FakeAlarmRepo extends AlarmRepository {
 ThemeData _theme() =>
     EphemeronTheme.build(mode: 'light', platformBrightness: Brightness.light);
 
-Widget _settingsApp({List overrides = const [], double textScale = 1}) {
+Widget _settingsApp({
+  List overrides = const [],
+  double textScale = 1,
+  EdgeInsets? padding,
+}) {
   return ProviderScope(
     overrides: overrides.cast(),
     child: MaterialApp(
@@ -41,11 +47,16 @@ Widget _settingsApp({List overrides = const [], double textScale = 1}) {
         ...GlobalMaterialLocalizations.delegates,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child ?? const SizedBox.shrink(),
-      ),
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: TextScaler.linear(textScale),
+            padding: padding ?? media.padding,
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const SettingsScreen(),
     ),
   );
@@ -66,9 +77,10 @@ Future<void> _pumpSettings(
   WidgetTester tester, {
   List overrides = const [],
   double textScale = 1,
+  EdgeInsets? padding,
 }) async {
   await tester.pumpWidget(
-    _settingsApp(overrides: overrides, textScale: textScale),
+    _settingsApp(overrides: overrides, textScale: textScale, padding: padding),
   );
   await tester.pumpAndSettle();
 }
@@ -114,6 +126,21 @@ void main() {
     expect(repo.uiDensity, 'compact');
     expect(repo.time24h, isFalse);
     expect(repo.navOrderV2, <int>[4, 0, 1, 2, 3]);
+  });
+
+  testWidgets('header applies the status bar inset exactly once', (
+    tester,
+  ) async {
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await _pumpSettings(tester, padding: const EdgeInsets.only(top: 24));
+
+    final title = find.descendant(
+      of: find.byType(AppPageHeader),
+      matching: find.text('Settings'),
+    );
+    expect(title, findsOneWidget);
+    expect(tester.getTopLeft(title).dy, 24 + DsSpace.x12);
   });
 
   testWidgets('color presets and brightness show the current selection', (

@@ -12,24 +12,31 @@ class AppPageHeader extends StatelessWidget {
     this.subtitle,
     this.leading,
     this.actions = const <Widget>[],
-    this.padding = const EdgeInsets.fromLTRB(
-      DsSpace.x16,
-      DsSpace.x12,
-      DsSpace.x16,
-      DsSpace.x8,
-    ),
+    this.padding,
   });
 
   final Widget title;
   final Widget? subtitle;
   final Widget? leading;
   final List<Widget> actions;
-  final EdgeInsetsGeometry padding;
+
+  /// Overrides the default padding. When null, the top edge includes the
+  /// status bar inset so page headers clear the system UI under AppPage, which
+  /// does not pad the top itself.
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final resolvedPadding =
+        padding ??
+        EdgeInsets.fromLTRB(
+          DsSpace.x16,
+          MediaQuery.paddingOf(context).top + DsSpace.x12,
+          DsSpace.x16,
+          DsSpace.x8,
+        );
     final titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -55,7 +62,7 @@ class AppPageHeader extends StatelessWidget {
     final leadingWidget = leading;
 
     return Padding(
-      padding: padding,
+      padding: resolvedPadding,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final stacked = constraints.maxWidth < 420;
