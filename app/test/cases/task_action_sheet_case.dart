@@ -55,6 +55,11 @@ Future<void> _pumpSheet(
     ProviderScope(
       overrides: [appDatabaseProvider.overrideWithValue(db)],
       child: MaterialApp(
+        // Pin 24-hour time so DeviceDateFormat.time renders literal HH:mm.
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        ),
         home: Scaffold(
           body: Builder(
             builder: (ctx) => TextButton(
