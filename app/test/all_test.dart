@@ -121,6 +121,7 @@ import 'cases/stream_habit_gutter_case.dart' as stream_habit_gutter;
 import 'cases/stream_habit_layer_case.dart' as stream_habit_layer;
 import 'cases/stream_habit_streak_case.dart' as stream_habit_streak;
 import 'cases/stream_interactions_case.dart' as stream_interactions;
+import 'cases/stream_interchange_case.dart' as stream_interchange;
 import 'cases/stream_launcher_case.dart' as stream_launcher;
 import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
 import 'cases/stream_level_data_case.dart' as stream_level_data;
@@ -327,6 +328,7 @@ const _included = <String>{
   'stream_habit_layer_case.dart',
   'stream_habit_streak_case.dart',
   'stream_interactions_case.dart',
+  'stream_interchange_case.dart',
   'stream_launcher_case.dart',
   'stream_layout_mode_case.dart',
   'stream_level_data_case.dart',
@@ -538,6 +540,7 @@ void main() {
   group('stream_habit_layer', stream_habit_layer.main);
   group('stream_habit_streak', stream_habit_streak.main);
   group('stream_interactions', stream_interactions.main);
+  group('stream_interchange', stream_interchange.main);
   group('stream_launcher', stream_launcher.main);
   group('stream_layout_mode', stream_layout_mode.main);
   group('stream_level_data', stream_level_data.main);
