@@ -73,8 +73,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('Read'), findsOneWidget);
-    expect(find.byType(Checkbox), findsOneWidget);
-    await tester.tap(find.byType(Checkbox).first);
+    await tester.tap(find.text('Read'));
     await tester.pump();
     await tester.pump();
     final today = habitDateKey(DateTime.now());
@@ -120,18 +119,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('Run'), findsOneWidget);
-    final tile = find.ancestor(
-      of: find.text('Run'),
-      matching: find.byType(ListTile),
-    );
-    final live = find.descendant(
-      of: tile,
-      matching: find.textContaining(RegExp(r'\d+\.\d%')),
-    );
+    final live = find.textContaining(RegExp(r'\d+\.\d%'));
     expect(live, findsOneWidget);
     final liveText = tester.widget<Text>(live).data!;
     final pct = double.parse(
-      RegExp(r'^(\d+\.\d)%').firstMatch(liveText)!.group(1)!,
+      RegExp(r'(\d+\.\d)%').firstMatch(liveText)!.group(1)!,
     );
     expect(pct, greaterThanOrEqualTo(50.0));
     expect(pct, lessThan(52.0));
@@ -208,10 +200,10 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byTooltip('Subtract 2'), findsOneWidget);
-    await tester.tap(find.byTooltip('Subtract 2'));
-    await tester.pump();
-    await tester.pump();
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Subtract 2'));
+    await tester.pumpAndSettle();
     expect((await repo.logFor(id, today))?.amount, 3);
     // Close the db and unmount inside the test body so Drift's
     // stream-close timer fires before the pending-timer check.

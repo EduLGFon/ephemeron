@@ -8,6 +8,7 @@ class _HabitTimerControl extends StatefulWidget {
     required this.day,
     required this.store,
     required this.repo,
+    required this.strings,
     required this.onMessage,
   });
 
@@ -15,6 +16,7 @@ class _HabitTimerControl extends StatefulWidget {
   final String day;
   final HabitTimerStore store;
   final HabitRepository repo;
+  final HabitsStrings strings;
   final void Function(String) onMessage;
 
   @override
@@ -46,8 +48,8 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
 
   void _sync() {
     _timer?.cancel();
-    final t = widget.store.active.value;
-    if (t != null && t.habitId == widget.habit.id) {
+    final active = widget.store.active.value;
+    if (active != null && active.habitId == widget.habit.id) {
       _updateElapsed();
       _timer = Timer.periodic(
         const Duration(seconds: 1),
@@ -59,10 +61,10 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
   }
 
   void _updateElapsed() {
-    final t = widget.store.active.value;
-    if (t == null) return;
+    final active = widget.store.active.value;
+    if (active == null) return;
     _elapsed.value = timerElapsed(
-      startedAtMs: t.startedAtMs,
+      startedAtMs: active.startedAtMs,
       nowMs: DateTime.now().millisecondsSinceEpoch,
     );
   }
@@ -71,32 +73,35 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
 
   Future<void> _toggle() async {
     if (_isRunning) {
-      final t = widget.store.active.value!;
+      final active = widget.store.active.value!;
       final elapsed = timerElapsed(
-        startedAtMs: t.startedAtMs,
+        startedAtMs: active.startedAtMs,
         nowMs: DateTime.now().millisecondsSinceEpoch,
       );
       AppFeedback.success();
       await widget.repo.addAmount(
         widget.habit.id,
-        t.dayKey,
+        active.dayKey,
         elapsedMinutes(elapsed),
       );
       await widget.store.clear();
-      final unit = widget.habit.unit?.trim();
       widget.onMessage(
-        'Logged ${_fmt(elapsedMinutes(elapsed))} '
-        '${unit == null || unit.isEmpty ? 'min' : unit}',
+        widget.strings.loggedMinutes(
+          formatHabitAmount(
+            unit: widget.habit.unit,
+            amount: elapsedMinutes(elapsed),
+          ),
+        ),
       );
     } else {
       if (widget.day != habitTodayKey()) {
         AppFeedback.warning();
-        widget.onMessage('Timer can only start for today.');
+        widget.onMessage(widget.strings.timerOnlyToday);
         return;
       }
       if (widget.store.active.value != null) {
         AppFeedback.warning();
-        widget.onMessage('Another habit timer is already running.');
+        widget.onMessage(widget.strings.anotherTimerRunning);
         return;
       }
       AppFeedback.tap();
@@ -110,29 +115,38 @@ class _HabitTimerControlState extends State<_HabitTimerControl> {
 
   @override
   Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
     return ValueListenableBuilder<Duration>(
       valueListenable: _elapsed,
-      builder: (_, dur, _) {
+      builder: (_, duration, _) {
         if (_isRunning) {
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(formatElapsed(dur)),
-              IconButton(
-                style: _habitActionStyle(),
-                iconSize: 20,
-                icon: const Icon(Icons.stop),
-                tooltip: 'Stop timer',
+              SizedBox(
+                width: 56,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    formatElapsed(duration),
+                    maxLines: 1,
+                    style: DsType.numeric(text.labelSmall ?? const TextStyle()),
+                  ),
+                ),
+              ),
+              AppIconButton(
+                icon: Icons.stop,
+                tooltip: widget.strings.stopTimer,
+                semanticLabel: widget.strings.stopTimer,
                 onPressed: _toggle,
               ),
             ],
           );
         }
-        return IconButton(
-          style: _habitActionStyle(),
-          iconSize: 20,
-          icon: const Icon(Icons.play_arrow),
-          tooltip: 'Start timer',
+        return AppIconButton(
+          icon: Icons.play_arrow,
+          tooltip: widget.strings.startTimer,
+          semanticLabel: widget.strings.startTimer,
           onPressed: _toggle,
         );
       },

@@ -1,27 +1,16 @@
-// Part of the habits screen library: one habit row with one-tap logging,
-// decrement, skip, timer/progress actions, and selection support.
+// Part of the habits screen library: one row with one-tap logging, skip,
+// timer/progress actions, streak, week dots and selection support.
 part of '../habits_screen.dart';
 
-HabitLog? _logFor(List<HabitLog> logs, String day) {
-  for (final l in logs) {
-    if (l.dayKey == day) return l;
-  }
-  return null;
-}
-
-/// Icon-only row actions keep their 20 dp glyph but reserve a 48 dp target so
-/// they meet the accessibility minimum at narrow widths and large text.
-ButtonStyle _habitActionStyle() => IconButton.styleFrom(
-  fixedSize: const Size.square(48),
-  padding: EdgeInsets.zero,
-  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-);
+enum _HabitAction { edit, activity, add, subtract, skip }
 
 class _HabitTile extends ConsumerWidget {
   const _HabitTile({
+    super.key,
     required this.habit,
     required this.selecting,
     required this.selected,
+    required this.strings,
     required this.onToggleSelection,
     required this.onStartSelection,
   });
@@ -29,6 +18,7 @@ class _HabitTile extends ConsumerWidget {
   final Habit habit;
   final bool selecting;
   final bool selected;
+  final HabitsStrings strings;
   final VoidCallback onToggleSelection;
   final VoidCallback onStartSelection;
 
@@ -42,16 +32,10 @@ class _HabitTile extends ConsumerWidget {
     return logsAsync.maybeWhen(
       data: (logs) {
         final log = _logFor(logs, day);
-        final done = log?.done ?? false;
-        final skipped = log?.skipped ?? false;
-        final amount = log?.amount ?? 0.0;
-        final goal = habit.goalAmount ?? 0.0;
-        final hasGoal = goal > 0;
-        final step = habit.increment ?? 1.0;
-        final repo = ref.read(habitRepositoryProvider);
+        final goal = habit.goalAmount ?? 0;
         final liveSession =
             currentSession != null &&
-                hasGoal &&
+                goal > 0 &&
                 isLiveHabitProgress(
                   habitId: habit.id,
                   selectedDayKey: day,
@@ -62,138 +46,236 @@ class _HabitTile extends ConsumerWidget {
                 )
             ? currentSession
             : null;
-        return ListTile(
-          selected: selected,
-          leading: Checkbox(
-            value: selecting ? selected : done,
-            onChanged: (_) {
-              if (selecting) {
-                AppFeedback.selection();
-                onToggleSelection();
-                return;
-              }
-              AppFeedback.tap();
-              _toggleDone(context, ref, !done);
-            },
-          ),
-          title: Text(
-            habit.name,
-            style: done
-                ? const TextStyle(decoration: TextDecoration.lineThrough)
-                : null,
-          ),
-          subtitle: _habitSubtitle(
-            context,
-            habit,
-            day: day,
-            streak: streakAsync.value,
-            skipped: skipped,
+        final streak = streakAsync.value;
+        Widget rowFor(double amount) {
+          final effectiveLog = amount == (log?.amount ?? 0)
+              ? log
+              : HabitLog(
+                  id: log?.id ?? '',
+                  habitId: habit.id,
+                  dayKey: day,
+                  amount: amount,
+                  done: _logDone(habit, log) || (goal > 0 && amount >= goal),
+                  skipped: log?.skipped ?? false,
+                  createdAt: log?.createdAt ?? 0,
+                  updatedAt: log?.updatedAt ?? 0,
+                );
+          return _buildRow(
+            context: context,
+            ref: ref,
+            logs: logs,
+            log: effectiveLog,
             amount: amount,
-            goal: goal,
-            hasGoal: hasGoal,
-            liveSession: liveSession,
-          ),
-          trailing: selecting
-              ? null
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (hasGoal && amount > 0)
-                      IconButton(
-                        style: _habitActionStyle(),
-                        iconSize: 20,
-                        icon: const Icon(Icons.remove),
-                        tooltip: 'Subtract ${_fmt(step)}',
-                        onPressed: () async {
-                          AppFeedback.tap();
-                          await repo.subtractAmount(habit.id, day, step);
-                          ref.invalidate(habitStreakProvider(habit.id));
-                        },
-                      ),
-                    if (hasGoal)
-                      IconButton(
-                        style: _habitActionStyle(),
-                        iconSize: 20,
-                        icon: const Icon(Icons.add),
-                        tooltip: 'Add ${_fmt(step)}',
-                        onPressed: () async {
-                          AppFeedback.tap();
-                          await repo.addAmount(habit.id, day, step);
-                          ref.invalidate(habitStreakProvider(habit.id));
-                        },
-                      ),
-                    if (isMinuteUnit(habit.unit) && storeAsync.hasValue)
-                      _HabitTimerControl(
-                        habit: habit,
-                        day: day,
-                        store: storeAsync.value!,
-                        repo: repo,
-                        onMessage: (m) {
-                          if (context.mounted) {
-                            showAppSnackBar(context, m);
-                          }
-                        },
-                      ),
-                    IconButton(
-                      style: _habitActionStyle(),
-                      iconSize: 20,
-                      icon: Icon(
-                        skipped
-                            ? Icons.play_arrow_outlined
-                            : Icons.pause_outlined,
-                      ),
-                      tooltip: skipped ? 'Unskip' : 'Skip day',
-                      color: skipped
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                      onPressed: () {
-                        AppFeedback.selection();
-                        _toggleSkip(context, ref, !skipped);
-                      },
-                    ),
-                  ],
-                ),
-          onTap: selecting
-              ? onToggleSelection
-              : () => showHabitEditor(context, habit: habit),
-          onLongPress: onStartSelection,
-        );
+            streak: streak,
+            store: storeAsync.value,
+            day: day,
+            livePercent: liveSession == null
+                ? null
+                : formatHabitPercent(amount: amount, goal: goal),
+          );
+        }
+
+        if (liveSession != null) {
+          return _LiveHabitTile(
+            session: liveSession,
+            habit: habit,
+            day: day,
+            loggedAmount: log?.amount ?? 0,
+            builder: rowFor,
+          );
+        }
+        return rowFor(log?.amount ?? 0);
       },
-      orElse: () => ListTile(title: Text(habit.name)),
+      orElse: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: DsSpace.x12),
+        child: AppSkeleton(height: 32),
+      ),
     );
   }
 
-  Future<void> _toggleDone(
-    BuildContext context,
-    WidgetRef ref,
-    bool done,
-  ) async {
-    final repo = ref.read(habitRepositoryProvider);
-    final day = ref.read(selectedHabitDayProvider);
-    if (done) {
-      await repo.logDone(habit.id, day);
-    } else {
-      await repo.setDone(habit.id, day, false);
+  Widget _buildRow({
+    required BuildContext context,
+    required WidgetRef ref,
+    required List<HabitLog> logs,
+    required HabitLog? log,
+    required double amount,
+    required ({int current, int best})? streak,
+    required HabitTimerStore? store,
+    required String day,
+    required String? livePercent,
+  }) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final done = _logDone(habit, log);
+    final skipped = log?.skipped == true;
+    final goal = habit.goalAmount ?? 0;
+    final hasGoal = goal > 0;
+    final progress = _habitProgress(habit, log);
+    final category = DsCategoryColors
+        .all[habit.id.hashCode.abs() % DsCategoryColors.all.length];
+    final timerRunning =
+        isMinuteUnit(habit.unit) && store?.active.value?.habitId == habit.id;
+    final subtitle = livePercent == null
+        ? _habitSubtitle(habit, log, strings)
+        : '${strings.progressSemantics} $livePercent';
+    final current = streak?.current ?? 0;
+    final row = AppHabitRow(
+      name: habit.name,
+      progress: selecting && selected ? 1 : progress,
+      done: selecting ? selected : done,
+      color: category.fill(theme.brightness),
+      streakLabel: current > 0 ? strings.streak(current) : null,
+      weekDots: _habitWeekDots(habit, logs, DateTime.now()),
+      subtitle: subtitle,
+      onTap: selecting ? onToggleSelection : () => _toggleDone(ref, !done, day),
+      onLongPress: onStartSelection,
+      trailing: selecting
+          ? null
+          : _trailing(
+              context: context,
+              ref: ref,
+              day: day,
+              skipped: skipped,
+              hasGoal: hasGoal,
+              amount: amount,
+              store: store,
+              timerRunning: timerRunning,
+            ),
+    );
+    if (!selecting || !selected) return row;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(DsRadius.r12),
+      ),
+      child: row,
+    );
+  }
+
+  Widget _trailing({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String day,
+    required bool skipped,
+    required bool hasGoal,
+    required double amount,
+    required HabitTimerStore? store,
+    required bool timerRunning,
+  }) {
+    // A running timer needs the elapsed label plus stop. While it runs the
+    // menu and skip stay hidden so the row keeps the week dots at 320dp.
+    if (timerRunning && store != null) {
+      return _HabitTimerControl(
+        habit: habit,
+        day: day,
+        store: store,
+        repo: ref.read(habitRepositoryProvider),
+        strings: strings,
+        onMessage: (message) {
+          if (context.mounted) showAppSnackBar(context, message);
+        },
+      );
     }
+    final hasTimer = isMinuteUnit(habit.unit) && store != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (hasTimer)
+          _HabitTimerControl(
+            habit: habit,
+            day: day,
+            store: store,
+            repo: ref.read(habitRepositoryProvider),
+            strings: strings,
+            onMessage: (message) {
+              if (context.mounted) showAppSnackBar(context, message);
+            },
+          )
+        else
+          AppIconButton(
+            icon: skipped ? Icons.replay : Icons.skip_next_outlined,
+            tooltip: skipped ? strings.unskipDay : strings.skipDay,
+            semanticLabel: skipped ? strings.unskipDay : strings.skipDay,
+            onPressed: () => _toggleSkip(ref, !skipped, day),
+          ),
+        PopupMenuButton<_HabitAction>(
+          tooltip: strings.moreOptions,
+          icon: const Icon(Icons.more_vert),
+          onSelected: (action) => _onAction(context, ref, action, day),
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: _HabitAction.edit,
+              child: Text(strings.editHabit),
+            ),
+            PopupMenuItem(
+              value: _HabitAction.activity,
+              child: Text(strings.viewActivity),
+            ),
+            PopupMenuItem(
+              value: _HabitAction.skip,
+              child: Text(skipped ? strings.unskipDay : strings.skipDay),
+            ),
+            if (hasGoal && amount > 0)
+              PopupMenuItem(
+                value: _HabitAction.subtract,
+                child: Text(strings.subtractStep(_stepLabel(habit))),
+              ),
+            if (hasGoal)
+              PopupMenuItem(
+                value: _HabitAction.add,
+                child: Text(strings.addStep(_stepLabel(habit))),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _toggleDone(WidgetRef ref, bool done, String day) async {
+    AppFeedback.tap();
+    await ref.read(habitRepositoryProvider).setDone(habit.id, day, done);
     ref.invalidate(habitStreakProvider(habit.id));
   }
 
-  Future<void> _toggleSkip(
+  Future<void> _toggleSkip(WidgetRef ref, bool skipped, String day) async {
+    AppFeedback.selection();
+    await ref.read(habitRepositoryProvider).setSkipped(habit.id, day, skipped);
+    ref.invalidate(habitStreakProvider(habit.id));
+  }
+
+  Future<void> _onAction(
     BuildContext context,
     WidgetRef ref,
-    bool skipped,
+    _HabitAction action,
+    String day,
   ) async {
-    final repo = ref.read(habitRepositoryProvider);
-    await repo.setSkipped(
-      habit.id,
-      ref.read(selectedHabitDayProvider),
-      skipped,
-    );
-    ref.invalidate(habitStreakProvider(habit.id));
+    switch (action) {
+      case _HabitAction.edit:
+        await showHabitEditor(context, habit: habit);
+      case _HabitAction.skip:
+        final current =
+            _logFor(
+              ref.read(habitLogsProvider(habit.id)).value ?? const [],
+              day,
+            )?.skipped ??
+            false;
+        await _toggleSkip(ref, !current, day);
+      case _HabitAction.activity:
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => HabitHeatmapScreen(habitId: habit.id),
+          ),
+        );
+      case _HabitAction.add:
+        await ref
+            .read(habitRepositoryProvider)
+            .addAmount(habit.id, day, habit.increment ?? 1.0);
+        ref.invalidate(habitStreakProvider(habit.id));
+      case _HabitAction.subtract:
+        await ref
+            .read(habitRepositoryProvider)
+            .subtractAmount(habit.id, day, habit.increment ?? 1.0);
+        ref.invalidate(habitStreakProvider(habit.id));
+    }
   }
-}
-
-String _fmt(double v) {
-  if (v == v.roundToDouble()) return v.toInt().toString();
-  return v.toString();
 }

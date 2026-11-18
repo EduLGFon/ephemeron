@@ -1,123 +1,83 @@
-// Part of the habits screen library: habit row subtitle, live focus progress,
-// and the compact streak badge.
+// Part of the habits screen library: pure log lookups and display helpers
+// shared by the row and its live focus progress wrapper.
 part of '../habits_screen.dart';
 
-Widget? _habitSubtitle(
-  BuildContext context,
-  Habit habit, {
-  required String day,
-  required ({int current, int best})? streak,
-  required bool skipped,
-  required double amount,
-  required double goal,
-  required bool hasGoal,
-  required FocusSession? liveSession,
-}) {
-  if (liveSession != null) {
-    final streakText = skipped
-        ? 'Skipped - streak ${streak?.current ?? 0} - best ${streak?.best ?? 0}'
-        : 'Streak ${streak?.current ?? 0} - best ${streak?.best ?? 0}';
-    return _HabitLiveProgress(
-      habit: habit,
-      day: day,
-      session: liveSession,
-      loggedAmount: amount,
-      streakText: streakText,
-    );
+HabitLog? _logFor(List<HabitLog> logs, String day) {
+  for (final log in logs) {
+    if (log.dayKey == day) return log;
   }
-  final theme = Theme.of(context);
-  final scheme = theme.colorScheme;
-  final lines = <Widget>[];
-  final current = streak?.current ?? 0;
-  final best = streak?.best ?? 0;
-  if (current > 0 || best > 0 || skipped) {
-    lines.add(
-      Wrap(
-        spacing: AppSpace.xs,
-        runSpacing: AppSpace.xxs,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (current > 0) _StreakPill(current: current),
-          if (skipped)
-            Text(
-              'Skipped',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          if (best > 0)
-            Text(
-              'Best $best',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-        ],
-      ),
-    );
+  return null;
+}
+
+bool _logDone(Habit habit, HabitLog? log) {
+  if (log == null) return false;
+  if (log.done) return true;
+  final goal = habit.goalAmount ?? 0;
+  return goal > 0 && log.amount >= goal;
+}
+
+double _habitProgress(Habit habit, HabitLog? log) {
+  final goal = habit.goalAmount ?? 0;
+  if (goal > 0) {
+    return ((log?.amount ?? 0) / goal).clamp(0.0, 1.0);
   }
-  if (hasGoal) {
-    final progressText = formatHabitProgress(
-      unit: habit.unit,
-      amount: amount,
-      goal: goal,
-    );
-    if (lines.isNotEmpty) lines.add(const SizedBox(height: AppSpace.xs));
-    lines.add(
-      Semantics(
-        label: 'Progress $progressText',
-        child: ExcludeSemantics(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            child: LinearProgressIndicator(
-              value: (amount / goal).clamp(0.0, 1.0),
-              minHeight: 4,
-              color: scheme.primary,
-              backgroundColor: scheme.surfaceContainerHighest,
-            ),
-          ),
-        ),
+  return _logDone(habit, log) ? 1.0 : 0.0;
+}
+
+/// Filled dots for the last seven days, oldest first. A day counts when it
+/// reached the goal for goal habits or was marked done for binary habits.
+List<bool> _habitWeekDots(Habit habit, List<HabitLog> logs, DateTime today) {
+  final base = DateTime(today.year, today.month, today.day);
+  return [
+    for (var i = 6; i >= 0; i--)
+      _logDone(
+        habit,
+        _logFor(logs, habitDateKey(base.subtract(Duration(days: i)))),
       ),
-    );
-    lines.add(const SizedBox(height: AppSpace.xxs));
-    lines.add(
-      Tooltip(
-        message: formatHabitExact(unit: habit.unit, amount: amount, goal: goal),
-        child: Text(progressText),
-      ),
-    );
-  }
-  if (lines.isEmpty) return null;
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: lines,
+  ];
+}
+
+String? _habitSubtitle(Habit habit, HabitLog? log, HabitsStrings strings) {
+  if (log?.skipped == true) return strings.skipped;
+  final goal = habit.goalAmount ?? 0;
+  final done = _logDone(habit, log);
+  if (done) return strings.done;
+  if (goal <= 0) return null;
+  return formatHabitProgress(
+    unit: habit.unit,
+    amount: log?.amount ?? 0,
+    goal: goal,
   );
 }
 
-/// Live goal percentage for a habit linked to a running focus/stopwatch
-/// session. The one-second ticker only exists while this widget is mounted, so
-/// idle habit rows never rebuild on a clock.
-class _HabitLiveProgress extends StatefulWidget {
-  const _HabitLiveProgress({
-    required this.habit,
-    required this.day,
-    required this.session,
-    required this.loggedAmount,
-    required this.streakText,
-  });
-
-  final Habit habit;
-  final String day;
-  final FocusSession session;
-  final double loggedAmount;
-  final String streakText;
-
-  @override
-  State<_HabitLiveProgress> createState() => _HabitLiveProgressState();
+String _stepLabel(Habit habit) {
+  final step = habit.increment ?? 1.0;
+  return step == step.roundToDouble()
+      ? step.toInt().toString()
+      : step.toString();
 }
 
-class _HabitLiveProgressState extends State<_HabitLiveProgress> {
+/// Rebuilds only its own row while a linked focus/stopwatch session runs.
+class _LiveHabitTile extends StatefulWidget {
+  const _LiveHabitTile({
+    required this.session,
+    required this.habit,
+    required this.day,
+    required this.loggedAmount,
+    required this.builder,
+  });
+
+  final FocusSession session;
+  final Habit habit;
+  final String day;
+  final double loggedAmount;
+  final Widget Function(double amount) builder;
+
+  @override
+  State<_LiveHabitTile> createState() => _LiveHabitTileState();
+}
+
+class _LiveHabitTileState extends State<_LiveHabitTile> {
   final ValueNotifier<int> _now = ValueNotifier<int>(
     DateTime.now().toUtc().millisecondsSinceEpoch,
   );
@@ -126,20 +86,10 @@ class _HabitLiveProgressState extends State<_HabitLiveProgress> {
   @override
   void initState() {
     super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      _now.value = DateTime.now().toUtc().millisecondsSinceEpoch;
-      if (!isLiveHabitProgress(
-        habitId: widget.habit.id,
-        selectedDayKey: widget.day,
-        todayKey: habitTodayKey(),
-        unit: widget.habit.unit,
-        sessionHabitId: widget.session.habitId,
-        sessionPhase: widget.session.phase,
-      )) {
-        _ticker?.cancel();
-        _ticker = null;
-      }
-    });
+    _ticker = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _now.value = DateTime.now().toUtc().millisecondsSinceEpoch,
+    );
   }
 
   @override
@@ -151,7 +101,6 @@ class _HabitLiveProgressState extends State<_HabitLiveProgress> {
 
   @override
   Widget build(BuildContext context) {
-    final goal = widget.habit.goalAmount ?? 0;
     return ValueListenableBuilder<int>(
       valueListenable: _now,
       builder: (context, now, _) {
@@ -166,64 +115,8 @@ class _HabitLiveProgressState extends State<_HabitLiveProgress> {
           sessionStartUtcMs: widget.session.startUtc,
           nowMs: now,
         );
-        return Tooltip(
-          message: formatHabitExact(
-            unit: widget.habit.unit,
-            amount: amount,
-            goal: goal,
-          ),
-          child: Text(
-            '${formatHabitPercent(amount: amount, goal: goal)}  '
-            '${widget.streakText}',
-          ),
-        );
+        return widget.builder(amount);
       },
-    );
-  }
-}
-
-/// Compact streak badge. The flame only appears for a live streak.
-class _StreakPill extends StatelessWidget {
-  const _StreakPill({required this.current});
-
-  final int current;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Semantics(
-      label: 'Current streak $current ${current == 1 ? 'day' : 'days'}',
-      child: ExcludeSemantics(
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.sm,
-            vertical: AppSpace.xxs,
-          ),
-          decoration: BoxDecoration(
-            color: scheme.primaryContainer.withValues(alpha: 0.65),
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.local_fire_department,
-                size: 12,
-                color: scheme.onPrimaryContainer,
-              ),
-              const SizedBox(width: AppSpace.xxs),
-              Text(
-                '$current',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onPrimaryContainer,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -1,4 +1,4 @@
-// Part of the habits screen library: the scrollable selected-day strip.
+// Part of the habits screen library: the compact selected-day strip.
 part of '../habits_screen.dart';
 
 /// Days shown in the habit day strip, oldest first, ending on [today].
@@ -20,10 +20,55 @@ String habitDayStripSemanticsLabel(
   return habitDateKey(day) == habitDateKey(today) ? '$label, today' : label;
 }
 
+/// One day in the strip. Kept public so widget tests can target a known day.
+class HabitDayChip extends StatelessWidget {
+  const HabitDayChip({
+    super.key,
+    required this.day,
+    required this.today,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final DateTime day;
+  final DateTime today;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final todayKey = habitDateKey(today);
+    final key = habitDateKey(day);
+    final isToday = key == todayKey;
+    return MergeSemantics(
+      child: Semantics(
+        label: habitDayStripSemanticsLabel(context, day, today),
+        selected: selected,
+        button: true,
+        child: AppChip(
+          label: '${DeviceDateFormat.weekday(context, day)} ${day.day}',
+          selected: selected,
+          dense: true,
+          onTap: () {
+            AppFeedback.selection();
+            onTap();
+          },
+          tooltip: isToday ? HabitsStrings.of(context).today : null,
+        ),
+      ),
+    );
+  }
+}
+
 class _DayStrip extends StatefulWidget {
-  const _DayStrip({required this.selected, required this.onSelect});
+  const _DayStrip({
+    required this.selected,
+    required this.strings,
+    required this.onSelect,
+  });
 
   final String selected;
+  final HabitsStrings strings;
   final void Function(String day) onSelect;
 
   @override
@@ -59,17 +104,17 @@ class _DayStripState extends State<_DayStrip> {
   void _revealSelected({required bool animate}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final context = _keys[widget.selected]?.currentContext;
-      if (context == null) return;
+      final target = _keys[widget.selected]?.currentContext;
+      if (target == null) return;
       if (!animate) {
-        Scrollable.ensureVisible(context, alignment: 0.5);
+        Scrollable.ensureVisible(target, alignment: 0.5);
         return;
       }
       Scrollable.ensureVisible(
-        context,
+        target,
         alignment: 0.5,
-        duration: AppMotion.duration(context, AppDurations.normal),
-        curve: Curves.easeOut,
+        duration: AppMotion.duration(context, DsMotion.normal),
+        curve: DsMotion.standard,
       );
     });
   }
@@ -80,95 +125,42 @@ class _DayStripState extends State<_DayStrip> {
     final todayKey = habitDateKey(today);
     final days = habitDayStripDays(today);
     final viewingToday = widget.selected == todayKey;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+    return SizedBox(
+      height: 56,
       child: Row(
         children: [
           Expanded(
-            child: SingleChildScrollView(
+            child: ListView.separated(
               controller: _controller,
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
-              child: Row(
-                children: [
-                  for (final day in days) ...[
-                    _dayChip(context, day, today, theme, scheme),
-                    const SizedBox(width: AppSpace.xs),
-                  ],
-                ],
-              ),
+              itemCount: days.length,
+              separatorBuilder: (_, _) => const SizedBox(width: DsSpace.x8),
+              itemBuilder: (context, index) {
+                final day = days[index];
+                final key = habitDateKey(day);
+                return Center(
+                  child: HabitDayChip(
+                    key: _keys.putIfAbsent(key, GlobalKey.new),
+                    day: day,
+                    today: today,
+                    selected: key == widget.selected,
+                    onTap: () => widget.onSelect(key),
+                  ),
+                );
+              },
             ),
           ),
-          if (!viewingToday)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpace.sm),
-              child: TextButton(
-                onPressed: () {
-                  AppFeedback.selection();
-                  widget.onSelect(todayKey);
-                },
-                child: const Text('Today'),
-              ),
+          if (!viewingToday) ...[
+            const SizedBox(width: DsSpace.x8),
+            AppChip(
+              label: widget.strings.today,
+              onTap: () {
+                AppFeedback.selection();
+                widget.onSelect(todayKey);
+              },
             ),
+          ],
         ],
-      ),
-    );
-  }
-
-  Widget _dayChip(
-    BuildContext context,
-    DateTime day,
-    DateTime today,
-    ThemeData theme,
-    ColorScheme scheme,
-  ) {
-    final key = habitDateKey(day);
-    final selected = key == widget.selected;
-    final isToday = key == habitDateKey(today);
-    final chipKey = _keys.putIfAbsent(key, GlobalKey.new);
-    return Semantics(
-      label: habitDayStripSemanticsLabel(context, day, today),
-      selected: selected,
-      button: true,
-      onTap: () {
-        AppFeedback.selection();
-        widget.onSelect(key);
-      },
-      child: ExcludeSemantics(
-        child: ChoiceChip(
-          key: chipKey,
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.xs,
-            vertical: AppSpace.xxs,
-          ),
-          label: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                DeviceDateFormat.weekday(context, day),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: selected ? scheme.onSecondaryContainer : null,
-                ),
-              ),
-              Text(
-                '${day.day}',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
-                  color: selected ? scheme.onSecondaryContainer : null,
-                ),
-              ),
-            ],
-          ),
-          selected: selected,
-          onSelected: (_) {
-            AppFeedback.selection();
-            widget.onSelect(key);
-          },
-        ),
       ),
     );
   }

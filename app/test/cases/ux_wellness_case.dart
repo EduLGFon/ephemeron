@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/design/components/rows.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/countdown_repository.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
@@ -99,6 +100,7 @@ void main() {
 
     expect(find.text(title), findsOneWidget);
     expect(find.text('Upcoming'), findsOneWidget);
+    expect(find.byType(AppCountdownCard), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await db.close();
@@ -146,7 +148,7 @@ void main() {
 
     await tester.dragUntilVisible(
       find.text('Finish'),
-      find.byType(SingleChildScrollView),
+      find.byType(ListView),
       const Offset(0, -160),
     );
     expect(find.text('Finish'), findsOneWidget);
@@ -157,7 +159,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('habit tile fits a 320dp screen with a goal', (
+  testWidgets('habit tile fits a 320dp screen with a goal and seven dots', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -186,7 +188,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Read a long book'), findsOneWidget);
-    expect(find.byIcon(Icons.local_fire_department), findsOneWidget);
+    final row = tester.widget<AppHabitRow>(find.byType(AppHabitRow));
+    expect(row.weekDots, hasLength(7));
+    expect(row.done, isTrue);
     expect(tester.takeException(), isNull);
 
     await db.close();
@@ -204,14 +208,13 @@ void main() {
 
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
-    final id = await repo.createHabit(
+    await repo.createHabit(
       name: 'Read a long book',
       startDate: '2026-01-01',
       goalAmount: 10,
-      unit: 'min',
+      unit: 'count',
       increment: 2,
     );
-    await repo.addAmount(id, habitDateKey(DateTime.now()), 10);
 
     final reportedErrors = <FlutterErrorDetails>[];
     final previousOnError = FlutterError.onError;
@@ -232,13 +235,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    for (final icon in [
-      Icons.remove,
-      Icons.add,
-      Icons.play_arrow,
-      Icons.pause_outlined,
-    ]) {
-      final target = find.widgetWithIcon(IconButton, icon);
+    for (final icon in [Icons.skip_next_outlined, Icons.more_vert]) {
+      final target = find.ancestor(
+        of: find.byIcon(icon),
+        matching: find.byType(IconButton),
+      );
       expect(target, findsOneWidget, reason: 'missing action $icon');
       final size = tester.getSize(target);
       expect(size.width, greaterThanOrEqualTo(48), reason: 'width of $icon');

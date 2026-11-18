@@ -21,7 +21,7 @@ void _mockPlatformChannels() {
   );
   messenger.setMockMethodCallHandler(
     const MethodChannel('ephemeron/system'),
-    (call) async => null,
+    (call) async => call.method == 'canPostNotifications' ? true : null,
   );
   messenger.setMockMessageHandler(
     'dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle',
@@ -239,5 +239,62 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
     await db.close();
+  });
+
+  testWidgets('pause finishes the segment and resume keeps the remainder', (
+    WidgetTester tester,
+  ) async {
+    _mockPlatformChannels();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = FocusRepository(db);
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.focusSessions)
+        .insert(
+          FocusSessionsCompanion.insert(
+            id: 'paused',
+            startUtc: now - const Duration(minutes: 5).inMilliseconds,
+            targetEndUtc: Value(
+              now + const Duration(minutes: 20).inMilliseconds,
+            ),
+            phase: const Value('focus'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: FocusScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Pause'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(await repo.currentSession(), isNull);
+    expect(find.text('Paused'), findsOneWidget);
+    expect(find.textContaining('left'), findsOneWidget);
+
+    await tester.tap(find.text('Resume'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    final resumed = await repo.currentSession();
+    expect(resumed, isNotNull);
+    expect(resumed!.phase, 'focus');
+    final remaining = resumed.targetEndUtc! - resumed.startUtc;
+    expect(
+      remaining,
+      closeTo(const Duration(minutes: 20).inMilliseconds, 2000),
+    );
+
+    await tester.pumpWidget(Container());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await db.close();
+    await tester.pump();
   });
 }

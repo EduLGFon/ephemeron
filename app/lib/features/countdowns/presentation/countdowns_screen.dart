@@ -1,19 +1,22 @@
-// Countdowns screen: upcoming/passed groups, calm date cards, relative
-// distances, editor, and delete with a 6s undo window.
+// Countdowns screen: grouped upcoming/passed/no-date grid, responsive cards,
+// editor, and delete with the standard six-second undo window.
 import 'package:material_ui/material_ui.dart';
-import 'package:ephemeron/core/theme/theme_tokens.dart';
-import 'package:ephemeron/core/time/device_date_format.dart';
-import 'package:ephemeron/core/ui/app_feedback.dart';
-import 'package:ephemeron/core/ui/app_section_header.dart';
-import 'package:ephemeron/core/ui/empty_state.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/design/components/app_headers.dart';
+import '../../../core/design/components/app_page.dart';
+import '../../../core/design/components/app_states.dart';
+import '../../../core/design/tokens.dart';
+import '../../../core/time/device_date_format.dart';
+import '../../../core/ui/app_feedback.dart';
 
 import '../../../data/drift/app_database.dart';
 import '../../sync/application/pending_operations.dart';
 import '../application/countdowns_providers.dart';
 import 'countdown_editor_sheet.dart';
 import 'countdown_formatters.dart';
+import 'countdown_widgets.dart';
+import 'countdowns_strings.dart';
 
 export 'countdown_formatters.dart'
     show countdownDayBadge, countdownRelativeLabel;
@@ -23,307 +26,229 @@ class CountdownsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = CountdownsStrings.of(context);
     final countdownsAsync = ref.watch(countdownsProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Countdowns')),
-      body: countdownsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Could not load countdowns.'),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: () => ref.invalidate(countdownsProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+    return AppPage(
+      header: AppPageHeader(
+        title: Text(strings.title),
+        subtitle: countdownsAsync.maybeWhen(
+          data: (items) =>
+              items.isEmpty ? null : Text(strings.count(items.length)),
+          orElse: () => null,
         ),
-        data: (countdowns) {
-          if (countdowns.isEmpty) {
-            return EmptyState(
-              icon: Icons.hourglass_bottom_outlined,
-              title: 'No countdowns yet.',
-              actionLabel: 'Add countdown',
-              onAction: () => showCountdownEditor(context),
-            );
-          }
-          final today = DateTime.now();
-          final dated = <({Countdown c, DateTime next, int days})>[];
-          final undated = <Countdown>[];
-          for (final c in countdowns) {
-            final schedule = countdownSchedule(
-              targetDate: c.targetDate,
-              yearlyRepeat: c.yearlyRepeat,
-              today: today,
-            );
-            if (schedule == null) {
-              undated.add(c);
-              continue;
-            }
-            dated.add((c: c, next: schedule.next, days: schedule.days));
-          }
-          dated.sort((a, b) => a.days.compareTo(b.days));
-          final upcoming = dated.where((d) => d.days >= 0).toList();
-          final passed = dated.where((d) => d.days < 0).toList();
-          final items = <Widget>[];
-          if (upcoming.isNotEmpty) {
-            items.add(AppSectionHeader('Upcoming', count: upcoming.length));
-            items.addAll(
-              upcoming.map(
-                (d) =>
-                    _CountdownCard(countdown: d.c, next: d.next, days: d.days),
-              ),
-            );
-          }
-          if (passed.isNotEmpty) {
-            items.add(AppSectionHeader('Passed', count: passed.length));
-            items.addAll(
-              passed.map(
-                (d) =>
-                    _CountdownCard(countdown: d.c, next: d.next, days: d.days),
-              ),
-            );
-          }
-          if (undated.isNotEmpty) {
-            items.add(AppSectionHeader('No date', count: undated.length));
-            items.addAll(undated.map((c) => _CountdownCard(countdown: c)));
-          }
-          return RepaintBoundary(
-            child: ListView.builder(
-              padding: const EdgeInsets.only(bottom: 88),
-              itemCount: items.length,
-              itemBuilder: (_, i) => items[i],
-            ),
-          );
-        },
       ),
-      floatingActionButton: FloatingActionButton(
+      fab: FloatingActionButton(
         heroTag: 'countdownsFab',
+        tooltip: strings.addCountdown,
         onPressed: () => showCountdownEditor(context),
         child: const Icon(Icons.add),
       ),
-    );
-  }
-}
-
-enum _CountdownAction { edit, delete }
-
-class _CountdownCard extends ConsumerWidget {
-  const _CountdownCard({required this.countdown, this.next, this.days});
-
-  final Countdown countdown;
-  final DateTime? next;
-  final int? days;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final passed = days != null && days! < 0;
-    final isToday = days == 0;
-    final detail = StringBuffer(
-      days == null ? 'No date' : countdownRelativeLabel(days!),
-    );
-    if (next != null) {
-      detail.write(' - ${DeviceDateFormat.yMMMd(context).format(next!)}');
-    }
-    String? yearlyBadge;
-    if (countdown.yearlyRepeat) {
-      final birth = parseCountdownDate(countdown.targetDate);
-      yearlyBadge = countdown.showAge && birth != null && next != null
-          ? 'Turns ${next!.year - birth.year}'
-          : 'Yearly';
-    }
-    return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppSpace.md,
-        vertical: AppSpace.xs,
-      ),
-      color: isToday ? scheme.primaryContainer.withValues(alpha: 0.45) : null,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        onTap: () => showCountdownEditor(context, countdown: countdown),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpace.md,
-            AppSpace.sm,
-            AppSpace.xs,
-            AppSpace.sm,
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 58,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        countdownDayBadge(days),
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          fontFamily: 'Fraunces',
-                          height: 1,
-                          color: passed
-                              ? scheme.onSurfaceVariant
-                              : isToday
-                              ? scheme.primary
-                              : scheme.onSurface,
-                        ),
-                      ),
-                    ),
-                    if (days != null && !passed)
-                      Text(
-                        isToday ? 'today' : 'days',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpace.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            countdown.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: passed
-                                  ? scheme.onSurfaceVariant
-                                  : scheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        if (countdown.linkedType != null) ...[
-                          const SizedBox(width: AppSpace.xs),
-                          _CountdownLinkBadge(type: countdown.linkedType!),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: AppSpace.xxs),
-                    Text(
-                      detail.toString(),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (yearlyBadge != null) ...[
-                      const SizedBox(height: AppSpace.xs),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpace.sm,
-                          vertical: AppSpace.xxs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: scheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                        ),
-                        child: Text(
-                          yearlyBadge,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: scheme.onSecondaryContainer,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              PopupMenuButton<_CountdownAction>(
-                tooltip: 'More options',
-                icon: const Icon(Icons.more_vert),
-                onSelected: (action) {
-                  switch (action) {
-                    case _CountdownAction.edit:
-                      showCountdownEditor(context, countdown: countdown);
-                      break;
-                    case _CountdownAction.delete:
-                      _delete(context, ref);
-                      break;
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
-                    value: _CountdownAction.edit,
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit_outlined, size: 20),
-                        SizedBox(width: AppSpace.sm),
-                        Text('Edit'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _CountdownAction.delete,
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete_outline, size: 20),
-                        SizedBox(width: AppSpace.sm),
-                        Text('Delete'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+      child: countdownsAsync.when(
+        loading: () => const AppSkeletonList(rows: 5),
+        error: (_, _) => AppErrorState(
+          title: strings.loadError,
+          onRetry: () => ref.invalidate(countdownsProvider),
         ),
+        data: (countdowns) {
+          if (countdowns.isEmpty) {
+            return AppEmptyState(
+              icon: Icons.hourglass_bottom_outlined,
+              title: strings.emptyTitle,
+              message: strings.emptyMessage,
+              actionLabel: strings.addAction,
+              onAction: () => showCountdownEditor(context),
+            );
+          }
+          return _CountdownGrid(
+            countdowns: countdowns,
+            strings: strings,
+            onDelete: (countdown) => _delete(context, ref, strings, countdown),
+          );
+        },
       ),
     );
   }
 
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+  Future<void> _delete(
+    BuildContext context,
+    WidgetRef ref,
+    CountdownsStrings strings,
+    Countdown countdown,
+  ) async {
     final pending = ref.read(pendingOperationsProvider);
     final opId = await pending.scheduleCountdownDelete(countdown.id);
     if (!context.mounted) return;
     showUndoSnackBar(
       context,
-      'Countdown deleted.',
+      strings.deletedMessage,
       onUndo: () => pending.cancel(opId),
     );
   }
 }
 
-class _CountdownLinkBadge extends StatelessWidget {
-  const _CountdownLinkBadge({required this.type});
+class _DatedCountdown {
+  const _DatedCountdown({
+    required this.countdown,
+    required this.next,
+    required this.days,
+  });
 
-  final String type;
+  final Countdown countdown;
+  final DateTime next;
+  final int days;
+}
+
+class _CountdownGrid extends StatelessWidget {
+  const _CountdownGrid({
+    required this.countdowns,
+    required this.strings,
+    required this.onDelete,
+  });
+
+  final List<Countdown> countdowns;
+  final CountdownsStrings strings;
+  final ValueChanged<Countdown> onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final label = countdownLinkedTypeLabel(type);
-    if (label == null) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.sm,
-        vertical: AppSpace.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: scheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: scheme.onSecondaryContainer,
-          fontWeight: FontWeight.w600,
+    final today = DateTime.now();
+    final dated = <_DatedCountdown>[];
+    final undated = <Countdown>[];
+    for (final countdown in countdowns) {
+      final schedule = countdownSchedule(
+        targetDate: countdown.targetDate,
+        yearlyRepeat: countdown.yearlyRepeat,
+        today: today,
+      );
+      if (schedule == null) {
+        undated.add(countdown);
+      } else {
+        dated.add(
+          _DatedCountdown(
+            countdown: countdown,
+            next: schedule.next,
+            days: schedule.days,
+          ),
+        );
+      }
+    }
+    dated.sort((a, b) => a.days.compareTo(b.days));
+    final upcoming = dated.where((item) => item.days >= 0).toList();
+    final passed = dated.where((item) => item.days < 0).toList();
+    final slivers = <Widget>[];
+    void addGroup({
+      required String title,
+      required int count,
+      required bool noDate,
+      required Widget Function(int index) cellBuilder,
+    }) {
+      if (count == 0) return;
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(top: DsSpace.x12),
+            child: SectionTitle(title: title, count: count),
+          ),
         ),
-      ),
+      );
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.only(bottom: DsSpace.x12),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 420,
+              mainAxisExtent: countdownCardExtent(context, noDate: noDate),
+              crossAxisSpacing: DsSpace.x12,
+              mainAxisSpacing: DsSpace.x12,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => cellBuilder(index),
+              childCount: count,
+            ),
+          ),
+        ),
+      );
+    }
+
+    addGroup(
+      title: strings.upcoming,
+      count: upcoming.length,
+      noDate: false,
+      cellBuilder: (index) => _datedCell(context, upcoming[index], false),
     );
+    addGroup(
+      title: strings.passed,
+      count: passed.length,
+      noDate: false,
+      cellBuilder: (index) => _datedCell(context, passed[index], true),
+    );
+    addGroup(
+      title: strings.noDate,
+      count: undated.length,
+      noDate: true,
+      cellBuilder: (index) {
+        final countdown = undated[index];
+        return CountdownCardCell(
+          key: ValueKey(countdown.id),
+          title: countdown.title,
+          strings: strings,
+          onTap: () => showCountdownEditor(context, countdown: countdown),
+          onAction: (action) => _onAction(context, action, countdown),
+        );
+      },
+    );
+    return CustomScrollView(
+      slivers: [
+        ...slivers,
+        const SliverToBoxAdapter(child: SizedBox(height: DsSpace.x48 * 2)),
+      ],
+    );
+  }
+
+  Widget _datedCell(BuildContext context, _DatedCountdown item, bool passed) {
+    final countdown = item.countdown;
+    return CountdownCardCell(
+      key: ValueKey(countdown.id),
+      title: countdown.title,
+      strings: strings,
+      days: passed ? item.days.abs() : item.days,
+      dateLabel: _dateLabel(context, item, passed: passed),
+      yearly: countdown.yearlyRepeat,
+      onTap: () => showCountdownEditor(context, countdown: countdown),
+      onAction: (action) => _onAction(context, action, countdown),
+    );
+  }
+
+  String _dateLabel(
+    BuildContext context,
+    _DatedCountdown item, {
+    required bool passed,
+  }) {
+    final countdown = item.countdown;
+    final parts = <String>[];
+    if (passed) parts.add(countdownRelativeLabel(item.days));
+    if (countdown.yearlyRepeat && countdown.showAge) {
+      final birth = parseCountdownDate(countdown.targetDate);
+      if (birth != null) {
+        parts.add(strings.turnsAge(item.next.year - birth.year));
+      }
+    }
+    final linked = countdownLinkedTypeLabel(countdown.linkedType);
+    if (linked != null) parts.add(linked);
+    final date = DeviceDateFormat.yMMMd(context).format(item.next);
+    return strings.dateLabel(date, parts.isEmpty ? null : parts.join(' · '));
+  }
+
+  void _onAction(
+    BuildContext context,
+    CountdownAction action,
+    Countdown countdown,
+  ) {
+    switch (action) {
+      case CountdownAction.edit:
+        showCountdownEditor(context, countdown: countdown);
+      case CountdownAction.delete:
+        onDelete(countdown);
+    }
   }
 }
