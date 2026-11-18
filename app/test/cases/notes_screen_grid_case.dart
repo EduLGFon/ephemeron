@@ -130,4 +130,95 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
   });
+
+  testWidgets('folder tap opens it and breadcrumb returns to all notes', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db
+        .into(db.folders)
+        .insert(
+          FoldersCompanion.insert(
+            id: 'folder',
+            name: 'Work',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: NotesScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+
+    await tester.tap(find.text('Work').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+    expect(find.text('No notes here'), findsOneWidget);
+    expect(find.text('Work'), findsWidgets);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('notes.selectedFolder'), 'folder');
+
+    await tester.tap(find.text('All notes'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+    expect(find.text('Work'), findsOneWidget);
+    expect(find.text('All notes'), findsOneWidget);
+
+    // Dispose the tree first so Drift streams cancel before the database closes.
+    await tester.pumpWidget(Container());
+    await tester.pumpAndSettle();
+    await db.close();
+  });
+
+  testWidgets('renders grid and list at 320dp with 200% text', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    await seed(db);
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(2)),
+              child: const NotesScreen(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+
+    expect(find.byKey(const Key('notes-grid')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byTooltip('List view'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+
+    expect(find.byKey(const Key('notes-list')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(Container());
+    await tester.pumpAndSettle();
+    await db.close();
+  });
 }
