@@ -6,17 +6,20 @@ const List<LogicalKeyboardKey> _digitKeys = <LogicalKeyboardKey>[
   LogicalKeyboardKey.digit3,
   LogicalKeyboardKey.digit4,
   LogicalKeyboardKey.digit5,
-  LogicalKeyboardKey.digit6,
-  LogicalKeyboardKey.digit7,
 ];
 
 extension _AppShellShortcuts on _AppShellState {
   /// Keyboard shortcuts active on every route. Rebuilt with [build] so the
   /// callbacks always see the current widget/riverpod state.
   Map<ShortcutActivator, VoidCallback> _buildShortcuts(
-    List<int> more,
-    List<int> order,
+    List<int> primary,
+    List<int> secondary,
   ) {
+    void openSearch() {
+      if (!mounted) return;
+      _openSearch();
+    }
+
     return <ShortcutActivator, VoidCallback>{
       SingleActivator(LogicalKeyboardKey.keyN): () {
         if (!mounted) return;
@@ -24,25 +27,15 @@ extension _AppShellShortcuts on _AppShellState {
       },
       SingleActivator(LogicalKeyboardKey.keyC): () {
         if (!mounted) return;
-        _showMore(context, more, order);
+        _showMore(context, secondary, primary);
       },
       SingleActivator(LogicalKeyboardKey.keyT): () {
         if (!mounted) return;
-        _onTabSelected(AppSection.calendar.index);
-        try {
-          ref.read(calendarStateProvider.notifier).goToday();
-        } catch (_) {}
+        _onTabSelected(AppDestination.today.branch);
       },
-      SingleActivator(LogicalKeyboardKey.slash): () {
-        if (!mounted) return;
-        context.push('/search');
-        Future.microtask(() async {
-          try {
-            final repo = await ref.read(settingsRepositoryProvider.future);
-            await repo.setLastRoute('/search');
-          } catch (_) {}
-        });
-      },
+      SingleActivator(LogicalKeyboardKey.slash): openSearch,
+      SingleActivator(LogicalKeyboardKey.keyK, control: true): openSearch,
+      SingleActivator(LogicalKeyboardKey.keyK, meta: true): openSearch,
       SingleActivator(LogicalKeyboardKey.escape): () {
         if (!mounted) return;
         final nav = Navigator.of(context);
@@ -50,7 +43,8 @@ extension _AppShellShortcuts on _AppShellState {
       },
       SingleActivator(LogicalKeyboardKey.arrowLeft): () {
         if (!mounted) return;
-        if (widget.navigationShell.currentIndex != AppSection.calendar.index) {
+        if (widget.navigationShell.currentIndex !=
+            AppDestination.calendar.branch) {
           return;
         }
         final w = ref.read(calendarStateProvider);
@@ -64,7 +58,8 @@ extension _AppShellShortcuts on _AppShellState {
       },
       SingleActivator(LogicalKeyboardKey.arrowRight): () {
         if (!mounted) return;
-        if (widget.navigationShell.currentIndex != AppSection.calendar.index) {
+        if (widget.navigationShell.currentIndex !=
+            AppDestination.calendar.branch) {
           return;
         }
         final w = ref.read(calendarStateProvider);
@@ -76,10 +71,10 @@ extension _AppShellShortcuts on _AppShellState {
         };
         ref.read(calendarStateProvider.notifier).shift(step);
       },
-      for (var i = 0; i < AppSection.values.length; i++)
+      for (var i = 0; i < primary.length && i < _digitKeys.length; i++)
         SingleActivator(_digitKeys[i]): () {
           if (!mounted) return;
-          _onTabSelected(i);
+          _onDestinationSelected(primary[i]);
         },
     };
   }

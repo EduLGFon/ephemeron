@@ -7,10 +7,11 @@ import 'package:home_widget/home_widget.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'app/router/app_router.dart';
+import 'core/design/theme.dart';
+import 'core/platform/system_accent.dart';
 import 'core/platform/system_launcher.dart';
 import 'core/security/app_lock.dart';
 import 'core/security/app_lock_screen.dart';
-import 'core/theme/app_theme.dart';
 import 'core/theme/theme_tokens.dart';
 import 'core/ui/app_feedback.dart';
 import 'core/ui/app_messenger.dart';
@@ -67,25 +68,52 @@ Future<void> _primeColdRingRequest(ProviderContainer container) async {
   }
 }
 
-class EphemeronApp extends ConsumerWidget {
+class EphemeronApp extends ConsumerStatefulWidget {
   const EphemeronApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EphemeronApp> createState() => _EphemeronAppState();
+}
+
+class _EphemeronAppState extends ConsumerState<EphemeronApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    // `system` brightness follows the platform live; rebuilding the app is
+    // cheap (theme + router config are cached providers).
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsRepositoryProvider);
     final repo = settings.maybeWhen(data: (r) => r, orElse: () => null);
 
     final primary = repo?.primaryColorHex != null
         ? parseHex(repo!.primaryColorHex!)
-        : primaryPresets.first;
+        : EphemeronTheme.brandAccent;
     final background = repo?.backgroundColorHex != null
         ? parseHex(repo!.backgroundColorHex!)
-        : backgroundPresets.first;
+        : null;
     final brightnessName = repo?.brightness ?? 'light';
-    final brightness = AppBrightness.values.firstWhere(
-      (b) => b.name == brightnessName,
-      orElse: () => AppBrightness.light,
-    );
+    final dynamicColor = repo?.dynamicColor ?? false;
+    // The platform accent is only requested when dynamic color is enabled; on
+    // web, desktop and iOS the provider resolves to null.
+    final dynamicAccent = dynamicColor
+        ? ref.watch(systemAccentProvider).value
+        : null;
 
     final router = ref.watch(appRouterProvider);
     final localeCode = repo?.localeCode ?? 'system';
@@ -101,10 +129,16 @@ class EphemeronApp extends ConsumerWidget {
       );
     });
 
-    final theme = buildTheme(
-      primary: primary,
+    final theme = EphemeronTheme.build(
+      mode: brightnessName,
+      platformBrightness: View.of(context)
+          .platformDispatcher
+          .platformBrightness,
+      accent: primary,
       background: background,
-      brightness: brightness,
+      dynamicColor: dynamicColor,
+      dynamicAccent: dynamicAccent,
+      compact: repo?.uiDensity == 'compact',
     );
 
     final app = MaterialApp.router(
@@ -123,6 +157,7 @@ class EphemeronApp extends ConsumerWidget {
         final data = MediaQuery.of(context);
         return MediaQuery(
           data: data.copyWith(
+            alwaysUse24HourFormat: repo?.time24h ?? true,
             disableAnimations:
                 data.disableAnimations || (repo?.reduceAnimations ?? false),
           ),

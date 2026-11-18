@@ -30,16 +30,35 @@ extension _AppShellSessionRestore on _AppShellState {
       if (!mounted) return;
       // Last tab. A widget tap that targets the calendar wins over restore.
       if (!widgetOverridesCalendar) {
-        // Stream is branch 7; the legacy tabs keep 0..6. A missing
-        // `session.lastTab` means a fresh install: keep the router's Stream
-        // landing page instead of forcing the Calendar branch. Existing
-        // users restore their persisted branch, clamped to the real branches.
+        // Stream is branch 8; the legacy tabs keep 0..7. A missing
+        // `session.lastTab` means a fresh install: keep the router's Today
+        // landing page. Existing users migrate their legacy index to the new
+        // branch order, then restore the persisted branch clamped to the real
+        // branches.
         final hasLastTab = (await SharedPreferences.getInstance()).containsKey(
           _lastTabPrefKey,
         );
-        final idx = repo.lastTabIndex.clamp(0, 7);
-        if (hasLastTab && idx != widget.navigationShell.currentIndex) {
-          widget.navigationShell.goBranch(idx);
+        final version = repo.navVersion;
+        final streamEnabled = repo.streamEnabled;
+        if (hasLastTab) {
+          final raw = repo.lastTabIndex;
+          var branch = version < 2
+              ? AppDestination.legacyTabBranches[raw.clamp(0, 7).toInt()]
+              : raw.clamp(0, AppDestination.all.length - 1).toInt();
+          if (branch == AppDestination.stream.branch && !streamEnabled) {
+            branch = AppDestination.today.branch;
+          }
+          if (version < 2) {
+            await repo.setNavVersion(2);
+            await repo.setLastTabIndex(branch);
+          }
+          if (branch != widget.navigationShell.currentIndex) {
+            widget.navigationShell.goBranch(branch);
+          }
+        } else if (version < 2) {
+          // Mark fresh installs as the new schema so their first persisted
+          // branch is never interpreted as a legacy `/tabN` index.
+          await repo.setNavVersion(2);
         }
       }
       // Calendar view + anchor + day count. This is the only restore step
@@ -109,15 +128,28 @@ extension _AppShellSessionRestore on _AppShellState {
           _incomingRingCode != null ||
           ref.read(activeRingRequestProvider) != null;
       if (!widgetOverridesRestore && !ringPending) {
-        // Pushed routes (search/settings) recorded before the kill.
-        final route = repo.lastRoute;
+        // Pushed routes (search/settings) recorded before the kill. Legacy
+        // `/tabN` routes are normalized to the new branch paths first.
+        var route = repo.lastRoute;
+        final legacy = route == null
+            ? null
+            : RegExp(r'^/tab([0-7])$').firstMatch(route);
+        if (legacy != null) {
+          final branch =
+              AppDestination.legacyTabBranches[int.parse(legacy.group(1)!)];
+          route = branch == AppDestination.stream.branch && !repo.streamEnabled
+              ? AppDestination.today.path
+              : AppDestination.pathForBranch(branch);
+          await repo.setLastRoute(route);
+        }
         if (route == '/search' ||
             route == '/settings' ||
             route == '/alarm-settings') {
+          final target = route!;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             try {
-              GoRouter.of(context).push(route!);
+              GoRouter.of(context).push(target);
             } catch (_) {}
           });
         } else if (route != null && route.startsWith('note:')) {

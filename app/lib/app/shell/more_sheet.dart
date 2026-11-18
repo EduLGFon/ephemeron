@@ -1,19 +1,21 @@
-// "More" sheet: search, quick creation and secondary navigation in one
-// scrollable command center.
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+// "More" sheet: search, quick creation, secondary destinations and settings in
+// one scrollable command center. The primary destinations live in the
+// adaptive navigation; this sheet only lists secondary destinations so the
+// five primary slots stay the user's daily path.
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/theme/theme_tokens.dart';
-import '../../core/ui/app_section_header.dart';
-import 'app_sections.dart';
+import '../../core/design/components/app_chips.dart';
+import '../../core/design/components/app_headers.dart';
+import '../../core/design/components/app_overlays.dart';
+import '../../core/design/tokens.dart';
+import 'destinations.dart';
 
 enum MoreCreateAction { task, event, note, habit, countdown }
 
 class MoreSheet extends StatelessWidget {
   const MoreSheet({
     super.key,
-    required this.more,
+    required this.secondary,
     required this.onSelected,
     required this.onReorder,
     required this.onSearch,
@@ -21,23 +23,16 @@ class MoreSheet extends StatelessWidget {
     required this.onCreate,
   });
 
-  final List<int> more;
+  /// Secondary destination ids (5..7, plus 8 only when Stream is enabled).
+  final List<int> secondary;
   final ValueChanged<int> onSelected;
   final VoidCallback onReorder;
   final VoidCallback onSearch;
   final VoidCallback onSettings;
   final ValueChanged<MoreCreateAction> onCreate;
 
-  bool get _showShortcutHint =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.linux ||
-          defaultTargetPlatform == TargetPlatform.windows ||
-          defaultTargetPlatform == TargetPlatform.macOS);
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return SafeArea(
       top: false,
       child: ConstrainedBox(
@@ -45,68 +40,46 @@ class MoreSheet extends StatelessWidget {
           maxHeight: MediaQuery.sizeOf(context).height * 0.82,
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: AppSpace.lg),
+          padding: const EdgeInsets.only(bottom: DsSpace.x24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpace.lg,
-                  AppSpace.md,
-                  AppSpace.lg,
-                  AppSpace.sm,
-                ),
-                child: Material(
-                  color: scheme.primaryContainer.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  child: InkWell(
-                    key: const ValueKey('more-search'),
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    onTap: onSearch,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpace.lg,
-                        vertical: AppSpace.md,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.search, color: scheme.onPrimaryContainer),
-                          const SizedBox(width: AppSpace.md),
-                          Expanded(
-                            child: Text(
-                              'Search everything',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: scheme.onPrimaryContainer,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          if (_showShortcutHint) const _KeyHint('/'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const AppSectionHeader(
-                'Create',
-                description: 'Start something in one tap.',
+            children: <Widget>[
+              const AppSheetHeader(
+                title: 'More',
+                subtitle: 'Search, create and jump anywhere.',
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+                padding: const EdgeInsets.symmetric(horizontal: DsSpace.x16),
+                child: AppChip(
+                  key: const ValueKey<String>('more-search'),
+                  label: 'Search everything',
+                  icon: Icons.search,
+                  onTap: onSearch,
+                  tooltip: 'Search everything (/)',
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: DsSpace.x16),
+                child: SectionTitle(
+                  title: 'Create',
+                  description: 'Start something in one tap.',
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: DsSpace.x16),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     // Three columns on narrow phones keeps all five actions
                     // readable instead of wrapping 4 + 1.
                     final columns = constraints.maxWidth < 420 ? 3 : 5;
                     final tileWidth =
-                        (constraints.maxWidth - AppSpace.sm * (columns - 1)) /
+                        (constraints.maxWidth - DsSpace.x8 * (columns - 1)) /
                         columns;
                     return Wrap(
-                      spacing: AppSpace.sm,
-                      runSpacing: AppSpace.sm,
-                      children: [
+                      spacing: DsSpace.x8,
+                      runSpacing: DsSpace.x8,
+                      children: <Widget>[
                         for (final action in MoreCreateAction.values)
                           SizedBox(
                             width: tileWidth,
@@ -120,29 +93,26 @@ class MoreSheet extends StatelessWidget {
                   },
                 ),
               ),
-              if (more.isNotEmpty) ...[
-                const AppSectionHeader('More'),
-                for (final idx in more)
-                  ListTile(
-                    leading: Icon(AppSection.values[idx].icon),
-                    title: Text(AppSection.values[idx].title),
-                    onTap: () => onSelected(idx),
+              if (secondary.isNotEmpty) ...<Widget>[
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: DsSpace.x16),
+                  child: SectionTitle(title: 'Go to'),
+                ),
+                for (final id in secondary)
+                  _DestinationTile(
+                    destination: AppDestination.byId(id),
+                    onTap: () => onSelected(id),
                   ),
               ],
+              const Divider(height: DsSpace.x24),
               ListTile(
-                key: const ValueKey('more-stream'),
-                leading: const Icon(Icons.stream_outlined),
-                title: const Text('Stream'),
-                onTap: () => onSelected(7),
-              ),
-              const Divider(height: AppSpace.xl),
-              ListTile(
-                key: const ValueKey('more-settings'),
+                key: const ValueKey<String>('more-settings'),
                 leading: const Icon(Icons.settings_outlined),
                 title: const Text('Settings'),
                 onTap: onSettings,
               ),
               ListTile(
+                key: const ValueKey<String>('more-reorder'),
                 leading: const Icon(Icons.reorder),
                 title: const Text('Customize navigation'),
                 onTap: onReorder,
@@ -155,29 +125,23 @@ class MoreSheet extends StatelessWidget {
   }
 }
 
-class _KeyHint extends StatelessWidget {
-  const _KeyHint(this.label);
+class _DestinationTile extends StatelessWidget {
+  const _DestinationTile({required this.destination, required this.onTap});
 
-  final String label;
+  final AppDestination destination;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.sm,
-        vertical: AppSpace.xxs,
+    final stream = destination.id == AppDestination.stream.id;
+    return ListTile(
+      key: ValueKey<String>(
+        stream ? 'more-stream' : 'more-dest-${destination.id}',
       ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
+      leading: Icon(destination.icon),
+      title: Text(destination.title),
+      trailing: const Icon(Icons.chevron_right, size: DsIcon.sm),
+      onTap: onTap,
     );
   }
 }
@@ -209,31 +173,35 @@ class _CreateTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Material(
-      color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-      borderRadius: BorderRadius.circular(AppRadius.md),
+      color: scheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(DsRadius.r12),
       child: InkWell(
-        key: ValueKey('more-create-${action.name}'),
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        key: ValueKey<String>('more-create-${action.name}'),
+        borderRadius: BorderRadius.circular(DsRadius.r12),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.xs,
-            vertical: AppSpace.md,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(_icons[action], size: 24, color: scheme.primary),
-              const SizedBox(height: AppSpace.xs),
-              Text(
-                _labels[action]!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurface,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 64),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: DsSpace.x4,
+              vertical: DsSpace.x8,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(_icons[action], size: DsIcon.md, color: scheme.primary),
+                const SizedBox(height: DsSpace.x4),
+                Text(
+                  _labels[action]!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurface,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

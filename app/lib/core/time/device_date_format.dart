@@ -16,11 +16,24 @@ class DeviceDateFormat {
   static String shortDate(BuildContext context, DateTime d) =>
       DateFormat.MMMd(locale(context)).format(d);
 
-  static String dateTime(BuildContext context, DateTime d) =>
-      DateFormat.yMMMd(locale(context)).add_Hm().format(d);
+  static String dateTime(BuildContext context, DateTime d) {
+    final format = DateFormat.yMMMd(locale(context));
+    return (MediaQuery.maybeAlwaysUse24HourFormatOf(context) == false
+            ? format.add_jm()
+            : format.add_Hm())
+        .format(d);
+  }
 
-  static String time(BuildContext context, DateTime d) =>
-      DateFormat.Hm(locale(context)).format(d);
+  static String time(BuildContext context, DateTime d) {
+    if (MediaQuery.maybeAlwaysUse24HourFormatOf(context) == false) {
+      return DateFormat.jm(locale(context)).format(d);
+    }
+    return DateFormat.Hm(locale(context)).format(d);
+  }
+
+  /// Month and day without a year, for large page headers.
+  static String monthDay(BuildContext context, DateTime d) =>
+      DateFormat.MMMMd(locale(context)).format(d);
 
   static String monthYear(BuildContext context, DateTime d) =>
       DateFormat.yMMM(locale(context)).format(d);
