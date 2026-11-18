@@ -46,79 +46,89 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = NotesStrings.of(context);
     final foldersAsync = ref.watch(foldersProvider(_folderId));
     final notesAsync = ref.watch(folderNotesProvider(_folderId));
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notes'),
-        actions: [
-          Builder(
-            builder: (context) {
-              final mode = ref.watch(notesViewModeProvider);
-              return IconButton(
-                icon: Icon(
-                  mode == NotesViewMode.grid
-                      ? Icons.view_list
-                      : Icons.grid_view,
-                ),
-                tooltip: mode == NotesViewMode.grid ? 'List view' : 'Grid view',
-                onPressed: () => ref
-                    .read(notesViewModeProvider.notifier)
-                    .setMode(
-                      mode == NotesViewMode.grid
-                          ? NotesViewMode.list
-                          : NotesViewMode.grid,
-                    ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.search),
-            tooltip: 'Search',
+    final viewMode = ref.watch(notesViewModeProvider);
+    final noteCount = notesAsync.value?.length;
+
+    return AppPage(
+      header: AppPageHeader(
+        title: Text(strings.title),
+        subtitle: noteCount == null ? null : Text(strings.noteCount(noteCount)),
+        actions: <Widget>[
+          AppIconButton(
+            icon: Icons.search,
+            tooltip: strings.search,
             onPressed: () => _search(context),
+          ),
+          AppIconButton(
+            icon: Icons.note_add_outlined,
+            tooltip: strings.newNote,
+            onPressed: () => _newFromTemplate(),
+          ),
+          AppIconButton(
+            icon: Icons.create_new_folder_outlined,
+            tooltip: strings.newFolder,
+            onPressed: _newFolder,
+          ),
+          AppIconButton(
+            icon: Icons.delete_outline,
+            tooltip: strings.trash,
+            onPressed: _openTrash,
+          ),
+          AppIconButton(
+            icon: viewMode == NotesViewMode.grid
+                ? Icons.view_list
+                : Icons.grid_view,
+            tooltip: viewMode == NotesViewMode.grid
+                ? strings.listView
+                : strings.gridView,
+            onPressed: () => ref
+                .read(notesViewModeProvider.notifier)
+                .setMode(
+                  viewMode == NotesViewMode.grid
+                      ? NotesViewMode.list
+                      : NotesViewMode.grid,
+                ),
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            tooltip: 'More',
+            tooltip: strings.more,
             onSelected: (value) {
               switch (value) {
-                case 'trash':
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const _TrashScreen(),
-                    ),
-                  );
                 case 'export':
                   _exportZip();
                 case 'import':
                   _importFiles();
               }
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'trash', child: Text('Trash')),
-              PopupMenuItem(value: 'export', child: Text('Export ZIP')),
-              PopupMenuItem(value: 'import', child: Text('Import .md / .txt')),
+            itemBuilder: (_) => <PopupMenuEntry<String>>[
+              PopupMenuItem(value: 'export', child: Text(strings.exportZip)),
+              PopupMenuItem(value: 'import', child: Text(strings.importFiles)),
             ],
           ),
         ],
       ),
-      body: Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _Breadcrumbs(
             folderId: _folderId,
             onNavigate: (id) => _navigateFolder(id),
           ),
+          const SizedBox(height: DsSpace.x8),
           Expanded(
             child: foldersAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppSkeletonList(rows: 5),
               error: (e, _) => _ErrorState(
-                message: 'Could not load folders.',
+                message: strings.errorFolders,
                 onRetry: () => ref.invalidate(foldersProvider(_folderId)),
               ),
               data: (folders) => notesAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const AppSkeletonList(rows: 5),
                 error: (e, _) => _ErrorState(
-                  message: 'Could not load notes.',
+                  message: strings.errorNotes,
                   onRetry: () => ref.invalidate(folderNotesProvider(_folderId)),
                 ),
                 data: (notes) => _NotesListBody(
@@ -133,29 +143,18 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
           ),
         ],
       ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton.small(
-            heroTag: 'new-folder',
-            onPressed: _newFolder,
-            child: const Icon(Icons.create_new_folder_outlined),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton(
-            heroTag: 'new-note',
-            onPressed: _newFromTemplate,
-            child: const Icon(Icons.add),
-          ),
-        ],
-      ),
     );
+  }
+
+  void _openTrash() {
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const _TrashScreen()));
   }
 
   Future<void> _newNote({String template = ''}) async {
     final repo = ref.read(noteRepositoryProvider);
     final id = await repo.createNote(
-      title: template.isEmpty ? '' : 'Meeting notes',
+      title: template.isEmpty ? '' : NotesStrings.of(context).meetingNote,
       body: template.isEmpty ? null : template,
       folderId: _folderId,
       linkedEventId: widget.linkedEventId,
@@ -164,22 +163,30 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   }
 
   Future<void> _newFromTemplate() async {
+    final strings = NotesStrings.of(context);
     final choice = await showAppSheet<String>(
       context,
       builder: (ctx) => EscapeToClose(
         child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('Blank'),
-                onTap: () => Navigator.of(ctx).pop('blank'),
-              ),
-              ListTile(
-                title: const Text('Meeting notes'),
-                onTap: () => Navigator.of(ctx).pop('meeting'),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: DsSpace.x16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppSheetHeader(title: strings.templateSheetTitle),
+                _TemplateOption(
+                  icon: Icons.note_add_outlined,
+                  label: strings.blankNote,
+                  onTap: () => Navigator.of(ctx).pop('blank'),
+                ),
+                _TemplateOption(
+                  icon: Icons.groups_outlined,
+                  label: strings.meetingNote,
+                  onTap: () => Navigator.of(ctx).pop('meeting'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -202,6 +209,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   }
 
   Future<void> _importFiles() async {
+    final strings = NotesStrings.of(context);
     try {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -229,18 +237,19 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       if (mounted) {
         showAppSnackBar(
           context,
-          count == 0 ? 'No files imported' : 'Imported $count file(s)',
+          count == 0 ? strings.noFilesImported : strings.importedFiles(count),
           icon: Icons.upload_file_outlined,
         );
       }
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, 'Import failed: $e');
+        showErrorSnackBar(context, strings.importFailed('$e'));
       }
     }
   }
 
   Future<void> _exportZip() async {
+    final strings = NotesStrings.of(context);
     try {
       final notes = ref.read(folderNotesProvider(_folderId)).value ?? const [];
       final archive = Archive();
@@ -259,22 +268,23 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       if (mounted) {
         showAppSnackBar(
           context,
-          'Exported to ${file.path}',
+          strings.exportedTo(file.path),
           icon: Icons.archive_outlined,
         );
       }
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, 'Export failed: $e');
+        showErrorSnackBar(context, strings.exportFailed('$e'));
       }
     }
   }
 
   Future<void> _newFolder() async {
+    final strings = NotesStrings.of(context);
     final name = await showPromptDialog(
       context,
-      title: 'New folder',
-      hint: 'Name',
+      title: strings.newFolder,
+      hint: strings.folderNameHint,
     );
     if (name != null && name.isNotEmpty) {
       await ref
@@ -284,9 +294,10 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   }
 
   Future<void> _search(BuildContext context) async {
-    final query = await showDialog<String>(
+    final strings = NotesStrings.of(context);
+    final query = await showAppDialog<String>(
       context: context,
-      builder: (_) => _SearchDialog(initialQuery: _query),
+      builder: (_) => _SearchDialog(initialQuery: _query, strings: strings),
     );
     if (query == null || query.isEmpty || !mounted) return;
     setState(() => _query = query);
@@ -298,87 +309,6 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         builder: (_) =>
             _SearchResults(query: query, hits: hits, onOpen: _openById),
       ),
-    );
-  }
-}
-
-/// Owns the search field controller so it outlives the dialog route's exit
-/// animation and is disposed with the route state.
-class _SearchDialog extends StatefulWidget {
-  const _SearchDialog({required this.initialQuery});
-
-  final String initialQuery;
-
-  @override
-  State<_SearchDialog> createState() => _SearchDialogState();
-}
-
-class _SearchDialogState extends State<_SearchDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialQuery);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Search notes'),
-      content: TextField(
-        key: const Key('notes-search-field'),
-        controller: _controller,
-        autofocus: true,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: 'Search notes',
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.clear),
-            tooltip: 'Clear',
-            onPressed: () {
-              AppFeedback.tap();
-              _controller.clear();
-            },
-          ),
-        ),
-        onSubmitted: (value) {
-          final query = value.trim();
-          if (query.isEmpty) return;
-          AppFeedback.selection();
-          Navigator.of(context).pop(query);
-        },
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            AppFeedback.tap();
-            Navigator.of(context).pop();
-          },
-          child: const Text('Cancel'),
-        ),
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _controller,
-          builder: (context, value, _) {
-            final query = value.text.trim();
-            return FilledButton(
-              onPressed: query.isEmpty
-                  ? null
-                  : () {
-                      AppFeedback.selection();
-                      Navigator.of(context).pop(query);
-                    },
-              child: const Text('Search'),
-            );
-          },
-        ),
-      ],
     );
   }
 }

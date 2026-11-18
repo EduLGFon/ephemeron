@@ -9,6 +9,7 @@ import 'package:ephemeron/features/notes/presentation/notes_screen.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'backend_auth_case.dart' show FakeBackend, MemoryTokenStore;
 
@@ -95,6 +96,36 @@ void main() {
       expect(spans.single.text, 'plain snippet');
       expect(spans.single.style?.fontWeight, isNot(FontWeight.bold));
     });
+  });
+
+  testWidgets('notes home exposes header actions and empty state', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: NotesScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+
+    expect(find.text('Notes'), findsOneWidget);
+    expect(find.byTooltip('Search'), findsOneWidget);
+    expect(find.byTooltip('New note'), findsOneWidget);
+    expect(find.byTooltip('New folder'), findsOneWidget);
+    expect(find.byTooltip('Trash'), findsOneWidget);
+    expect(find.byTooltip('List view'), findsOneWidget);
+    expect(find.text('All notes'), findsOneWidget);
+    expect(find.text('No notes here'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
   });
 
   testWidgets('password visibility toggle updates the obscure flag', (
