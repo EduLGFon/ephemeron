@@ -54,7 +54,10 @@ import 'package:ephemeron/features/stream/presentation/tray/tray_strip.dart';
 import 'package:ephemeron/features/stream/presentation/stream_route_params.dart';
 import 'package:ephemeron/app/router/app_router.dart';
 import 'package:ephemeron/app/shell/app_shell.dart';
+import 'package:ephemeron/app/shell/destinations.dart';
+import 'package:ephemeron/features/calendar/application/calendar_cache_coordinator.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
+import 'package:ephemeron/features/today/presentation/today_screen.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/sync/application/sync_providers.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart' show SyncStatus;
@@ -395,7 +398,7 @@ String _location(GoRouter router) =>
     router.routerDelegate.currentConfiguration.last.matchedLocation;
 
 void main() {
-  testWidgets('/ opens the stream day view inside AppShell', (
+  testWidgets('stream day view opens inside AppShell when opted in', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(360, 800);
@@ -405,6 +408,7 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'settings.onboarded': true,
       'stream.school.completed': true,
+      'settings.streamEnabled': true,
     });
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -423,7 +427,16 @@ void main() {
     GoRouter? router;
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          // The root redirect paints Today first; its real cache build is
+          // unrelated to Stream and would add drift work to this test.
+          calendarRangeOccurrencesProvider.overrideWith(
+            (ref, range) => Stream<List<OccurrenceCacheData>>.value(
+              const <OccurrenceCacheData>[],
+            ),
+          ),
+        ],
         child: Consumer(
           builder: (context, ref, _) {
             final r = ref.watch(appRouterProvider);
@@ -444,18 +457,26 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 500));
 
+    // Root is Today now; Stream is opt-in at its canonical branch URL.
+    expect(find.byType(AppShell), findsOneWidget);
+    expect(find.byType(TodayScreen), findsOneWidget);
+
+    final streamDate = DateTime(2026, 11, 17);
+    router!.go(AppDestination.streamLocation(streamDate));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+
     expect(find.byType(AppShell), findsOneWidget);
     expect(find.byType(StreamScreen), findsOneWidget);
-    expect(
-      _location(router!),
-      '/stream/${formatStreamDate(DateTime.now())}/day',
-    );
+    expect(find.byType(TodayScreen), findsNothing);
+    expect(_location(router!), '/stream/${formatStreamDate(streamDate)}/day');
 
     // Unmount while pumps still run so Riverpod cancels its drift stream
-    // subscriptions; the in-memory database needs no teardown.
+    // subscriptions, then close the in-memory database.
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
+    await db.close();
   });
 
   test('invalid date and zoom fall back', () {
