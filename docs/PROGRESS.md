@@ -54,3 +54,7 @@ tray, slipped triage, peek editor, agenda lens, focus timer/band, countdown
 landmarks, habit gutter/streak line, gesture school, designed states, platform
 capabilities, week/month views, day surface shell. Wiring of these units and the
 Phase 0 performance audit remain.
+
+## Stream verification (2026-11-17)
+
+v3 @ 31fcc08. `flutter gen-l10n` exit 0, no tracked changes; `flutter analyze` No issues found (4.7s); 194 case files. Full `flutter test` run serially: 1655 passed, 0 failed, 152s wall (green). Earlier red run on 7307ba2 failed `stream_route_params invalid zoom falls back to day`; 31fcc08 (`merge(test): fix stale invalid-zoom expectation`) fixed it. Perf gate: `integration_test/stream_spike_perf_test.dart` needs a device; `flutter devices` shows only Linux desktop and Chrome, no Android target (emulator not started). ARCHITECTURE.md:8 budgets (cold start <600ms, frame <16ms, idle RAM <150MB) remain unmeasured.
