@@ -1,7 +1,19 @@
+// Part of the focus screen library: setup, presets, links, pause banner,
+// today totals and recent sessions.
 part of 'focus_screen.dart';
 
+enum _FocusMode { focus, breakTime, stopwatch }
+
 class _StartView extends ConsumerStatefulWidget {
-  const _StartView();
+  const _StartView({
+    required this.paused,
+    required this.onStarted,
+    required this.onPausedCleared,
+  });
+
+  final PausedFocusSegment? paused;
+  final VoidCallback onStarted;
+  final VoidCallback onPausedCleared;
 
   @override
   ConsumerState<_StartView> createState() => _StartViewState();
@@ -33,7 +45,9 @@ class _StartViewState extends ConsumerState<_StartView> {
             _taskId = repo.focusTaskId;
             _habitId = repo.focusHabitId;
           });
-        } catch (_) {}
+        } catch (_) {
+          // Setup is a convenience; defaults still start a session.
+        }
       });
     }
   }
@@ -48,23 +62,31 @@ class _StartViewState extends ConsumerState<_StartView> {
         taskId: () => _taskId,
         habitId: () => _habitId,
       );
-    } catch (_) {}
+    } catch (_) {
+      // A failed save must not block starting a session.
+    }
   }
 
-  String get _customChipLabel {
-    final isBreak = _mode == _FocusMode.breakTime;
-    final current = isBreak ? _breakMin : _focusMin;
-    final presets = isBreak ? _breakPresets : _focusPresets;
-    return presets.contains(current) ? 'Custom' : 'Custom: $current min';
+  int get _currentMinutes =>
+      _mode == _FocusMode.breakTime ? _breakMin : _focusMin;
+
+  String _customChipLabel(FocusStrings strings) {
+    final presets = _mode == _FocusMode.breakTime
+        ? _breakPresets
+        : _focusPresets;
+    return presets.contains(_currentMinutes)
+        ? strings.custom
+        : strings.customMinutes(_currentMinutes);
   }
 
   Future<void> _editCustomDuration() async {
     final isBreak = _mode == _FocusMode.breakTime;
-    final current = isBreak ? _breakMin : _focusMin;
-    final minutes = await showDialog<int>(
+    final minutes = await showAppDialog<int>(
       context: context,
-      builder: (_) =>
-          _CustomDurationDialog(isBreak: isBreak, initialMinutes: current),
+      builder: (_) => _CustomDurationDialog(
+        isBreak: isBreak,
+        initialMinutes: _currentMinutes,
+      ),
     );
     if (minutes == null || !mounted) return;
     AppFeedback.success();
@@ -82,6 +104,7 @@ class _StartViewState extends ConsumerState<_StartView> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = FocusStrings.of(context);
     ref.listen<String?>(pendingFocusNextProvider, (prev, next) {
       if (next == null || _handlingPendingNext || !mounted) return;
       _handlingPendingNext = true;
@@ -91,293 +114,194 @@ class _StartViewState extends ConsumerState<_StartView> {
         setState(() {
           _mode = next == 'break' ? _FocusMode.breakTime : _FocusMode.focus;
         });
-        await _start();
+        await _start(context, ref);
         _handlingPendingNext = false;
       });
     });
     final tasksAsync = ref.watch(linkableTasksProvider);
     final habitsAsync = ref.watch(linkableHabitsProvider);
-    final todayAsync = ref.watch(focusTodayMinutesProvider);
-    final breakTodayAsync = ref.watch(breakTodayMinutesProvider);
-    final weekAsync = ref.watch(focusWeekMinutesProvider);
-    final recentAsync = ref.watch(recentFocusSessionsProvider);
-    return RepaintBoundary(
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SegmentedButton<_FocusMode>(
-            segments: const [
-              ButtonSegment(value: _FocusMode.focus, label: Text('Focus')),
-              ButtonSegment(value: _FocusMode.breakTime, label: Text('Break')),
-              ButtonSegment(
-                value: _FocusMode.stopwatch,
-                label: Text('Stopwatch'),
+    final paused = widget.paused;
+    return ListView(
+      padding: const EdgeInsets.only(bottom: DsSpace.x48),
+      children: [
+        if (paused != null) ...[
+          _PausedBanner(
+            segment: paused,
+            strings: strings,
+            onResume: () => _resume(context, ref),
+            onDiscard: widget.onPausedCleared,
+          ),
+          const SizedBox(height: DsSpace.x12),
+        ],
+        Wrap(
+          spacing: DsSpace.x8,
+          runSpacing: DsSpace.x8,
+          children: [
+            AppFilterChip(
+              label: strings.modeFocus,
+              selected: _mode == _FocusMode.focus,
+              onSelected: (_) => _selectMode(_FocusMode.focus),
+            ),
+            AppFilterChip(
+              label: strings.modeBreak,
+              selected: _mode == _FocusMode.breakTime,
+              onSelected: (_) => _selectMode(_FocusMode.breakTime),
+            ),
+            AppFilterChip(
+              label: strings.modeStopwatch,
+              selected: _mode == _FocusMode.stopwatch,
+              onSelected: (_) => _selectMode(_FocusMode.stopwatch),
+            ),
+          ],
+        ),
+        const SizedBox(height: DsSpace.x12),
+        if (_mode != _FocusMode.stopwatch) ...[
+          Wrap(
+            spacing: DsSpace.x8,
+            runSpacing: DsSpace.x8,
+            children: [
+              for (final minutes
+                  in (_mode == _FocusMode.breakTime
+                      ? _breakPresets
+                      : _focusPresets))
+                AppChip(
+                  label: strings.minutes(minutes),
+                  selected: _currentMinutes == minutes,
+                  onTap: () => _selectPreset(minutes),
+                ),
+              AppChip(
+                label: _customChipLabel(strings),
+                icon: Icons.tune,
+                onTap: _editCustomDuration,
               ),
             ],
-            selected: {_mode},
-            onSelectionChanged: (s) {
-              AppFeedback.selection();
-              setState(() => _mode = s.single);
+          ),
+          const SizedBox(height: DsSpace.x12),
+        ],
+        tasksAsync.maybeWhen(
+          data: (tasks) => DropdownButtonFormField<String?>(
+            initialValue: _taskId,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: strings.linkTask),
+            items: [
+              DropdownMenuItem<String?>(value: null, child: Text(strings.none)),
+              for (final task in tasks.take(50))
+                DropdownMenuItem<String?>(
+                  value: task.id,
+                  child: Text(task.title),
+                ),
+            ],
+            onChanged: (value) {
+              setState(() => _taskId = value);
               _persistSetup();
             },
           ),
-          const SizedBox(height: 8),
-          if (_mode != _FocusMode.stopwatch) ...[
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final m
-                    in (_mode == _FocusMode.breakTime
-                        ? _breakPresets
-                        : _focusPresets))
-                  ChoiceChip(
-                    label: Text('$m min'),
-                    selected:
-                        (_mode == _FocusMode.breakTime
-                            ? _breakMin
-                            : _focusMin) ==
-                        m,
-                    onSelected: (_) {
-                      AppFeedback.selection();
-                      setState(() {
-                        if (_mode == _FocusMode.breakTime) {
-                          _breakMin = m;
-                        } else {
-                          _focusMin = m;
-                        }
-                      });
-                      _persistSetup();
-                    },
-                  ),
-                ActionChip(
-                  avatar: const Icon(Icons.tune, size: 16),
-                  label: Text(_customChipLabel),
-                  onPressed: _editCustomDuration,
+          orElse: () => const SizedBox.shrink(),
+        ),
+        const SizedBox(height: DsSpace.x8),
+        habitsAsync.maybeWhen(
+          data: (habits) => DropdownButtonFormField<String?>(
+            initialValue: _habitId,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: strings.linkHabit),
+            items: [
+              DropdownMenuItem<String?>(value: null, child: Text(strings.none)),
+              for (final habit in habits)
+                DropdownMenuItem<String?>(
+                  value: habit.id,
+                  child: Text(habit.name),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-          tasksAsync.maybeWhen(
-            data: (tasks) => DropdownButtonFormField<String?>(
-              initialValue: _taskId,
-              decoration: const InputDecoration(
-                labelText: 'Link task (optional)',
-              ),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('None'),
-                ),
-                for (final t in tasks.take(50))
-                  DropdownMenuItem<String?>(value: t.id, child: Text(t.title)),
-              ],
-              onChanged: (v) {
-                setState(() => _taskId = v);
-                _persistSetup();
-              },
-            ),
-            orElse: () => const SizedBox.shrink(),
+            ],
+            onChanged: (value) {
+              setState(() => _habitId = value);
+              _persistSetup();
+            },
           ),
-          habitsAsync.maybeWhen(
-            data: (habits) => DropdownButtonFormField<String?>(
-              initialValue: _habitId,
-              decoration: const InputDecoration(
-                labelText: 'Link habit (optional)',
-              ),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('None'),
-                ),
-                for (final h in habits)
-                  DropdownMenuItem<String?>(value: h.id, child: Text(h.name)),
-              ],
-              onChanged: (v) {
-                setState(() => _habitId = v);
-                _persistSetup();
-              },
-            ),
-            orElse: () => const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 12),
-          if (_mode != _FocusMode.stopwatch) ...[
-            AlarmPresetPicker(
-              value: _alarmPreset,
-              onChanged: (v) => setState(
-                () => _alarmPreset = v,
-              ), // alarm preset is per-session, not persisted
-            ),
-            const SizedBox(height: 12),
-          ],
-          FilledButton.icon(
-            onPressed: _start,
-            icon: const Icon(Icons.play_arrow),
-            label: Text(
-              _mode == _FocusMode.stopwatch
-                  ? 'Start stopwatch'
-                  : 'Start ${_mode == _FocusMode.breakTime ? _breakMin : _focusMin} min ${_mode == _FocusMode.breakTime ? 'break' : 'focus'}',
-            ),
-          ),
-          const SizedBox(height: 16),
-          todayAsync.maybeWhen(
-            data: (min) => Text(
-              'Focus today: ${_formatMin(min)}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            orElse: () => const SizedBox.shrink(),
-          ),
-          breakTodayAsync.maybeWhen(
-            data: (min) => Text(
-              'Break today: ${_formatMin(min)}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            orElse: () => const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Focus this week',
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
-          weekAsync.maybeWhen(
-            data: (days) => _WeekBars(days: days),
-            orElse: () => const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 8),
-          recentAsync.maybeWhen(
-            data: (sessions) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Recent', style: Theme.of(context).textTheme.titleSmall),
-                for (final s in sessions.take(10)) _SessionTile(session: s),
-              ],
-            ),
-            orElse: () => const SizedBox.shrink(),
+          orElse: () => const SizedBox.shrink(),
+        ),
+        if (_mode != _FocusMode.stopwatch) ...[
+          const SizedBox(height: DsSpace.x12),
+          AlarmPresetPicker(
+            value: _alarmPreset,
+            onChanged: (value) => setState(() => _alarmPreset = value),
           ),
         ],
-      ),
+        const SizedBox(height: DsSpace.x16),
+        AppButton(
+          label: _startLabel(strings),
+          icon: Icons.play_arrow,
+          expand: true,
+          onPressed: () => _start(context, ref),
+        ),
+        const SizedBox(height: DsSpace.x16),
+        const _FocusHistorySection(),
+      ],
     );
   }
 
-  Future<void> _start() async {
+  String _startLabel(FocusStrings strings) {
+    return switch (_mode) {
+      _FocusMode.stopwatch => strings.startStopwatch,
+      _FocusMode.breakTime => strings.startLabel('break', _breakMin),
+      _FocusMode.focus => strings.startLabel('focus', _focusMin),
+    };
+  }
+
+  void _selectMode(_FocusMode mode) {
+    if (_mode == mode) return;
+    AppFeedback.selection();
+    setState(() => _mode = mode);
+    _persistSetup();
+  }
+
+  void _selectPreset(int minutes) {
+    AppFeedback.selection();
+    setState(() {
+      if (_mode == _FocusMode.breakTime) {
+        _breakMin = minutes;
+      } else {
+        _focusMin = minutes;
+      }
+    });
+    _persistSetup();
+  }
+
+  Future<void> _start(BuildContext context, WidgetRef ref) async {
     final isStopwatch = _mode == _FocusMode.stopwatch;
-    // Moment of need: the end-of-phase alarm needs notifications, and
-    // clock presets need exact-alarm access. Advisory only. Stopwatch has
-    // no end alarm, so it asks for nothing.
-    final preset = AlarmPreset.tryParse(_alarmPreset);
-    if (!isStopwatch) {
-      await AppPermissions.ensureAlarmPrereqs(
-        context,
-        exactAlarm: preset?.needsAlarmClock ?? false,
-        fullScreen: preset?.usesFullScreen ?? false,
-      );
-      if (!mounted) return;
-    }
-    AppFeedback.tap();
-    final repo = ref.read(focusRepositoryProvider);
-    final id = await repo.startSession(
+    final phase = isStopwatch
+        ? 'stopwatch'
+        : (_mode == _FocusMode.breakTime ? 'break' : 'focus');
+    await _startSession(
+      context,
+      ref,
       taskId: _taskId,
       habitId: _habitId,
       durationMin: isStopwatch
           ? null
           : (_mode == _FocusMode.breakTime ? _breakMin : _focusMin),
-      phase: isStopwatch
-          ? 'stopwatch'
-          : (_mode == _FocusMode.breakTime ? 'break' : 'focus'),
+      phase: phase,
       alarmPreset: isStopwatch ? null : _alarmPreset,
     );
-    final session = await repo.currentSession();
-    if (session != null && session.id == id) {
-      // No-op for stopwatch sessions (targetEndUtc is null).
-      await _scheduleEndAlarm(session);
-      await SystemLauncher.startFocusChronometer(
-        '${session.phase ?? 'focus'} session',
-        session.startUtc,
-        targetUtcMs: session.targetEndUtc,
-      );
-      try {
-        final settings = await ref.read(settingsRepositoryProvider.future);
-        if (settings.focusDnd) await SystemLauncher.setDnd(true);
-      } catch (_) {
-        // DND is best-effort; the session runs regardless.
-      }
-    }
-    _refresh(ref);
-  }
-}
-
-/// Owns the controller for its whole route lifetime so it is disposed with
-/// the dialog State, never while the route is still animating out.
-class _CustomDurationDialog extends StatefulWidget {
-  const _CustomDurationDialog({
-    required this.isBreak,
-    required this.initialMinutes,
-  });
-
-  final bool isBreak;
-  final int initialMinutes;
-
-  @override
-  State<_CustomDurationDialog> createState() => _CustomDurationDialogState();
-}
-
-class _CustomDurationDialogState extends State<_CustomDurationDialog> {
-  late final TextEditingController _controller;
-  String? _error;
-
-  int get _max => widget.isBreak ? 60 : 240;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: '${widget.initialMinutes}');
+    if (!mounted) return;
+    widget.onPausedCleared();
+    widget.onStarted();
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final validation = validateFocusMinutes(
-      _controller.text,
-      isBreak: widget.isBreak,
+  Future<void> _resume(BuildContext context, WidgetRef ref) async {
+    final segment = widget.paused;
+    if (segment == null) return;
+    await _startSession(
+      context,
+      ref,
+      taskId: segment.taskId,
+      habitId: segment.habitId,
+      durationMin: segment.isStopwatch ? null : segment.remainingMinutes,
+      phase: segment.phase,
+      alarmPreset: segment.alarmPreset,
+      note: segment.note,
     );
-    if (validation != null) {
-      setState(() => _error = validation);
-      return;
-    }
-    Navigator.of(context).pop(int.parse(_controller.text.trim()));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.isBreak ? 'Custom break' : 'Custom focus'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: InputDecoration(
-          labelText: 'Minutes',
-          helperText: '1-$_max minutes',
-          errorText: _error,
-        ),
-        onChanged: (_) {
-          if (_error != null) setState(() => _error = null);
-        },
-        onSubmitted: (_) => _submit(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('Use duration')),
-      ],
-    );
+    if (!mounted) return;
+    widget.onPausedCleared();
+    widget.onStarted();
   }
 }

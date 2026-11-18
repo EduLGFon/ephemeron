@@ -1,3 +1,5 @@
+// Part of the focus screen library: pause, finish, complete-next, discard and
+// the completion suggestion.
 part of 'focus_screen.dart';
 
 extension _RunningViewActions on _RunningViewState {
@@ -7,27 +9,26 @@ extension _RunningViewActions on _RunningViewState {
   ) async {
     AppFeedback.success();
     if (!mounted) return;
+    final strings = FocusStrings.of(context);
     final isBreak = widget.session.phase == 'break';
-    final nextLabel = isBreak ? 'start a focus session' : 'start a break';
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isBreak ? 'Break over' : 'Focus session complete'),
-        content: Text(
-          'Tracked $elapsedMin min of ${isBreak ? 'break' : 'focus'}. '
-          'Would you like to $nextLabel?',
+        title: Text(
+          isBreak ? strings.completeTitleBreak : strings.completeTitleFocus,
         ),
+        content: Text(strings.completionBody(elapsedMin, isBreak)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Not now'),
+            child: Text(strings.notNow),
           ),
           FilledButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               _completeAndStartNext(context, ref, elapsedMin);
             },
-            child: Text(isBreak ? 'Start focus' : 'Start break'),
+            child: Text(isBreak ? strings.startFocus : strings.startBreak),
           ),
         ],
       ),
@@ -38,18 +39,19 @@ extension _RunningViewActions on _RunningViewState {
     await _flushNote();
     if (!mounted) return null;
     final repo = ref.read(focusRepositoryProvider);
+    final note = _noteController.text.trim();
     final kept = await repo.finishSession(
       widget.session.id,
-      note: _noteController.text.trim().isEmpty
-          ? null
-          : _noteController.text.trim(),
+      note: note.isEmpty ? null : note,
     );
     await AlarmScheduler.cancel(_requestCode(widget.session.id));
     await SystemLauncher.stopFocusChronometer();
     try {
       final settings = await ref.read(settingsRepositoryProvider.future);
       if (settings.focusDnd) await SystemLauncher.setDnd(false);
-    } catch (_) {}
+    } catch (_) {
+      // DND is best-effort; the session is already finished.
+    }
     final habitId = widget.session.habitId;
     final isBreak = widget.session.phase == 'break';
     if (habitId != null && kept > 0 && !isBreak && mounted) {
@@ -58,41 +60,67 @@ extension _RunningViewActions on _RunningViewState {
     return kept;
   }
 
+  Future<void> _pause(BuildContext context, WidgetRef ref) async {
+    final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
+    final target = widget.session.targetEndUtc;
+    final rawRemaining = target == null ? null : target - nowMs;
+    final remainingMs = rawRemaining == null
+        ? null
+        : (rawRemaining < 0 ? 0 : rawRemaining);
+    if (remainingMs != null && remainingMs <= 0) {
+      await _finish(context, ref, _elapsedMinutes(nowMs));
+      return;
+    }
+    final note = _noteController.text.trim();
+    final kept = await _completeSession(ref);
+    if (kept == null || !mounted) return;
+    AppFeedback.success();
+    widget.onPaused(
+      PausedFocusSegment(
+        remainingMs: remainingMs,
+        phase: widget.session.phase ?? 'focus',
+        taskId: widget.session.taskId,
+        habitId: widget.session.habitId,
+        alarmPreset: widget.session.alarmPreset,
+        note: note.isEmpty ? null : note,
+      ),
+    );
+    _refresh(ref);
+  }
+
   Future<void> _finish(
     BuildContext context,
     WidgetRef ref,
     int elapsedMin,
   ) async {
+    final strings = FocusStrings.of(context);
     final isBreak = widget.session.phase == 'break';
+    final phase = isBreak ? strings.modeBreak : strings.modeFocus;
     final target = widget.session.targetEndUtc;
     final String copy;
     if (target == null) {
-      copy =
-          'Keep the $elapsedMin min you tracked. '
-          'A stopwatch has no remainder to schedule.';
+      copy = strings.stopDialogBodyStopwatch(elapsedMin);
     } else {
       final totalMin = ((target - widget.session.startUtc) / msPerMinute)
           .floor();
-      final remainingMin = (totalMin - elapsedMin).clamp(0, totalMin);
+      final remainingMin = (totalMin - elapsedMin).clamp(0, totalMin).toInt();
       copy = remainingMin > 0
-          ? 'Keep $elapsedMin min of ${isBreak ? 'break' : 'focus'}. '
-                'The remaining $remainingMin min will not be counted.'
-          : 'Keep $elapsedMin min of ${isBreak ? 'break' : 'focus'}. '
-                'No time is left in this session.';
+          ? strings.stopDialogBody(elapsedMin, remainingMin, phase)
+          : strings.stopDialogBodyNoRemainder(elapsedMin, phase);
     }
-    final ok = await showDialog<bool>(
+    final ok = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Stop session?'),
+        title: Text(strings.finishDialogTitle),
         content: Text(copy),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Stop'),
+            child: Text(strings.stop),
           ),
         ],
       ),
@@ -108,12 +136,11 @@ extension _RunningViewActions on _RunningViewState {
     WidgetRef ref,
     int elapsedMin,
   ) async {
-    final startBreak = widget.session.phase != 'break';
     await _completeAndStartPhase(
       context,
       ref,
       elapsedMin,
-      startBreak: startBreak,
+      startBreak: widget.session.phase != 'break',
     );
   }
 
@@ -139,42 +166,23 @@ extension _RunningViewActions on _RunningViewState {
       durationMin = startBreak
           ? settings.focusBreakMin
           : settings.focusSetupMin;
-    } catch (_) {}
-    final phase = startBreak ? 'break' : 'focus';
-    final preset = AlarmPreset.notification;
-    if (mounted) {
-      await AppPermissions.ensureAlarmPrereqs(
-        context,
-        exactAlarm: preset.needsAlarmClock,
-        fullScreen: preset.usesFullScreen,
-      );
+    } catch (_) {
+      // Defaults keep the chain moving when setup cannot load.
     }
     if (!mounted) return;
-    final repo = ref.read(focusRepositoryProvider);
-    final id = await repo.startSession(
+    await _startSession(
+      context,
+      ref,
       taskId: widget.session.taskId,
       habitId: widget.session.habitId,
       durationMin: durationMin,
-      phase: phase,
-      alarmPreset: preset.id,
+      phase: startBreak ? 'break' : 'focus',
+      alarmPreset: AlarmPreset.notification.id,
     );
-    final session = await repo.currentSession();
-    if (session != null && session.id == id) {
-      await _scheduleEndAlarm(session);
-      await SystemLauncher.startFocusChronometer(
-        '$phase session',
-        session.startUtc,
-        targetUtcMs: session.targetEndUtc,
-      );
-      try {
-        final settings = await ref.read(settingsRepositoryProvider.future);
-        if (settings.focusDnd) await SystemLauncher.setDnd(true);
-      } catch (_) {}
-    }
-    _refresh(ref);
   }
 
   Future<void> _discard(BuildContext context, WidgetRef ref) async {
+    final strings = FocusStrings.of(context);
     final pending = ref.read(pendingOperationsProvider);
     final opId = await pending.scheduleFocusDelete(widget.session.id);
     await AlarmScheduler.cancel(_requestCode(widget.session.id));
@@ -182,19 +190,95 @@ extension _RunningViewActions on _RunningViewState {
     try {
       final settings = await ref.read(settingsRepositoryProvider.future);
       if (settings.focusDnd) await SystemLauncher.setDnd(false);
-    } catch (_) {}
+    } catch (_) {
+      // DND is best-effort.
+    }
     _refresh(ref);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Session discarded.'),
-        duration: const Duration(seconds: 6),
-        persist: false,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => pending.cancel(opId),
-        ),
+    showUndoSnackBar(
+      context,
+      strings.sessionDiscarded,
+      onUndo: () => pending.cancel(opId),
+    );
+  }
+}
+
+/// Owns the controller for its whole route lifetime so it is disposed with
+/// the dialog State, never while the route is still animating out.
+class _CustomDurationDialog extends StatefulWidget {
+  const _CustomDurationDialog({
+    required this.isBreak,
+    required this.initialMinutes,
+  });
+
+  final bool isBreak;
+  final int initialMinutes;
+
+  @override
+  State<_CustomDurationDialog> createState() => _CustomDurationDialogState();
+}
+
+class _CustomDurationDialogState extends State<_CustomDurationDialog> {
+  late final TextEditingController _controller;
+  String? _error;
+
+  int get _max => widget.isBreak ? 60 : 240;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${widget.initialMinutes}');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final validation = validateFocusMinutes(
+      _controller.text,
+      isBreak: widget.isBreak,
+    );
+    if (validation != null) {
+      setState(() => _error = validation);
+      return;
+    }
+    Navigator.of(context).pop(int.parse(_controller.text.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = FocusStrings.of(context);
+    return AlertDialog(
+      title: Text(
+        widget.isBreak
+            ? '${strings.custom} ${strings.modeBreak}'
+            : '${strings.custom} ${strings.modeFocus}',
       ),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: InputDecoration(
+          labelText: strings.minutesLabel,
+          helperText: '1-$_max min',
+          errorText: _error,
+        ),
+        onChanged: (_) {
+          if (_error != null) setState(() => _error = null);
+        },
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(strings.cancel),
+        ),
+        FilledButton(onPressed: _submit, child: Text(strings.useDuration)),
+      ],
     );
   }
 }

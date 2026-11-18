@@ -1,5 +1,22 @@
-// Part of the habits screen library: section-grouped habit list.
+// Part of the habits screen library: section-grouped, lazily built rows.
 part of '../habits_screen.dart';
+
+sealed class _HabitListEntry {
+  const _HabitListEntry();
+}
+
+class _SectionEntry extends _HabitListEntry {
+  const _SectionEntry({required this.name, required this.count});
+
+  final String name;
+  final int count;
+}
+
+class _HabitEntry extends _HabitListEntry {
+  const _HabitEntry(this.habit);
+
+  final Habit habit;
+}
 
 class _HabitList extends StatelessWidget {
   const _HabitList({
@@ -7,6 +24,7 @@ class _HabitList extends StatelessWidget {
     required this.sections,
     required this.selecting,
     required this.selectedIds,
+    required this.strings,
     required this.onToggleSelection,
     required this.onStartSelection,
   });
@@ -15,58 +33,72 @@ class _HabitList extends StatelessWidget {
   final List<HabitSection> sections;
   final bool selecting;
   final Set<String> selectedIds;
+  final HabitsStrings strings;
   final void Function(String id) onToggleSelection;
   final void Function(String id) onStartSelection;
 
   @override
   Widget build(BuildContext context) {
-    final bySection = <String?, List<Habit>>{};
-    for (final h in habits) {
-      bySection.putIfAbsent(h.sectionId, () => []).add(h);
+    final grouped = <String?, List<Habit>>{};
+    for (final habit in habits) {
+      grouped.putIfAbsent(habit.sectionId, () => []).add(habit);
     }
-    String sectionName(String? id) {
-      if (id == null) return 'No section';
-      for (final s in sections) {
-        if (s.id == id) return s.name;
+    final knownSections = {for (final section in sections) section.id};
+    final orderedIds = [
+      ...sections.map((section) => section.id).where(grouped.containsKey),
+      ...grouped.keys.where((id) => id != null && !knownSections.contains(id)),
+    ];
+    final hasNamedSections = orderedIds.isNotEmpty;
+    final entries = <_HabitListEntry>[];
+    void addSection(String? id, List<Habit> rows) {
+      if (hasNamedSections) {
+        entries.add(
+          _SectionEntry(
+            name: id == null ? strings.noSection : _sectionName(id),
+            count: rows.length,
+          ),
+        );
       }
-      return 'No section';
+      entries.addAll(rows.map(_HabitEntry.new));
     }
 
-    final orderedKeys = [
-      ...sections.map((s) => s.id).where(bySection.containsKey),
-      if (bySection.containsKey(null)) null,
-      ...bySection.keys.where(
-        (k) => k != null && !sections.any((s) => s.id == k),
-      ),
-    ];
-    final items = <Widget>[];
-    for (final key in orderedKeys) {
-      items.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
-            sectionName(key),
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-        ),
-      );
-      items.addAll(
-        bySection[key]!.map(
-          (h) => _HabitTile(
-            habit: h,
-            selecting: selecting,
-            selected: selectedIds.contains(h.id),
-            onToggleSelection: () => onToggleSelection(h.id),
-            onStartSelection: () => onStartSelection(h.id),
-          ),
-        ),
-      );
+    for (final id in orderedIds) {
+      addSection(id, grouped[id]!);
     }
-    return RepaintBoundary(
-      child: ListView.builder(
-        itemCount: items.length,
-        itemBuilder: (_, i) => items[i],
-      ),
+    if (grouped.containsKey(null)) {
+      addSection(null, grouped[null]!);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: DsSpace.x48 + DsSpace.x48),
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final entry = entries[index];
+        switch (entry) {
+          case _SectionEntry():
+            return Padding(
+              padding: const EdgeInsets.only(top: DsSpace.x8),
+              child: SectionTitle(title: entry.name, count: entry.count),
+            );
+          case _HabitEntry():
+            return _HabitTile(
+              key: ValueKey(entry.habit.id),
+              habit: entry.habit,
+              selecting: selecting,
+              selected: selectedIds.contains(entry.habit.id),
+              strings: strings,
+              onToggleSelection: () => onToggleSelection(entry.habit.id),
+              onStartSelection: () => onStartSelection(entry.habit.id),
+            );
+        }
+      },
     );
+  }
+
+  String _sectionName(String id) {
+    for (final section in sections) {
+      if (section.id == id) return section.name;
+    }
+    return strings.noSection;
   }
 }

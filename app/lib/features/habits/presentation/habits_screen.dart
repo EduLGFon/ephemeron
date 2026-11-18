@@ -1,33 +1,40 @@
-// Habits screen: 7-day navigator, sections, one-tap logging,
-// skip, streaks, selection with archive/delete undo.
-//
-// The screen is a single Dart library split into `part` files under
-// presentation/habits_screen/ so each widget stays focused while private
-// members remain shared within the screen. The entry point and import
-// path are unchanged for existing importers.
+// Habits screen: day navigation, sectioned list, one-tap logging, skip,
+// streaks and a compact week of dots. Long-press starts multi-select with
+// archive/delete and the standard six-second undo window. The screen is one
+// library split into part files so each widget stays small.
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:ephemeron/core/theme/theme_tokens.dart';
-import 'package:ephemeron/core/time/device_date_format.dart';
-import 'package:ephemeron/core/ui/app_feedback.dart';
-import 'package:ephemeron/core/ui/app_motion.dart';
-import 'package:ephemeron/core/ui/empty_state.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/components/app_buttons.dart';
+import '../../../core/design/components/app_chips.dart';
+import '../../../core/design/components/app_headers.dart';
+import '../../../core/design/components/app_overlays.dart';
+import '../../../core/design/components/app_page.dart';
+import '../../../core/design/components/app_states.dart';
+import '../../../core/design/components/rows.dart';
+import '../../../core/design/tokens.dart';
+import '../../../core/design/typography.dart';
+import '../../../core/time/device_date_format.dart';
+import '../../../core/ui/app_feedback.dart';
+import '../../../core/ui/app_motion.dart';
+
 import '../../../data/drift/app_database.dart';
+import '../../../data/repositories/habit_repository.dart';
+import '../../../data/services/habit_timer_store.dart';
 import '../../../domain/habits/date_key.dart';
 import '../../../domain/habits/habit_timer.dart';
 import '../../focus/application/focus_providers.dart';
 import '../../sync/application/pending_operations.dart';
 import '../application/habits_providers.dart';
-import '../../../data/repositories/habit_repository.dart';
-import '../../../data/services/habit_timer_store.dart';
 import 'habit_editor_sheet.dart';
+import 'habit_heatmap_screen.dart';
 import 'habits_stats_screen.dart';
+import 'habits_strings.dart';
 
 part 'habits_screen/day_strip.dart';
+part 'habits_screen/header.dart';
 part 'habits_screen/habit_list.dart';
 part 'habits_screen/habit_tile.dart';
 part 'habits_screen/habit_tile_status.dart';
@@ -41,9 +48,8 @@ class HabitsScreen extends ConsumerStatefulWidget {
 }
 
 class _HabitsScreenState extends ConsumerState<HabitsScreen> {
-  // Selection is local to the screen. The list is small and the app bar,
-  // list, and floating button all read it, so a single widget-owned set keeps
-  // the selection mode in sync without a new provider.
+  // Selection is local to the screen. The header and list both read it, and
+  // the list is small enough that one owning set stays simple.
   final Set<String> _selected = <String>{};
 
   bool get _selecting => _selected.isNotEmpty;
@@ -66,7 +72,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
   /// Current selected rows from the latest active-list snapshot. Bulk actions
   /// resolve this at action time so a stale build snapshot can never be
   /// scheduled.
-  List<Habit> _liveSelectedHabits(WidgetRef ref) {
+  List<Habit> _liveSelectedHabits() {
     final archived = ref.read(showArchivedHabitsProvider);
     final habits = ref
         .read(habitsProvider(archived))
@@ -86,14 +92,14 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     setState(() => _selected.removeAll(stale));
   }
 
-  Future<void> _archiveSelected(WidgetRef ref) async {
-    final selected = _liveSelectedHabits(ref);
+  Future<void> _archiveSelected() async {
+    final strings = HabitsStrings.of(context);
+    final selected = _liveSelectedHabits();
     if (selected.isEmpty) {
       _clearSelection();
       return;
     }
     final unifyArchive = !selected.every((h) => h.archived);
-    // Mixed selections skip rows that already match the target state.
     final targets = selected.where((h) => h.archived != unifyArchive).toList();
     if (targets.isEmpty) {
       _clearSelection();
@@ -106,46 +112,36 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     }
     if (!mounted) return;
     _clearSelection();
-    final action = unifyArchive ? 'archived' : 'unarchived';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          targets.length == 1 ? 'Habit $action.' : 'Habits $action.',
-        ),
-        duration: const Duration(seconds: 6),
-        persist: false,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => pending.cancelAll(opIds),
-        ),
-      ),
+    showUndoSnackBar(
+      context,
+      unifyArchive
+          ? strings.archivedMessage(targets.length)
+          : strings.unarchivedMessage(targets.length),
+      onUndo: () => pending.cancelAll(opIds),
     );
   }
 
-  Future<void> _deleteSelected(WidgetRef ref) async {
-    final selected = _liveSelectedHabits(ref);
+  Future<void> _deleteSelected() async {
+    final strings = HabitsStrings.of(context);
+    final selected = _liveSelectedHabits();
     if (selected.isEmpty) {
       _clearSelection();
       return;
     }
     final count = selected.length;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(count == 1 ? 'Delete 1 habit?' : 'Delete $count habits?'),
-        content: Text(
-          count == 1
-              ? 'This habit will be deleted.'
-              : 'These $count habits will be deleted.',
-        ),
+        title: Text(strings.deleteDialogTitle(count)),
+        content: Text(strings.deleteDialogBody(count)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: Text(strings.delete),
           ),
         ],
       ),
@@ -153,7 +149,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     if (confirmed != true || !mounted) return;
     // Re-resolve after the dialog: the active list may have changed while it
     // was open.
-    final targets = _liveSelectedHabits(ref);
+    final targets = _liveSelectedHabits();
     if (targets.isEmpty) {
       _clearSelection();
       return;
@@ -165,23 +161,16 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     }
     if (!mounted) return;
     _clearSelection();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          targets.length == 1 ? 'Habit deleted.' : 'Habits deleted.',
-        ),
-        duration: const Duration(seconds: 6),
-        persist: false,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => pending.cancelAll(opIds),
-        ),
-      ),
+    showUndoSnackBar(
+      context,
+      strings.deletedMessage(targets.length),
+      onUndo: () => pending.cancelAll(opIds),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = HabitsStrings.of(context);
     final archived = ref.watch(showArchivedHabitsProvider);
     final habitsAsync = ref.watch(habitsProvider(archived));
     final sectionsAsync = ref.watch(habitSectionsProvider);
@@ -210,31 +199,46 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && _selecting) _clearSelection();
       },
-      child: Scaffold(
-        appBar: _selecting
-            ? _selectionAppBar(ref, selectedHabits)
-            : _defaultAppBar(ref, archived),
-        body: Column(
+      child: AppPage(
+        header: _selecting
+            ? _selectionHeader(strings, selectedHabits)
+            : _defaultHeader(strings, archived, habits.length),
+        fab: _selecting
+            ? null
+            : FloatingActionButton(
+                heroTag: 'habitsFab',
+                tooltip: strings.addHabit,
+                onPressed: () => showHabitEditor(context),
+                child: const Icon(Icons.add),
+              ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _DayStrip(
               selected: selectedDay,
+              strings: strings,
               onSelect: (d) =>
                   ref.read(selectedHabitDayProvider.notifier).select(d),
             ),
+            const SizedBox(height: DsSpace.x8),
             Expanded(
               child: habitsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, _) => _ErrorState(
+                loading: () => const AppSkeletonList(rows: 6),
+                error: (_, _) => AppErrorState(
+                  title: strings.loadError,
                   onRetry: () => ref.invalidate(habitsProvider(archived)),
                 ),
                 data: (habits) {
                   if (habits.isEmpty) {
-                    return EmptyState(
+                    return AppEmptyState(
                       icon: Icons.repeat_outlined,
                       title: archived
-                          ? 'No archived habits.'
-                          : 'No habits yet.',
-                      actionLabel: archived ? null : 'Add habit',
+                          ? strings.emptyArchivedTitle
+                          : strings.emptyTitle,
+                      message: archived
+                          ? strings.emptyArchivedMessage
+                          : strings.emptyMessage,
+                      actionLabel: archived ? null : strings.addHabit,
                       onAction: archived
                           ? null
                           : () => showHabitEditor(context),
@@ -246,6 +250,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                       sections: sections,
                       selecting: _selecting,
                       selectedIds: _selected,
+                      strings: strings,
                       onToggleSelection: _toggleSelection,
                       onStartSelection: _startSelection,
                     ),
@@ -254,6 +259,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                       sections: const [],
                       selecting: _selecting,
                       selectedIds: _selected,
+                      strings: strings,
                       onToggleSelection: _toggleSelection,
                       onStartSelection: _startSelection,
                     ),
@@ -263,87 +269,6 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
             ),
           ],
         ),
-        floatingActionButton: _selecting
-            ? null
-            : FloatingActionButton(
-                heroTag: 'habitsFab',
-                onPressed: () => showHabitEditor(context),
-                child: const Icon(Icons.add),
-              ),
-      ),
-    );
-  }
-
-  AppBar _defaultAppBar(WidgetRef ref, bool archived) {
-    return AppBar(
-      title: const Text('Habits'),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.bar_chart_outlined),
-          tooltip: 'Habit statistics',
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const HabitsStatsScreen()),
-          ),
-        ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          iconSize: 20,
-          icon: Icon(
-            archived ? Icons.unarchive_outlined : Icons.archive_outlined,
-          ),
-          tooltip: archived ? 'Hide archived' : 'Show archived',
-          onPressed: () =>
-              ref.read(showArchivedHabitsProvider.notifier).toggle(),
-        ),
-      ],
-    );
-  }
-
-  AppBar _selectionAppBar(WidgetRef ref, List<Habit> selectedHabits) {
-    final allArchived =
-        selectedHabits.isNotEmpty && selectedHabits.every((h) => h.archived);
-    return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-        tooltip: 'Clear selection',
-        onPressed: _clearSelection,
-      ),
-      title: Text('${selectedHabits.length} selected'),
-      actions: [
-        IconButton(
-          icon: Icon(
-            allArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
-          ),
-          tooltip: allArchived ? 'Unarchive' : 'Archive',
-          onPressed: selectedHabits.isEmpty
-              ? null
-              : () => _archiveSelected(ref),
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete_outline),
-          tooltip: 'Delete',
-          onPressed: selectedHabits.isEmpty ? null : () => _deleteSelected(ref),
-        ),
-      ],
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Could not load habits.'),
-          const SizedBox(height: 8),
-          OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
-        ],
       ),
     );
   }

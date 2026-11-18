@@ -87,10 +87,11 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.byTooltip('Add 2'), findsOneWidget);
-    await tester.tap(find.byTooltip('Add 2'));
-    await tester.pump();
-    await tester.pump();
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add 2'), findsOneWidget);
+    await tester.tap(find.text('Add 2'));
+    await tester.pumpAndSettle();
     final today = habitDateKey(DateTime.now());
     expect((await repo.logFor(id, today))?.amount, 2);
     await db.close();
@@ -215,8 +216,13 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    // The 14-day strip centers today, so yesterday (index 12) is visible.
-    await tester.tap(find.byType(ChoiceChip).at(12));
+    // Scroll the strip to its end; the last chip is today, the one before it
+    // is yesterday.
+    await tester.drag(find.byType(ListView).first, const Offset(-900, 0));
+    await tester.pump();
+    final chips = find.byType(HabitDayChip);
+    final count = chips.evaluate().length;
+    await tester.tap(chips.at(count - 2));
     await tester.pump();
     await tester.pump();
     await tester.tap(find.byIcon(Icons.play_arrow).first);
