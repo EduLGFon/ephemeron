@@ -5,6 +5,7 @@ class TasksScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = TasksStrings.of(context);
     final listId = ref.watch(selectedTaskListProvider);
     final selectedSmartId = ref.watch(selectedSmartListProvider);
     final smartLists =
@@ -12,230 +13,135 @@ class TasksScreen extends ConsumerWidget {
     final smart = selectedSmartId == null
         ? null
         : smartLists.where((s) => s.id == selectedSmartId).firstOrNull;
-    final tasksAsync = smart == null
-        ? ref.watch(openTasksProvider(listId))
-        : ref.watch(smartListTasksProvider(smart));
+    final filter = ref.watch(_taskFilterProvider);
+    final search = ref.watch(_taskSearchProvider);
     final listsAsync = ref.watch(taskListsProvider);
+    final listsById = ref.watch(taskListsByIdProvider);
     final taskSort = ref.watch(taskSortProvider).value ?? TaskSort.due;
     final listSort =
         ref.watch(taskListSortProvider).value ?? TaskListSort.custom;
-    return Scaffold(
-      appBar: AppBar(
-        title: const SyncTitle(text: 'Tasks'),
-        actions: [
-          if (smart == null)
-            PopupMenuButton<TaskSort>(
-              icon: const Icon(Icons.sort),
-              tooltip: 'Sort tasks',
-              initialValue: taskSort,
-              onSelected: (mode) =>
-                  ref.read(taskSortProvider.notifier).select(mode),
-              itemBuilder: (_) => [
-                for (final mode in TaskSort.values)
-                  PopupMenuItem(value: mode, child: Text(mode.label)),
-              ],
-            ),
-          IconButton(
-            icon: const Icon(Icons.done_all),
-            tooltip: 'Completed',
-            onPressed: () => _showCompleted(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Trash',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const TrashScreen()),
-            ),
-          ),
-          PopupMenuButton<_TasksAction>(
-            tooltip: 'Task organization',
-            onSelected: (action) {
-              switch (action) {
-                case _TasksAction.manageLists:
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const TaskListsScreen(),
-                    ),
-                  );
-                case _TasksAction.manageSmartLists:
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const SmartListsScreen(),
-                    ),
-                  );
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: _TasksAction.manageLists,
-                child: Text('Manage lists'),
-              ),
-              PopupMenuItem(
-                value: _TasksAction.manageSmartLists,
-                child: Text('Manage smart lists'),
-              ),
-            ],
-          ),
-        ],
+    final lists = listsAsync.value ?? const <TaskList>[];
+    final sortedLists = [...lists]
+      ..sort((a, b) => compareTaskLists(a, b, listSort));
+
+    final AsyncValue<List<Task>> source;
+    if (smart != null) {
+      source = ref.watch(smartListTasksProvider(smart));
+    } else if (filter == _TaskFilter.completed) {
+      source = ref.watch(completedProvider(listId));
+    } else {
+      source = ref.watch(openTasksProvider(listId));
+    }
+
+    final today = dateKey(DateTime.now());
+    final query = search.query.trim();
+    // Smart lists keep their saved sort. Completed rows keep their completion
+    // order. Custom order is only meaningful for the unfiltered list.
+    final sortForView = smart == null && filter != _TaskFilter.completed
+        ? taskSort
+        : null;
+    final reorder =
+        smart == null &&
+        filter == _TaskFilter.all &&
+        taskSort == TaskSort.custom &&
+        query.isEmpty;
+
+    return AppPage(
+      header: _TasksHeader(
+        canSort: smart == null,
+        onAction: (action) => _onAction(context, ref, action),
       ),
-      body: Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          listsAsync.maybeWhen(
-            data: (lists) {
-              final sortedLists = [...lists]
-                ..sort((a, b) => compareTaskLists(a, b, listSort));
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: [
-                    ChoiceChip(
-                      label: const Text('All'),
-                      selected: smart == null && listId == null,
-                      onSelected: (_) => _select(ref, null),
-                    ),
-                    const SizedBox(width: 8),
-                    for (final l in sortedLists) ...[
-                      GestureDetector(
-                        onLongPress: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const TaskListsScreen(),
-                          ),
-                        ),
-                        child: Tooltip(
-                          // Long-press is the list-management gesture. Keep
-                          // hover/desktop tooltips but let touch long-press
-                          // reach the GestureDetector above the chip.
-                          triggerMode: TooltipTriggerMode.manual,
-                          message:
-                              taskListAccountLabel(l) ??
-                              (l.remoteId == null
-                                  ? localSourceLabel
-                                  : 'Google'),
-                          child: ChoiceChip(
-                            avatar: TaskListColorDot(list: l, size: 10),
-                            label: Text(l.name),
-                            selected: smart == null && listId == l.id,
-                            onSelected: (_) => _select(ref, l.id),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    for (final s in smartLists) ...[
-                      _SmartListChip(
-                        smartList: s,
-                        selected: smart?.id == s.id,
-                        onSelected: () => _selectSmart(ref, s.id),
-                        onLongPress: () => _smartActions(context, ref, s),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    ActionChip(
-                      label: const Text('+ List'),
-                      onPressed: () => showCreateTaskListDialog(context, ref),
-                    ),
-                    const SizedBox(width: 8),
-                    ActionChip(
-                      label: const Text('+ Smart list'),
-                      onPressed: () => showSmartListEditor(context),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-              );
-            },
-            orElse: () => const SizedBox.shrink(),
+          _TaskListStrip(
+            lists: sortedLists,
+            smartLists: smartLists,
+            selectedListId: listId,
+            selectedSmartId: smart?.id,
+            onSelectList: (id) => _select(ref, id),
+            onSelectSmart: (id) => _selectSmart(ref, id),
+            onManageLists: () => _openLists(context),
+            onCreateList: () => showCreateTaskListDialog(context, ref),
+            onCreateSmart: () => showSmartListEditor(context),
+            onSmartLongPress: (smartList) =>
+                _smartActions(context, ref, smartList),
           ),
+          _TaskFilterStrip(
+            filter: filter,
+            onSelected: (value) =>
+                ref.read(_taskFilterProvider.notifier).select(value),
+          ),
+          if (search.open) _TasksSearchBar(initialQuery: search.query),
+          const SizedBox(height: DsSpace.x4),
           Expanded(
-            child: tasksAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => _ErrorState(
-                message: 'Could not load tasks.',
-                onRetry: () {
-                  if (smart == null) {
-                    ref.invalidate(openTasksProvider(listId));
-                  } else {
-                    ref.invalidate(smartListTasksProvider(smart));
-                  }
-                },
+            child: source.when(
+              loading: () => const AppSkeletonList(rows: 6),
+              error: (_, _) => AppErrorState(
+                title: strings.errorTitle,
+                message: strings.errorMessage,
+                onRetry: () => _retryTasks(ref, smart, listId, filter),
               ),
               data: (tasks) {
-                if (tasks.isEmpty) {
-                  if (smart != null) {
-                    return EmptyState(
-                      icon: Icons.filter_alt_off,
-                      title: 'No tasks match',
-                      subtitle: 'Nothing matches "${smart.name}" right now.',
-                      actionLabel: 'Edit smart list',
-                      onAction: () =>
-                          showSmartListEditor(context, smartList: smart),
-                    );
-                  }
-                  return EmptyState(
-                    icon: Icons.checklist_outlined,
-                    title: 'No tasks here',
-                    subtitle: 'Add a task with details like #tag, ~list, or tomorrow 9h.',
-                    actionLabel: 'Add a task',
-                    onAction: () => showQuickAdd(context),
-                    secondaryActionLabel: 'Manage lists',
-                    onSecondaryAction: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const TaskListsScreen(),
-                      ),
-                    ),
+                final visible = _visibleTasks(
+                  tasks: tasks,
+                  filter: filter,
+                  query: query,
+                  today: today,
+                  sort: sortForView,
+                );
+                if (visible.isEmpty) {
+                  return _TasksEmpty(
+                    filter: filter,
+                    query: query,
+                    smart: smart,
+                    onAddTask: () => showQuickAdd(context),
+                    onManageLists: () => _openLists(context),
+                    onCloseSearch: () =>
+                        ref.read(_taskSearchProvider.notifier).close(),
+                    onEditSmart: () =>
+                        showSmartListEditor(context, smartList: smart),
                   );
                 }
-                // Smart lists keep the sort saved in their filter JSON.
-                final sortedTasks = smart == null
-                    ? ([...tasks]..sort((a, b) => compareTasks(a, b, taskSort)))
-                    : tasks;
-                if (smart == null && taskSort == TaskSort.custom) {
-                  return _CustomTaskList(tasks: sortedTasks);
+                if (reorder) {
+                  return _CustomTaskList(tasks: visible, listsById: listsById);
                 }
-                final today = _today();
-                final overdue = sortedTasks
-                    .where(
-                      (t) =>
-                          t.dueDate != null && t.dueDate!.compareTo(today) < 0,
-                    )
-                    .toList();
-                final overdueIds = overdue.map((t) => t.id).toSet();
-                final rest = sortedTasks
-                    .where((t) => !overdueIds.contains(t.id))
-                    .toList();
-                final items = <Widget>[];
-                if (overdue.isNotEmpty) {
-                  items.add(
-                    ListTile(
-                      title: Text('Overdue (${overdue.length})'),
-                      trailing: TextButton(
-                        onPressed: () => _rescheduleAll(context, ref, overdue),
-                        child: const Text('Reschedule to today'),
-                      ),
-                    ),
-                  );
-                  items.addAll(
-                    overdue.map((t) => _TaskTile(task: t, overdue: true)),
-                  );
-                }
-                items.addAll(rest.map((t) => _TaskTile(task: t)));
-                return RepaintBoundary(
-                  child: ListView.builder(
-                    itemCount: items.length,
-                    itemBuilder: (_, i) => items[i],
-                  ),
+                final overdue =
+                    smart == null &&
+                        filter == _TaskFilter.all &&
+                        sortForView != TaskSort.custom
+                    ? visible
+                          .where((task) => _isOverdueTask(task, today))
+                          .toList(growable: false)
+                    : const <Task>[];
+                return _TasksList(
+                  tasks: visible,
+                  overdueIds: {for (final task in overdue) task.id},
+                  listsById: listsById,
+                  onRescheduleAll: overdue.isEmpty
+                      ? null
+                      : () => _rescheduleAll(context, ref, overdue),
                 );
               },
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'tasksFab',
-        onPressed: () => showQuickAdd(context),
-        child: const Icon(Icons.add),
-      ),
     );
+  }
+}
+
+void _retryTasks(
+  WidgetRef ref,
+  SmartList? smart,
+  String? listId,
+  _TaskFilter filter,
+) {
+  if (smart != null) {
+    ref.invalidate(smartListTasksProvider(smart));
+  } else if (filter == _TaskFilter.completed) {
+    ref.invalidate(completedProvider(listId));
+  } else {
+    ref.invalidate(openTasksProvider(listId));
   }
 }
