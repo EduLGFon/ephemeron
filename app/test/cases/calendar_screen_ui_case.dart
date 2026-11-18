@@ -8,6 +8,7 @@ import 'package:ephemeron/core/design/components/app_states.dart';
 import 'package:ephemeron/core/design/layout.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
+import 'package:ephemeron/features/calendar/application/calendar_cache_coordinator.dart';
 import 'package:ephemeron/features/calendar/application/calendar_providers.dart';
 import 'package:ephemeron/features/calendar/application/calendar_state.dart';
 import 'package:ephemeron/features/calendar/presentation/agenda_view.dart';
@@ -57,6 +58,34 @@ class _FailingOccurrenceRepository extends OccurrenceRepository {
   }) async {
     throw StateError('calendar rebuild failed');
   }
+}
+
+/// Mounts [child] one frame after the rest of the tree, like a route pushed
+/// after the tab that already watches the occurrence cache.
+class _DeferredHost extends StatefulWidget {
+  const _DeferredHost({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_DeferredHost> createState() => _DeferredHostState();
+}
+
+class _DeferredHostState extends State<_DeferredHost> {
+  bool _show = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _show = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _show ? widget.child : const SizedBox.shrink();
 }
 
 Future<void> _pumpFrames(WidgetTester tester) async {
@@ -287,6 +316,60 @@ void main() {
     await _pumpFrames(tester);
 
     expect(repository.ranges, hasLength(2));
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('dirty cold start does not invalidate the cache during build', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    final repository = _RecordingOccurrenceRepository(db);
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appDatabaseProvider.overrideWithValue(db),
+          occurrenceRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
+          home: Column(
+            children: <Widget>[
+              // A sibling that already subscribes to the cache, like Today.
+              // Invalidating the coordinator while the deferred screen mounts
+              // marks it dirty outside the subtree being built.
+              Consumer(
+                key: const Key('cache-consumer'),
+                builder: (context, ref, _) {
+                  final range = ref.watch(calendarCacheRangeProvider);
+                  ref.watch(calendarCacheCoordinatorProvider);
+                  ref.watch(calendarRangeOccurrencesProvider(range));
+                  return const SizedBox.shrink();
+                },
+              ),
+              const Expanded(child: _DeferredHost(child: CalendarScreen())),
+            ],
+          ),
+        ),
+      ),
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('cache-consumer'))),
+    );
+    expect(repository.ranges, hasLength(1));
+    container.read(initialRestoreDoneProvider.notifier).markDone();
+    await tester.pump();
+    await _pumpFrames(tester);
+
+    expect(tester.takeException(), isNull);
+    // The dirty cold start still rebuilds, but through a fresh coordinator
+    // instead of invalidating one while the screen initializes.
+    expect(repository.ranges, hasLength(2));
+    expect(container.read(occurrenceDirtyProvider), isFalse);
+    expect(find.byType(TimelineView), findsOneWidget);
+
     await _tearDown(tester, db);
   });
 }

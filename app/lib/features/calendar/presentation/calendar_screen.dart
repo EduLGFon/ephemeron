@@ -61,8 +61,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     // The cache starts dirty (a fresh app has no materialized window). Reset
     // coordinator coverage whenever something invalidates the cache so the
     // next ensureRange rebuilds even when its own range looks covered.
+    // The initial callback runs inside initState, so the reset is deferred:
+    // invalidating a provider while the tree is building throws on a cold
+    // start. `todayOccurrencesProvider` defers the same reset the same way.
     ref.listenManual<bool>(occurrenceDirtyProvider, (previous, next) {
-      if (next) ref.invalidate(calendarCacheCoordinatorProvider);
+      if (!next) return;
+      Future.microtask(() {
+        if (_disposed || !mounted) return;
+        ref.invalidate(calendarCacheCoordinatorProvider);
+      });
     }, fireImmediately: true);
     _scheduleRebuild();
     // Safety net: if session restore never reports completion, unblock the
