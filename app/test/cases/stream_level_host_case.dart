@@ -42,9 +42,11 @@ Widget _hostApp({
   List<Override> overrides = const <Override>[],
   int firstDayOfWeek = DateTime.monday,
   List<MonthHabitStreak>? habitStreaks,
+  List<YearHabitStreak>? yearHabitStreaks,
   void Function(DateTime date)? onDayTap,
   void Function(String markId)? onMarkTap,
   void Function(DateTime date)? onDateTap,
+  void Function(String habitId)? onHabitTap,
   void Function(CalendarRange range)? ensureRange,
   double width = 320,
   double height = 400,
@@ -97,9 +99,11 @@ Widget _hostApp({
             yearHabitStreakSemanticsLabel: (streak, first, last) =>
                 '${streak.habitId} $first-$last',
             habitStreaks: habitStreaks,
+            yearHabitStreaks: yearHabitStreaks,
             onDayTap: onDayTap,
             onMarkTap: onMarkTap,
             onDateTap: onDateTap,
+            onHabitTap: onHabitTap,
             ensureRange: ensureRange,
           ),
         ),
@@ -216,12 +220,14 @@ void main() {
       MonthHabitStreak(habitId: 'h1', doneDays: {3, 4}, streakLabel: '2'),
     ];
     DateTime? tapped;
+    String? tappedHabit;
     await tester.pumpWidget(
       _hostApp(
         level: StreamLevel.month,
         date: date,
         firstDayOfWeek: DateTime.sunday,
         habitStreaks: streaks,
+        onHabitTap: (habitId) => tappedHabit = habitId,
         marks: _marks([
           _mark('a', DateTime(2026, 11, 3, 9)),
           _mark('b', DateTime(2026, 11, 3, 11)),
@@ -240,6 +246,9 @@ void main() {
     expect(view.month, DateTime(2026, 11, 1));
     expect(view.firstDayOfWeek, DateTime.sunday);
     expect(view.habitStreaks, same(streaks));
+    expect(view.onHabitTap, isNotNull);
+    view.onHabitTap!('h1');
+    expect(tappedHabit, 'h1');
     expect(view.dayData!.firstWhere((day) => day.date.day == 3).count, 2);
     expect(view.dayData!.firstWhere((day) => day.date.day == 10).count, 3);
     expect(view.dayData!.firstWhere((day) => day.date.day == 10).density, 1.0);
@@ -316,6 +325,35 @@ void main() {
     expect(view.dayCounts[yearDayKey(DateTime(2026, 2, 1))], 0);
     expect(view.monthHeading(1), 'M1');
     expect(view.daySemanticsLabel(DateTime(2026, 1, 2), 2), '1/2: 2');
+  });
+
+  testWidgets('year: habit ribbons and tap callback reach YearView', (
+    tester,
+  ) async {
+    final streaks = [
+      YearHabitStreak(
+        habitId: 'h1',
+        doneDayKeys: const {'2026-01-02', '2026-01-03'},
+        colorArgb: 0xFF112233,
+      ),
+    ];
+    String? tappedHabit;
+    await tester.pumpWidget(
+      _hostApp(
+        level: StreamLevel.year,
+        date: DateTime(2026, 11, 18),
+        yearHabitStreaks: streaks,
+        onHabitTap: (habitId) => tappedHabit = habitId,
+        marks: _marks([_mark('a', DateTime(2026, 1, 2, 9))]),
+      ),
+    );
+    await tester.pump();
+
+    final view = tester.widget<YearView>(find.byType(YearView));
+    expect(view.habitStreaks, same(streaks));
+    expect(view.onHabitTap, isNotNull);
+    view.onHabitTap!('h1');
+    expect(tappedHabit, 'h1');
   });
 
   testWidgets('year: uncovered range requests ensure once', (tester) async {
@@ -408,6 +446,12 @@ void main() {
         width: 320,
         height: 200,
         textScale: 2.0,
+        yearHabitStreaks: [
+          YearHabitStreak(
+            habitId: 'h1',
+            doneDayKeys: const {'2026-01-02', '2026-01-03', '2026-01-05'},
+          ),
+        ],
         marks: _marks([
           _mark('a', DateTime(2026, 1, 2, 9)),
           _mark('b', DateTime(2026, 7, 10, 9)),

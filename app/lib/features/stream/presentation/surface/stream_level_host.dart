@@ -48,6 +48,7 @@ class StreamLevelHost extends ConsumerStatefulWidget {
     this.onDateTap,
     this.onHabitTap,
     this.habitStreaks,
+    this.yearHabitStreaks,
     this.yearMonthHeading,
     this.yearMonthSemanticsLabel,
     this.yearDaySemanticsLabel,
@@ -95,6 +96,7 @@ class StreamLevelHost extends ConsumerStatefulWidget {
   final void Function(DateTime date)? onDateTap;
   final void Function(String habitId)? onHabitTap;
   final List<MonthHabitStreak>? habitStreaks;
+  final List<YearHabitStreak>? yearHabitStreaks;
 
   /// Caller-localized heading for one year month (1-12).
   final String Function(int month)? yearMonthHeading;

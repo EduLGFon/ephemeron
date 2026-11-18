@@ -12,6 +12,7 @@ import 'package:ephemeron/features/stream/application/stream_day_mark.dart';
 import 'package:ephemeron/features/stream/application/stream_day_providers.dart';
 import 'package:ephemeron/features/stream/application/stream_command_actions.dart';
 import 'package:ephemeron/features/stream/application/stream_level_data.dart';
+import 'package:ephemeron/features/stream/application/stream_level_streaks.dart';
 import 'package:ephemeron/features/stream/application/stream_peek_target.dart';
 import 'package:ephemeron/features/stream/application/stream_school_preferences.dart';
 import 'package:ephemeron/features/stream/application/stream_slipped_data.dart';
@@ -269,8 +270,12 @@ List<Override> _overrides({
   ),
 ];
 
-/// Covers one week or month range with the shared fake marks.
-List<Override> _levelOverrides(StreamLevel level, DateTime date) {
+/// Covers one level range with the shared fake marks and no habit ribbons.
+List<Override> _levelOverrides(
+  StreamLevel level,
+  DateTime date, {
+  StreamLevelHabitStreaks streaks = const StreamLevelHabitStreaks(),
+}) {
   final range = streamLevelRangeFor(
     level,
     date,
@@ -280,6 +285,8 @@ List<Override> _levelOverrides(StreamLevel level, DateTime date) {
     streamLevelMarksProvider(range).overrideWithValue(
       AsyncData(StreamLevelMarks(marks: _fakeMarks, skipped: 0, covered: true)),
     ),
+    streamLevelHabitStreaksProvider(range)
+        .overrideWithValue(AsyncData(streaks)),
   ];
 }
 
@@ -510,6 +517,72 @@ void main() {
     final header = tester.widget<StreamHeader>(find.byType(StreamHeader));
     expect(header.levelLabel, l.streamYear);
     expect(find.text(l.streamYear), findsOneWidget);
+  });
+
+  testWidgets('month and year zoom show habit ribbons from level streaks', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final date = DateTime(2026, 11, 17);
+    final monthStreaks = [
+      MonthHabitStreak(habitId: 'm1', doneDays: {3, 4}, colorArgb: 0xFF224466),
+    ];
+    final yearStreaks = [
+      YearHabitStreak(
+        habitId: 'y1',
+        doneDayKeys: const {'2026-01-02', '2026-01-04'},
+        colorArgb: 0xFF335577,
+      ),
+    ];
+    final overrides = <Override>[
+      ..._overrides(),
+      ..._levelOverrides(
+        StreamLevel.month,
+        date,
+        streaks: StreamLevelHabitStreaks(monthStreaks: monthStreaks),
+      ),
+      ..._levelOverrides(
+        StreamLevel.year,
+        date,
+        streaks: StreamLevelHabitStreaks(yearStreaks: yearStreaks),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      _app(overrides: overrides, date: date, zoom: 'month'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final monthView = tester.widget<MonthView>(find.byType(MonthView));
+    expect(monthView.habitStreaks!.single.habitId, 'm1');
+    expect(monthView.habitStreaks!.single.doneDays, {3, 4});
+    expect(monthView.onHabitTap, isNotNull);
+
+    await tester.pumpWidget(
+      _app(overrides: overrides, date: date, zoom: 'year'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final yearView = tester.widget<YearView>(find.byType(YearView));
+    expect(yearView.habitStreaks.single.habitId, 'y1');
+    expect(yearView.habitStreaks.single.doneDayKeys, {
+      '2026-01-02',
+      '2026-01-04',
+    });
+    expect(yearView.onHabitTap, isNotNull);
+    final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
+    expect(
+      yearView.habitStreakSemanticsLabel(
+        yearView.habitStreaks.single,
+        DateTime(2026, 1, 2),
+        DateTime(2026, 1, 4),
+      ),
+      l.streamMonthStreakSemantics(3, 2, 4),
+    );
   });
 
   testWidgets('week, month and year at 320 dp and 2.0 scale do not overflow', (
