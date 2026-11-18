@@ -58,3 +58,7 @@ Phase 0 performance audit remain.
 ## Stream verification (2026-11-17)
 
 v3 @ 31fcc08. `flutter gen-l10n` exit 0, no tracked changes; `flutter analyze` No issues found (4.7s); 194 case files. Full `flutter test` run serially: 1655 passed, 0 failed, 152s wall (green). Earlier red run on 7307ba2 failed `stream_route_params invalid zoom falls back to day`; 31fcc08 (`merge(test): fix stale invalid-zoom expectation`) fixed it. Perf gate: `integration_test/stream_spike_perf_test.dart` needs a device; `flutter devices` shows only Linux desktop and Chrome, no Android target (emulator not started). ARCHITECTURE.md:8 budgets (cold start <600ms, frame <16ms, idle RAM <150MB) remain unmeasured.
+
+## Stream default (2026-11-18)
+
+Done. Stream is the default in-shell surface: `AppShell` branch 7, `/` redirects to today's Stream day view, the router canonicalizes unsupported zoom levels unconditionally, restore clamps to 0..7 (fresh installs keep Stream; existing users keep their persisted tab), and the More sheet has a Stream entry. `STREAM_UI`/`stream_flags.dart` removed; the `/stream-spike` route was removed while the spike screen is retained for `integration_test/stream_spike_perf_test.dart`. Verified: `flutter gen-l10n` exit 0, no tracked changes; `dart run tools/gen_test_runner.dart` 198 case files; `flutter analyze` No issues found; full serial `flutter test` 1681 passed, 0 failed, 80s wall. Phase 0 performance budgets remain unmeasured (no Android device).

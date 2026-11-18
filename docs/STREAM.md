@@ -2,15 +2,18 @@
 
 ## What it is
 
-A new time-centric "Stream" UI, shipped behind a compile-time flag so the
-existing UI is untouched when it is off.
+The app's default time-centric "Stream" UI, registered inside `AppShell` as
+the 8th branch (index 7); the legacy tabs keep indices 0..6.
 
-- Flag: `STREAM_UI` (`bool.fromEnvironment('STREAM_UI')`, default off), see
-  `app/lib/features/stream/stream_flags.dart`.
 - Route: `/stream/<yyyy-MM-dd>/<zoom>` (zoom is `day`/`week`/`month`/...),
-  registered in `app/lib/app/router/app_router.dart` only when the flag is on.
-  With the flag on, `/` redirects to today's day view.
-- The old UI, routes and tests are unchanged when the flag is off.
+  registered unconditionally in `app/lib/app/router/app_router.dart`.
+- `/` redirects to today's Stream day view. Unsupported zoom levels canonicalize
+  to `day` and valid ones lowercase in the router redirect.
+- Session restore reopens the persisted branch, clamped to 0..7. A fresh install
+  has no `session.lastTab`, so it keeps the Stream landing page; existing users
+  keep their persisted tab.
+- The More sheet has a Stream entry that selects branch 7.
+- The compile-time `STREAM_UI` flag and `stream_flags.dart` have been removed.
 
 ## What exists and is merged on v3
 
@@ -66,10 +69,11 @@ surface, the rest are not yet mounted:
 
 ## Verification status
 
-Every component unit passes its targeted tests and `flutter analyze`. The merged
-tree has not passed a full-suite checkpoint under load. Phase 0 performance
-budgets (frame build/raster, cold start, memory, 2000-mark scroll) are UNMEASURED
-after the spike fix; do not claim otherwise.
+Every component unit passes its targeted tests and `flutter analyze`. The
+stream-default tree passed the full serial suite and analyze (see
+`docs/PROGRESS.md`, 2026-11-18). Phase 0 performance budgets (frame
+build/raster, cold start, memory, 2000-mark scroll) are UNMEASURED after the
+spike fix; do not claim otherwise.
 
 ## Data-model gaps (suggested only, no schema change)
 
@@ -85,7 +89,7 @@ after the spike fix; do not claim otherwise.
 
 ## How to run and verify
 
-- Run: `flutter run --dart-define=STREAM_UI=true` (from `app/`).
+- Run: `flutter run` from `app/`; Stream opens at `/`.
 - Targeted: `flutter test test/cases/<file>_case.dart`.
 - Codegen: `dart run tools/gen_test_runner.dart`, `flutter gen-l10n`.
 - Analyze: `flutter analyze`.

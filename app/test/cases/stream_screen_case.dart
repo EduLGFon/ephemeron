@@ -51,8 +51,9 @@ import 'package:ephemeron/features/stream/presentation/tray/tray_chip.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_item.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_panel.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_strip.dart';
-import 'package:ephemeron/features/stream/stream_flags.dart';
 import 'package:ephemeron/features/stream/presentation/stream_route_params.dart';
+import 'package:ephemeron/app/router/app_router.dart';
+import 'package:ephemeron/app/shell/app_shell.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/sync/application/sync_providers.dart';
@@ -60,7 +61,7 @@ import 'package:ephemeron/features/sync/data/sync_engine.dart' show SyncStatus;
 import 'package:ephemeron/features/tasks/application/tasks_providers.dart'
     show openTasksProvider, taskListsProvider;
 import 'package:ephemeron/l10n/src/app_localizations.dart';
-import 'package:flutter/services.dart' show LogicalKeyboardKey;
+import 'package:flutter/services.dart' show LogicalKeyboardKey, MethodChannel;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
@@ -394,8 +395,67 @@ String _location(GoRouter router) =>
     router.routerDelegate.currentConfiguration.last.matchedLocation;
 
 void main() {
-  test('streamUiEnabled defaults to false', () {
-    expect(streamUiEnabled, isFalse);
+  testWidgets('/ opens the stream day view inside AppShell', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'settings.onboarded': true,
+      'stream.school.completed': true,
+    });
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    for (final name in const ['ephemeron/system', 'ephemeron/alarms']) {
+      messenger.setMockMethodCallHandler(
+        MethodChannel(name),
+        (call) async => null,
+      );
+    }
+    addTearDown(() {
+      for (final name in const ['ephemeron/system', 'ephemeron/alarms']) {
+        messenger.setMockMethodCallHandler(MethodChannel(name), null);
+      }
+    });
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    GoRouter? router;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: Consumer(
+          builder: (context, ref, _) {
+            final r = ref.watch(appRouterProvider);
+            router = r;
+            return MaterialApp.router(
+              routerConfig: r,
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                ...GlobalMaterialLocalizations.delegates,
+              ],
+              supportedLocales: AppLocalizations.supportedLocales,
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(AppShell), findsOneWidget);
+    expect(find.byType(StreamScreen), findsOneWidget);
+    expect(
+      _location(router!),
+      '/stream/${formatStreamDate(DateTime.now())}/day',
+    );
+
+    // Unmount while pumps still run so Riverpod cancels its drift stream
+    // subscriptions; the in-memory database needs no teardown.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
   });
 
   test('invalid date and zoom fall back', () {

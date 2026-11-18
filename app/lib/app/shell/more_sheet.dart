@@ -129,6 +129,12 @@ class MoreSheet extends StatelessWidget {
                     onTap: () => onSelected(idx),
                   ),
               ],
+              ListTile(
+                key: const ValueKey('more-stream'),
+                leading: const Icon(Icons.stream_outlined),
+                title: const Text('Stream'),
+                onTap: () => onSelected(7),
+              ),
               const Divider(height: AppSpace.xl),
               ListTile(
                 key: const ValueKey('more-settings'),

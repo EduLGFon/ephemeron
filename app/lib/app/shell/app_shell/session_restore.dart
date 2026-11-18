@@ -1,5 +1,10 @@
 part of '../app_shell.dart';
 
+/// Mirrors `SettingsRepository`'s private `session.lastTab` key. Presence
+/// distinguishes a fresh install (never selected a tab) from a persisted
+/// branch 0 (Calendar), which shares the repository's numeric default.
+const String _lastTabPrefKey = 'session.lastTab';
+
 extension _AppShellSessionRestore on _AppShellState {
   Future<void> _restoreSession() async {
     try {
@@ -25,8 +30,15 @@ extension _AppShellSessionRestore on _AppShellState {
       if (!mounted) return;
       // Last tab. A widget tap that targets the calendar wins over restore.
       if (!widgetOverridesCalendar) {
-        final idx = repo.lastTabIndex.clamp(0, 6);
-        if (idx != widget.navigationShell.currentIndex) {
+        // Stream is branch 7; the legacy tabs keep 0..6. A missing
+        // `session.lastTab` means a fresh install: keep the router's Stream
+        // landing page instead of forcing the Calendar branch. Existing
+        // users restore their persisted branch, clamped to the real branches.
+        final hasLastTab = (await SharedPreferences.getInstance()).containsKey(
+          _lastTabPrefKey,
+        );
+        final idx = repo.lastTabIndex.clamp(0, 7);
+        if (hasLastTab && idx != widget.navigationShell.currentIndex) {
           widget.navigationShell.goBranch(idx);
         }
       }
