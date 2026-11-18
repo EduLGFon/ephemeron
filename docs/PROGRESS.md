@@ -47,8 +47,8 @@ Done. Verified toolchain Flutter 3.50.0 stable, Dart 3.14.0; pubspec minimums Fl
 
 ## Stream UI foundation (2026-11-16)
 
-Stream foundation and component units merged on branch v3; Stream is the default UI (old UI flag removed)
-design tokens/themes, time viewport, day canvas + gesture region,
+Stream foundation and component units merged on branch v3 behind `STREAM_UI`
+(default off): design tokens/themes, time viewport, day canvas + gesture region,
 chrome, day mark mapper/providers, capture parser, capture bar, command palette,
 tray, slipped triage, peek editor, agenda lens, focus timer/band, countdown
 landmarks, habit gutter/streak line, gesture school, designed states, platform

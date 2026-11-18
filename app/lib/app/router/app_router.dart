@@ -14,8 +14,10 @@ import '../../features/alarms/presentation/ring_screen.dart';
 import '../../features/notes/presentation/notes_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/stream/presentation/stream_spike_screen.dart';
 import '../../features/stream/presentation/stream_screen.dart';
 import '../../features/stream/presentation/stream_route_params.dart';
+import '../../features/stream/stream_flags.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // A verified cold-start ring request must be the very first route; AppShell
@@ -84,19 +86,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          StatefulShellBranch(
-            initialLocation: '/stream/${formatStreamDate(DateTime.now())}/day',
-            preload: true,
-            routes: [
-              GoRoute(
-                path: '/stream/:date/:zoom',
-                builder: (context, state) => StreamScreen(
-                  date: tryParseStreamDate(state.pathParameters['date']),
-                  zoom: state.pathParameters['zoom'],
-                ),
-              ),
-            ],
-          ),
         ],
       ),
       GoRoute(path: '/ring', builder: (context, state) => const RingScreen()),
@@ -112,24 +101,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
       ),
+      if (const bool.fromEnvironment('STREAM_SPIKE'))
+        GoRoute(
+          path: '/stream-spike',
+          builder: (context, state) => const StreamSpikeScreen(),
+        ),
+      if (streamUiEnabled)
+        GoRoute(
+          path: '/stream/:date/:zoom',
+          builder: (context, state) => StreamScreen(
+            date: tryParseStreamDate(state.pathParameters['date']),
+            zoom: state.pathParameters['zoom'],
+          ),
+        ),
     ],
     redirect: (context, state) {
       // Canonicalize unsupported stream zoom levels (such as hour) to day and
       // lowercase valid ones, so the URL and the rendered level agree.
-      final match = RegExp(r'^/stream/([^/]+)/([^/]+)/?$')
-          .firstMatch(state.uri.path);
-      if (match != null) {
-        final zoom = normalizeStreamZoom(match.group(2));
-        if (zoom != match.group(2)) {
-          final query = state.uri.hasQuery ? '?${state.uri.query}' : '';
-          return '/stream/${match.group(1)}/$zoom$query';
+      if (streamUiEnabled) {
+        final match = RegExp(r'^/stream/([^/]+)/([^/]+)/?$')
+            .firstMatch(state.uri.path);
+        if (match != null) {
+          final zoom = normalizeStreamZoom(match.group(2));
+          if (zoom != match.group(2)) {
+            final query = state.uri.hasQuery ? '?${state.uri.query}' : '';
+            return '/stream/${match.group(1)}/$zoom$query';
+          }
         }
       }
       // Widget taps deliver ephemeron://widget/... through the platform
       // intent; if one ever reaches the router as a path, open the
       // calendar instead of showing the error page.
       if (state.uri.path == '/') {
-        return '/stream/${formatStreamDate(DateTime.now())}/day';
+        if (streamUiEnabled) {
+          return '/stream/${formatStreamDate(DateTime.now())}/day';
+        }
+        return '/tab0';
       }
       if (state.uri.path == '/widget' ||
           state.uri.path.startsWith('/widget/')) {
