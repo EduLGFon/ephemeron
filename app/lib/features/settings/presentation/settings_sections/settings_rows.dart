@@ -48,58 +48,118 @@ class _SettingsRow extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
 
-  @override
-  Widget build(BuildContext context) {
+  /// Side-by-side rows below this width leave too little room for the label.
+  static const double _minSideBySideWidth = 240;
+
+  /// Body text at 1.5x or larger pushes trailing controls onto their own line.
+  static const double _stackTrailingTextSize = 24;
+
+  /// Wide trailing controls never take more than half of the row, so the text
+  /// column keeps a readable share and the row cannot overflow.
+  static const double _trailingWidthFraction = 0.5;
+
+  bool _stackTrailing(BuildContext context, double width) {
+    if (trailing == null) return false;
+    final scaledBody = MediaQuery.textScalerOf(context).scale(16);
+    return width < _minSideBySideWidth || scaledBody >= _stackTrailingTextSize;
+  }
+
+  Widget _textColumn(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          title,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        if (subtitle != null) ...<Widget>[
+          const SizedBox(height: DsSpace.x4),
+          Text(
+            subtitle!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final content = Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: DsSpace.x16,
         vertical: DsSpace.x12,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          if (icon != null) ...<Widget>[
-            Icon(icon, size: DsIcon.md, color: scheme.onSurfaceVariant),
-            const SizedBox(width: DsSpace.x12),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final leading = icon == null
+              ? null
+              : Padding(
+                  padding: const EdgeInsetsDirectional.only(end: DsSpace.x12),
+                  child: Icon(
+                    icon,
+                    size: DsIcon.md,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                );
+          if (_stackTrailing(context, constraints.maxWidth)) {
+            return Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Text(
-                  title,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: scheme.onSurface,
-                    fontWeight: FontWeight.w500,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    ?leading,
+                    Expanded(child: _textColumn(context)),
+                  ],
+                ),
+                const SizedBox(height: DsSpace.x8),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth * _trailingWidthFraction,
+                    ),
+                    child: trailing!,
                   ),
                 ),
-                if (subtitle != null) ...<Widget>[
-                  const SizedBox(height: DsSpace.x4),
-                  Text(
-                    subtitle!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
               ],
-            ),
-          ),
-          if (trailing != null) ...<Widget>[
-            const SizedBox(width: DsSpace.x8),
-            trailing!,
-          ] else if (onTap != null) ...<Widget>[
-            const SizedBox(width: DsSpace.x8),
-            Icon(
-              Icons.chevron_right,
-              size: DsIcon.md,
-              color: scheme.onSurfaceVariant,
-            ),
-          ],
-        ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              ?leading,
+              Expanded(child: _textColumn(context)),
+              if (trailing != null) ...<Widget>[
+                const SizedBox(width: DsSpace.x8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * _trailingWidthFraction,
+                  ),
+                  child: trailing!,
+                ),
+              ] else if (onTap != null) ...<Widget>[
+                const SizedBox(width: DsSpace.x8),
+                Icon(
+                  Icons.chevron_right,
+                  size: DsIcon.md,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
 

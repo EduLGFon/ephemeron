@@ -200,6 +200,7 @@ class _ExactAlarmTileState extends State<_ExactAlarmTile> {
         final done = snapshot.connectionState == ConnectionState.done;
         final granted =
             snapshot.data ?? (done && AppPlatform.isAndroid ? false : null);
+        final needsSettings = done && granted == false && AppPlatform.isAndroid;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -211,14 +212,25 @@ class _ExactAlarmTileState extends State<_ExactAlarmTile> {
               subtitle: done
                   ? _subtitle(granted)
                   : widget.strings.permissionChecking,
-              trailing: done && granted == false && AppPlatform.isAndroid
-                  ? AppButton(
-                      label: widget.strings.openSettings,
-                      variant: AppButtonVariant.secondary,
-                      onPressed: () => _openSettings(context),
-                    )
-                  : null,
             ),
+            // A full-width action below the description stays labelled and
+            // reachable at narrow widths and large text scales.
+            if (needsSettings)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  DsSpace.x16,
+                  0,
+                  DsSpace.x16,
+                  DsSpace.x12,
+                ),
+                child: AppButton(
+                  key: const ValueKey('exact-alarm-open-settings'),
+                  label: widget.strings.openSettings,
+                  variant: AppButtonVariant.secondary,
+                  expand: true,
+                  onPressed: () => _openSettings(context),
+                ),
+              ),
             if (!AppPlatform.isAndroid && !AppPlatform.isWeb)
               _SettingsNotice(
                 icon: Icons.info_outline,

@@ -7,7 +7,9 @@ import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/settings/presentation/settings_screen.dart';
 import 'package:ephemeron/l10n/src/app_localizations.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -410,4 +412,53 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('About'), findsOneWidget);
   });
+
+  testWidgets(
+    'denied exact alarm action stays reachable at 320dp and 200% text',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      _setViewport(tester, width: 320, height: 640);
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('ephemeron/system'),
+        (call) async => call.method == 'canPostNotifications' ? true : null,
+      );
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('ephemeron/alarms'),
+        (call) async => call.method == 'canScheduleExact' ? false : null,
+      );
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(
+          const MethodChannel('ephemeron/system'),
+          null,
+        );
+        messenger.setMockMethodCallHandler(
+          const MethodChannel('ephemeron/alarms'),
+          null,
+        );
+      });
+
+      await _pumpSettings(tester, textScale: 2);
+      expect(tester.takeException(), isNull);
+
+      final tile = find.byKey(const ValueKey('settings-exact-alarm'));
+      await tester.scrollUntilVisible(
+        tile,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tile, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('exact-alarm-open-settings')),
+        findsOneWidget,
+      );
+      expect(find.text('Open settings'), findsOneWidget);
+    },
+  );
 }
