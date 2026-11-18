@@ -1,11 +1,13 @@
 part of '../tasks_screen.dart';
 
 /// Custom-order task list. Reordering is optimistic and persisted locally;
-/// swipe actions and tap-to-edit stay on the tiles inside.
+/// tap, swipe and long-press actions stay on each row. A drag handle is used
+/// because long-press already opens the task action sheet.
 class _CustomTaskList extends ConsumerStatefulWidget {
-  const _CustomTaskList({required this.tasks});
+  const _CustomTaskList({required this.tasks, required this.listsById});
 
   final List<Task> tasks;
+  final Map<String, TaskList> listsById;
 
   @override
   ConsumerState<_CustomTaskList> createState() => _CustomTaskListState();
@@ -39,7 +41,7 @@ class _CustomTaskListState extends ConsumerState<_CustomTaskList> {
   Future<void> _persist() async {
     try {
       await ref.read(taskRepositoryProvider).reorderTasks([
-        for (final t in _tasks) t.id,
+        for (final task in _tasks) task.id,
       ]);
     } catch (_) {
       if (mounted) {
@@ -50,17 +52,25 @@ class _CustomTaskListState extends ConsumerState<_CustomTaskList> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return RepaintBoundary(
       child: ReorderableListView.builder(
         buildDefaultDragHandles: false,
+        padding: const EdgeInsets.only(bottom: DsSpace.x24),
         itemCount: _tasks.length,
         onReorderItem: _onReorder,
-        itemBuilder: (context, i) {
-          final task = _tasks[i];
-          return ReorderableDelayedDragStartListener(
-            key: ValueKey('reorder-${task.id}'),
-            index: i,
-            child: _TaskTile(task: task),
+        proxyDecorator: (child, index, animation) => Material(
+          elevation: 0,
+          color: scheme.surfaceContainerHigh,
+          child: child,
+        ),
+        itemBuilder: (context, index) {
+          final task = _tasks[index];
+          return _TaskItem(
+            key: ValueKey('task-${task.id}'),
+            task: task,
+            list: task.listId == null ? null : widget.listsById[task.listId],
+            reorderIndex: index,
           );
         },
       ),

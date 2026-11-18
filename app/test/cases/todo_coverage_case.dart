@@ -1,7 +1,8 @@
-// Widget coverage for task-list and smart-list chip management, long-press
-// drag reordering, and habit agenda rows with "Open habits" navigation.
+// Widget coverage for task-list and smart-list chip management, drag-handle
+// reordering, and habit agenda rows with "Open habits" navigation.
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/design/components/app_chips.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
@@ -37,12 +38,11 @@ Future<void> _dispose(WidgetTester tester, AppDatabase db) async {
   await db.close();
 }
 
-Finder _listChip(String name) => find.widgetWithText(ChoiceChip, name);
+Finder _listChip(String listId) =>
+    find.byKey(ValueKey<String>('task-list-$listId'));
 
-Finder _smartChip(String name) => find.ancestor(
-  of: find.textContaining(name),
-  matching: find.byType(ChoiceChip),
-);
+Finder _smartChip(String smartListId) =>
+    find.byKey(ValueKey<String>('task-smart-$smartListId'));
 
 class _AgendaWindow extends CalendarState {
   @override
@@ -68,7 +68,7 @@ void main() {
       await repo.createTask(title: 'Draft', listId: work);
       await _pumpTasks(tester, db);
 
-      await tester.longPress(_listChip('Work'));
+      await tester.longPress(_listChip(work));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
@@ -86,30 +86,28 @@ void main() {
     try {
       final repo = TaskRepository(db);
       final work = await repo.createList('Work');
-      await repo.createTask(title: 'Draft', listId: work);
-      await repo.createSmartList('Important', {
+      await repo.createTask(title: 'Draft', listId: work, priority: 4);
+      final important = await repo.createSmartList('Important', {
         'priorities': [4],
         'showCompleted': false,
       });
       await _pumpTasks(tester, db);
 
-      expect(tester.widget<ChoiceChip>(_listChip('Work')).selected, isFalse);
-      await tester.tap(_listChip('Work'));
-      await tester.pump();
-      expect(tester.widget<ChoiceChip>(_listChip('Work')).selected, isTrue);
       expect(
-        tester.widget<ChoiceChip>(_smartChip('Important')).selected,
-        isFalse,
+        tester.widget<AppChip>(_smartChip(important)).label,
+        'Important (1)',
       );
+      expect(tester.widget<AppChip>(_listChip(work)).selected, isFalse);
+      await tester.tap(_listChip(work));
+      await tester.pump();
+      expect(tester.widget<AppChip>(_listChip(work)).selected, isTrue);
+      expect(tester.widget<AppChip>(_smartChip(important)).selected, isFalse);
 
-      await tester.tap(_smartChip('Important'));
+      await tester.tap(_smartChip(important));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      expect(
-        tester.widget<ChoiceChip>(_smartChip('Important')).selected,
-        isTrue,
-      );
-      expect(tester.widget<ChoiceChip>(_listChip('Work')).selected, isFalse);
+      expect(tester.widget<AppChip>(_smartChip(important)).selected, isTrue);
+      expect(tester.widget<AppChip>(_listChip(work)).selected, isFalse);
     } finally {
       await _dispose(tester, db);
     }
@@ -121,11 +119,11 @@ void main() {
     final db = _db();
     try {
       final repo = TaskRepository(db);
-      await repo.createList('Work');
+      final work = await repo.createList('Work');
       await _pumpTasks(tester, db);
 
       final tooltip = tester.widget<Tooltip>(
-        find.ancestor(of: _listChip('Work'), matching: find.byType(Tooltip)),
+        find.ancestor(of: _listChip(work), matching: find.byType(Tooltip)),
       );
       expect(tooltip.message, 'On this device');
 
@@ -133,7 +131,7 @@ void main() {
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);
       await tester.pump();
-      await gesture.moveTo(tester.getCenter(_listChip('Work')));
+      await gesture.moveTo(tester.getCenter(_listChip(work)));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -149,14 +147,14 @@ void main() {
     final db = _db();
     try {
       final repo = TaskRepository(db);
-      await repo.createSmartList('Important', {
+      final important = await repo.createSmartList('Important', {
         'priorities': [4],
         'showCompleted': false,
       });
       await _pumpTasks(tester, db);
 
-      expect(_smartChip('Important'), findsOneWidget);
-      await tester.longPress(_smartChip('Important'));
+      expect(_smartChip(important), findsOneWidget);
+      await tester.longPress(_smartChip(important));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -174,7 +172,7 @@ void main() {
     }
   });
 
-  testWidgets('long-press drag reorders tasks and persists sortOrder', (
+  testWidgets('drag handle reorders tasks and persists sortOrder', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(500, 800);
@@ -191,10 +189,10 @@ void main() {
       final third = await repo.createTask(title: 'Gamma', listId: list);
       await _pumpTasks(tester, db);
 
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.text('Alpha')),
-      );
-      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      final handle = find.byKey(ValueKey<String>('task-drag-$first'));
+      expect(handle, findsOneWidget);
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await tester.pump(const Duration(milliseconds: 50));
       await gesture.moveBy(const Offset(0, 140));
       await tester.pump();
       await gesture.up();

@@ -20,16 +20,23 @@ class _SmartListChip extends ConsumerWidget {
       data: (tasks) => tasks.length,
       orElse: () => null,
     );
-    return GestureDetector(
+    return AppChip(
+      key: ValueKey('task-smart-${smartList.id}'),
+      label: count == null ? smartList.name : '${smartList.name} ($count)',
+      color: _smartListColor(context, smartList),
+      selected: selected,
+      onTap: onSelected,
       onLongPress: onLongPress,
-      child: ChoiceChip(
-        avatar: const Icon(Icons.filter_alt_outlined, size: 16),
-        label: Text(
-          count == null ? smartList.name : '${smartList.name} ($count)',
-        ),
-        selected: selected,
-        onSelected: (_) => onSelected(),
-      ),
     );
   }
+}
+
+/// Saved views have no stored colour. A stable hash of the id gives each one a
+/// distinct dot without writing data or reading the filter JSON.
+Color _smartListColor(BuildContext context, SmartList smartList) {
+  var hash = 0;
+  for (final unit in smartList.id.codeUnits) {
+    hash = (hash * 31 + unit) & 0x7fffffff;
+  }
+  return DsCategoryColors.forIndex(hash).fill(Theme.of(context).brightness);
 }
