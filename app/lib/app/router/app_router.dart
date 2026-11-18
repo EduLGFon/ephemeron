@@ -84,6 +84,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+          StatefulShellBranch(
+            initialLocation: '/stream/${formatStreamDate(DateTime.now())}/day',
+            preload: true,
+            routes: [
+              GoRoute(
+                path: '/stream/:date/:zoom',
+                builder: (context, state) => StreamScreen(
+                  date: tryParseStreamDate(state.pathParameters['date']),
+                  zoom: state.pathParameters['zoom'],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       GoRoute(path: '/ring', builder: (context, state) => const RingScreen()),
@@ -98,13 +111,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
-      ),
-      GoRoute(
-        path: '/stream/:date/:zoom',
-        builder: (context, state) => StreamScreen(
-          date: tryParseStreamDate(state.pathParameters['date']),
-          zoom: state.pathParameters['zoom'],
-        ),
       ),
     ],
     redirect: (context, state) {

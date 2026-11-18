@@ -8,8 +8,10 @@ today's day view.
 - Route: `/stream/<yyyy-MM-dd>/<zoom>` (zoom is `day`/`week`/`month`/...),
   registered in `app/lib/app/router/app_router.dart`. `/` redirects to today's
   day view.
-- Legacy `/tab0`..`/tab6` shell routes remain live for launcher, alarms,
-  widgets and session restore.
+- The Stream route now lives inside the StatefulShellRoute, so AppShell (and
+  its session restore, startup sync, alarm rebuild) mounts on a Stream cold
+  start. Legacy `/tab0`..`/tab6` routes remain live for launcher, alarms,
+  widgets and direct tab deep links.
 
 ## What exists and is merged on v3
 
