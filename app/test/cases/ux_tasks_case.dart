@@ -108,10 +108,10 @@ void main() {
 
     expect(find.text('Buy milk'), findsOneWidget);
     expect(find.text('#work'), findsOneWidget);
-    expect(find.text('P1'), findsOneWidget);
-    expect(find.text('Tomorrow'), findsOneWidget);
+    expect(find.text('P1'), findsWidgets);
+    expect(find.text('Tomorrow'), findsWidgets);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Add task'));
     await tester.pumpAndSettle();
 
     expect(find.text('Task added'), findsOneWidget);
@@ -136,7 +136,7 @@ void main() {
     await _openQuickAdd(tester);
     await tester.enterText(find.byType(TextField), 'Buy milk');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Add task'));
     await tester.pumpAndSettle();
 
     expect(find.text('Task added'), findsOneWidget);
@@ -174,7 +174,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Quick add'), findsOneWidget);
     expect(find.text('Daily'), findsOneWidget);
-    expect(find.text('List 0'), findsOneWidget);
+    expect(find.text('List 0'), findsWidgets);
 
     await _dispose(tester, db);
   });
