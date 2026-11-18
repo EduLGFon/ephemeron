@@ -62,3 +62,42 @@ v3 @ 31fcc08. `flutter gen-l10n` exit 0, no tracked changes; `flutter analyze` N
 ## Stream default (2026-11-18)
 
 Done. Stream is the default in-shell surface: `AppShell` branch 7, `/` redirects to today's Stream day view, the router canonicalizes unsupported zoom levels unconditionally, restore clamps to 0..7 (fresh installs keep Stream; existing users keep their persisted tab), and the More sheet has a Stream entry. `STREAM_UI`/`stream_flags.dart` removed; the `/stream-spike` route was removed while the spike screen is retained for `integration_test/stream_spike_perf_test.dart`. Verified: `flutter gen-l10n` exit 0, no tracked changes; `dart run tools/gen_test_runner.dart` 198 case files; `flutter analyze` No issues found; full serial `flutter test` 1681 passed, 0 failed, 80s wall. Phase 0 performance budgets remain unmeasured (no Android device).
+
+## UI rebirth (2026-11-18)
+
+Done. Replaced the presentation layer with the design system in
+`app/lib/core/design/` (tokens, themes, typography, flat components), the
+adaptive shell and new Today home, and rebuilt Tasks, Calendar, Habits, Focus,
+Countdowns, Notes, Matrix, Search, Settings/Onboarding, Quick Add and the More
+sheet. Merged units: design-foundation, design-components-core,
+design-components-data, shell-today, calendar-cache, quick-add, tasks-screen,
+calendar-screen, wellness-screens, settings-onboarding, notes-screen,
+matrix-search; integration repairs fixed the editor 12/24h display, the task
+sheet 24h test, denied exact-alarm settings layout and platform-channel mock
+teardown. Stream is opt-in (`settings.streamEnabled`, default off) with a
+secondary More/sidebar entry; direct `/stream` shows Today when off and every
+Stream component is retained. Additive preference keys only; no Drift schema or
+migration change; data/domain/sync/repository layers untouched.
+
+Verified from `app/`: `flutter pub get` exit 0; `dart run
+tools/gen_test_runner.dart` exit 0 (212 cases, guard generated); `dart format
+--output=none --set-exit-if-changed lib test` exit 0 (868 files, 0 changed);
+`flutter analyze` exit 0 (No issues found); full serial `flutter test` green on
+rerun with 1824 passed, 0 failed. The first full run had 1821 passed and three
+order-dependent flakes (`habits_timer 320dp trailing no overflow with timer`,
+`l10n search screen localizes titles`, `todo_coverage drag handle reorders
+tasks and persists sortOrder`); each passed alone and in the green rerun, so
+they are recorded as flakes. `flutter build web --release` exit 0:
+`main.dart.js` gzip 1,901,457 B, under the 2 MiB budget (baseline 1,761,101 B,
++140,356 B / +8.0%). `flutter build apk --release --target-platform
+android-arm64` exit 0: 29,594,116 B (baseline 28,346,708 B, +1,247,408 B /
++4.4%).
+
+Limits: no Android device/emulator here, so frame build/raster, cold start,
+idle RAM, battery, long-list scroll and 120Hz behaviour are unmeasured; dynamic
+colour on Android 12+, notification/exact-alarm denied states and the
+320dp/200% visual pass are owner device checks. iOS/macOS/Windows builds were
+not run (Linux host), and Linux desktop needs webkit2gtk-4.0. Release build
+warnings about the absent CupertinoIcons font and three plugins applying the
+Kotlin Gradle Plugin are pre-existing. Design and engineering detail:
+`docs/UI_REBIRTH.md`.

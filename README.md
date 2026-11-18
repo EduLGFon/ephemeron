@@ -28,4 +28,5 @@ Backend (habits/focus sync) is separate: see `server/README.md` and `docs/DOCKER
 
 - `AGENTS.md` - agent/workspace rules.
 - `ARCHITECTURE.md` - design contract.
+- `docs/UI_REBIRTH.md` - UI design system, adaptive shell and verification report.
 - `docs/` - feature specs, API, deploy, privacy, security, TODO, progress.
