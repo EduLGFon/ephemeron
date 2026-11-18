@@ -11,12 +11,15 @@ import 'package:ephemeron/l10n/src/app_localizations.dart';
 import '../../../../core/time/device_date_format.dart';
 import '../../../../core/ui/app_feedback.dart';
 import '../../../../core/ui/app_sheet.dart';
+import '../../habits/application/habits_providers.dart' show habitByIdProvider;
+import '../../habits/presentation/habit_editor_sheet.dart' show showHabitEditor;
 import '../../sync/application/sync_providers.dart' show syncAllProvider;
 import '../application/stream_command_actions.dart';
 import '../application/stream_day_cache_scope.dart';
 import '../application/stream_day_mark.dart' show StreamDayMarkKind;
 import '../application/stream_day_providers.dart' show StreamDayKey;
 import '../application/stream_level_data.dart';
+import '../application/stream_level_streaks.dart';
 import '../application/stream_school_preferences.dart';
 import '../application/stream_sync_status.dart';
 import '../application/stream_theme_provider.dart';
@@ -176,6 +179,24 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
     GoRouter.maybeOf(context)?.go('/stream/${formatStreamDate(day)}/day');
   }
 
+  /// Month and year ribbons open the existing habit editor sheet. The habit
+  /// row is read on tap only, never per ribbon, so the level stays one batch.
+  void _openHabit(String habitId) => unawaited(_showHabit(habitId));
+
+  Future<void> _showHabit(String habitId) async {
+    try {
+      final habit = await ref.read(habitByIdProvider(habitId).future);
+      if (!mounted || habit == null) return;
+      await showHabitEditor(context, habit: habit);
+    } catch (_) {
+      if (!mounted) return;
+      showErrorSnackBar(
+        context,
+        AppLocalizations.of(context).streamPeekLoadFailed,
+      );
+    }
+  }
+
   Widget _bodyFor({
     required StreamLevel level,
     required StreamRouteParams params,
@@ -197,6 +218,19 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
         ),
       );
     }
+    // Month and year ribbons come from one batch of habit entries for the
+    // same range the level already renders; week and day have no ribbons.
+    final streaks = switch (level) {
+      StreamLevel.month || StreamLevel.year =>
+        ref
+            .watch(
+              streamLevelHabitStreaksProvider(
+                streamLevelRangeFor(level, params.date),
+              ),
+            )
+            .value,
+      StreamLevel.day || StreamLevel.week => null,
+    };
     return StreamLevelHost(
       level: level,
       date: params.date,
@@ -242,14 +276,17 @@ class _StreamScreenState extends ConsumerState<StreamScreen> {
         DeviceDateFormat.shortDate(context, day),
         count,
       ),
-      // Year habit ribbons are not wired in this unit; the label only has to
-      // be present because YearView requires it.
+      // Year runs are split per month, so their day numbers stay unambiguous
+      // under the month semantics node.
       yearHabitStreakSemanticsLabel: (_, first, last) =>
           l.streamMonthStreakSemantics(
-            last.day - first.day + 1,
+            last.difference(first).inDays + 1,
             first.day,
             last.day,
           ),
+      habitStreaks: streaks?.monthStreaks,
+      yearHabitStreaks: streaks?.yearStreaks,
+      onHabitTap: _openHabit,
       onDayTap: _openDay,
       onDateTap: _openDay,
       // Mark actions stay out of scope: the host exposes no complete, push,
