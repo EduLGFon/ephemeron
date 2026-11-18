@@ -15,6 +15,7 @@ import 'countdowns/countdown_edge_chips.dart';
 import 'countdowns/countdown_landmark_item.dart';
 import 'day/day_canvas.dart';
 import 'day/day_gestures.dart';
+import 'gestures/tray_drop_target.dart';
 import 'now_pill.dart';
 import 'stream_day_controller.dart';
 import 'stream_time_format.dart';
@@ -42,6 +43,7 @@ class StreamDayBodyView extends StatelessWidget {
     this.onCountdownTap,
     this.onShowAllCountdowns,
     this.onMarkTap,
+    this.onTrayDrop,
   });
 
   static const double _railWidth = 56;
@@ -69,6 +71,13 @@ class StreamDayBodyView extends StatelessWidget {
   final ValueChanged<String>? onCountdownTap;
   final VoidCallback? onShowAllCountdowns;
   final ValueChanged<String>? onMarkTap;
+
+  /// Receives a tray chip id and the drop time from the marks canvas.
+  ///
+  /// The target listens for drags only; it adds no pan or scale recognizer, so
+  /// map panning and pinch zooming stay with [DayGestureRegion]. A chip drag
+  /// begins with a long press outside this region, so the two never compete.
+  final void Function(String id, int dropTimeMs)? onTrayDrop;
 
   /// Marks the painter will draw, in the painter's order.
   ///
@@ -188,6 +197,18 @@ class StreamDayBodyView extends StatelessWidget {
   }
 
   Widget _gestureColumn(BuildContext context, List<StreamDayMark> sortedMarks) {
+    final canvas = _markCanvas(
+      sortedMarks,
+      DayCanvas(
+        viewport: viewport,
+        marks: marks,
+        timeFormatter: (ms) => formatStreamTimeOfDay(
+          context,
+          DateTime.fromMillisecondsSinceEpoch(ms),
+        ),
+      ),
+    );
+    final trayDrop = onTrayDrop;
     return DayGestureRegion(
       viewport: viewport,
       onGestureEnd: _onGestureEnd,
@@ -195,17 +216,16 @@ class StreamDayBodyView extends StatelessWidget {
         children: [
           SizedBox(width: _railWidth, child: _timeRail()),
           Expanded(
-            child: _markCanvas(
-              sortedMarks,
-              DayCanvas(
-                viewport: viewport,
-                marks: marks,
-                timeFormatter: (ms) => formatStreamTimeOfDay(
-                  context,
-                  DateTime.fromMillisecondsSinceEpoch(ms),
-                ),
-              ),
-            ),
+            // Wraps only the marks area so the drop y maps to the same
+            // viewport pixels the canvas paints; rail and scrubber stay
+            // outside the target.
+            child: trayDrop == null
+                ? canvas
+                : TrayDropTarget(
+                    viewport: viewport,
+                    onTrayDrop: trayDrop,
+                    child: canvas,
+                  ),
           ),
           SizedBox(width: _scrubberColumnWidth, child: _scrubber()),
         ],

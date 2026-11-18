@@ -19,6 +19,7 @@ import 'package:ephemeron/features/stream/application/stream_slipped_data.dart';
 import 'package:ephemeron/features/stream/application/stream_sync_status.dart';
 import 'package:ephemeron/features/stream/application/stream_theme_provider.dart';
 import 'package:ephemeron/features/stream/application/stream_tray.dart';
+import 'package:ephemeron/features/stream/application/stream_tray_actions.dart';
 import 'package:ephemeron/features/stream/capture/capture_parser.dart'
     show CaptureDraft;
 import 'package:ephemeron/features/stream/design/stream_theme_mode.dart';
@@ -152,6 +153,46 @@ class _FakeCacheGateway implements StreamDayCacheGateway {
 class _NullBuiltRange extends CalendarBuiltRange {
   @override
   CalendarRange? build() => null;
+}
+
+class _TrayUpdate {
+  const _TrayUpdate({
+    required this.taskId,
+    required this.plannedStart,
+    required this.plannedEnd,
+    required this.dueTime,
+  });
+
+  final String taskId;
+  final String? plannedStart;
+  final String? plannedEnd;
+  final int? dueTime;
+}
+
+class _FakeTrayGateway implements StreamTrayGateway {
+  final updates = <_TrayUpdate>[];
+  final rebuiltDays = <DateTime>[];
+
+  @override
+  Future<void> updateTask(
+    String taskId, {
+    required String? plannedStart,
+    required String? plannedEnd,
+    required String? plannedDate,
+    int? dueTime,
+  }) async {
+    updates.add(
+      _TrayUpdate(
+        taskId: taskId,
+        plannedStart: plannedStart,
+        plannedEnd: plannedEnd,
+        dueTime: dueTime,
+      ),
+    );
+  }
+
+  @override
+  Future<void> rebuildDay(DateTime day) async => rebuiltDays.add(day);
 }
 
 class _FakeCommandExecutor extends StreamCommandExecutor {
@@ -1566,6 +1607,67 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     await db.close();
+  });
+
+  testWidgets('long-press tray chip drag onto the canvas schedules the task', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final gateway = _FakeTrayGateway();
+    const task = Task(
+      id: 't1',
+      title: 'Unscheduled one',
+      priority: 0,
+      pinned: false,
+      wontDo: false,
+      sortOrder: 0,
+      createdAt: 0,
+      updatedAt: 0,
+      dirty: false,
+    );
+    final overrides = <Override>[
+      ..._overrides(tray: <TrayItem>[_trayItems.first]),
+      streamTrayGatewayProvider.overrideWithValue(gateway),
+      openTasksProvider(null)
+          .overrideWithValue(const AsyncValue<List<Task>>.data(<Task>[task])),
+    ];
+    await tester.pumpWidget(
+      _app(
+        overrides: overrides,
+        date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final viewport = tester.widget<DayCanvas>(find.byType(DayCanvas)).viewport;
+    final rect = tester.getRect(find.byType(DayCanvas));
+    final dropTime = DateTime(2026, 11, 17, 9, 45);
+    final drop = Offset(
+      rect.center.dx,
+      rect.top + viewport.timeToPx(dropTime.millisecondsSinceEpoch),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(TrayChip)),
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.moveTo(drop);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(gateway.updates, hasLength(1));
+    expect(gateway.updates.single.taskId, 't1');
+    expect(gateway.updates.single.plannedStart, '2026-11-17T09:45');
+    expect(gateway.updates.single.plannedEnd, '2026-11-17T10:15');
+    expect(gateway.updates.single.dueTime, 9 * 60 + 45);
+    expect(gateway.rebuiltDays, [DateTime(2026, 11, 17)]);
   });
 
   testWidgets('tray tap with no task and no router reports the failure', (

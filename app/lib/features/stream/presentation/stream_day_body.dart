@@ -11,6 +11,7 @@ import '../../habits/application/habits_providers.dart'
     show habitRepositoryProvider;
 import '../application/stream_day_mark.dart';
 import '../application/stream_day_providers.dart';
+import '../application/stream_tray_actions.dart';
 import '../engine/stream_time_viewport.dart';
 import 'stream_day_body_view.dart';
 import 'stream_day_controller.dart';
@@ -222,6 +223,31 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
     GoRouter.maybeOf(context)?.go('/tab4');
   }
 
+  void _onTrayDrop(String id, int dropTimeMs) {
+    unawaited(_scheduleTrayTask(id, dropTimeMs));
+  }
+
+  /// Schedules a tray task through the shared tray actions, which write the
+  /// planned interval and rebuild the day's occurrence cache. The task stream
+  /// then drops the chip and repaints the mark; a failed write is reported to
+  /// the debug console, surfaces a snackbar and keeps the chip in place.
+  Future<void> _scheduleTrayTask(String id, int dropTimeMs) async {
+    try {
+      await ref
+          .read(streamTrayActionsProvider)
+          .scheduleTask(id, DateTime.fromMillisecondsSinceEpoch(dropTimeMs));
+      AppFeedback.success();
+    } catch (error) {
+      debugPrint('Stream tray schedule failed: $error');
+      AppFeedback.error();
+      if (!mounted) return;
+      showErrorSnackBar(
+        context,
+        AppLocalizations.of(context).streamSlippedActionError,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -254,6 +280,7 @@ class _StreamDayBodyState extends ConsumerState<StreamDayBody> {
       onHabitToggle: _toggleHabit,
       onCountdownTap: (_) => _openCountdowns(),
       onShowAllCountdowns: _openCountdowns,
+      onTrayDrop: _onTrayDrop,
     );
   }
 }
