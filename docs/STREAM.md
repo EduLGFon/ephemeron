@@ -2,15 +2,14 @@
 
 ## What it is
 
-A new time-centric "Stream" UI, shipped behind a compile-time flag so the
-existing UI is untouched when it is off.
+A new time-centric "Stream" UI. Stream is the default UI; `/` redirects to
+today's day view.
 
-- Flag: `STREAM_UI` (`bool.fromEnvironment('STREAM_UI')`, default off), see
-  `app/lib/features/stream/stream_flags.dart`.
 - Route: `/stream/<yyyy-MM-dd>/<zoom>` (zoom is `day`/`week`/`month`/...),
-  registered in `app/lib/app/router/app_router.dart` only when the flag is on.
-  With the flag on, `/` redirects to today's day view.
-- The old UI, routes and tests are unchanged when the flag is off.
+  registered in `app/lib/app/router/app_router.dart`. `/` redirects to today's
+  day view.
+- Legacy `/tab0`..`/tab6` shell routes remain live for launcher, alarms,
+  widgets and session restore.
 
 ## What exists and is merged on v3
 
@@ -85,7 +84,7 @@ after the spike fix; do not claim otherwise.
 
 ## How to run and verify
 
-- Run: `flutter run --dart-define=STREAM_UI=true` (from `app/`).
+- Run: `flutter run` (from `app/`).
 - Targeted: `flutter test test/cases/<file>_case.dart`.
 - Codegen: `dart run tools/gen_test_runner.dart`, `flutter gen-l10n`.
 - Analyze: `flutter analyze`.

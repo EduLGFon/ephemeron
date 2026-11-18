@@ -51,7 +51,6 @@ import 'package:ephemeron/features/stream/presentation/tray/tray_chip.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_item.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_panel.dart';
 import 'package:ephemeron/features/stream/presentation/tray/tray_strip.dart';
-import 'package:ephemeron/features/stream/stream_flags.dart';
 import 'package:ephemeron/features/stream/presentation/stream_route_params.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
@@ -391,10 +390,6 @@ String _location(GoRouter router) =>
     router.routerDelegate.currentConfiguration.last.matchedLocation;
 
 void main() {
-  test('streamUiEnabled defaults to false', () {
-    expect(streamUiEnabled, isFalse);
-  });
-
   test('invalid date and zoom fall back', () {
     final p = parseStreamRouteParams(date: 'nope', zoom: 'hour');
     expect(p.zoom, 'day');
