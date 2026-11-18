@@ -30,11 +30,13 @@ void main() {
   testWidgets('stopwatch counts up and finishes from the screen', (
     WidgetTester tester,
   ) async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-          const MethodChannel('ephemeron/alarms'),
-          (call) async => null,
-        );
+    const alarms = MethodChannel('ephemeron/alarms');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(alarms, (call) async => null);
+    // Handlers installed on the default messenger persist across widget tests
+    // in this file, so reset before the next file runs.
+    addTearDown(() => messenger.setMockMethodCallHandler(alarms, null));
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = FocusRepository(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
