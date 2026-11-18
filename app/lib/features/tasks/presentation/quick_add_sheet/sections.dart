@@ -1,283 +1,276 @@
 part of '../quick_add_sheet.dart';
 
 mixin _QuickAddSections on _QuickAddSheetStateBase {
-  void _onChanged(String v);
+  void _onChanged(String value);
+  void _setText(String text);
   Future<void> _save({required bool another});
 
-  void _applyToken(String token, {bool toggle = false}) {
-    final next = toggle
-        ? toggleQuickAddShorthand(_controller.text, token)
-        : appendQuickAddShorthand(_controller.text, token);
-    if (next == _controller.text) return;
-    _controller.value = TextEditingValue(
-      text: next,
-      selection: TextSelection.collapsed(offset: next.length),
+  void _selectKind(_QuickAddKind kind) {
+    if (_kind == kind) return;
+    setState(() => _kind = kind);
+  }
+
+  void _toggleList(String id) {
+    setState(() => _selectedListId = _selectedListId == id ? null : id);
+  }
+
+  void _setPickedDate(DateTime date) {
+    final current = _effectiveDue;
+    setState(() {
+      _pickedDate = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        current?.hour ?? 0,
+        current?.minute ?? 0,
+      );
+    });
+    _saver?.changed(_snapshot);
+  }
+
+  Future<void> _pickDate(QuickAddStrings strings) async {
+    final now = DateTime.now();
+    final initial = _effectiveDue ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 10, 12, 31),
+      helpText: strings.pickDateHelp,
     );
-    _onChanged(next);
+    if (picked == null || !mounted) return;
+    _setPickedDate(picked);
+  }
+
+  void _setPriority(int visual) {
+    final pattern = RegExp(
+      r'(?<![\p{L}\p{N}_-])-p[1-4](?![\p{L}\p{N}_-])',
+      unicode: true,
+      caseSensitive: false,
+    );
+    var text = _controller.text
+        .replaceAll(pattern, ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (visual > 0) {
+      text = appendQuickAddShorthand(text, '-p$visual');
+    }
+    if (text == _controller.text) return;
+    _setText(text);
+  }
+
+  void _close() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final p = _parsed;
-    final lists = ref.watch(taskListsProvider).value ?? const <TaskList>[];
-    final tags = ref.watch(tagsProvider).value ?? const <Tag>[];
-    final theme = Theme.of(context);
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: sheetPadding(context),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.bolt_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 22,
-                ),
-                const SizedBox(width: AppSpace.sm),
-                Text('Quick add', style: theme.textTheme.titleMedium),
-              ],
-            ),
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              'Use #tag, ~list, -p1 to -p4, and phrases like tomorrow 9h.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: AppSpace.md),
-            TextField(
-              controller: _controller,
-              focusNode: _focusNode,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'Buy milk #groceries ~home -p1 tomorrow 9h',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: _onChanged,
-              onSubmitted: (_) => _save(another: false),
-            ),
-            const SizedBox(height: AppSpace.sm),
-            Wrap(
-              spacing: AppSpace.sm,
-              runSpacing: AppSpace.xs,
-              children: [
-                for (final choice in quickAddDateChoices)
-                  ActionChip(
-                    label: Text(choice.label),
-                    avatar: const Icon(Icons.event_outlined, size: 16),
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    onPressed: () => _applyToken(choice.token),
-                  ),
-              ],
-            ),
-            if (p != null) ...[
-              const SizedBox(height: AppSpace.sm),
-              _PreviewWrap(parsed: p),
-            ],
-            if (_justAdded) ...[
-              const SizedBox(height: AppSpace.sm),
-              Row(
-                children: [
-                  Icon(
-                    Icons.check_circle_rounded,
-                    size: 16,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: AppSpace.xs),
-                  Text(
-                    'Added',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (lists.isNotEmpty) ...[
-              const SizedBox(height: AppSpace.sm),
-              _SuggestionRow(
-                label: 'Lists',
-                children: [
-                  for (final list in lists.take(4))
-                    FilterChip(
-                      label: Text('~${list.name}'),
-                      selected:
-                          p?.list?.toLowerCase() == list.name.toLowerCase(),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onSelected: (_) => _applyToken(
-                        quickAddListToken(list.name),
-                        toggle: true,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-            if (tags.isNotEmpty) ...[
-              const SizedBox(height: AppSpace.sm),
-              _SuggestionRow(
-                label: 'Tags',
-                children: [
-                  for (final tag in tags.take(4))
-                    FilterChip(
-                      label: Text('#${tag.name}'),
-                      selected:
-                          p?.tags.contains(tag.name.toLowerCase()) ?? false,
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onSelected: (_) =>
-                          _applyToken(quickAddTagToken(tag.name), toggle: true),
-                    ),
-                ],
-              ),
-            ],
-            const SizedBox(height: AppSpace.md),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: p == null ? null : () => _save(another: false),
-                    child: const Text('Save'),
-                  ),
-                ),
-                const SizedBox(width: AppSpace.sm),
-                OutlinedButton(
-                  onPressed: p == null ? null : () => _save(another: true),
-                  child: const Text('Save + another'),
-                ),
-              ],
+    final strings = QuickAddStrings.of(context);
+    final lists = (ref.watch(taskListsProvider).value ?? const <TaskList>[])
+        .where((list) => list.deletedAt == null)
+        .toList(growable: false);
+    final parsed = _parsed;
+    final canSubmit =
+        !_busy && parsed != null && parsed.title.trim().isNotEmpty;
+    final bottomInset = widget.isDialog
+        ? 0.0
+        : MediaQuery.viewInsetsOf(context).bottom;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        AppSheetHeader(
+          title: strings.title,
+          actions: <Widget>[
+            AppIconButton(
+              icon: Icons.close_rounded,
+              tooltip: strings.close,
+              semanticLabel: strings.close,
+              onPressed: _close,
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PreviewWrap extends StatelessWidget {
-  const _PreviewWrap({required this.parsed});
-
-  final QuickAddParsed parsed;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = parsed.title;
-    final tags = parsed.tags.map((tag) => '#$tag').join(' ');
-    return Wrap(
-      spacing: AppSpace.sm,
-      runSpacing: AppSpace.xs,
-      children: [
-        _PreviewChip(
-          icon: title.isEmpty ? Icons.error_outline : Icons.title,
-          label: title.isEmpty ? 'Add a title' : title,
-          muted: title.isEmpty,
+        Flexible(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              DsSpace.x16,
+              0,
+              DsSpace.x16,
+              DsSpace.x16 + bottomInset,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                AppTextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  autofocus: true,
+                  hintText: _kind.hint(strings),
+                  textInputAction: TextInputAction.done,
+                  prefixIcon: Icon(_kind.icon, size: DsIcon.sm),
+                  onChanged: _onChanged,
+                  onSubmitted: (_) => _save(another: false),
+                ),
+                const SizedBox(height: DsSpace.x8),
+                _QuickAddPreview(
+                  parsed: parsed,
+                  kind: _kind,
+                  pickedDate: _pickedDate,
+                  selectedListId: _selectedListId,
+                  lists: lists,
+                ),
+                const SizedBox(height: DsSpace.x12),
+                _ChipGroup(
+                  label: strings.sectionType,
+                  children: <Widget>[
+                    for (final kind in _QuickAddKind.values)
+                      AppChip(
+                        label: kind.label(strings),
+                        icon: kind.icon,
+                        selected: _kind == kind,
+                        onTap: () => _selectKind(kind),
+                      ),
+                  ],
+                ),
+                if (_kind != _QuickAddKind.habit) ...<Widget>[
+                  const SizedBox(height: DsSpace.x12),
+                  _ChipGroup(
+                    label: strings.sectionDate,
+                    children: <Widget>[
+                      AppChip(
+                        label: strings.today,
+                        icon: Icons.today_outlined,
+                        selected: _isToday(_effectiveDue),
+                        onTap: () => _setPickedDate(DateTime.now()),
+                      ),
+                      AppChip(
+                        label: strings.tomorrow,
+                        icon: Icons.event_available_outlined,
+                        selected: _isTomorrow(_effectiveDue),
+                        onTap: () => _setPickedDate(
+                          DateTime.now().add(const Duration(days: 1)),
+                        ),
+                      ),
+                      AppChip(
+                        label: strings.pickDate,
+                        icon: Icons.calendar_month_outlined,
+                        selected: _isPickedOtherDay,
+                        onTap: () => _pickDate(strings),
+                      ),
+                    ],
+                  ),
+                ],
+                if (_kind == _QuickAddKind.task &&
+                    lists.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: DsSpace.x12),
+                  _ChipGroup(
+                    label: strings.sectionList,
+                    children: <Widget>[
+                      for (final list in lists)
+                        AppChip(
+                          label: list.name,
+                          color: _listColor(list),
+                          selected: _selectedListId == list.id,
+                          onTap: () => _toggleList(list.id),
+                        ),
+                    ],
+                  ),
+                ],
+                if (_kind == _QuickAddKind.task) ...<Widget>[
+                  const SizedBox(height: DsSpace.x12),
+                  _ChipGroup(
+                    label: strings.sectionPriority,
+                    children: <Widget>[
+                      AppChip(
+                        label: strings.priorityNone,
+                        selected: _visualPriority == 0,
+                        onTap: () => _setPriority(0),
+                      ),
+                      for (var visual = 1; visual <= 4; visual++)
+                        AppChip(
+                          label: strings.priorityLabel(visual),
+                          selected: _visualPriority == visual,
+                          onTap: () => _setPriority(visual),
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: DsSpace.x24),
+                _buildActions(context, strings, canSubmit),
+              ],
+            ),
+          ),
         ),
-        if (parsed.due != null)
-          _PreviewChip(
-            icon: Icons.event,
-            label: DeviceDateFormat.dateTime(context, parsed.due!),
-          ),
-        if (parsed.list != null)
-          _PreviewChip(icon: Icons.list_alt, label: parsed.list!),
-        if (parsed.priority > 0)
-          _PreviewChip(icon: Icons.flag, label: 'P${5 - parsed.priority}'),
-        if (tags.isNotEmpty)
-          _PreviewChip(icon: Icons.sell_outlined, label: tags),
-        if (parsed.rrule != null)
-          _PreviewChip(
-            icon: Icons.repeat,
-            label: quickAddRepeatLabel(parsed.rrule!),
-          ),
       ],
     );
   }
-}
 
-class _PreviewChip extends StatelessWidget {
-  const _PreviewChip({
-    required this.icon,
-    required this.label,
-    this.muted = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool muted;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.sm,
-        vertical: AppSpace.xs,
-      ),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 220),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: muted ? scheme.error : scheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: AppSpace.xs),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: muted ? scheme.error : scheme.onSurface,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  int get _visualPriority {
+    final priority = _parsed?.priority ?? 0;
+    return priority == 0 ? 0 : 5 - priority;
   }
-}
 
-class _SuggestionRow extends StatelessWidget {
-  const _SuggestionRow({required this.label, required this.children});
+  bool get _isPickedOtherDay {
+    final picked = _pickedDate;
+    return picked != null && !_isToday(picked) && !_isTomorrow(picked);
+  }
 
-  final String label;
-  final List<Widget> children;
+  bool _isToday(DateTime? date) => _isDay(date, DateTime.now());
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  bool _isTomorrow(DateTime? date) =>
+      _isDay(date, DateTime.now().add(const Duration(days: 1)));
+
+  bool _isDay(DateTime? date, DateTime day) {
+    if (date == null) return false;
+    return date.year == day.year &&
+        date.month == day.month &&
+        date.day == day.day;
+  }
+
+  Color? _listColor(TaskList list) {
+    final raw = list.color;
+    if (raw == null || !isValidHex(raw)) return null;
+    return parseHex(raw);
+  }
+
+  Widget _buildActions(
+    BuildContext context,
+    QuickAddStrings strings,
+    bool canSubmit,
+  ) {
+    final primary = AppButton(
+      label: _kind.addLabel(strings),
+      icon: Icons.add,
+      busy: _busy,
+      expand: true,
+      onPressed: canSubmit ? () => _save(another: false) : null,
+    );
+    final another = AppButton(
+      label: strings.addAnother,
+      variant: AppButtonVariant.secondary,
+      expand: true,
+      onPressed: canSubmit ? () => _save(another: true) : null,
+    );
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final stack = MediaQuery.sizeOf(context).width < 420 || scale > 1.4;
+    if (stack) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          primary,
+          const SizedBox(height: DsSpace.x8),
+          another,
+        ],
+      );
+    }
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpace.sm),
-        Expanded(
-          child: Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            children: children,
-          ),
-        ),
+      children: <Widget>[
+        Expanded(child: primary),
+        const SizedBox(width: DsSpace.x8),
+        Expanded(child: another),
       ],
     );
   }
