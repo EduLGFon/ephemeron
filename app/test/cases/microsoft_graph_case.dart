@@ -240,7 +240,9 @@ void main() {
   });
 
   test('listTodoLists and tasks mapping', () async {
+    final seen = <Uri>[];
     final client = MockClient((req) async {
+      seen.add(req.url);
       if (req.url.path.endsWith('/lists')) {
         return http.Response(
           jsonEncode({
@@ -288,6 +290,7 @@ void main() {
     );
     final lists = await api.listTodoLists();
     expect(lists.first.displayName, 'Tasks');
+    expect(lists.first.wellknownListName, 'defaultList');
     final tasks = await api.listTodoTasks('l1');
     expect(tasks.length, 1);
     expect(tasks.first.title, 'Buy milk');
@@ -295,6 +298,14 @@ void main() {
     expect(tasks.first.dueDateTime?.utc, DateTime.utc(2026, 1, 2));
     expect(tasks.first.completedDateTime?.utc, DateTime.utc(2026, 1, 3));
     expect(tasks.first.createdDateTime, DateTime.utc(2026, 1, 1));
+    // The To Do endpoints reject $select (HTTP 400); never send it.
+    expect(seen, hasLength(2));
+    expect(seen[0].path, endsWith('/me/todo/lists'));
+    expect(seen[1].path, endsWith('/me/todo/lists/l1/tasks'));
+    for (final uri in seen) {
+      expect(uri.queryParameters.containsKey(r'$select'), isFalse);
+      expect(uri.query, isEmpty);
+    }
   });
 
   test('401 typed', () async {
@@ -327,13 +338,40 @@ void main() {
     );
   });
 
-  test('429 with Retry-After', () async {
-    final client = MockClient(
-      (req) async => http.Response('{}', 429, headers: {'retry-after': '7'}),
-    );
+  test('429 retries once and honors Retry-After', () async {
+    var calls = 0;
+    final delays = <Duration>[];
+    final client = MockClient((req) async {
+      calls++;
+      if (calls == 1) {
+        return http.Response('{}', 429, headers: {'retry-after': '7'});
+      }
+      return http.Response(
+        jsonEncode({'value': <Object>[]}),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
     final api = HttpMicrosoftGraphClient(
       accessToken: () async => 'tok',
       httpClient: client,
+      retryDelay: (d) async => delays.add(d),
+    );
+    expect(await api.listTodoLists(), isEmpty);
+    expect(calls, 2);
+    expect(delays, [const Duration(seconds: 7)]);
+  });
+
+  test('429 propagates after the single retry', () async {
+    var calls = 0;
+    final client = MockClient((req) async {
+      calls++;
+      return http.Response('{}', 429, headers: {'retry-after': '7'});
+    });
+    final api = HttpMicrosoftGraphClient(
+      accessToken: () async => 'tok',
+      httpClient: client,
+      retryDelay: (d) async {},
     );
     try {
       await api.listTodoLists();
@@ -343,6 +381,49 @@ void main() {
       expect(ex.status, 429);
       expect(ex.retryAfterSec, 7);
     }
+    expect(calls, 2);
+  });
+
+  test('5xx retries once then succeeds', () async {
+    var calls = 0;
+    final delays = <Duration>[];
+    final client = MockClient((req) async {
+      calls++;
+      if (calls == 1) return http.Response('{}', 503);
+      return http.Response(
+        jsonEncode({'value': <Object>[]}),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final api = HttpMicrosoftGraphClient(
+      accessToken: () async => 'tok',
+      httpClient: client,
+      retryDelay: (d) async => delays.add(d),
+    );
+    expect(await api.listCalendars(), isEmpty);
+    expect(calls, 2);
+    expect(delays, [Duration.zero]);
+  });
+
+  test('5xx propagates after the single retry', () async {
+    var calls = 0;
+    final client = MockClient((req) async {
+      calls++;
+      return http.Response('{}', 500);
+    });
+    final api = HttpMicrosoftGraphClient(
+      accessToken: () async => 'tok',
+      httpClient: client,
+      retryDelay: (d) async {},
+    );
+    await expectLater(
+      api.listCalendars(),
+      throwsA(
+        isA<MicrosoftGraphException>().having((e) => e.status, 'status', 500),
+      ),
+    );
+    expect(calls, 2);
   });
 
   test('malformed json throws', () async {
@@ -376,6 +457,32 @@ void main() {
       } catch (e) {
         expect((e as MicrosoftGraphException).status, code);
       }
+    }
+  });
+
+  test('To Do lists 404/410 are typed and not retried', () async {
+    for (final code in [404, 410]) {
+      var calls = 0;
+      final client = MockClient((req) async {
+        calls++;
+        return http.Response('{}', code);
+      });
+      final api = HttpMicrosoftGraphClient(
+        accessToken: () async => 'tok',
+        httpClient: client,
+        retryDelay: (d) async {},
+      );
+      await expectLater(
+        api.listTodoLists(),
+        throwsA(
+          isA<MicrosoftGraphException>().having(
+            (e) => e.status,
+            'status',
+            code,
+          ),
+        ),
+      );
+      expect(calls, 1);
     }
   });
 

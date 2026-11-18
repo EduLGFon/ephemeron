@@ -1413,6 +1413,8 @@ void main() {
         final result = await engine.syncNow();
         expect(result.authFailure, true);
       } else {
+        // The fake throws on every call, i.e. the single client-level retry is
+        // already exhausted; a real calendar failure must stay visible.
         await expectLater(
           engine.syncNow(),
           throwsA(isA<MicrosoftGraphException>()),
@@ -1422,6 +1424,118 @@ void main() {
       final calendar = (await db.select(db.calendars).get()).single;
       expect(calendar.deletedAt, isNull);
     }
+  });
+
+  test('To Do 404/410 is non-fatal and skips task reconciliation', () async {
+    for (final status in [404, 410]) {
+      final db = _db();
+      addTearDown(db.close);
+      final fake = _FlakyTodoListsFake()
+        ..calendars = [const MsCalendar(id: 'c1', name: 'Cal', canEdit: true)]
+        ..eventsByCalendar = {
+          'c1': [
+            MsEvent(
+              id: 'e1',
+              subject: 'Keep',
+              start: _dt('2026-01-05T10:00:00'),
+              end: _dt('2026-01-05T11:00:00'),
+            ),
+          ],
+        }
+        ..lists = [const MsTodoList(id: 'l1', displayName: 'Tasks')]
+        ..tasksByList = {
+          'l1': [MsTodoTask(id: 't1', title: 'Task')],
+        };
+      final engine = MicrosoftSyncEngine(
+        db,
+        fake,
+        'acct@example.com',
+        windowStart: DateTime.utc(2026, 1, 1),
+        windowEnd: DateTime.utc(2026, 2, 1),
+      );
+      final first = await engine.syncNow();
+      expect(first.taskLists, 1);
+      expect(first.tasks, 1);
+
+      fake.failStatus = status;
+      fake.lists = [];
+      fake.tasksByList = {};
+      final second = await engine.syncNow();
+
+      expect(second.authFailure, false);
+      // Calendars and events still sync and return results.
+      expect(second.events, 1);
+      expect(second.taskLists, 0);
+      expect(second.tasks, 0);
+      final calendar = (await db.select(db.calendars).get()).single;
+      expect(calendar.deletedAt, isNull);
+      final event = (await db.select(db.events).get()).single;
+      expect(event.deletedAt, isNull);
+      // To Do reconciliation is skipped: the empty remote response must not
+      // soft-delete the local list or its tasks.
+      final list = (await db.select(db.taskLists).get()).single;
+      expect(list.deletedAt, isNull);
+      final task = (await db.select(db.tasks).get()).single;
+      expect(task.deletedAt, isNull);
+    }
+  });
+
+  test('To Do 401/403 still sets authFailure', () async {
+    for (final status in [401, 403]) {
+      final db = _db();
+      addTearDown(db.close);
+      final fake = _FlakyTodoListsFake()
+        ..failStatus = status
+        ..calendars = [const MsCalendar(id: 'c1', name: 'Cal', canEdit: true)]
+        ..eventsByCalendar = {
+          'c1': [
+            MsEvent(
+              id: 'e1',
+              subject: 'Keep',
+              start: _dt('2026-01-05T10:00:00'),
+              end: _dt('2026-01-05T11:00:00'),
+            ),
+          ],
+        };
+      final result = await MicrosoftSyncEngine(
+        db,
+        fake,
+        'acct@example.com',
+      ).syncNow();
+
+      expect(result.authFailure, true);
+      // Calendars already pulled in this run are kept.
+      expect(await db.select(db.calendars).get(), hasLength(1));
+      expect(await db.select(db.events).get(), hasLength(1));
+    }
+  });
+
+  test('transient To Do failure is not masked', () async {
+    final db = _db();
+    addTearDown(db.close);
+    final fake = _FlakyTodoListsFake()
+      ..calendars = [const MsCalendar(id: 'c1', name: 'Cal', canEdit: true)]
+      ..lists = [const MsTodoList(id: 'l1', displayName: 'Tasks')]
+      ..tasksByList = {
+        'l1': [MsTodoTask(id: 't1', title: 'Task')],
+      };
+    final engine = MicrosoftSyncEngine(db, fake, 'acct@example.com');
+    await engine.syncNow();
+
+    fake.failStatus = 500;
+    fake.lists = [];
+    await expectLater(
+      engine.syncNow(),
+      throwsA(
+        isA<MicrosoftGraphException>().having((e) => e.status, 'status', 500),
+      ),
+    );
+
+    // A failed To Do fetch never reconciles deletions.
+    final list = (await db.select(db.taskLists).get()).single;
+    expect(list.deletedAt, isNull);
+    final task = (await db.select(db.tasks).get()).single;
+    expect(task.deletedAt, isNull);
   });
 }
 
@@ -1466,6 +1580,19 @@ class _FlakyListCalendarsFake extends FakeMs {
       throw MicrosoftGraphException(status, 'boom');
     }
     return super.listCalendars();
+  }
+}
+
+class _FlakyTodoListsFake extends FakeMs {
+  int? failStatus;
+
+  @override
+  Future<List<MsTodoList>> listTodoLists() async {
+    final status = failStatus;
+    if (status != null) {
+      throw MicrosoftGraphException(status, 'boom');
+    }
+    return super.listTodoLists();
   }
 }
 

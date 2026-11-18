@@ -71,7 +71,14 @@ class MicrosoftSyncEngine {
     var taskCount = 0;
     try {
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-      final calendars = await _client.listCalendars();
+      late final List<MsCalendar> calendars;
+      try {
+        calendars = await _client.listCalendars();
+      } on MicrosoftGraphException catch (e) {
+        // Status only: a failing calendar listing must stay visible.
+        debugPrint('[ms-sync] listCalendars failed status=${e.status}');
+        rethrow;
+      }
       final calSync = await _syncCalendars(calendars, now);
       calendarCount = calSync.count;
       // Remote deletions: reconcile calendars only after a complete, successful
@@ -82,20 +89,44 @@ class MicrosoftSyncEngine {
 
       eventCount = await _syncEvents(calendars, calSync.idsByRemote);
 
-      // Task lists.
-      final todoLists = await _client.listTodoLists();
-      final remoteListIds = {
-        for (final l in todoLists)
-          if (l.id.isNotEmpty) l.id,
-      };
-      final listSync = await _syncTaskLists(todoLists, now);
-      listCount = listSync.count;
-      // Remote deletions: reconcile task lists only after a complete, successful
-      // list fetch. Soft-delete lists (and their MS-synced, non-dirty tasks) that
-      // disappeared from Graph. Never acts on partial/failed sync or dirty rows.
-      await _reconcileDeletedTaskLists(remoteListIds, now);
+      // Task lists. To Do is not available for every account/tenant: Graph
+      // answers 404/410 when the API is absent. That must not fail calendar
+      // sync, so skip To Do for this run. A skipped run never reconciles task
+      // lists or tasks, so nothing is soft-deleted from an unavailable fetch.
+      var todoAvailable = true;
+      List<MsTodoList> todoLists = const [];
+      try {
+        todoLists = await _client.listTodoLists();
+      } on MicrosoftGraphException catch (e) {
+        if (e.isUnauthorized || e.isForbidden) {
+          _authFailure = true;
+          todoAvailable = false;
+        } else if (e.isNotFound || e.isGone) {
+          debugPrint('[ms-sync] listTodoLists unavailable status=${e.status}');
+          todoAvailable = false;
+        } else {
+          // Transient/server failures already exhausted the client retry: keep
+          // the failure visible instead of masking it.
+          debugPrint('[ms-sync] listTodoLists failed status=${e.status}');
+          rethrow;
+        }
+      }
 
-      taskCount = await _syncTasks(todoLists, listSync.idsByRemote, now);
+      if (todoAvailable) {
+        final remoteListIds = {
+          for (final l in todoLists)
+            if (l.id.isNotEmpty) l.id,
+        };
+        final listSync = await _syncTaskLists(todoLists, now);
+        listCount = listSync.count;
+        // Remote deletions: reconcile task lists only after a complete,
+        // successful list fetch. Soft-delete lists (and their MS-synced,
+        // non-dirty tasks) that disappeared from Graph. Never acts on
+        // partial/failed sync or dirty rows.
+        await _reconcileDeletedTaskLists(remoteListIds, now);
+
+        taskCount = await _syncTasks(todoLists, listSync.idsByRemote, now);
+      }
 
       return MicrosoftSyncResult(
         calendars: calendarCount,

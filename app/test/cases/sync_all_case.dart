@@ -4,6 +4,7 @@ import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/auth/application/auth_providers.dart';
 import 'package:ephemeron/features/auth/data/backend_auth.dart';
 import 'package:ephemeron/features/sync/application/sync_providers.dart';
+import 'package:ephemeron/features/sync/data/microsoft_graph_client.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -78,5 +79,20 @@ void main() {
 
     expect(auth.isSignedIn, isTrue);
     expect(container.read(backendSyncStatusProvider), SyncStatus.offline);
+  });
+
+  test('microsoftFailureKind classifies escaped Graph failures', () {
+    SyncErrorKind kind(int status) =>
+        microsoftFailureKind(MicrosoftGraphException(status, 'boom'));
+
+    expect(kind(401), SyncErrorKind.auth);
+    expect(kind(403), SyncErrorKind.auth);
+    expect(kind(429), SyncErrorKind.rateLimited);
+    expect(kind(500), SyncErrorKind.server);
+    expect(kind(503), SyncErrorKind.server);
+    expect(kind(400), SyncErrorKind.unknown);
+    expect(kind(404), SyncErrorKind.unknown);
+    expect(kind(0), SyncErrorKind.unknown);
+    expect(microsoftFailureKind(StateError('boom')), SyncErrorKind.unknown);
   });
 }

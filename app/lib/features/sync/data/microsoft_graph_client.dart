@@ -37,16 +37,30 @@ abstract class MicrosoftGraphClient {
   Future<List<MsTodoTask>> listTodoTasks(String listId);
 }
 
+/// Default wait between a transient failure and its single retry.
+Future<void> _pauseForRetry(Duration delay) => Future<void>.delayed(delay);
+
 class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
   HttpMicrosoftGraphClient({
     required this._accessToken,
     http.Client? httpClient,
-  }) : _http = httpClient ?? http.Client();
+    Future<void> Function(Duration)? retryDelay,
+  }) : _http = httpClient ?? http.Client(),
+       _retryDelay = retryDelay ?? _pauseForRetry;
 
   final Future<String?> Function() _accessToken;
   final http.Client _http;
+  final Future<void> Function(Duration) _retryDelay;
 
   static const int _maxPages = 50;
+
+  /// One bounded retry per request for transient Graph failures. A retry that
+  /// fails again propagates the typed exception so callers can classify it.
+  static const int _maxRetries = 1;
+
+  /// Retry-After is honored but capped: a foreground sync must not stall for
+  /// minutes on a server-requested delay.
+  static const Duration _maxRetryDelay = Duration(seconds: 10);
 
   Future<Map<String, String>> _headers({bool preferUtc = false}) async {
     final token = await _accessToken();
@@ -64,17 +78,49 @@ class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
   }
 
   Never _throw(http.Response r) {
-    int? retry;
-    for (final e in r.headers.entries) {
-      if (e.key.toLowerCase() == 'retry-after') {
-        retry = int.tryParse(e.value);
-      }
-    }
     throw MicrosoftGraphException(
       r.statusCode,
       _safeMessage(r.body),
-      retryAfterSec: retry,
+      retryAfterSec: _retryAfterSec(r),
     );
+  }
+
+  int? _retryAfterSec(http.Response r) {
+    for (final e in r.headers.entries) {
+      if (e.key.toLowerCase() == 'retry-after') {
+        return int.tryParse(e.value);
+      }
+    }
+    return null;
+  }
+
+  bool _isTransientStatus(int status) =>
+      status == 429 || (status >= 500 && status <= 599);
+
+  Duration _retryDelayFor(http.Response r) {
+    final retryAfter = _retryAfterSec(r);
+    if (retryAfter != null && retryAfter > 0) {
+      final delay = Duration(seconds: retryAfter);
+      return delay > _maxRetryDelay ? _maxRetryDelay : delay;
+    }
+    // 429 without Retry-After: brief pause. 5xx: retry immediately.
+    return r.statusCode == 429 ? const Duration(seconds: 1) : Duration.zero;
+  }
+
+  /// GETs [url] with at most one retry for 429/5xx, honoring Retry-After.
+  /// Other non-2xx responses throw immediately. All Graph calls here are GETs,
+  /// so a retry cannot duplicate a mutation.
+  Future<http.Response> _get(Uri url, Map<String, String> headers) async {
+    var attempt = 0;
+    while (true) {
+      final r = await _http.get(url, headers: headers);
+      if (r.statusCode >= 200 && r.statusCode < 300) return r;
+      if (attempt >= _maxRetries || !_isTransientStatus(r.statusCode)) {
+        _throw(r);
+      }
+      await _retryDelay(_retryDelayFor(r));
+      attempt++;
+    }
   }
 
   String _safeMessage(String body) {
@@ -127,8 +173,7 @@ class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
     Uri? next = initial;
     var pages = 0;
     while (next != null && pages < _maxPages) {
-      final r = await _http.get(next, headers: headers);
-      if (r.statusCode < 200 || r.statusCode >= 300) _throw(r);
+      final r = await _get(next, headers);
       final body = _decode(r);
       all.addAll(_pageItems(body, fromMap));
       final link = body['@odata.nextLink'];
@@ -146,15 +191,14 @@ class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
   @override
   Future<MsIdentity> getMe() async {
     final headers = await _headers();
-    final r = await _http.get(
+    final r = await _get(
       Uri.parse('${AppConfig.microsoftGraphBase}/me').replace(
         queryParameters: const {
           r'$select': 'id,displayName,mail,userPrincipalName',
         },
       ),
-      headers: headers,
+      headers,
     );
-    if (r.statusCode < 200 || r.statusCode >= 300) _throw(r);
     final body = _decode(r);
     return MsIdentity.fromMap(body);
   }
@@ -194,26 +238,20 @@ class HttpMicrosoftGraphClient implements MicrosoftGraphClient {
   @override
   Future<List<MsTodoList>> listTodoLists() async {
     final headers = await _headers();
-    final initial = Uri.parse('${AppConfig.microsoftGraphBase}/me/todo/lists')
-        .replace(
-          queryParameters: const {
-            r'$select': 'id,displayName,wellknownListName',
-          },
-        );
+    // SECURITY/PRIVACY: no $select here. The To Do API rejects $select for
+    // these endpoints (HTTP 400 invalidRequest); the default payload is used
+    // and mapped by fixed fields, so no extra data is logged or stored.
+    final initial = Uri.parse('${AppConfig.microsoftGraphBase}/me/todo/lists');
     return _paginate(initial, headers, MsTodoList.fromMap);
   }
 
   @override
   Future<List<MsTodoTask>> listTodoTasks(String listId) async {
     final headers = await _headers();
-    final initial =
-        Uri.parse(
-          '${AppConfig.microsoftGraphBase}/me/todo/lists/${Uri.encodeComponent(listId)}/tasks',
-        ).replace(
-          queryParameters: const {
-            r'$select': 'id,title,body,importance,status,dueDateTime,completedDateTime,createdDateTime,lastModifiedDateTime',
-          },
-        );
+    // No $select: see listTodoLists.
+    final initial = Uri.parse(
+      '${AppConfig.microsoftGraphBase}/me/todo/lists/${Uri.encodeComponent(listId)}/tasks',
+    );
     return _paginate(initial, headers, MsTodoTask.fromMap);
   }
 }
