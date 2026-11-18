@@ -381,7 +381,10 @@ Widget _statusApp(StreamSyncStatus status) => ProviderScope(
       ...GlobalMaterialLocalizations.delegates,
     ],
     supportedLocales: AppLocalizations.supportedLocales,
-    home: StreamScreen(date: DateTime(2026, 11, 17)),
+    home: StreamScreen(
+      date: DateTime(2026, 11, 17),
+      now: DateTime(2026, 11, 17, 10),
+    ),
   ),
 );
 
@@ -442,7 +445,11 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      _app(overrides: _overrides(), date: DateTime(2026, 11, 17)),
+      _app(
+        overrides: _overrides(),
+        date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -519,7 +526,12 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      _app(overrides: _overrides(), date: DateTime(2026, 11, 17), zoom: 'hour'),
+      _app(
+        overrides: _overrides(),
+        date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
+        zoom: 'hour',
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -761,6 +773,7 @@ void main() {
       _app(
         overrides: overrides,
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
         syncStatus: StreamSyncStatus.offline,
       ),
     );
@@ -892,7 +905,11 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
-        _app(overrides: overrides, date: DateTime(2026, 11, 17)),
+        _app(
+          overrides: overrides,
+          date: DateTime(2026, 11, 17),
+          now: DateTime(2026, 11, 17, 10),
+        ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
@@ -925,6 +942,7 @@ void main() {
       _app(
         overrides: _overrides(),
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
         onOpenCommand: () => openCommand++,
         onOpenSettings: () => openSettings++,
         onReturnToNow: () => returnToNow++,
@@ -973,9 +991,13 @@ void main() {
       _app(
         overrides: _overrides(tray: _trayItems),
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
         homeOverride: MediaQuery(
           data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
-          child: StreamScreen(date: DateTime(2026, 11, 17)),
+          child: StreamScreen(
+            date: DateTime(2026, 11, 17),
+            now: DateTime(2026, 11, 17, 10),
+          ),
         ),
       ),
     );
@@ -1005,6 +1027,7 @@ void main() {
         _app(
           overrides: _overrides(),
           date: DateTime(2026, 11, 17),
+          now: DateTime(2026, 11, 17, 10),
           syncStatus: status,
           syncLabel: label,
         ),
@@ -1025,6 +1048,7 @@ void main() {
       _app(
         overrides: _overrides(),
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
         syncLabel: null,
         syncStatus: StreamSyncStatus.synced,
       ),
@@ -1407,6 +1431,7 @@ void main() {
       _app(
         overrides: _overrides(tray: _trayItems),
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
       ),
     );
     await tester.pump();
@@ -1431,6 +1456,7 @@ void main() {
       _app(
         overrides: _overrides(actions: actions),
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
       ),
     );
     await tester.pump();
@@ -1464,7 +1490,11 @@ void main() {
       calendarBuiltRangeProvider.overrideWith(() => _NullBuiltRange()),
     ];
     await tester.pumpWidget(
-      _app(overrides: overrides, date: DateTime(2026, 11, 17)),
+      _app(
+        overrides: overrides,
+        date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -1484,6 +1514,7 @@ void main() {
       _app(
         overrides: _overrides(tray: _trayItems),
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
       ),
     );
     await tester.pump();
@@ -1534,6 +1565,7 @@ void main() {
       _app(
         overrides: _overrides(tray: _trayItems),
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
       ),
     );
     await tester.pump();
@@ -1591,7 +1623,11 @@ void main() {
           .overrideWithValue(AsyncValue<List<Task>>.data(<Task>[task])),
     ];
     await tester.pumpWidget(
-      _app(overrides: overrides, date: DateTime(2026, 11, 17)),
+      _app(
+        overrides: overrides,
+        date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -1684,7 +1720,11 @@ void main() {
           .overrideWithValue(AsyncValue<List<Task>>.data(const <Task>[])),
     ];
     await tester.pumpWidget(
-      _app(overrides: overrides, date: DateTime(2026, 11, 17)),
+      _app(
+        overrides: overrides,
+        date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -1865,6 +1905,7 @@ void main() {
       _app(
         overrides: _overrides(schoolCompleted: false),
         date: DateTime(2026, 11, 17),
+        now: DateTime(2026, 11, 17, 10),
       ),
     );
     await tester.pump();
