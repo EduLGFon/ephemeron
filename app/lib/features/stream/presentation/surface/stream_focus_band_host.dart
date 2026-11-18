@@ -1,8 +1,14 @@
-// Screen-level Stream focus band overlay. Mounts the orphan focus widgets
-// (FocusBand + FocusClock + FocusTimerControls) above the Stream canvas: the
-// session pill floats over the top-end of the canvas region (below the header,
-// above the dock), and taps or drags outside the pill's own bounds fall
-// through to the canvas. See ARCHITECTURE.md section 2.
+// Screen-level Stream focus control. Mounts the orphan focus widgets
+// (FocusBand + FocusClock + FocusTimerControls) as an inline control in the
+// chrome row under the header: the entry button starts a session and morphs
+// into the elapsed pill (band + pause/resume + stop) in the same slot.
+//
+// History: the first version floated an overlay over the canvas top-end;
+// after the tray-drag merge it intercepted the agenda toggle (the toggle row
+// lives exactly there), and the day view's trailing scrubber rail plus the
+// variable-height dock leave no occlusion-free floating anchor. The inline
+// chrome-row slot has no overlap with any interactive chrome. See
+// ARCHITECTURE.md section 2.
 //
 // The clock is in-memory only; a session survives screen rebuilds but is not
 // persisted across restarts. Old FocusScreen stays reachable via the launcher.
@@ -21,15 +27,15 @@ const String _pauseLabel = 'Pause';
 const String _resumeLabel = 'Resume';
 const String _stopLabel = 'Stop';
 
-/// Overlay above the Stream canvas. [child] is the level body; the focus band
-/// renders as a sibling layer so it never takes space from the layout.
+/// Focus control for the Stream chrome row. Place it after the agenda toggle
+/// inside a [Flexible] so the active pill shrinks instead of overflowing on
+/// narrow screens at maximum text scale.
 ///
 /// Pass [clock] to inject a deterministic clock in tests; when null, the host
 /// owns an in-memory [FocusClock] created lazily and disposed with the host.
 class StreamFocusBandHost extends StatefulWidget {
-  const StreamFocusBandHost({super.key, required this.child, this.clock});
+  const StreamFocusBandHost({super.key, this.clock});
 
-  final Widget child;
   final FocusClock? clock;
 
   @override
@@ -66,26 +72,13 @@ class _StreamFocusBandHostState extends State<StreamFocusBandHost> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Stack(
-      children: [
-        widget.child,
-        // Align is hit-test transparent outside its child, so canvas gestures
-        // around the pill are never absorbed by this layer.
-        Align(
-          alignment: AlignmentDirectional.topEnd,
-          child: Padding(
-            padding: const EdgeInsets.all(StreamSpacing.x3),
-            child: _sessionActive ? _pill(scheme) : _entry(scheme),
-          ),
-        ),
-      ],
-    );
+    return _sessionActive ? _pill(scheme) : _entry(scheme);
   }
 
   Widget _entry(ColorScheme scheme) => Material(
     key: const Key('streamFocusEntry'),
     color: scheme.surface,
-    elevation: 6,
+    elevation: 4,
     shape: const CircleBorder(),
     child: Semantics(
       button: true,
@@ -101,7 +94,7 @@ class _StreamFocusBandHostState extends State<StreamFocusBandHost> {
   Widget _pill(ColorScheme scheme) => Material(
     key: const Key('streamFocusBand'),
     color: scheme.surface,
-    elevation: 6,
+    elevation: 4,
     borderRadius: BorderRadius.circular(StreamRadii.full),
     clipBehavior: Clip.antiAlias,
     // Scale down instead of overflowing on the narrowest screens at maximum

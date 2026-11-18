@@ -1,6 +1,6 @@
-// Mount and interaction cases for the screen-level focus band overlay. Uses
-// a deterministic injected clock; the real screen wiring is covered by
-// analyze (the composition is one wrapper around the level body).
+// Cases for the screen-level focus control mounted in the Stream chrome row
+// (after the agenda toggle). Uses a deterministic injected clock; the real
+// screen wiring is covered by the screen case and analyze.
 import 'package:ephemeron/features/stream/presentation/focus/focus_band.dart';
 import 'package:ephemeron/features/stream/presentation/focus/focus_clock.dart';
 import 'package:ephemeron/features/stream/presentation/focus/focus_timer_controls.dart';
@@ -18,8 +18,10 @@ class _Harness {
 
   late final FocusClock clock;
   DateTime time = DateTime(2026, 1, 1, 12);
-  int childTaps = 0;
+  int toggleChanges = 0;
 
+  /// Replicates the chrome row the screen mounts the host in: agenda text,
+  /// switch, then the focus control inside a Flexible.
   Widget build({
     double width = 360,
     double height = 640,
@@ -31,12 +33,26 @@ class _Harness {
         body: SizedBox(
           width: width,
           height: height,
-          child: StreamFocusBandHost(
-            clock: clock,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => childTaps++,
-            ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 8, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Text('Agenda'),
+                    const SizedBox(width: 4),
+                    Switch(
+                      key: const Key('streamAgendaToggle'),
+                      value: true,
+                      onChanged: (_) => toggleChanges++,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(child: StreamFocusBandHost(clock: clock)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -52,12 +68,9 @@ Future<void> _pump(WidgetTester tester, Widget widget) async {
 }
 
 void main() {
-  testWidgets('mounts band pill over child without blocking outside gestures', (
+  testWidgets('entry starts a session; band and elapsed render; stop returns', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(360, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
     final h = _Harness();
     addTearDown(h.dispose);
     await _pump(tester, h.build());
@@ -72,40 +85,13 @@ void main() {
     expect(find.byKey(_bandKey), findsOneWidget);
     expect(find.byType(FocusBand), findsOneWidget);
     expect(find.byType(FocusTimerControls), findsOneWidget);
-    expect(find.byKey(_entryKey), findsNothing);
-
-    // Canvas gestures outside the pill bounds still reach the child below.
-    final bandRect = tester.getRect(find.byKey(_bandKey));
-    expect(bandRect.contains(const Offset(60, 600)), isFalse);
-    await tester.tapAt(const Offset(60, 600));
-    await tester.pump();
-    expect(h.childTaps, 1);
-
-    // Drag outside the pill is not absorbed by the overlay either.
-    final gesture = await tester.startGesture(const Offset(60, 600));
-    await gesture.moveBy(const Offset(0, -80));
-    await gesture.up();
-    await tester.pump();
-    expect(h.childTaps, 1);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('elapsed advances with the injected clock and stop dismisses', (
-    tester,
-  ) async {
-    final h = _Harness();
-    addTearDown(h.dispose);
-    await _pump(tester, h.build());
-
-    await tester.tap(find.byKey(_entryKey));
-    await tester.pump();
     expect(find.text('00:00'), findsOneWidget);
 
     h.time = h.time.add(const Duration(seconds: 5));
     await tester.pump(const Duration(seconds: 5));
     expect(find.text('00:05'), findsOneWidget);
 
-    // Stop keeps the pill controls only until the session ends.
+    // Stop ends the session and brings the entry affordance back.
     await tester.tap(find.byIcon(Icons.stop));
     await tester.pump();
     expect(find.byKey(_bandKey), findsNothing);
@@ -133,6 +119,21 @@ void main() {
     expect(find.text('00:02'), findsOneWidget);
   });
 
+  testWidgets('chrome row: agenda switch stays tappable next to the entry', (
+    tester,
+  ) async {
+    // Regression: the first floating overlay version intercepted the agenda
+    // toggle's tap after the tray-drag merge.
+    final h = _Harness();
+    addTearDown(h.dispose);
+    await _pump(tester, h.build());
+
+    await tester.tap(find.byKey(const Key('streamAgendaToggle')));
+    await tester.pump();
+    expect(h.toggleChanges, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('320dp at 2.0 text scale does not overflow', (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
@@ -141,9 +142,11 @@ void main() {
     addTearDown(h.dispose);
     await _pump(tester, h.build(width: 320, textScale: 2));
 
+    expect(tester.takeException(), isNull);
+
+    // Active pill shrinks inside the row instead of overflowing.
     await tester.tap(find.byKey(_entryKey));
     await tester.pump();
-
     expect(tester.takeException(), isNull);
     final bandRect = tester.getRect(find.byKey(_bandKey));
     expect(bandRect.right, lessThanOrEqualTo(320));
