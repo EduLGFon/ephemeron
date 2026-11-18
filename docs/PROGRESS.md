@@ -54,3 +54,7 @@ tray, slipped triage, peek editor, agenda lens, focus timer/band, countdown
 landmarks, habit gutter/streak line, gesture school, designed states, platform
 capabilities, week/month views, day surface shell. Wiring of these units and the
 Phase 0 performance audit remain.
+
+## Stream verification (2026-11-17)
+
+v3 @ 7307ba2. `flutter gen-l10n` exit 0, no tracked changes; `flutter analyze` No issues found (18.0s); 194 case files. Full `flutter test` run serially: 1654 passed / 1 failed of 1655, 223s wall (suite red). Failure: `stream_route_params invalid zoom falls back to day` uses `week` as invalid, but week/month/year became valid zoom levels after 25f51da, so the test expectation is stale. Rerun of `test/cases/stream_route_params_case.dart` alone: 7 passed / 1 failed, 15s, same assertion. Perf gate: `integration_test/stream_spike_perf_test.dart` needs a device; `flutter devices` shows only Linux desktop and Chrome, no Android target (emulator not started). ARCHITECTURE.md:8 budgets (cold start <600ms, frame <16ms, idle RAM <150MB) remain unmeasured. Test fix (one line: use an actually invalid zoom such as `nope`) is outside this docs-only unit.
