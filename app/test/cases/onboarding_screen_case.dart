@@ -1,4 +1,6 @@
+import 'package:ephemeron/core/design/components/app_headers.dart';
 import 'package:ephemeron/core/design/theme.dart';
+import 'package:ephemeron/core/design/tokens.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/settings/presentation/onboarding_screen.dart';
 import 'package:material_ui/material_ui.dart';
@@ -9,15 +11,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 ThemeData _theme() =>
     EphemeronTheme.build(mode: 'light', platformBrightness: Brightness.light);
 
-Widget _onboardingApp({double textScale = 1}) {
+Widget _onboardingApp({double textScale = 1, EdgeInsets? padding}) {
   return ProviderScope(
     child: MaterialApp(
       theme: _theme(),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child ?? const SizedBox.shrink(),
-      ),
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: TextScaler.linear(textScale),
+            padding: padding ?? media.padding,
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const OnboardingScreen(),
     ),
   );
@@ -69,6 +76,24 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Get started'), findsOneWidget);
+  });
+
+  testWidgets('header applies the status bar inset exactly once', (
+    tester,
+  ) async {
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await tester.pumpWidget(
+      _onboardingApp(padding: const EdgeInsets.only(top: 24)),
+    );
+    await tester.pumpAndSettle();
+
+    final title = find.descendant(
+      of: find.byType(AppPageHeader),
+      matching: find.text('Ephemeron'),
+    );
+    expect(title, findsOneWidget);
+    expect(tester.getTopLeft(title).dy, 24 + DsSpace.x12);
   });
 
   testWidgets('skip marks onboarding complete and never blocks local use', (

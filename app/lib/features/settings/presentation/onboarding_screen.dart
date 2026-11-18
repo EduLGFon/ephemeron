@@ -70,20 +70,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final strings = SettingsStrings.of(context);
     final isLast = _index == _pageCount - 1;
     return AppPage(
-      header: SafeArea(
-        bottom: false,
-        child: AppPageHeader(
-          title: Text(strings.onboardingBrand),
-          subtitle: Text(strings.onboardingTagline),
-          actions: <Widget>[
-            AppButton(
-              key: const ValueKey('onboarding-skip'),
-              label: strings.onboardingSkip,
-              variant: AppButtonVariant.ghost,
-              onPressed: _finish,
-            ),
-          ],
-        ),
+      header: AppPageHeader(
+        title: Text(strings.onboardingBrand),
+        subtitle: Text(strings.onboardingTagline),
+        actions: <Widget>[
+          AppButton(
+            key: const ValueKey('onboarding-skip'),
+            label: strings.onboardingSkip,
+            variant: AppButtonVariant.ghost,
+            onPressed: _finish,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

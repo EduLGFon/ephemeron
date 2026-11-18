@@ -25,7 +25,7 @@ Widget _settingsHeader(_SettingsScreenState state, SettingsStrings strings) {
   return Column(
     mainAxisSize: MainAxisSize.min,
     children: <Widget>[
-      SafeArea(bottom: false, child: header),
+      header,
       if (state._searchOpen)
         Padding(
           padding: const EdgeInsets.fromLTRB(
