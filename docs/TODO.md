@@ -53,6 +53,31 @@
 - Backend hardening deferred to deploy: reverse-proxy client_max_body_size (~1MB), strip/overwrite X-Forwarded-For at proxy, run API as non-root with least-privilege deno flags.
 - Code follow-ups: wrap server/src/jwt.ts atob in try/catch (500-vs-401); bound or TTL-sweep server/main.ts rate-limit buckets; 400 on since=NaN in pull; rename weak expired-refresh test and add real-expiry case; app/web gitignored so future app/web/* static files need git add -f (like CNAME); add that note to docs/PAGES_DEPLOY.md as one line.
 
+## Stream UI (v3)
+
+- [x] Wire capture bar into the day surface.
+- [x] Wire command palette into the day surface.
+- [ ] Wire tray drag-to-schedule.
+- [ ] Wire peek inline editor.
+- [ ] Wire slipped triage.
+- [x] Wire agenda toggle.
+- [x] Wire gesture school overlay.
+- [ ] Wire focus mode controls.
+- [ ] Wire habit gutter.
+- [ ] Wire countdown landmarks.
+- [x] Wire week/month level switching.
+- [x] Implement year level view.
+- [x] Implement settings sheet.
+- [ ] Implement progressive hints.
+- [ ] Wire permission banners.
+- [x] Wire sync/offline states into the surface.
+- [ ] Remove old UI after Phase 8 acceptance.
+- [ ] Run Phase 0 perf gate (frame build/raster, cold start, memory, 2000-mark scroll) after the spike fix.
+- [ ] Review follow-up: week/month painters over 300 lines.
+- [ ] Review follow-up: palette duplication in the emitter.
+- [ ] Review follow-up: `_mapRow` length.
+- [ ] Review follow-up: cluster layout complexity.
+
 ## Verification record (2026-11-13)
 
 Dependency refresh run (Flutter 3.50.0, Dart 3.14.0):

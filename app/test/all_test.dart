@@ -90,6 +90,86 @@ import 'cases/smart_filter_case.dart' as smart_filter;
 import 'cases/source_label_case.dart' as source_label;
 import 'cases/source_move_case.dart' as source_move;
 import 'cases/source_picker_case.dart' as source_picker;
+import 'cases/stream_agenda_case.dart' as stream_agenda;
+import 'cases/stream_agenda_host_case.dart' as stream_agenda_host;
+import 'cases/stream_ambient_case.dart' as stream_ambient;
+import 'cases/stream_ambient_mount_case.dart' as stream_ambient_mount;
+import 'cases/stream_capture_actions_case.dart' as stream_capture_actions;
+import 'cases/stream_capture_bar_case.dart' as stream_capture_bar;
+import 'cases/stream_capture_parser_case.dart' as stream_capture_parser;
+import 'cases/stream_capture_plan_case.dart' as stream_capture_plan;
+import 'cases/stream_chrome_widgets_case.dart' as stream_chrome_widgets;
+import 'cases/stream_command_actions_case.dart' as stream_command_actions;
+import 'cases/stream_command_overlay_case.dart' as stream_command_overlay;
+import 'cases/stream_command_palette_case.dart' as stream_command_palette;
+import 'cases/stream_command_parser_case.dart' as stream_command_parser;
+import 'cases/stream_countdown_edge_case.dart' as stream_countdown_edge;
+import 'cases/stream_countdown_landmark_case.dart' as stream_countdown_landmark;
+import 'cases/stream_countdown_layer_case.dart' as stream_countdown_layer;
+import 'cases/stream_countdown_math_case.dart' as stream_countdown_math;
+import 'cases/stream_culler_case.dart' as stream_culler;
+import 'cases/stream_day_cache_case.dart' as stream_day_cache;
+import 'cases/stream_day_canvas_case.dart' as stream_day_canvas;
+import 'cases/stream_day_controller_case.dart' as stream_day_controller;
+import 'cases/stream_day_gestures_case.dart' as stream_day_gestures;
+import 'cases/stream_drag_overlay_case.dart' as stream_drag_overlay;
+import 'cases/stream_focus_band_case.dart' as stream_focus_band;
+import 'cases/stream_focus_case.dart' as stream_focus;
+import 'cases/stream_fuzzy_case.dart' as stream_fuzzy;
+import 'cases/stream_gesture_school_case.dart' as stream_gesture_school;
+import 'cases/stream_habit_gutter_case.dart' as stream_habit_gutter;
+import 'cases/stream_habit_layer_case.dart' as stream_habit_layer;
+import 'cases/stream_habit_streak_case.dart' as stream_habit_streak;
+import 'cases/stream_interactions_case.dart' as stream_interactions;
+import 'cases/stream_interchange_case.dart' as stream_interchange;
+import 'cases/stream_launcher_case.dart' as stream_launcher;
+import 'cases/stream_layout_mode_case.dart' as stream_layout_mode;
+import 'cases/stream_level_data_case.dart' as stream_level_data;
+import 'cases/stream_level_host_case.dart' as stream_level_host;
+import 'cases/stream_level_streaks_case.dart' as stream_level_streaks;
+import 'cases/stream_level_transition_case.dart' as stream_level_transition;
+import 'cases/stream_mark_hit_test_case.dart' as stream_mark_hit_test;
+import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
+import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
+import 'cases/stream_month_view_case.dart' as stream_month_view;
+import 'cases/stream_offline_banner_host_case.dart'
+    as stream_offline_banner_host;
+import 'cases/stream_peek_data_case.dart' as stream_peek_data;
+import 'cases/stream_peek_editor_case.dart' as stream_peek_editor;
+import 'cases/stream_peek_editor_state_case.dart' as stream_peek_editor_state;
+import 'cases/stream_peek_panel_case.dart' as stream_peek_panel;
+import 'cases/stream_peek_sheet_case.dart' as stream_peek_sheet;
+import 'cases/stream_permission_banner_case.dart' as stream_permission_banner;
+import 'cases/stream_platform_case.dart' as stream_platform;
+import 'cases/stream_restore_nav_case.dart' as stream_restore_nav;
+import 'cases/stream_route_params_case.dart' as stream_route_params;
+import 'cases/stream_school_host_case.dart' as stream_school_host;
+import 'cases/stream_school_preferences_case.dart' as stream_school_preferences;
+import 'cases/stream_screen_case.dart' as stream_screen;
+import 'cases/stream_settings_sheet_case.dart' as stream_settings_sheet;
+import 'cases/stream_slipped_data_case.dart' as stream_slipped_data;
+import 'cases/stream_slipped_keyboard_case.dart' as stream_slipped_keyboard;
+import 'cases/stream_slipped_school_case.dart' as stream_slipped_school;
+import 'cases/stream_slipped_sheet_case.dart' as stream_slipped_sheet;
+import 'cases/stream_slipped_trail_case.dart' as stream_slipped_trail;
+import 'cases/stream_slipped_trail_host_case.dart' as stream_slipped_trail_host;
+import 'cases/stream_slipped_triage_case.dart' as stream_slipped_triage;
+import 'cases/stream_states_case.dart' as stream_states;
+import 'cases/stream_surface_dock_case.dart' as stream_surface_dock;
+import 'cases/stream_theme_case.dart' as stream_theme;
+import 'cases/stream_theme_preferences_case.dart' as stream_theme_preferences;
+import 'cases/stream_time_viewport_case.dart' as stream_time_viewport;
+import 'cases/stream_tray_chip_case.dart' as stream_tray_chip;
+import 'cases/stream_tray_data_case.dart' as stream_tray_data;
+import 'cases/stream_tray_drop_case.dart' as stream_tray_drop;
+import 'cases/stream_tray_panel_grouping_case.dart'
+    as stream_tray_panel_grouping;
+import 'cases/stream_tray_panel_interaction_case.dart'
+    as stream_tray_panel_interaction;
+import 'cases/stream_tray_strip_case.dart' as stream_tray_strip;
+import 'cases/stream_viewport_case.dart' as stream_viewport;
+import 'cases/stream_week_view_case.dart' as stream_week_view;
+import 'cases/stream_year_view_case.dart' as stream_year_view;
 import 'cases/sync_all_case.dart' as sync_all;
 import 'cases/sync_attention_case.dart' as sync_attention;
 import 'cases/sync_calendar_integrity_case.dart' as sync_calendar_integrity;
@@ -217,6 +297,83 @@ const _included = <String>{
   'source_label_case.dart',
   'source_move_case.dart',
   'source_picker_case.dart',
+  'stream_agenda_case.dart',
+  'stream_agenda_host_case.dart',
+  'stream_ambient_case.dart',
+  'stream_ambient_mount_case.dart',
+  'stream_capture_actions_case.dart',
+  'stream_capture_bar_case.dart',
+  'stream_capture_parser_case.dart',
+  'stream_capture_plan_case.dart',
+  'stream_chrome_widgets_case.dart',
+  'stream_command_actions_case.dart',
+  'stream_command_overlay_case.dart',
+  'stream_command_palette_case.dart',
+  'stream_command_parser_case.dart',
+  'stream_countdown_edge_case.dart',
+  'stream_countdown_landmark_case.dart',
+  'stream_countdown_layer_case.dart',
+  'stream_countdown_math_case.dart',
+  'stream_culler_case.dart',
+  'stream_day_cache_case.dart',
+  'stream_day_canvas_case.dart',
+  'stream_day_controller_case.dart',
+  'stream_day_gestures_case.dart',
+  'stream_drag_overlay_case.dart',
+  'stream_focus_band_case.dart',
+  'stream_focus_case.dart',
+  'stream_fuzzy_case.dart',
+  'stream_gesture_school_case.dart',
+  'stream_habit_gutter_case.dart',
+  'stream_habit_layer_case.dart',
+  'stream_habit_streak_case.dart',
+  'stream_interactions_case.dart',
+  'stream_interchange_case.dart',
+  'stream_launcher_case.dart',
+  'stream_layout_mode_case.dart',
+  'stream_level_data_case.dart',
+  'stream_level_host_case.dart',
+  'stream_level_streaks_case.dart',
+  'stream_level_transition_case.dart',
+  'stream_mark_hit_test_case.dart',
+  'stream_mark_layout_case.dart',
+  'stream_mark_mapper_case.dart',
+  'stream_month_view_case.dart',
+  'stream_offline_banner_host_case.dart',
+  'stream_peek_data_case.dart',
+  'stream_peek_editor_case.dart',
+  'stream_peek_editor_state_case.dart',
+  'stream_peek_panel_case.dart',
+  'stream_peek_sheet_case.dart',
+  'stream_permission_banner_case.dart',
+  'stream_platform_case.dart',
+  'stream_restore_nav_case.dart',
+  'stream_route_params_case.dart',
+  'stream_school_host_case.dart',
+  'stream_school_preferences_case.dart',
+  'stream_screen_case.dart',
+  'stream_settings_sheet_case.dart',
+  'stream_slipped_data_case.dart',
+  'stream_slipped_keyboard_case.dart',
+  'stream_slipped_school_case.dart',
+  'stream_slipped_sheet_case.dart',
+  'stream_slipped_trail_case.dart',
+  'stream_slipped_trail_host_case.dart',
+  'stream_slipped_triage_case.dart',
+  'stream_states_case.dart',
+  'stream_surface_dock_case.dart',
+  'stream_theme_case.dart',
+  'stream_theme_preferences_case.dart',
+  'stream_time_viewport_case.dart',
+  'stream_tray_chip_case.dart',
+  'stream_tray_data_case.dart',
+  'stream_tray_drop_case.dart',
+  'stream_tray_panel_grouping_case.dart',
+  'stream_tray_panel_interaction_case.dart',
+  'stream_tray_strip_case.dart',
+  'stream_viewport_case.dart',
+  'stream_week_view_case.dart',
+  'stream_year_view_case.dart',
   'sync_all_case.dart',
   'sync_attention_case.dart',
   'sync_calendar_integrity_case.dart',
@@ -352,6 +509,83 @@ void main() {
   group('source_label', source_label.main);
   group('source_move', source_move.main);
   group('source_picker', source_picker.main);
+  group('stream_agenda', stream_agenda.main);
+  group('stream_agenda_host', stream_agenda_host.main);
+  group('stream_ambient', stream_ambient.main);
+  group('stream_ambient_mount', stream_ambient_mount.main);
+  group('stream_capture_actions', stream_capture_actions.main);
+  group('stream_capture_bar', stream_capture_bar.main);
+  group('stream_capture_parser', stream_capture_parser.main);
+  group('stream_capture_plan', stream_capture_plan.main);
+  group('stream_chrome_widgets', stream_chrome_widgets.main);
+  group('stream_command_actions', stream_command_actions.main);
+  group('stream_command_overlay', stream_command_overlay.main);
+  group('stream_command_palette', stream_command_palette.main);
+  group('stream_command_parser', stream_command_parser.main);
+  group('stream_countdown_edge', stream_countdown_edge.main);
+  group('stream_countdown_landmark', stream_countdown_landmark.main);
+  group('stream_countdown_layer', stream_countdown_layer.main);
+  group('stream_countdown_math', stream_countdown_math.main);
+  group('stream_culler', stream_culler.main);
+  group('stream_day_cache', stream_day_cache.main);
+  group('stream_day_canvas', stream_day_canvas.main);
+  group('stream_day_controller', stream_day_controller.main);
+  group('stream_day_gestures', stream_day_gestures.main);
+  group('stream_drag_overlay', stream_drag_overlay.main);
+  group('stream_focus_band', stream_focus_band.main);
+  group('stream_focus', stream_focus.main);
+  group('stream_fuzzy', stream_fuzzy.main);
+  group('stream_gesture_school', stream_gesture_school.main);
+  group('stream_habit_gutter', stream_habit_gutter.main);
+  group('stream_habit_layer', stream_habit_layer.main);
+  group('stream_habit_streak', stream_habit_streak.main);
+  group('stream_interactions', stream_interactions.main);
+  group('stream_interchange', stream_interchange.main);
+  group('stream_launcher', stream_launcher.main);
+  group('stream_layout_mode', stream_layout_mode.main);
+  group('stream_level_data', stream_level_data.main);
+  group('stream_level_host', stream_level_host.main);
+  group('stream_level_streaks', stream_level_streaks.main);
+  group('stream_level_transition', stream_level_transition.main);
+  group('stream_mark_hit_test', stream_mark_hit_test.main);
+  group('stream_mark_layout', stream_mark_layout.main);
+  group('stream_mark_mapper', stream_mark_mapper.main);
+  group('stream_month_view', stream_month_view.main);
+  group('stream_offline_banner_host', stream_offline_banner_host.main);
+  group('stream_peek_data', stream_peek_data.main);
+  group('stream_peek_editor', stream_peek_editor.main);
+  group('stream_peek_editor_state', stream_peek_editor_state.main);
+  group('stream_peek_panel', stream_peek_panel.main);
+  group('stream_peek_sheet', stream_peek_sheet.main);
+  group('stream_permission_banner', stream_permission_banner.main);
+  group('stream_platform', stream_platform.main);
+  group('stream_restore_nav', stream_restore_nav.main);
+  group('stream_route_params', stream_route_params.main);
+  group('stream_school_host', stream_school_host.main);
+  group('stream_school_preferences', stream_school_preferences.main);
+  group('stream_screen', stream_screen.main);
+  group('stream_settings_sheet', stream_settings_sheet.main);
+  group('stream_slipped_data', stream_slipped_data.main);
+  group('stream_slipped_keyboard', stream_slipped_keyboard.main);
+  group('stream_slipped_school', stream_slipped_school.main);
+  group('stream_slipped_sheet', stream_slipped_sheet.main);
+  group('stream_slipped_trail', stream_slipped_trail.main);
+  group('stream_slipped_trail_host', stream_slipped_trail_host.main);
+  group('stream_slipped_triage', stream_slipped_triage.main);
+  group('stream_states', stream_states.main);
+  group('stream_surface_dock', stream_surface_dock.main);
+  group('stream_theme', stream_theme.main);
+  group('stream_theme_preferences', stream_theme_preferences.main);
+  group('stream_time_viewport', stream_time_viewport.main);
+  group('stream_tray_chip', stream_tray_chip.main);
+  group('stream_tray_data', stream_tray_data.main);
+  group('stream_tray_drop', stream_tray_drop.main);
+  group('stream_tray_panel_grouping', stream_tray_panel_grouping.main);
+  group('stream_tray_panel_interaction', stream_tray_panel_interaction.main);
+  group('stream_tray_strip', stream_tray_strip.main);
+  group('stream_viewport', stream_viewport.main);
+  group('stream_week_view', stream_week_view.main);
+  group('stream_year_view', stream_year_view.main);
   group('sync_all', sync_all.main);
   group('sync_attention', sync_attention.main);
   group('sync_calendar_integrity', sync_calendar_integrity.main);
