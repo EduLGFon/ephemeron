@@ -44,6 +44,8 @@ extension _AppShellWidgetActions on _AppShellState {
     if (!mounted) return;
     final shared = await SystemLauncher.consumeSharedText();
     if (shared != null && shared.trim().isNotEmpty && mounted) {
+      // Shared text needs prefill; the pill has no initialText path, so keep
+      // the quick-add sheet for this case.
       await showQuickAdd(context, initialText: shared.trim());
     }
     if (!mounted) return;
@@ -51,7 +53,7 @@ extension _AppShellWidgetActions on _AppShellState {
     if (action != null && mounted) {
       switch (action) {
         case 'new_task':
-          await showQuickAdd(context);
+          ref.read(quickCreatePillRequestProvider.notifier).state++;
         case 'new_event':
           _onTabSelected(AppDestination.calendar.branch);
         case 'start_focus':

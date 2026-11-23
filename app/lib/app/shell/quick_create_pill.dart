@@ -13,6 +13,7 @@ import '../../core/ui/app_feedback.dart';
 import '../../data/drift/app_database.dart';
 import '../../domain/parsing/quick_add_parser.dart';
 import '../../features/calendar/application/calendar_providers.dart';
+import '../../features/calendar/presentation/event_editor_sheet.dart';
 import '../../features/countdowns/application/countdowns_providers.dart';
 import '../../features/habits/application/habits_providers.dart';
 import '../../features/settings/application/settings_providers.dart';
@@ -139,12 +140,13 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     if (parsed == null || parsed.title.trim().isEmpty) return;
     final strings = QuickAddStrings.of(context);
     setState(() => _busy = true);
+    var openedEditor = false;
     try {
       switch (_kind) {
         case QuickCreateKind.task:
           await _createTask(parsed);
         case QuickCreateKind.event:
-          await _createEvent(parsed);
+          openedEditor = await _createEvent(parsed);
         case QuickCreateKind.habit:
           await _createHabit(parsed);
         case QuickCreateKind.countdown:
@@ -159,6 +161,10 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     }
     if (!mounted) return;
     _lastKind = _kind;
+    if (openedEditor) {
+      _close(clear: true);
+      return;
+    }
     AppFeedback.success();
     _close(clear: true);
   }
@@ -217,13 +223,23 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     return null;
   }
 
-  Future<void> _createEvent(QuickAddParsed parsed) async {
+  /// Returns true when no writable calendar exists and the full event editor
+  /// was opened with the parsed title and start instead.
+  Future<bool> _createEvent(QuickAddParsed parsed) async {
     final calendars = await ref.read(calendarsProvider.future);
     final writable = calendars
         .where((c) => c.deletedAt == null && !c.readOnly)
         .toList();
     final start = _eventStartFor(DateTime.now(), _effectiveDue);
-    if (writable.isEmpty) return;
+    if (writable.isEmpty) {
+      if (!mounted) return true;
+      await showEventEditor(
+        context,
+        initialStart: start,
+        restoredDraft: <String, dynamic>{'title': parsed.title},
+      );
+      return true;
+    }
     final settings = await ref.read(settingsRepositoryProvider.future);
     final defaultId = settings.defaultCalendarId;
     final calendar =
@@ -241,6 +257,7 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     try {
       await settings.setDefaultCalendarId(calendar.id);
     } catch (_) {}
+    return false;
   }
 
   Future<void> _createHabit(QuickAddParsed parsed) async {

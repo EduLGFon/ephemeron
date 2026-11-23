@@ -1,9 +1,15 @@
+import 'package:drift/native.dart';
 import 'package:ephemeron/app/shell/adaptive_shell.dart';
+import 'package:ephemeron/app/shell/quick_create_pill.dart';
+import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/features/settings/application/settings_providers.dart';
+import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/tasks/application/tasks_providers.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Widget _harness({
   required List<int> primary,
@@ -334,6 +340,158 @@ void main() {
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('quick-create pill creates a habit', (tester) async {
+    _setSize(tester, const Size(500, 800));
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    addTearDown(() async => db.close());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          taskListsProvider.overrideWith(
+            (ref) => Stream.value(const <TaskList>[]),
+          ),
+          settingsRepositoryProvider.overrideWith(
+            (ref) async => SettingsRepository(prefs),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: Center(child: QuickCreatePill())),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const ValueKey<String>('quick-create-pill')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('quick-create-kind-habit')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('quick-create-input')),
+      'Drink water',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey<String>('quick-create-submit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final habits = await db.select(db.habits).get();
+    expect(habits, hasLength(1));
+    expect(habits.single.name, 'Drink water');
+  });
+
+  testWidgets('quick-create pill creates a countdown', (tester) async {
+    _setSize(tester, const Size(500, 800));
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    addTearDown(() async => db.close());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          taskListsProvider.overrideWith(
+            (ref) => Stream.value(const <TaskList>[]),
+          ),
+          settingsRepositoryProvider.overrideWith(
+            (ref) async => SettingsRepository(prefs),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: Center(child: QuickCreatePill())),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const ValueKey<String>('quick-create-pill')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('quick-create-kind-countdown')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('quick-create-input')),
+      'Trip',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey<String>('quick-create-submit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final countdowns = await db.select(db.countdowns).get();
+    expect(countdowns, hasLength(1));
+    expect(countdowns.single.title, 'Trip');
+  });
+
+  testWidgets(
+    'quick-create pill falls back to event editor when no writable calendar exists',
+    (tester) async {
+      _setSize(tester, const Size(500, 800));
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      addTearDown(() async => db.close());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appDatabaseProvider.overrideWithValue(db),
+            taskListsProvider.overrideWith(
+              (ref) => Stream.value(const <TaskList>[]),
+            ),
+            settingsRepositoryProvider.overrideWith(
+              (ref) async => SettingsRepository(prefs),
+            ),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(body: Center(child: QuickCreatePill())),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.byKey(const ValueKey<String>('quick-create-pill')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(
+        find.byKey(const ValueKey<String>('quick-create-kind-event')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('quick-create-input')),
+        'No calendar event',
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('quick-create-submit')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('No calendar event'), findsWidgets);
+      expect(await db.select(db.events).get(), isEmpty);
+
+      await tester.pumpWidget(Container());
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
     },
   );
 }

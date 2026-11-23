@@ -10,7 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'cases/account_email_case.dart' as account_email;
 import 'cases/adaptive_shell_case.dart' as adaptive_shell;
 import 'cases/alarm_migration_v4v5_case.dart' as alarm_migration_v4v5;
-import 'cases/alarm_notification_actions_case.dart' as alarm_notification_actions;
+import 'cases/alarm_notification_actions_case.dart'
+    as alarm_notification_actions;
 import 'cases/alarm_overdue_case.dart' as alarm_overdue;
 import 'cases/alarm_repository_case.dart' as alarm_repository;
 import 'cases/alarm_title_case.dart' as alarm_title;
@@ -21,7 +22,8 @@ import 'cases/backend_auth_case.dart' as backend_auth;
 import 'cases/backend_sync_case.dart' as backend_sync;
 import 'cases/backup_case.dart' as backup;
 import 'cases/calendar_atomic_load_case.dart' as calendar_atomic_load;
-import 'cases/calendar_cache_coordinator_case.dart' as calendar_cache_coordinator;
+import 'cases/calendar_cache_coordinator_case.dart'
+    as calendar_cache_coordinator;
 import 'cases/calendar_color_case.dart' as calendar_color;
 import 'cases/calendar_header_case.dart' as calendar_header;
 import 'cases/calendar_list_pagination_case.dart' as calendar_list_pagination;
@@ -63,7 +65,8 @@ import 'cases/home_widget_binder_case.dart' as home_widget_binder;
 import 'cases/home_widget_callback_case.dart' as home_widget_callback;
 import 'cases/home_widget_case.dart' as home_widget;
 import 'cases/l10n_case.dart' as l10n;
-import 'cases/markdown_editing_controller_case.dart' as markdown_editing_controller;
+import 'cases/markdown_editing_controller_case.dart'
+    as markdown_editing_controller;
 import 'cases/matrix_case.dart' as matrix;
 import 'cases/matrix_layout_case.dart' as matrix_layout;
 import 'cases/matrix_planned_case.dart' as matrix_planned;
@@ -72,7 +75,8 @@ import 'cases/microsoft_graph_case.dart' as microsoft_graph;
 import 'cases/microsoft_sync_engine_case.dart' as microsoft_sync_engine;
 import 'cases/migration_replay_v11_v14_case.dart' as migration_replay_v11_v14;
 import 'cases/migration_v4_v5_case.dart' as migration_v4_v5;
-import 'cases/migration_v7_v11_regression_case.dart' as migration_v7_v11_regression;
+import 'cases/migration_v7_v11_regression_case.dart'
+    as migration_v7_v11_regression;
 import 'cases/month_view_case.dart' as month_view;
 import 'cases/note_editor_case.dart' as note_editor;
 import 'cases/note_repository_case.dart' as note_repository;
@@ -137,7 +141,8 @@ import 'cases/stream_mark_hit_test_case.dart' as stream_mark_hit_test;
 import 'cases/stream_mark_layout_case.dart' as stream_mark_layout;
 import 'cases/stream_mark_mapper_case.dart' as stream_mark_mapper;
 import 'cases/stream_month_view_case.dart' as stream_month_view;
-import 'cases/stream_offline_banner_host_case.dart' as stream_offline_banner_host;
+import 'cases/stream_offline_banner_host_case.dart'
+    as stream_offline_banner_host;
 import 'cases/stream_peek_data_case.dart' as stream_peek_data;
 import 'cases/stream_peek_editor_case.dart' as stream_peek_editor;
 import 'cases/stream_peek_editor_state_case.dart' as stream_peek_editor_state;
@@ -166,8 +171,10 @@ import 'cases/stream_time_viewport_case.dart' as stream_time_viewport;
 import 'cases/stream_tray_chip_case.dart' as stream_tray_chip;
 import 'cases/stream_tray_data_case.dart' as stream_tray_data;
 import 'cases/stream_tray_drop_case.dart' as stream_tray_drop;
-import 'cases/stream_tray_panel_grouping_case.dart' as stream_tray_panel_grouping;
-import 'cases/stream_tray_panel_interaction_case.dart' as stream_tray_panel_interaction;
+import 'cases/stream_tray_panel_grouping_case.dart'
+    as stream_tray_panel_grouping;
+import 'cases/stream_tray_panel_interaction_case.dart'
+    as stream_tray_panel_interaction;
 import 'cases/stream_tray_strip_case.dart' as stream_tray_strip;
 import 'cases/stream_viewport_case.dart' as stream_viewport;
 import 'cases/stream_week_view_case.dart' as stream_week_view;
@@ -189,11 +196,14 @@ import 'cases/task_editor_extra_case.dart' as task_editor_extra;
 import 'cases/task_repository_crud_case.dart' as task_repository_crud;
 import 'cases/task_repository_lifecycle_case.dart' as task_repository_lifecycle;
 import 'cases/task_repository_lists_case.dart' as task_repository_lists;
-import 'cases/task_repository_recurrence_case.dart' as task_repository_recurrence;
-import 'cases/task_repository_smart_filter_case.dart' as task_repository_smart_filter;
+import 'cases/task_repository_recurrence_case.dart'
+    as task_repository_recurrence;
+import 'cases/task_repository_smart_filter_case.dart'
+    as task_repository_smart_filter;
 import 'cases/tasks_screen_ui_case.dart' as tasks_screen_ui;
 import 'cases/timeline_layout_case.dart' as timeline_layout;
-import 'cases/timeline_multiday_overflow_case.dart' as timeline_multiday_overflow;
+import 'cases/timeline_multiday_overflow_case.dart'
+    as timeline_multiday_overflow;
 import 'cases/timeline_now_controller_case.dart' as timeline_now_controller;
 import 'cases/timeline_persist_case.dart' as timeline_persist;
 import 'cases/timeline_title_wrap_case.dart' as timeline_title_wrap;
@@ -439,9 +449,13 @@ const _included = <String>{
 
 void main() {
   test('test runner includes every case file', () {
-    expect(_caseFilesOnDisk(), _included,
-        reason: 'test/all_test.dart is stale. Run: '
-            'dart run tools/gen_test_runner.dart');
+    expect(
+      _caseFilesOnDisk(),
+      _included,
+      reason:
+          'test/all_test.dart is stale. Run: '
+          'dart run tools/gen_test_runner.dart',
+    );
   });
 
   group('account_email', account_email.main);
@@ -673,8 +687,12 @@ Set<String> _caseFilesOnDisk() {
       .where((path) => path.endsWith('_test.dart'))
       .where((path) => !path.endsWith('/all_test.dart'))
       .toSet();
-  expect(stray, isEmpty,
-      reason: 'Move top-level test files under test/cases/ as '
-          '*_case.dart and regenerate this runner.');
+  expect(
+    stray,
+    isEmpty,
+    reason:
+        'Move top-level test files under test/cases/ as '
+        '*_case.dart and regenerate this runner.',
+  );
   return cases;
 }
