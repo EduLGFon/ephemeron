@@ -18,16 +18,16 @@ void main() {
 
     // New shell defaults: Stream off, Today first, 24h clock.
     expect(repo.streamEnabled, isFalse);
-    expect(repo.navOrderV2, [0, 1, 2, 3, 4]);
+    expect(repo.navOrderV2, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
     expect(repo.time24h, isTrue);
 
     await repo.setBrightness('system');
     await repo.setStreamEnabled(true);
-    await repo.setNavOrderV2([4, 0, 1, 2, 3]);
+    await repo.setNavOrderV2([4, 0, 1, 2, 3, 5, 6, 7, 8]);
     await repo.setNavVersion(2);
     expect(repo.brightness, 'system');
     expect(repo.streamEnabled, isTrue);
-    expect(repo.navOrderV2, [4, 0, 1, 2, 3]);
+    expect(repo.navOrderV2, [4, 0, 1, 2, 3, 5, 6, 7, 8]);
     expect(repo.navVersion, 2);
 
     await repo.setTaskDueTomorrowReminder(false);

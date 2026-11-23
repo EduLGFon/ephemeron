@@ -111,6 +111,10 @@ class AppDestination {
   static const List<int> primaryIds = <int>[0, 1, 2, 3, 4];
   static const List<int> secondaryIds = <int>[5, 6, 7];
 
+  /// Number of destination slots shown in the compact/medium navigation bar.
+  /// Remaining destinations move to the More sheet overflow.
+  static const int barSlotCount = 5;
+
   /// Legacy `/tabN` order mapped to the new branch indices:
   /// 0 Calendar, 1 Tasks, 2 Matrix, 3 Habits, 4 Countdowns, 5 Focus,
   /// 6 Notes, 7 Stream.

@@ -8,7 +8,6 @@ Widget _sheet({
   List<int> secondary = const <int>[5, 6, 7],
   ValueChanged<int>? onSelected,
   VoidCallback? onReorder,
-  VoidCallback? onSearch,
   VoidCallback? onSettings,
   ValueChanged<MoreCreateAction>? onCreate,
 }) {
@@ -18,7 +17,6 @@ Widget _sheet({
         secondary: secondary,
         onSelected: onSelected ?? (_) {},
         onReorder: onReorder ?? () {},
-        onSearch: onSearch ?? () {},
         onSettings: onSettings ?? () {},
         onCreate: onCreate ?? (_) {},
       ),
@@ -37,7 +35,8 @@ void main() {
 
     await tester.pumpWidget(_sheet());
 
-    expect(find.text('Search everything'), findsOneWidget);
+    expect(find.text('Search everything'), findsNothing);
+    expect(find.byKey(const ValueKey<String>('more-search')), findsNothing);
     for (final action in MoreCreateAction.values) {
       expect(
         find.byKey(ValueKey<String>('more-create-${action.name}')),
@@ -84,7 +83,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    var searches = 0;
     var settings = 0;
     var reorders = 0;
     int? selected;
@@ -94,20 +92,17 @@ void main() {
       _sheet(
         onSelected: (value) => selected = value,
         onReorder: () => reorders++,
-        onSearch: () => searches++,
         onSettings: () => settings++,
         onCreate: (action) => created = action,
       ),
     );
 
-    await tester.tap(find.byKey(const ValueKey<String>('more-search')));
     await tester.tap(find.byKey(const ValueKey<String>('more-create-task')));
     await tester.tap(find.byKey(const ValueKey<String>('more-settings')));
     await tester.tap(find.byKey(const ValueKey<String>('more-reorder')));
     await tester.tap(find.text('Countdowns'));
     await tester.pump();
 
-    expect(searches, 1);
     expect(created, MoreCreateAction.task);
     expect(settings, 1);
     expect(reorders, 1);
@@ -134,7 +129,6 @@ void main() {
               secondary: const <int>[5, 6, 7, 8],
               onSelected: (_) {},
               onReorder: () {},
-              onSearch: () {},
               onSettings: () {},
               onCreate: (_) {},
             ),
@@ -155,9 +149,9 @@ void main() {
     expect(tops[3], greaterThan(tops[2]));
   });
 
-  test('default primary order is Today through Focus', () async {
+  test('default nav order is the full destination order', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final repo = SettingsRepository(await SharedPreferences.getInstance());
-    expect(repo.navOrderV2, <int>[0, 1, 2, 3, 4]);
+    expect(repo.navOrderV2, <int>[0, 1, 2, 3, 4, 5, 6, 7, 8]);
   });
 }

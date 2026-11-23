@@ -112,7 +112,7 @@ void main() {
     await repo.setDynamicColor(true);
     await repo.setUiDensity('compact');
     await repo.setTime24h(false);
-    await repo.setNavOrderV2(<int>[4, 0, 1, 2, 3]);
+    await repo.setNavOrderV2(<int>[4, 0, 1, 2, 3, 5, 6, 7, 8]);
 
     expect(repo.primaryColorHex, '#112233');
     expect(repo.backgroundColorHex, '#fbf7f0');
@@ -125,7 +125,7 @@ void main() {
     expect(repo.dynamicColor, isTrue);
     expect(repo.uiDensity, 'compact');
     expect(repo.time24h, isFalse);
-    expect(repo.navOrderV2, <int>[4, 0, 1, 2, 3]);
+    expect(repo.navOrderV2, <int>[4, 0, 1, 2, 3, 5, 6, 7, 8]);
   });
 
   testWidgets('header applies the status bar inset exactly once', (
@@ -371,13 +371,23 @@ void main() {
   ) async {
     _setViewport(tester);
     SharedPreferences.setMockInitialValues(<String, Object>{
-      'settings.navOrderV2': <String>['4', '0', '1', '2', '3'],
+      'settings.navOrderV2': <String>[
+        '4',
+        '0',
+        '1',
+        '2',
+        '3',
+        '5',
+        '6',
+        '7',
+        '8',
+      ],
     });
     await _pumpSettings(tester);
 
     expect(
       find.textContaining(
-        'Current order: Focus > Today > Tasks > Calendar > Habits',
+        'Current order: Focus > Today > Tasks > Calendar > Habits > Countdowns > Notes > Matrix > Stream',
       ),
       findsOneWidget,
     );
@@ -395,7 +405,7 @@ void main() {
       (await SharedPreferences.getInstance()).getStringList(
         'settings.navOrderV2',
       ),
-      <String>['0', '1', '2', '3', '4'],
+      <String>['0', '1', '2', '3', '4', '5', '6', '7', '8'],
     );
   });
 

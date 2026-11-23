@@ -1,10 +1,8 @@
-// "More" sheet: search, quick creation, secondary destinations and settings in
-// one scrollable command center. The primary destinations live in the
-// adaptive navigation; this sheet only lists secondary destinations so the
-// five primary slots stay the user's daily path.
+// "More" sheet: quick creation, overflow destinations and settings in one
+// scrollable command center. The first bar slots live in the adaptive
+// navigation; this sheet lists the remaining destinations.
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/design/components/app_chips.dart';
 import '../../core/design/components/app_headers.dart';
 import '../../core/design/components/app_overlays.dart';
 import '../../core/design/tokens.dart';
@@ -18,7 +16,6 @@ class MoreSheet extends StatelessWidget {
     required this.secondary,
     required this.onSelected,
     required this.onReorder,
-    required this.onSearch,
     required this.onSettings,
     required this.onCreate,
   });
@@ -27,7 +24,6 @@ class MoreSheet extends StatelessWidget {
   final List<int> secondary;
   final ValueChanged<int> onSelected;
   final VoidCallback onReorder;
-  final VoidCallback onSearch;
   final VoidCallback onSettings;
   final ValueChanged<MoreCreateAction> onCreate;
 
@@ -47,17 +43,7 @@ class MoreSheet extends StatelessWidget {
             children: <Widget>[
               const AppSheetHeader(
                 title: 'More',
-                subtitle: 'Search, create and jump anywhere.',
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: DsSpace.x16),
-                child: AppChip(
-                  key: const ValueKey<String>('more-search'),
-                  label: 'Search everything',
-                  icon: Icons.search,
-                  onTap: onSearch,
-                  tooltip: 'Search everything (/)',
-                ),
+                subtitle: 'Create and jump anywhere',
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: DsSpace.x16),
