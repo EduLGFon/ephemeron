@@ -60,7 +60,6 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
   DateTime? _pickedDate;
   TimeOfDay? _pickedTime;
   String? _selectedListId;
-  int _priority = 0; // visual 0-4, 0 none
 
   @override
   void initState() {
@@ -98,7 +97,6 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
         _parsed = null;
         _pickedDate = null;
         _pickedTime = null;
-        _priority = 0;
         _selectedListId = null;
       }
     });
@@ -174,9 +172,39 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     return base;
   }
 
-  int get _effectivePriority {
-    if (_priority > 0) return 5 - _priority;
-    return _parsed?.priority ?? 0;
+  /// Visual priority (0 none, 1 = P1 .. 4 = P4) is derived from the parsed
+  /// "-pN" token, the same way quick_add_sheet derives its wheel value. The
+  /// typed text stays the single source of truth, so the wheel can never
+  /// disagree with the priority that will actually be saved.
+  int get _visualPriority {
+    final priority = _parsed?.priority ?? 0;
+    return priority == 0 ? 0 : 5 - priority;
+  }
+
+  int get _effectivePriority => _parsed?.priority ?? 0;
+
+  /// Rewrites the "-pN" token to [visual] (0 clears it) and reparses. Selecting
+  /// None therefore removes the parsed priority instead of only hiding a
+  /// separate wheel state, so the effective priority becomes None as well.
+  void _setPriority(int visual) {
+    final pattern = RegExp(
+      r'(?<![\p{L}\p{N}_-])-p[1-4](?![\p{L}\p{N}_-])',
+      unicode: true,
+      caseSensitive: false,
+    );
+    var text = _controller.text
+        .replaceAll(pattern, ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (visual > 0) {
+      text = text.isEmpty ? '-p$visual' : '$text -p$visual';
+    }
+    if (text == _controller.text) return;
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _onChanged(text);
   }
 
   Future<void> _pickDate() async {
@@ -612,7 +640,7 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     final lists = (ref.watch(taskListsProvider).value ?? const <TaskList>[])
         .where((list) => list.deletedAt == null)
         .toList(growable: false);
-    final flagStyle = styleForVisualPriority(_priority);
+    final flagStyle = styleForVisualPriority(_visualPriority);
     final columns = <Widget>[
       _wheelColumn(
         iconKey: const ValueKey<String>('quick-create-kind-icon'),
@@ -705,8 +733,8 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
                   key: ValueKey<String>('quick-create-prio-$visual'),
                 ),
             ],
-            value: _priority,
-            onChanged: (value) => setState(() => _priority = value),
+            value: _visualPriority,
+            onChanged: _setPriority,
             itemExtent: 40,
             height: 200,
             semanticsLabel: strings.sectionPriority,
