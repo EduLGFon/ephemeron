@@ -1,4 +1,6 @@
 import 'package:ephemeron/app/shell/adaptive_shell.dart';
+import 'package:ephemeron/data/drift/app_database.dart';
+import 'package:ephemeron/features/tasks/application/tasks_providers.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,7 @@ Widget _harness({
   int currentIndex = 0,
   double textScale = 1,
   EdgeInsets padding = EdgeInsets.zero,
+  EdgeInsets viewInsets = EdgeInsets.zero,
   ValueChanged<int>? onSelected,
   VoidCallback? onMore,
   VoidCallback? onSettings,
@@ -20,6 +23,7 @@ Widget _harness({
         data: MediaQueryData(
           textScaler: TextScaler.linear(textScale),
           padding: padding,
+          viewInsets: viewInsets,
         ),
         child: AdaptiveShell(
           currentIndex: currentIndex,
@@ -287,4 +291,49 @@ void main() {
     expect(find.text('Body'), findsNothing);
     expect(find.byType(NavigationBar), findsOneWidget);
   });
+
+  testWidgets(
+    'expanded quick-create pill does not overflow at small viewport with keyboard',
+    (tester) async {
+      _setSize(tester, const Size(360, 800));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            taskListsProvider.overrideWith(
+              (ref) => Stream.value(const <TaskList>[]),
+            ),
+          ],
+          child: MaterialApp(
+            home: MediaQuery(
+              data: const MediaQueryData(
+                viewInsets: EdgeInsets.only(bottom: 320),
+              ),
+              child: AdaptiveShell(
+                currentIndex: 0,
+                content: const Center(child: Text('Body')),
+                primary: const <int>[0, 1, 2, 3, 4],
+                secondary: const <int>[5, 6, 7],
+                onDestinationSelected: (_) {},
+                onMore: () {},
+                onSettings: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey<String>('quick-create-pill')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('quick-create-input')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('quick-create-kind-task')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

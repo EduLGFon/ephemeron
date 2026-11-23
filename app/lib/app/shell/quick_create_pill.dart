@@ -308,9 +308,7 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
               child: Text(
                 'Quick create',
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelLarge
+                style: Theme.of(context).textTheme.labelLarge
                     ?.copyWith(color: scheme.onSurface),
               ),
             ),
@@ -326,146 +324,160 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     bool canSubmit,
   ) {
     final strings = QuickAddStrings.of(context);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final topPadding = MediaQuery.paddingOf(context).top;
+    final maxHeight = (screenHeight - viewInsets.bottom - topPadding - 96)
+        .clamp(160.0, 420.0);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: TextField(
-                  key: const ValueKey<String>('quick-create-input'),
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  onChanged: _onChanged,
-                  onSubmitted: (_) => _save(),
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: _hint(strings),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey<String>('quick-create-input'),
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      onChanged: _onChanged,
+                      onSubmitted: (_) => _save(),
+                      textInputAction: TextInputAction.done,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: _hint(strings),
+                      ),
+                    ),
                   ),
+                  IconButton(
+                    key: const ValueKey<String>('quick-create-close'),
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => _close(),
+                    tooltip: strings.close,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  IconButton.filled(
+                    key: const ValueKey<String>('quick-create-submit'),
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.arrow_upward, size: 18),
+                    onPressed: canSubmit ? _save : null,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 36,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final kind in QuickCreateKind.values)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          key: ValueKey<String>(
+                            'quick-create-kind-${kind.name}',
+                          ),
+                          tooltip: _kindLabel(strings, kind),
+                          label: Text(_kindLabel(strings, kind)),
+                          selected: _kind == kind,
+                          onSelected: (_) => setState(() {
+                            _kind = kind;
+                            _lastKind = kind;
+                          }),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              IconButton(
-                key: const ValueKey<String>('quick-create-close'),
-                icon: const Icon(Icons.close, size: 18),
-                onPressed: () => _close(),
-                tooltip: strings.close,
-                visualDensity: VisualDensity.compact,
-              ),
-              IconButton.filled(
-                key: const ValueKey<String>('quick-create-submit'),
-                icon: _busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.arrow_upward, size: 18),
-                onPressed: canSubmit ? _save : null,
-                visualDensity: VisualDensity.compact,
-              ),
+              if (_kind != QuickCreateKind.habit) ...[
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 34,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _miniChip(
+                        label: strings.today,
+                        selected: _isToday(_effectiveDue),
+                        onTap: () =>
+                            setState(() => _pickedDate = DateTime.now()),
+                      ),
+                      _miniChip(
+                        label: strings.tomorrow,
+                        selected: _isTomorrow(_effectiveDue),
+                        onTap: () => setState(
+                          () => _pickedDate = DateTime.now().add(
+                            const Duration(days: 1),
+                          ),
+                        ),
+                      ),
+                      _miniChip(
+                        label: strings.pickDate,
+                        selected:
+                            _pickedDate != null &&
+                            !_isToday(_effectiveDue) &&
+                            !_isTomorrow(_effectiveDue),
+                        onTap: _pickDate,
+                        icon: Icons.calendar_month_outlined,
+                      ),
+                      _miniChip(
+                        label: _pickedTime == null
+                            ? 'Time'
+                            : _pickedTime!.format(context),
+                        selected: _pickedTime != null,
+                        onTap: _pickTime,
+                        icon: Icons.schedule,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (_kind == QuickCreateKind.task) ...[
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 34,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      for (var v = 0; v <= 4; v++)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            key: ValueKey<String>('quick-create-prio-$v'),
+                            avatar: v == 0
+                                ? null
+                                : Icon(
+                                    Icons.flag,
+                                    size: 14,
+                                    color: _priorityColor(v),
+                                  ),
+                            label: Text(v == 0 ? strings.priorityNone : 'P$v'),
+                            selected: _priority == v,
+                            onSelected: (_) => setState(() => _priority = v),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                _buildListSelector(strings),
+              ],
             ],
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 36,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final kind in QuickCreateKind.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(
-                      key: ValueKey<String>('quick-create-kind-${kind.name}'),
-                      label: Text(_kindLabel(strings, kind)),
-                      selected: _kind == kind,
-                      onSelected: (_) => setState(() {
-                        _kind = kind;
-                        _lastKind = kind;
-                      }),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (_kind != QuickCreateKind.habit) ...[
-            const SizedBox(height: 6),
-            SizedBox(
-              height: 34,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _miniChip(
-                    label: strings.today,
-                    selected: _isToday(_effectiveDue),
-                    onTap: () => setState(() => _pickedDate = DateTime.now()),
-                  ),
-                  _miniChip(
-                    label: strings.tomorrow,
-                    selected: _isTomorrow(_effectiveDue),
-                    onTap: () => setState(
-                      () => _pickedDate = DateTime.now().add(
-                        const Duration(days: 1),
-                      ),
-                    ),
-                  ),
-                  _miniChip(
-                    label: strings.pickDate,
-                    selected:
-                        _pickedDate != null &&
-                        !_isToday(_effectiveDue) &&
-                        !_isTomorrow(_effectiveDue),
-                    onTap: _pickDate,
-                    icon: Icons.calendar_month_outlined,
-                  ),
-                  _miniChip(
-                    label: _pickedTime == null
-                        ? 'Time'
-                        : _pickedTime!.format(context),
-                    selected: _pickedTime != null,
-                    onTap: _pickTime,
-                    icon: Icons.schedule,
-                  ),
-                ],
-              ),
-            ),
-          ],
-          if (_kind == QuickCreateKind.task) ...[
-            const SizedBox(height: 6),
-            SizedBox(
-              height: 34,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  for (var v = 0; v <= 4; v++)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        key: ValueKey<String>('quick-create-prio-$v'),
-                        avatar: v == 0
-                            ? null
-                            : Icon(
-                                Icons.flag,
-                                size: 14,
-                                color: _priorityColor(v),
-                              ),
-                        label: Text(v == 0 ? strings.priorityNone : 'P$v'),
-                        selected: _priority == v,
-                        onSelected: (_) => setState(() => _priority = v),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            _buildListSelector(strings),
-          ],
-        ],
+        ),
       ),
     );
   }
