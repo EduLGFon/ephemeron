@@ -305,4 +305,86 @@ void main() {
     await db.close();
     await tester.pump();
   });
+
+  testWidgets('setup shows clock for focus, break, and stopwatch modes', (
+    WidgetTester tester,
+  ) async {
+    _mockPlatformChannels();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: FocusScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Default focus mode shows a countdown clock.
+    expect(find.byType(FocusTimeFace), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('Focus time remaining: 25:00')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Break'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(FocusTimeFace), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('Focus time remaining: 05:00')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Stopwatch'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(FocusTimeFace), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('Focus elapsed time: 00:00')),
+      findsOneWidget,
+    );
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
+  testWidgets('running break session shows clock', (WidgetTester tester) async {
+    _mockPlatformChannels();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.focusSessions)
+        .insert(
+          FocusSessionsCompanion.insert(
+            id: 'break-running',
+            startUtc: now - const Duration(minutes: 1).inMilliseconds,
+            targetEndUtc: Value(
+              now + const Duration(minutes: 4).inMilliseconds,
+            ),
+            phase: const Value('break'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: FocusScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(FocusTimeFace), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('Focus time remaining')),
+      findsOneWidget,
+    );
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
 }
