@@ -27,6 +27,30 @@ class _StartViewState extends ConsumerState<_StartView> {
   String? _habitId;
   String? _alarmPreset = AlarmPreset.notification.id;
   bool _setupRestored = false;
+  // Static "now" for the setup preview clock: startUtc==now keeps elapsed at
+  // zero so the face shows the full selected duration without ticking.
+  final ValueNotifier<int> _previewNow = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _previewNow.dispose();
+    super.dispose();
+  }
+
+  FocusSession _previewSession() {
+    final isStopwatch = _mode == _FocusMode.stopwatch;
+    final isBreak = _mode == _FocusMode.breakTime;
+    final phase = isStopwatch ? 'stopwatch' : (isBreak ? 'break' : 'focus');
+    final minutes = isBreak ? _breakMin : _focusMin;
+    return FocusSession(
+      id: 'setup-preview',
+      startUtc: 0,
+      targetEndUtc: isStopwatch ? null : minutes * msPerMinute,
+      phase: phase,
+      createdAt: 0,
+      updatedAt: 0,
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -133,6 +157,14 @@ class _StartViewState extends ConsumerState<_StartView> {
           ),
           const SizedBox(height: DsSpace.x12),
         ],
+        Center(
+          child: FocusTimeFace(
+            now: _previewNow,
+            session: _previewSession(),
+            strings: strings,
+          ),
+        ),
+        const SizedBox(height: DsSpace.x16),
         Wrap(
           spacing: DsSpace.x8,
           runSpacing: DsSpace.x8,
