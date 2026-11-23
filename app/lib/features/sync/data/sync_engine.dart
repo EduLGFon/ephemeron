@@ -280,7 +280,7 @@ class SyncEngine {
 
   /// Re-queues rows deferred by an auth failure so a retry made with a freshly
   /// refreshed token actually re-pushes them. A 401 can be a stale cached
-  /// token: [syncGoogleAccount] invalidates it and retries once, but the
+  /// A stale cached token is invalidated by [syncGoogleAccount], which retries once, but the
   /// failed rows carry a backoff from [_handleOpError]. Without clearing that
   /// backoff the retry pushes nothing, reports success, and leaves the user's
   /// changes queued until the backoff expires. Attempts are preserved so the
