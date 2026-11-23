@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../tokens.dart';
 import '../typography.dart';
+import 'app_wheel.dart';
 import 'visuals.dart';
 
 class AppTaskRow extends StatelessWidget {
@@ -813,29 +814,18 @@ class _PriorityMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = switch (level) {
-      1 => scheme.error,
-      2 => scheme.tertiary,
-      3 => scheme.primary,
-      _ => scheme.onSurfaceVariant,
-    };
+    // Callers pass a visual P number (1 = P1). The flag mapping owns both the
+    // colour and the icon so a P label reads as a coloured flag everywhere.
+    final style = styleForVisualPriority(level);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 3,
-          height: dense ? 12 : 14,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(DsRadius.pill),
-          ),
-        ),
+        Icon(style.icon, size: dense ? 12 : 14, color: style.color),
         const SizedBox(width: DsSpace.x4),
         Text(
           'P$level',
           style: Theme.of(context).textTheme.labelSmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
+              ?.copyWith(color: style.color),
         ),
       ],
     );

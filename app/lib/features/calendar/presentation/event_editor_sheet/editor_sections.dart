@@ -73,8 +73,11 @@ class _EventWhenSection extends StatelessWidget {
   }
 }
 
-// Google Calendar color strip; null color uses the theme primary and
-// shows a check on the selected swatch.
+// Google Calendar color wheel; null color uses the theme primary and
+// shows a check on the selected row. The swatch is paired with a text label so
+// the choice is not conveyed by colour alone. Dart part files cannot add
+// imports and the parent library is outside this unit's ownership, so this
+// wheel uses only widgets already in scope.
 class _EventColorSection extends StatelessWidget {
   const _EventColorSection({required this.colorId, required this.onChanged});
 
@@ -98,23 +101,43 @@ class _EventColorSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      children: [
-        for (final c in _colorIds)
-          GestureDetector(
-            onTap: () => onChanged(c),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: c == null
-                  ? Theme.of(context).colorScheme.primary
-                  : googleCalendarColor(c),
-              child: colorId == c
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
-                  : null,
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 180,
+      child: ListView.builder(
+        itemExtent: 36,
+        itemCount: _colorIds.length,
+        itemBuilder: (context, index) {
+          final c = _colorIds[index];
+          final selected = colorId == c;
+          final swatch = c == null ? scheme.primary : googleCalendarColor(c);
+          return Semantics(
+            button: true,
+            selected: selected,
+            label: c == null ? 'Default' : 'Color $c',
+            child: InkWell(
+              key: ValueKey('event-color-${c ?? 'default'}'),
+              onTap: () => onChanged(c),
+              child: Row(
+                children: [
+                  CircleAvatar(radius: 12, backgroundColor: swatch),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      c == null ? 'Default' : 'Color $c',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: selected ? scheme.primary : scheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  if (selected)
+                    Icon(Icons.check, size: 16, color: scheme.primary),
+                ],
+              ),
             ),
-          ),
-      ],
+          );
+        },
+      ),
     );
   }
 }

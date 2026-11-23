@@ -3,8 +3,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/design/components/app_chips.dart';
 import '../../../core/design/components/app_headers.dart';
+import '../../../core/design/components/app_wheel.dart';
 import '../../../core/design/components/app_page.dart';
 import '../../../core/design/components/app_states.dart';
 import '../../../core/design/components/sync_indicator.dart';
@@ -113,21 +113,27 @@ class _ModeSelector extends ConsumerWidget {
 
     return Align(
       alignment: AlignmentDirectional.centerStart,
-      child: Wrap(
-        spacing: DsSpace.x8,
-        runSpacing: DsSpace.x4,
-        children: [
-          AppChip(
-            label: 'Auto',
-            selected: mode == MatrixMode.auto,
-            onTap: () => select(MatrixMode.auto),
-          ),
-          AppChip(
-            label: 'Priority',
-            selected: mode == MatrixMode.priority,
-            onTap: () => select(MatrixMode.priority),
-          ),
-        ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 200),
+        child: WheelSelector<MatrixMode>(
+          items: const <WheelItem<MatrixMode>>[
+            WheelItem<MatrixMode>(
+              value: MatrixMode.auto,
+              label: 'Auto',
+              icon: Icons.auto_awesome_outlined,
+              key: ValueKey('matrix-mode-auto'),
+            ),
+            WheelItem<MatrixMode>(
+              value: MatrixMode.priority,
+              label: 'Priority',
+              icon: Icons.flag_outlined,
+              key: ValueKey('matrix-mode-priority'),
+            ),
+          ],
+          value: mode,
+          onChanged: select,
+          semanticsLabel: 'Matrix mode',
+        ),
       ),
     );
   }

@@ -1,20 +1,6 @@
 part of '../../task_editor_sheet.dart';
 
 mixin _TaskEditorSectionsDue on _TaskEditorStateBase {
-  void _queueDraft();
-  // ignore: unused_element
-  Widget _dueChip(BuildContext context, String label, String value) {
-    final selected = _dueDate == value;
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) {
-        setState(() => _dueDate = selected ? null : value);
-        _queueDraft();
-      },
-    );
-  }
-
   // ignore: unused_element
   String _pad(int v) => v.toString().padLeft(2, '0');
 

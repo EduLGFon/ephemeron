@@ -32,11 +32,21 @@ extension _QuickAddKindView on _QuickAddKind {
   };
 }
 
-class _ChipGroup extends StatelessWidget {
-  const _ChipGroup({required this.label, required this.children});
+/// A labelled vertical wheel. Replaces the old horizontal chip row so every
+/// option stays visible without wrapping and the selected value is marked by
+/// a check and selection semantics as well as the tonal fill.
+class _WheelGroup<T> extends StatelessWidget {
+  const _WheelGroup({
+    required this.label,
+    required this.items,
+    required this.value,
+    required this.onChanged,
+  });
 
   final String label;
-  final List<Widget> children;
+  final List<WheelItem<T>> items;
+  final T? value;
+  final ValueChanged<T> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +62,12 @@ class _ChipGroup extends StatelessWidget {
           ),
         ),
         const SizedBox(height: DsSpace.x4),
-        Wrap(spacing: DsSpace.x8, runSpacing: DsSpace.x8, children: children),
+        WheelSelector<T>(
+          items: items,
+          value: value,
+          onChanged: onChanged,
+          semanticsLabel: label,
+        ),
       ],
     );
   }
