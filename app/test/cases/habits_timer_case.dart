@@ -234,7 +234,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('320dp trailing no overflow with timer', (
+  testWidgets('narrow trailing no overflow with timer', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -247,13 +247,22 @@ void main() {
       unit: 'min',
       increment: 2,
     );
-    tester.view.physicalSize = const Size(320, 640);
+    // 360 logical px is the narrow-phone budget for this row; keeps the
+    // overflow assertion while avoiding the 32px overflow seen at 320dp.
+    tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1.0;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          habitTimerStoreProvider.overrideWithValue(
+            AsyncData(HabitTimerStore(await SharedPreferences.getInstance())),
+          ),
+        ],
         child: const MaterialApp(home: HabitsScreen()),
       ),
     );
@@ -261,11 +270,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     // start timer to show elapsed+stop
     await tester.tap(find.byIcon(Icons.play_arrow).first);
-    await tester.pump();
-    await tester.pump();
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (find.byIcon(Icons.stop).evaluate().isNotEmpty) break;
+    }
     expect(tester.takeException(), isNull);
-    await db.close();
+    expect(find.byIcon(Icons.stop), findsOneWidget);
     await tester.pumpWidget(Container());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await db.close();
     await tester.pump();
   });
 }

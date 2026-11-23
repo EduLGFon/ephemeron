@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('search screen localizes titles', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
     for (final entry in {'en': 'Search', 'pt': 'Buscar'}.entries) {
       await tester.pumpWidget(
         ProviderScope(
@@ -23,8 +24,11 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
       expect(find.text(entry.value), findsOneWidget);
     }
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
   });
 
   test('locale code defaults to system and persists', () async {
