@@ -64,7 +64,7 @@ Grupos: Aparência (brilho claro/escuro/AMOLED, cor primaria 10 presets + hex, c
 Backup: Exportar gera ephemeron-backup-<timestamp>.json com 21 tabelas, validado e transacional. Anexos (bytes) nao incluidos. Restaurar: selecionar arquivo da lista e confirmar. Indisponivel na Web ("File backups are not available on web yet.").
 
 ## 14. Plataformas e limitacoes conhecidas
-Web: alarmes indisponiveis; backups de arquivo indisponiveis; Drift via WASM/IndexedDB (dados persistem). Desktop (Linux/macOS/Windows): notificacoes apenas enquanto app aberto; configurar caminhos de som por SO. Android: funcionalidade completa incluindo alarmes e recuperacao apos reboot. Sem SDK/dispositivo: matriz de alarmes em dispositivos fisicos, benchmark de bateria 24 h, auditoria de tamanho nao verificados (docs/TODO.md).
+Web: alarmes indisponiveis; backups de arquivo indisponiveis; Drift via WASM/IndexedDB (dados persistem). Desktop (Linux/macOS/Windows): notificacoes apenas enquanto app aberto; configurar caminhos de som por SO. Android: funcionalidade completa incluindo alarmes e recuperacao apos reboot. Sem SDK/dispositivo: matriz de alarmes em dispositivos fisicos, benchmark de bateria 24 h, auditoria de tamanho nao verificados (TODO.md).
 
 ## 15. Privacidade e seguranca (resumo)
 Eventos, tarefas, notas, contagens e etiquetas nunca saem do dispositivo, exceto na sincronizacao com Google (direto do app para servidores do Google). Servidor armazena apenas e-mail, hash da senha, habitos, registros de habitos e sessoes de foco (com conta de e-mail). Tokens em armazenamento seguro (keystore); nunca em SharedPreferences, logs ou backups. Sem analytics, anuncios ou coleta de localizacao. Sem rastreamento. Exportar dados via Ajustes > Backup; excluir dados remotos via Conta > Excluir dados remotos. Detalhes: docs/PRIVACY.md, docs/SECURITY_REVIEW.md.
@@ -73,7 +73,7 @@ Eventos, tarefas, notas, contagens e etiquetas nunca saem do dispositivo, exceto
 - docs/ARCHITECTURE.md: arquitetura e especificacao.
 - docs/PRIVACY.md: politica de privacidade (rascunho).
 - docs/SECURITY_REVIEW.md: revisao de seguranca.
-- docs/PROGRESS.md: status das fases.
-- docs/TODO.md: pendencias e limites de ambiente.
-- docs/decisions.md: decisoes de implementacao.
+- TODO.md: pendencias e limites de ambiente.
+- DECISIONS.md: decisoes de implementacao.
+- Phase status: git history.
 - server/README.md: setup do backend.

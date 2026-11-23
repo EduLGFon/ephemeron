@@ -275,6 +275,6 @@ desktop was also not built in this pass because it needs webkit2gtk-4.0.
 - `app/web` carries no tracked `manifest.json` or `favicon.png` (gitignored)
   while `index.html` references both, so release web logs 404s for them. Add
   the assets or drop the tags.
-- Device checks listed in `docs/TODO.md`: profile frame timings, dynamic colour
+- Device checks listed in `TODO.md`: profile frame timings, dynamic colour
   on Android 12+, denied notification/exact-alarm layouts, the remaining
   320dp/200% screens, and iOS/macOS/Windows builds.

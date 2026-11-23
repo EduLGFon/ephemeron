@@ -159,7 +159,7 @@ class _AlarmSettingsScreenState extends ConsumerState<AlarmSettingsScreen>
                             ? 'Critical Alerts granted.'
                             : 'Critical Alerts not granted. The native '
                                   'request needs an Xcode build with the '
-                                  'entitlement (see docs/TODO.md).',
+                                  'entitlement (see TODO.md).',
                       ),
                     ),
                   );

@@ -57,5 +57,5 @@ Android (max), Linux and Web (medium), Windows (low); iOS and macOS supported. P
 
 ## 6. Status
 
-See `docs/PROGRESS.md` for phase status and `docs/TODO.md` for open work.
+See git history for phase status and `TODO.md` for open work.
 ARCHITECTURE.md is the design contract; changes here require owner approval when they touch security, privacy, persisted data/schema, or public API contracts.
