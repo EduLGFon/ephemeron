@@ -39,7 +39,7 @@ Global defaults: ~/.config/opencode/AGENTS.md
 ## Do not touch
 - Do not edit generated files (`*.g.dart`, `test/all_test.dart`); regenerate via build_runner/gen_test_runner.
 - Do not touch `SUPER_TASK.md`, `TASKS_UI.md` (untracked task artifacts).
-- Do not edit code, feature docs, or `.opencode/` unless the task requires it; do not touch `.env` files, keystores, or secrets.
+- Do not edit code, feature docs, or `.opencode/` unless the task requires it.
 
 ## Verify
 - `dart format .` clean
