@@ -13,13 +13,29 @@ import 'package:ephemeron/features/tasks/presentation/task_lists_screen.dart';
 import 'package:ephemeron/features/tasks/presentation/tasks_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
-Widget _app(Widget home, {double textScale = 1}) {
-  return MaterialApp(
+GoRouter _router({String initialLocation = '/tasks'}) {
+  return GoRouter(
+    initialLocation: initialLocation,
+    routes: [
+      GoRoute(path: '/tasks', builder: (context, state) => const TasksScreen()),
+      GoRoute(
+        path: '/search',
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('global-search'))),
+      ),
+    ],
+  );
+}
+
+Widget _app(GoRouter router, {double textScale = 1}) {
+  return MaterialApp.router(
+    routerConfig: router,
     theme: EphemeronTheme.build(
       mode: 'light',
       platformBrightness: Brightness.light,
@@ -29,23 +45,24 @@ Widget _app(Widget home, {double textScale = 1}) {
           .copyWith(textScaler: TextScaler.linear(textScale)),
       child: child ?? const SizedBox.shrink(),
     ),
-    home: home,
   );
 }
 
-Future<void> _pumpTasks(
+Future<GoRouter> _pumpTasks(
   WidgetTester tester,
   AppDatabase db, {
   double textScale = 1,
 }) async {
+  final router = _router();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [appDatabaseProvider.overrideWithValue(db)],
-      child: _app(const TasksScreen(), textScale: textScale),
+      child: _app(router, textScale: textScale),
     ),
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 150));
+  return router;
 }
 
 Future<void> _settle(WidgetTester tester) async {
@@ -401,7 +418,7 @@ void main() {
     }
   });
 
-  testWidgets('custom order shows drag handles only without search', (
+  testWidgets('title-row search button navigates to global search', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -415,18 +432,18 @@ void main() {
       await _pumpTasks(tester, db);
       await _settle(tester);
 
+      final searchButton = find.byKey(const ValueKey('tasks-search'));
+      expect(searchButton, findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+
       final handle = find.byKey(ValueKey<String>('task-drag-$id'));
       expect(handle, findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('tasks-search')));
-      await _settle(tester);
-      await tester.enterText(find.byType(TextField), 'Al');
-      await _settle(tester);
-      expect(handle, findsNothing);
+      await tester.tap(searchButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      await tester.tap(find.byKey(const ValueKey('tasks-search')));
-      await _settle(tester);
-      expect(handle, findsOneWidget);
+      expect(find.text('global-search'), findsOneWidget);
     } finally {
       await _dispose(tester, db);
     }
@@ -463,10 +480,7 @@ void main() {
       await _pumpTasks(tester, db, textScale: 2);
 
       expect(find.byIcon(Icons.push_pin), findsOneWidget);
-      expect(tester.takeException(), isNull);
-
-      await tester.tap(find.byKey(const ValueKey('tasks-search')));
-      await _settle(tester);
+      expect(find.byKey(const ValueKey('tasks-search')), findsOneWidget);
       expect(tester.takeException(), isNull);
     } finally {
       await _dispose(tester, db);

@@ -9,9 +9,6 @@ class _TasksHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = TasksStrings.of(context);
-    final searchOpen = ref.watch(
-      _taskSearchProvider.select((state) => state.open),
-    );
     final sort = ref.watch(taskSortProvider).value ?? TaskSort.due;
     return AppPageHeader(
       title: Text(strings.title),
@@ -21,8 +18,7 @@ class _TasksHeader extends ConsumerWidget {
           icon: Icons.search,
           tooltip: strings.search,
           semanticLabel: strings.search,
-          selected: searchOpen,
-          onPressed: () => ref.read(_taskSearchProvider.notifier).toggle(),
+          onPressed: () => context.push('/search'),
         ),
         if (canSort)
           PopupMenuButton<TaskSort>(
@@ -195,41 +191,4 @@ String _filterLabel(TasksStrings strings, _TaskFilter filter) {
     _TaskFilter.upcoming => strings.filterUpcoming,
     _TaskFilter.completed => strings.filterCompleted,
   };
-}
-
-class _TasksSearchBar extends ConsumerStatefulWidget {
-  const _TasksSearchBar({required this.initialQuery});
-
-  final String initialQuery;
-
-  @override
-  ConsumerState<_TasksSearchBar> createState() => _TasksSearchBarState();
-}
-
-class _TasksSearchBarState extends ConsumerState<_TasksSearchBar> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.initialQuery,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = TasksStrings.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: DsSpace.x4),
-      child: AppSearchField(
-        controller: _controller,
-        hintText: strings.searchHint,
-        autofocus: true,
-        onChanged: (value) =>
-            ref.read(_taskSearchProvider.notifier).setQuery(value),
-        onClear: () => ref.read(_taskSearchProvider.notifier).setQuery(''),
-      ),
-    );
-  }
 }
