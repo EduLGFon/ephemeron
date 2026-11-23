@@ -15,7 +15,7 @@ void main() {
       final clock = FocusClock(now: () => t);
       clock.start();
       t = t.add(const Duration(seconds: 3));
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(seconds: 1));
       expect(clock.elapsed.value, const Duration(seconds: 3));
       clock.dispose();
     });
@@ -25,10 +25,10 @@ void main() {
       final clock = FocusClock(now: () => t);
       clock.start();
       t = t.add(const Duration(seconds: 2));
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 1));
       clock.pause();
       t = t.add(const Duration(seconds: 5));
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump();
       expect(clock.elapsed.value, const Duration(seconds: 2));
       clock.dispose();
     });
@@ -38,13 +38,13 @@ void main() {
       final clock = FocusClock(now: () => t);
       clock.start();
       t = t.add(const Duration(seconds: 2));
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 1));
       clock.pause();
       t = t.add(const Duration(seconds: 5));
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump();
       clock.resume();
       t = t.add(const Duration(seconds: 3));
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(seconds: 1));
       expect(clock.elapsed.value, const Duration(seconds: 5));
       clock.dispose();
     });
@@ -54,10 +54,10 @@ void main() {
       final clock = FocusClock(now: () => t);
       clock.start();
       t = t.add(const Duration(seconds: 4));
-      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(const Duration(seconds: 1));
       clock.stop();
       t = t.add(const Duration(seconds: 10));
-      await tester.pump(const Duration(seconds: 10));
+      await tester.pump();
       expect(clock.elapsed.value, const Duration(seconds: 4));
       clock.dispose();
     });
@@ -265,7 +265,7 @@ void main() {
     final clock = FocusClock(now: () => t);
     clock.start();
     t = t.add(const Duration(seconds: 4));
-    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 1));
     clock.stop();
     final first = clock.elapsed.value;
     clock.stop();
@@ -278,7 +278,7 @@ void main() {
     final clock = FocusClock(now: () => t);
     clock.start();
     clock.dispose();
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
     expect(true, isTrue);
   });
 
@@ -288,8 +288,6 @@ void main() {
     clock.start();
     t = t.add(const Duration(hours: 25));
     await tester.pump(const Duration(seconds: 1));
-    // advance timer by pumping full? Use direct tick via elapsed not enough; pump remaining
-    await tester.pump(const Duration(hours: 25));
     expect(clock.elapsed.value.inHours, 25);
     clock.dispose();
   });

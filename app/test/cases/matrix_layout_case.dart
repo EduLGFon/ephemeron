@@ -208,7 +208,6 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(milliseconds: 100));
 
       expect(tester.takeException(), isNull);
       expect(find.byKey(const ValueKey('matrix-unclassified')), findsOneWidget);
@@ -647,13 +646,12 @@ Future<void> _pumpMatrix(WidgetTester tester, AppDatabase db) async {
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
-  await tester.pump(const Duration(milliseconds: 100));
 }
 
 Future<void> _dispose(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(Container());
   await tester.pump();
-  await tester.pump(const Duration(seconds: 1));
+  await tester.pump(const Duration(milliseconds: 100));
   await db.close();
   await tester.pump();
 }

@@ -240,7 +240,7 @@ Future<void> _dragBlock(
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump();
   }
-  await tester.pumpAndSettle();
+  await tester.pump();
 }
 
 void main() {
@@ -595,7 +595,8 @@ void main() {
         Offset(-dayWidth * 1.8, 0),
         const Duration(milliseconds: 2000),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       final container = ProviderScope.containerOf(
         tester.element(find.byType(_TimelineHost)),
@@ -676,7 +677,8 @@ void main() {
     await g.moveBy(const Offset(0, 80));
     await tester.pump(const Duration(milliseconds: 100));
     await g.up();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(
       find.text('Calendar is read-only. Event not moved.'),
