@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/design/components/app_wheel.dart';
 import '../../core/design/tokens.dart';
 import '../../core/time/picker_memory.dart';
 import '../../core/ui/app_feedback.dart';
@@ -25,6 +26,19 @@ final quickCreatePillRequestProvider = StateProvider<int>((ref) => 0);
 
 enum QuickCreateKind { task, event, habit, countdown }
 
+/// Icons mirror the quick-add sheet so both entry points read the same way.
+extension _QuickCreateKindView on QuickCreateKind {
+  IconData get icon => switch (this) {
+    QuickCreateKind.task => Icons.task_alt,
+    QuickCreateKind.event => Icons.event_outlined,
+    QuickCreateKind.habit => Icons.repeat,
+    QuickCreateKind.countdown => Icons.timer_outlined,
+  };
+}
+
+/// Date shortcuts shown in the pill's vertical date wheel.
+enum _PillDate { today, tomorrow, pickDate }
+
 class QuickCreatePill extends ConsumerStatefulWidget {
   const QuickCreatePill({super.key});
 
@@ -39,12 +53,13 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
   final _focusNode = FocusNode();
   bool _expanded = false;
   bool _busy = false;
+  bool _fullscreen = false;
+  double _dragDy = 0;
   QuickCreateKind _kind = _lastKind;
   QuickAddParsed? _parsed;
   DateTime? _pickedDate;
   TimeOfDay? _pickedTime;
   String? _selectedListId;
-  int _priority = 0; // visual 0-4, 0 none
 
   @override
   void initState() {
@@ -75,12 +90,13 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     setState(() {
       _expanded = false;
       _busy = false;
+      _fullscreen = false;
+      _dragDy = 0;
       if (clear) {
         _controller.clear();
         _parsed = null;
         _pickedDate = null;
         _pickedTime = null;
-        _priority = 0;
         _selectedListId = null;
       }
     });
@@ -90,6 +106,54 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     setState(() {
       _parsed = value.trim().isEmpty ? null : parseQuickAdd(value);
     });
+  }
+
+  /// Switching the entity never clears the typed text; only the active kind
+  /// (and the remembered default) changes.
+  void _selectKind(QuickCreateKind kind) {
+    if (_kind == kind) return;
+    setState(() {
+      _kind = kind;
+      _lastKind = kind;
+    });
+  }
+
+  _PillDate? get _selectedDateChoice {
+    if (_isToday(_effectiveDue)) return _PillDate.today;
+    if (_isTomorrow(_effectiveDue)) return _PillDate.tomorrow;
+    if (_isPickedOtherDay) return _PillDate.pickDate;
+    return null;
+  }
+
+  bool get _isPickedOtherDay {
+    final picked = _pickedDate;
+    return picked != null && !_isToday(picked) && !_isTomorrow(picked);
+  }
+
+  void _setPickedDate(DateTime date) {
+    final current = _effectiveDue;
+    setState(() {
+      _pickedDate = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        current?.hour ?? 0,
+        current?.minute ?? 0,
+      );
+    });
+  }
+
+  void _selectDate(_PillDate? choice) {
+    switch (choice) {
+      case _PillDate.today:
+        _setPickedDate(DateTime.now());
+      case _PillDate.tomorrow:
+        _setPickedDate(DateTime.now().add(const Duration(days: 1)));
+      case _PillDate.pickDate:
+        unawaited(_pickDate());
+      case null:
+        break;
+    }
   }
 
   DateTime? get _effectiveDue {
@@ -108,9 +172,39 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     return base;
   }
 
-  int get _effectivePriority {
-    if (_priority > 0) return 5 - _priority;
-    return _parsed?.priority ?? 0;
+  /// Visual priority (0 none, 1 = P1 .. 4 = P4) is derived from the parsed
+  /// "-pN" token, the same way quick_add_sheet derives its wheel value. The
+  /// typed text stays the single source of truth, so the wheel can never
+  /// disagree with the priority that will actually be saved.
+  int get _visualPriority {
+    final priority = _parsed?.priority ?? 0;
+    return priority == 0 ? 0 : 5 - priority;
+  }
+
+  int get _effectivePriority => _parsed?.priority ?? 0;
+
+  /// Rewrites the "-pN" token to [visual] (0 clears it) and reparses. Selecting
+  /// None therefore removes the parsed priority instead of only hiding a
+  /// separate wheel state, so the effective priority becomes None as well.
+  void _setPriority(int visual) {
+    final pattern = RegExp(
+      r'(?<![\p{L}\p{N}_-])-p[1-4](?![\p{L}\p{N}_-])',
+      unicode: true,
+      caseSensitive: false,
+    );
+    var text = _controller.text
+        .replaceAll(pattern, ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (visual > 0) {
+      text = text.isEmpty ? '-p$visual' : '$text -p$visual';
+    }
+    if (text == _controller.text) return;
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _onChanged(text);
   }
 
   Future<void> _pickDate() async {
@@ -284,49 +378,164 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     final scheme = Theme.of(context).colorScheme;
     final canSubmit =
         !_busy && _parsed != null && _parsed!.title.trim().isNotEmpty;
+    return _expanded
+        ? _buildExpandedLayer(context, scheme, canSubmit)
+        : _buildCollapsed(context, scheme);
+  }
+
+  Widget _buildCollapsed(BuildContext context, ColorScheme scheme) {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: DsSpace.x16),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          constraints: BoxConstraints(maxWidth: _expanded ? 560 : 220),
+          duration: DsMotion.normal,
+          curve: DsMotion.standard,
+          constraints: const BoxConstraints(maxWidth: 220),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(DsRadius.pill),
-            border: Border.all(color: scheme.outlineVariant),
+            // An outline (not outlineVariant) keeps the capsule edge legible
+            // on both light and dark surfaces at large text scales.
+            border: Border.all(color: scheme.outline),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: scheme.shadow.withValues(alpha: 0.14),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Material(
             type: MaterialType.transparency,
-            child: _expanded
-                ? _buildExpanded(context, scheme, canSubmit)
-                : _buildCollapsed(context, scheme),
+            child: InkWell(
+              key: const ValueKey<String>('quick-create-pill'),
+              borderRadius: BorderRadius.circular(DsRadius.pill),
+              onTap: _open,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(Icons.add, size: DsIcon.md, color: scheme.primary),
+                    const SizedBox(width: DsSpace.x8),
+                    Flexible(
+                      child: Text(
+                        'Quick create',
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge
+                            ?.copyWith(color: scheme.onSurface),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCollapsed(BuildContext context, ColorScheme scheme) {
-    return InkWell(
-      key: const ValueKey<String>('quick-create-pill'),
-      borderRadius: BorderRadius.circular(DsRadius.pill),
-      onTap: _open,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        child: Row(
+  /// Expanded pill: a full-bleed dismiss barrier with the card floating above
+  /// it. Both live inside the shell route, so any entity sheet pushed later
+  /// paints on top of the pill (N8); no separate high overlay is created.
+  Widget _buildExpandedLayer(
+    BuildContext context,
+    ColorScheme scheme,
+    bool canSubmit,
+  ) {
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final topPadding = MediaQuery.paddingOf(context).top;
+    final available =
+        MediaQuery.sizeOf(context).height - viewInsets.bottom - topPadding;
+    final maxHeight = _fullscreen
+        ? available
+        : (available - 96).clamp(160.0, 420.0);
+    return Stack(
+      key: const ValueKey<String>('quick-create-layer'),
+      children: <Widget>[
+        Positioned.fill(
+          child: GestureDetector(
+            key: const ValueKey<String>('quick-create-barrier'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _close(),
+          ),
+        ),
+        Align(
+          alignment: _fullscreen ? Alignment.topCenter : Alignment.bottomCenter,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: DsSpace.x16,
+              right: DsSpace.x16,
+              top: _fullscreen ? topPadding : 0,
+              bottom: _fullscreen ? 0 : DsSpace.x8,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 560, maxHeight: maxHeight),
+              child: _buildExpandedCard(
+                context,
+                scheme,
+                canSubmit,
+                fullscreenHeight: _fullscreen ? available : null,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpandedCard(
+    BuildContext context,
+    ColorScheme scheme,
+    bool canSubmit, {
+    double? fullscreenHeight,
+  }) {
+    return Material(
+      type: MaterialType.transparency,
+      child: AnimatedContainer(
+        key: const ValueKey<String>('quick-create-card'),
+        duration: DsMotion.normal,
+        curve: DsMotion.standard,
+        // In fullscreen the card fills the available height; the Flexible
+        // selector area absorbs the extra space instead of leaving a gap.
+        constraints: fullscreenHeight == null
+            ? null
+            : BoxConstraints(minHeight: fullscreenHeight),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(DsRadius.r24),
+          border: Border.all(color: scheme.outline),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: scheme.shadow.withValues(alpha: 0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add, size: 20, color: scheme.primary),
-            const SizedBox(width: 8),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _buildDragHandle(context),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                DsSpace.x12,
+                0,
+                DsSpace.x8,
+                10,
+              ),
+              child: _buildInputRow(context, scheme, canSubmit),
+            ),
             Flexible(
-              child: Text(
-                'Quick create',
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelLarge
-                    ?.copyWith(color: scheme.onSurface),
+              child: SingleChildScrollView(
+                child: _buildSelectors(context, scheme),
               ),
             ),
           ],
@@ -335,228 +544,289 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     );
   }
 
-  Widget _buildExpanded(
-    BuildContext context,
-    ColorScheme scheme,
-    bool canSubmit,
-  ) {
-    final strings = QuickAddStrings.of(context);
-    final viewInsets = MediaQuery.viewInsetsOf(context);
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final topPadding = MediaQuery.paddingOf(context).top;
-    final maxHeight = (screenHeight - viewInsets.bottom - topPadding - 96)
-        .clamp(160.0, 420.0);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const ValueKey<String>('quick-create-input'),
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      onChanged: _onChanged,
-                      onSubmitted: (_) => _save(),
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        hintText: _hint(strings),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    key: const ValueKey<String>('quick-create-close'),
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => _close(),
-                    tooltip: strings.close,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  IconButton.filled(
-                    key: const ValueKey<String>('quick-create-submit'),
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.arrow_upward, size: 18),
-                    onPressed: canSubmit ? _save : null,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
+  Widget _buildDragHandle(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: _fullscreen ? 'Collapse quick create' : 'Expand quick create',
+      child: GestureDetector(
+        key: const ValueKey<String>('quick-create-drag-handle'),
+        behavior: HitTestBehavior.opaque,
+        // Tap-to-toggle keeps the affordance usable without a drag gesture.
+        onTap: () => setState(() => _fullscreen = !_fullscreen),
+        onVerticalDragStart: (_) => _dragDy = 0,
+        onVerticalDragUpdate: (details) => _dragDy += details.delta.dy,
+        onVerticalDragEnd: (_) {
+          if (_dragDy < -40 && !_fullscreen) {
+            setState(() => _fullscreen = true);
+          } else if (_dragDy > 40 && _fullscreen) {
+            setState(() => _fullscreen = false);
+          }
+          _dragDy = 0;
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: DsSpace.x8),
+          child: Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(DsRadius.pill),
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (final kind in QuickCreateKind.values)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          key: ValueKey<String>(
-                            'quick-create-kind-${kind.name}',
-                          ),
-                          tooltip: _kindLabel(strings, kind),
-                          label: Text(_kindLabel(strings, kind)),
-                          selected: _kind == kind,
-                          onSelected: (_) => setState(() {
-                            _kind = kind;
-                            _lastKind = kind;
-                          }),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (_kind != QuickCreateKind.habit) ...[
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 34,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      _miniChip(
-                        label: strings.today,
-                        selected: _isToday(_effectiveDue),
-                        onTap: () =>
-                            setState(() => _pickedDate = DateTime.now()),
-                      ),
-                      _miniChip(
-                        label: strings.tomorrow,
-                        selected: _isTomorrow(_effectiveDue),
-                        onTap: () => setState(
-                          () => _pickedDate = DateTime.now().add(
-                            const Duration(days: 1),
-                          ),
-                        ),
-                      ),
-                      _miniChip(
-                        label: strings.pickDate,
-                        selected:
-                            _pickedDate != null &&
-                            !_isToday(_effectiveDue) &&
-                            !_isTomorrow(_effectiveDue),
-                        onTap: _pickDate,
-                        icon: Icons.calendar_month_outlined,
-                      ),
-                      _miniChip(
-                        label: _pickedTime == null
-                            ? 'Time'
-                            : _pickedTime!.format(context),
-                        selected: _pickedTime != null,
-                        onTap: _pickTime,
-                        icon: Icons.schedule,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              if (_kind == QuickCreateKind.task) ...[
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 34,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      for (var v = 0; v <= 4; v++)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            key: ValueKey<String>('quick-create-prio-$v'),
-                            avatar: v == 0
-                                ? null
-                                : Icon(
-                                    Icons.flag,
-                                    size: 14,
-                                    color: _priorityColor(v),
-                                  ),
-                            label: Text(v == 0 ? strings.priorityNone : 'P$v'),
-                            selected: _priority == v,
-                            onSelected: (_) => setState(() => _priority = v),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                _buildListSelector(strings),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildListSelector(QuickAddStrings strings) {
+  Widget _buildInputRow(
+    BuildContext context,
+    ColorScheme scheme,
+    bool canSubmit,
+  ) {
+    final strings = QuickAddStrings.of(context);
+    return Row(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(right: DsSpace.x8),
+          child: Icon(_kind.icon, size: DsIcon.md, color: scheme.primary),
+        ),
+        Expanded(
+          child: TextField(
+            key: const ValueKey<String>('quick-create-input'),
+            controller: _controller,
+            focusNode: _focusNode,
+            onChanged: _onChanged,
+            onSubmitted: (_) => _save(),
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              hintText: _hint(strings),
+            ),
+          ),
+        ),
+        IconButton(
+          key: const ValueKey<String>('quick-create-close'),
+          icon: const Icon(Icons.close, size: DsIcon.sm),
+          onPressed: () => _close(),
+          tooltip: strings.close,
+          visualDensity: VisualDensity.compact,
+        ),
+        IconButton.filled(
+          key: const ValueKey<String>('quick-create-submit'),
+          icon: _busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.arrow_upward, size: DsIcon.sm),
+          onPressed: canSubmit ? _save : null,
+          visualDensity: VisualDensity.compact,
+        ),
+      ],
+    );
+  }
+
+  /// Selector wheels sit side by side around the input, each with its icon
+  /// above the label and a vertical [WheelSelector] below, so every option
+  /// stays visible without wrapping.
+  Widget _buildSelectors(BuildContext context, ColorScheme scheme) {
+    final strings = QuickAddStrings.of(context);
+    final brightness = Theme.of(context).brightness;
     final lists = (ref.watch(taskListsProvider).value ?? const <TaskList>[])
         .where((list) => list.deletedAt == null)
         .toList(growable: false);
-    if (lists.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: SizedBox(
-        height: 34,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            for (final list in lists)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ChoiceChip(
-                  key: ValueKey<String>('quick-create-list-${list.id}'),
-                  label: Text(list.name),
-                  selected: _selectedListId == list.id,
-                  onSelected: (_) => setState(() {
-                    _selectedListId = _selectedListId == list.id
-                        ? null
-                        : list.id;
-                  }),
-                  visualDensity: VisualDensity.compact,
-                ),
+    final flagStyle = styleForVisualPriority(_visualPriority);
+    final columns = <Widget>[
+      _wheelColumn(
+        iconKey: const ValueKey<String>('quick-create-kind-icon'),
+        label: strings.sectionType,
+        icon: _kind.icon,
+        iconColor: scheme.primary,
+        wheel: WheelSelector<QuickCreateKind>(
+          items: <WheelItem<QuickCreateKind>>[
+            for (final kind in QuickCreateKind.values)
+              WheelItem<QuickCreateKind>(
+                value: kind,
+                label: _kindLabel(strings, kind),
+                icon: kind.icon,
+                key: ValueKey<String>('quick-create-kind-${kind.name}'),
               ),
+          ],
+          value: _kind,
+          onChanged: _selectKind,
+          itemExtent: 40,
+          height: 160,
+          semanticsLabel: strings.sectionType,
+        ),
+      ),
+    ];
+    if (_kind != QuickCreateKind.habit) {
+      columns.add(
+        _wheelColumn(
+          iconKey: const ValueKey<String>('quick-create-date-icon'),
+          label: strings.sectionDate,
+          icon: Icons.calendar_month_outlined,
+          iconColor: scheme.primary,
+          wheel: WheelSelector<_PillDate?>(
+            items: <WheelItem<_PillDate?>>[
+              WheelItem<_PillDate?>(
+                value: _PillDate.today,
+                label: strings.today,
+                icon: Icons.today_outlined,
+                key: const ValueKey<String>('quick-create-date-today'),
+              ),
+              WheelItem<_PillDate?>(
+                value: _PillDate.tomorrow,
+                label: strings.tomorrow,
+                icon: Icons.event_available_outlined,
+                key: const ValueKey<String>('quick-create-date-tomorrow'),
+              ),
+              WheelItem<_PillDate?>(
+                value: _PillDate.pickDate,
+                label: strings.pickDate,
+                icon: Icons.calendar_month_outlined,
+                key: const ValueKey<String>('quick-create-date-pick'),
+              ),
+            ],
+            value: _selectedDateChoice,
+            onChanged: _selectDate,
+            itemExtent: 40,
+            height: 120,
+            semanticsLabel: strings.sectionDate,
+          ),
+          footer: TextButton.icon(
+            key: const ValueKey<String>('quick-create-time'),
+            onPressed: _pickTime,
+            icon: const Icon(Icons.schedule, size: DsIcon.sm),
+            label: Text(
+              _pickedTime == null ? 'Time' : _pickedTime!.format(context),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      );
+    }
+    if (_kind == QuickCreateKind.task) {
+      columns.add(
+        _wheelColumn(
+          iconKey: const ValueKey<String>('quick-create-prio-icon'),
+          label: strings.sectionPriority,
+          icon: flagStyle.icon,
+          iconColor: flagStyle.foreground(brightness),
+          wheel: WheelSelector<int>(
+            items: <WheelItem<int>>[
+              for (var visual = 0; visual <= 4; visual++)
+                WheelItem<int>(
+                  value: visual,
+                  label: visual == 0
+                      ? strings.priorityNone
+                      : strings.priorityLabel(visual),
+                  icon: styleForVisualPriority(visual).icon,
+                  color: visual == 0
+                      ? null
+                      : styleForVisualPriority(visual).color,
+                  key: ValueKey<String>('quick-create-prio-$visual'),
+                ),
+            ],
+            value: _visualPriority,
+            onChanged: _setPriority,
+            itemExtent: 40,
+            height: 200,
+            semanticsLabel: strings.sectionPriority,
+          ),
+        ),
+      );
+      if (lists.isNotEmpty) {
+        columns.add(
+          _wheelColumn(
+            iconKey: const ValueKey<String>('quick-create-list-icon'),
+            label: strings.sectionList,
+            icon: Icons.list_alt_outlined,
+            iconColor: scheme.primary,
+            wheel: WheelSelector<String?>(
+              items: <WheelItem<String?>>[
+                WheelItem<String?>(
+                  value: null,
+                  label: 'No list',
+                  key: const ValueKey<String>('quick-create-list-none'),
+                ),
+                for (final list in lists)
+                  WheelItem<String?>(
+                    value: list.id,
+                    label: list.name,
+                    key: ValueKey<String>('quick-create-list-${list.id}'),
+                  ),
+              ],
+              value: _selectedListId,
+              onChanged: (id) => setState(() {
+                _selectedListId = _selectedListId == id ? null : id;
+              }),
+              itemExtent: 40,
+              height: 160,
+              semanticsLabel: strings.sectionList,
+            ),
+          ),
+        );
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        DsSpace.x12,
+        0,
+        DsSpace.x12,
+        DsSpace.x8,
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            for (var i = 0; i < columns.length; i++) ...<Widget>[
+              if (i > 0) const SizedBox(width: DsSpace.x8),
+              columns[i],
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _miniChip({
+  Widget _wheelColumn({
+    required Key iconKey,
+    required IconData icon,
+    required Color iconColor,
     required String label,
-    required bool selected,
-    required VoidCallback onTap,
-    IconData? icon,
+    required Widget wheel,
+    Widget? footer,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: ChoiceChip(
-        avatar: icon == null ? null : Icon(icon, size: 14),
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) => onTap(),
-        visualDensity: VisualDensity.compact,
+    return SizedBox(
+      width: 104,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Icon(icon, key: iconKey, size: DsIcon.md, color: iconColor),
+          const SizedBox(height: DsSpace.x4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: (Theme.of(context).textTheme.labelSmall ?? const TextStyle())
+                .copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: DsSpace.x4),
+          wheel,
+          ?footer,
+        ],
       ),
     );
   }
-
-  static Color _priorityColor(int visual) => switch (visual) {
-    1 => const Color(0xFFD32F2F),
-    2 => const Color(0xFFF57C00),
-    3 => const Color(0xFFFBC02D),
-    4 => const Color(0xFF388E3C),
-    _ => Colors.grey,
-  };
 
   String _kindLabel(QuickAddStrings strings, QuickCreateKind kind) =>
       switch (kind) {

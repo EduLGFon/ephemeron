@@ -2,6 +2,8 @@ import 'package:drift/native.dart';
 import 'package:ephemeron/app/shell/adaptive_shell.dart';
 import 'package:ephemeron/app/shell/quick_create_pill.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/design/components/app_wheel.dart';
+import 'package:ephemeron/core/ui/app_sheet.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
@@ -50,6 +52,66 @@ void _setSize(WidgetTester tester, Size size) {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+/// Pumps the quick-create pill in an isolated scope. [extra] is stacked above
+/// the pill and is used by the z-order test to host a modal entity sheet.
+Future<ProviderContainer> _pumpPill(
+  WidgetTester tester, {
+  Size size = const Size(500, 900),
+  Widget? extra,
+}) async {
+  _setSize(tester, size);
+  SharedPreferences.setMockInitialValues(<String, Object>{});
+  final prefs = await SharedPreferences.getInstance();
+  final container = ProviderContainer(
+    overrides: [
+      taskListsProvider.overrideWith((ref) => Stream.value(const <TaskList>[])),
+      settingsRepositoryProvider.overrideWith(
+        (ref) async => SettingsRepository(prefs),
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: <Widget>[
+              const Center(child: QuickCreatePill()),
+              ?extra,
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  return container;
+}
+
+const Key pillKey = ValueKey<String>('quick-create-pill');
+const Key pillInputKey = ValueKey<String>('quick-create-input');
+const Key pillCardKey = ValueKey<String>('quick-create-card');
+const Key pillHandleKey = ValueKey<String>('quick-create-drag-handle');
+const Key pillLayerKey = ValueKey<String>('quick-create-layer');
+const Key pillBarrierKey = ValueKey<String>('quick-create-barrier');
+
+/// Whether the wheel row carrying [key] exposes selected semantics. Used to
+/// assert which value a wheel actually shows, not just which rows exist.
+bool _wheelRowSelected(WidgetTester tester, String key) {
+  final semantics = tester.widget<Semantics>(
+    find
+        .ancestor(
+          of: find.byKey(ValueKey<String>(key)),
+          matching: find.byType(Semantics),
+        )
+        .first,
+  );
+  return semantics.properties.selected ?? false;
 }
 
 NavigationBar _bar(WidgetTester tester) =>
@@ -494,4 +556,324 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     },
   );
+
+  testWidgets(
+    'expanded pill barrier fills the shell and the card stays on screen',
+    (tester) async {
+      _setSize(tester, const Size(400, 800));
+      await tester.pumpWidget(_harness(primary: const <int>[0, 1, 2, 3, 4]));
+
+      await tester.tap(find.byKey(pillKey));
+      await tester.pumpAndSettle();
+
+      final barrier = tester.getRect(find.byKey(pillBarrierKey));
+      expect(barrier.width, greaterThan(300));
+      expect(barrier.height, greaterThan(400));
+
+      final card = tester.getRect(find.byKey(pillCardKey));
+      expect(card.left, greaterThanOrEqualTo(0));
+      expect(card.top, greaterThanOrEqualTo(0));
+      expect(card.right, lessThanOrEqualTo(400));
+      expect(card.bottom, lessThanOrEqualTo(800));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'expanded pill lays out wheels around the input with icons above labels',
+    (tester) async {
+      await _pumpPill(tester);
+      await tester.tap(find.byKey(pillKey));
+      await tester.pumpAndSettle();
+      // The default kind is shared across pill instances, so pin it to task.
+      await tester.tap(
+        find.byKey(const ValueKey<String>('quick-create-kind-task')),
+      );
+      await tester.pumpAndSettle();
+
+      // Type, Date and Priority become vertical wheels; no list exists yet.
+      expect(
+        find.byWidgetPredicate((widget) => widget is WheelSelector),
+        findsNWidgets(3),
+      );
+      expect(
+        find.byKey(const ValueKey<String>('quick-create-date-today')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('quick-create-prio-1')),
+        findsOneWidget,
+      );
+      expect(find.byKey(pillInputKey), findsOneWidget);
+
+      // Each selector shows its icon over its label (not inline in a chip).
+      final iconRect = tester.getRect(
+        find.byKey(const ValueKey<String>('quick-create-kind-icon')),
+      );
+      final labelRect = tester.getRect(find.text('Type'));
+      expect(iconRect.bottom, lessThanOrEqualTo(labelRect.top));
+      expect(
+        tester
+            .getRect(
+              find.byKey(const ValueKey<String>('quick-create-prio-icon')),
+            )
+            .bottom,
+        lessThanOrEqualTo(tester.getRect(find.text('Priority')).top),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('priority wheel consumes the shared Eisenhower flag mapping', (
+    tester,
+  ) async {
+    await _pumpPill(tester);
+    await tester.tap(find.byKey(pillKey));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('quick-create-kind-task')),
+    );
+    await tester.pumpAndSettle();
+
+    final pillElement = tester.element(find.byType(QuickCreatePill));
+    final brightness = Theme.of(pillElement).brightness;
+    final iconFinder = find.byKey(
+      const ValueKey<String>('quick-create-prio-icon'),
+    );
+    final noneStyle = styleForVisualPriority(0);
+    expect(
+      tester.widget<Icon>(iconFinder).color,
+      noneStyle.foreground(brightness),
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('quick-create-prio-1')));
+    await tester.pumpAndSettle();
+    final p1 = styleForVisualPriority(1);
+    expect(tester.widget<Icon>(iconFinder).icon, p1.icon);
+    expect(tester.widget<Icon>(iconFinder).color, p1.foreground(brightness));
+  });
+
+  testWidgets('tapping outside the expanded pill dismisses it', (tester) async {
+    await _pumpPill(tester);
+    await tester.tap(find.byKey(pillKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(pillInputKey), findsOneWidget);
+
+    // Tap the top-left of the screen, well clear of the bottom-anchored card.
+    await tester.tapAt(const Offset(20, 80));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(pillInputKey), findsNothing);
+    expect(find.byKey(pillKey), findsOneWidget);
+  });
+
+  testWidgets(
+    'drag up expands the pill to fullscreen and drag down restores it',
+    (tester) async {
+      await _pumpPill(tester);
+      await tester.tap(find.byKey(pillKey));
+      await tester.pumpAndSettle();
+      final normal = tester.getRect(find.byKey(pillCardKey));
+
+      await tester.drag(find.byKey(pillHandleKey), const Offset(0, -120));
+      await tester.pumpAndSettle();
+      final fullscreen = tester.getRect(find.byKey(pillCardKey));
+      expect(fullscreen.height, greaterThan(normal.height + 40));
+
+      await tester.drag(find.byKey(pillHandleKey), const Offset(0, 120));
+      await tester.pumpAndSettle();
+      final restored = tester.getRect(find.byKey(pillCardKey));
+      expect(restored.height, lessThan(fullscreen.height - 40));
+    },
+  );
+
+  testWidgets('switching the entity keeps the typed text', (tester) async {
+    await _pumpPill(tester);
+    await tester.tap(find.byKey(pillKey));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(pillInputKey), 'Buy milk');
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('quick-create-kind-event')),
+    );
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextField>(find.byKey(pillInputKey));
+    expect(field.controller!.text, 'Buy milk');
+    expect(find.text('Buy milk'), findsOneWidget);
+  });
+
+  testWidgets('the pill renders behind entity sheets', (tester) async {
+    var sheetTaps = 0;
+    final openSheet = Positioned(
+      top: 16,
+      left: 16,
+      child: Builder(
+        builder: (context) => TextButton(
+          key: const ValueKey<String>('open-entity-sheet'),
+          onPressed: () => showAppSheet<void>(
+            context,
+            builder: (_) => Center(
+              key: const ValueKey<String>('entity-sheet'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Text('Entity sheet'),
+                  TextButton(
+                    key: const ValueKey<String>('sheet-action'),
+                    onPressed: () => sheetTaps++,
+                    child: const Text('Sheet action'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          child: const Text('Open'),
+        ),
+      ),
+    );
+    final container = await _pumpPill(tester, extra: openSheet);
+
+    await tester.tap(find.byKey(const ValueKey<String>('open-entity-sheet')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('entity-sheet')), findsOneWidget);
+
+    // Expand the pill while the sheet is open. Its dismiss barrier belongs to
+    // the shell route, so it must stay underneath the modal sheet.
+    container.read(quickCreatePillRequestProvider.notifier).state++;
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.byKey(pillLayerKey), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey<String>('sheet-action')));
+    await tester.pump();
+    expect(
+      sheetTaps,
+      1,
+      reason: 'the entity sheet receives taps above the pill',
+    );
+    expect(
+      find.byKey(pillLayerKey),
+      findsOneWidget,
+      reason: 'the pill barrier must not intercept the sheet',
+    );
+  });
+
+  testWidgets('collapsed pill keeps outline border, surface fill and shadow', (
+    tester,
+  ) async {
+    await _pumpPill(tester);
+    final scheme = Theme.of(tester.element(find.byKey(pillKey))).colorScheme;
+    final container = tester.widget<AnimatedContainer>(
+      find
+          .ancestor(
+            of: find.byKey(pillKey),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first,
+    );
+    final decoration = container.decoration! as BoxDecoration;
+    expect(decoration.color, scheme.surfaceContainerHigh);
+    expect((decoration.border! as Border).top.color, scheme.outline);
+    expect(decoration.boxShadow, isNotEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('expanded pill card keeps surface fill and shadow', (
+    tester,
+  ) async {
+    await _pumpPill(tester);
+    await tester.tap(find.byKey(pillKey));
+    await tester.pumpAndSettle();
+    final scheme = Theme.of(tester.element(find.byKey(pillCardKey)))
+        .colorScheme;
+    final container = tester.widget<AnimatedContainer>(find.byKey(pillCardKey));
+    final decoration = container.decoration! as BoxDecoration;
+    expect(decoration.color, scheme.surface);
+    expect((decoration.border! as Border).top.color, scheme.outline);
+    expect(decoration.boxShadow, isNotEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('typing -p2 selects P2 in the priority wheel', (tester) async {
+    await _pumpPill(tester);
+    await tester.tap(find.byKey(pillKey));
+    await tester.pumpAndSettle();
+    // The default kind is shared across pill instances, so pin it to task.
+    await tester.tap(
+      find.byKey(const ValueKey<String>('quick-create-kind-task')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(pillInputKey), 'Buy milk -p2');
+    await tester.pumpAndSettle();
+
+    // The wheel value derives from the parsed token, so P2 is the selected
+    // row while None is not.
+    expect(_wheelRowSelected(tester, 'quick-create-prio-2'), isTrue);
+    expect(_wheelRowSelected(tester, 'quick-create-prio-0'), isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('selecting None after typing -p2 clears effective priority', (
+    tester,
+  ) async {
+    _setSize(tester, const Size(500, 800));
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    addTearDown(() async => db.close());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          taskListsProvider.overrideWith(
+            (ref) => Stream.value(const <TaskList>[]),
+          ),
+          settingsRepositoryProvider.overrideWith(
+            (ref) async => SettingsRepository(prefs),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: Center(child: QuickCreatePill())),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(pillKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('quick-create-kind-task')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(pillInputKey), 'Task -p2');
+    await tester.pumpAndSettle();
+    expect(_wheelRowSelected(tester, 'quick-create-prio-2'), isTrue);
+
+    // Selecting None strips the parsed "-p2" token from the text.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('quick-create-prio-0')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey<String>('quick-create-prio-0')));
+    await tester.pumpAndSettle();
+    expect(_wheelRowSelected(tester, 'quick-create-prio-0'), isTrue);
+    expect(_wheelRowSelected(tester, 'quick-create-prio-2'), isFalse);
+    final field = tester.widget<TextField>(find.byKey(pillInputKey));
+    expect(field.controller!.text, 'Task');
+
+    // The saved task carries no priority: effective priority is now None.
+    await tester.tap(find.byKey(const ValueKey<String>('quick-create-submit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final tasks = await db.select(db.tasks).get();
+    expect(tasks, hasLength(1));
+    expect(tasks.single.priority, 0);
+  });
 }
