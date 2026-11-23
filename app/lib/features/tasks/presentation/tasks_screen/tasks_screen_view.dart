@@ -14,7 +14,6 @@ class TasksScreen extends ConsumerWidget {
         ? null
         : smartLists.where((s) => s.id == selectedSmartId).firstOrNull;
     final filter = ref.watch(_taskFilterProvider);
-    final search = ref.watch(_taskSearchProvider);
     final listsAsync = ref.watch(taskListsProvider);
     final listsById = ref.watch(taskListsByIdProvider);
     final taskSort = ref.watch(taskSortProvider).value ?? TaskSort.due;
@@ -34,7 +33,6 @@ class TasksScreen extends ConsumerWidget {
     }
 
     final today = dateKey(DateTime.now());
-    final query = search.query.trim();
     // Smart lists keep their saved sort. Completed rows keep their completion
     // order. Custom order is only meaningful for the unfiltered list.
     final sortForView = smart == null && filter != _TaskFilter.completed
@@ -43,8 +41,7 @@ class TasksScreen extends ConsumerWidget {
     final reorder =
         smart == null &&
         filter == _TaskFilter.all &&
-        taskSort == TaskSort.custom &&
-        query.isEmpty;
+        taskSort == TaskSort.custom;
 
     return AppPage(
       header: _TasksHeader(
@@ -72,7 +69,6 @@ class TasksScreen extends ConsumerWidget {
             onSelected: (value) =>
                 ref.read(_taskFilterProvider.notifier).select(value),
           ),
-          if (search.open) _TasksSearchBar(initialQuery: search.query),
           const SizedBox(height: DsSpace.x4),
           Expanded(
             child: source.when(
@@ -86,19 +82,15 @@ class TasksScreen extends ConsumerWidget {
                 final visible = _visibleTasks(
                   tasks: tasks,
                   filter: filter,
-                  query: query,
                   today: today,
                   sort: sortForView,
                 );
                 if (visible.isEmpty) {
                   return _TasksEmpty(
                     filter: filter,
-                    query: query,
                     smart: smart,
                     onAddTask: () => showQuickAdd(context),
                     onManageLists: () => _openLists(context),
-                    onCloseSearch: () =>
-                        ref.read(_taskSearchProvider.notifier).close(),
                     onEditSmart: () =>
                         showSmartListEditor(context, smartList: smart),
                   );

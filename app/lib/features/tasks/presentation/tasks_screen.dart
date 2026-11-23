@@ -1,11 +1,10 @@
-// Tasks screen: list and smart-list chips, quick filters, search, swipe
-// complete/reschedule with 6 s undo, custom drag order and detail entry.
+// Tasks screen: list and smart-list chips, quick filters, search navigation,
+// swipe complete/reschedule with 6 s undo, custom drag order and detail entry.
 // Data and action methods live in the part files so the chrome stays small.
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 import 'package:ephemeron/core/design/components/app_buttons.dart';
 import 'package:ephemeron/core/design/components/app_chips.dart';
-import 'package:ephemeron/core/design/components/app_fields.dart';
 import 'package:ephemeron/core/design/components/app_headers.dart';
 import 'package:ephemeron/core/design/components/app_overlays.dart';
 import 'package:ephemeron/core/design/components/app_page.dart';
@@ -18,6 +17,7 @@ import 'package:ephemeron/core/ui/app_feedback.dart';
 import 'package:ephemeron/core/ui/app_sheet.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../data/drift/app_database.dart';
 import '../../../domain/sources/microsoft_source.dart';
@@ -47,36 +47,6 @@ part 'tasks_screen/task_item.dart';
 part 'tasks_screen/task_actions.dart';
 part 'tasks_screen/custom_task_list.dart';
 part 'tasks_screen/smart_list_chip.dart';
-
-/// Search is a transient view state: closing it clears the query so the full
-/// list comes back immediately.
-final _taskSearchProvider =
-    NotifierProvider.autoDispose<_TaskSearchNotifier, _TaskSearchState>(
-      _TaskSearchNotifier.new,
-    );
-
-class _TaskSearchState {
-  const _TaskSearchState({this.open = false, this.query = ''});
-
-  final bool open;
-  final String query;
-
-  _TaskSearchState copyWith({bool? open, String? query}) =>
-      _TaskSearchState(open: open ?? this.open, query: query ?? this.query);
-}
-
-class _TaskSearchNotifier extends Notifier<_TaskSearchState> {
-  @override
-  _TaskSearchState build() => const _TaskSearchState();
-
-  void toggle() => state = state.open
-      ? const _TaskSearchState()
-      : const _TaskSearchState(open: true);
-
-  void close() => state = const _TaskSearchState();
-
-  void setQuery(String query) => state = state.copyWith(query: query);
-}
 
 /// Quick filter for the visible task source. Resets when the screen leaves the
 /// tree so a tab revisit starts from All.

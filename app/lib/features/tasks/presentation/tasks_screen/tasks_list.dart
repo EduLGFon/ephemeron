@@ -17,11 +17,9 @@ bool _isOverdueTask(Task task, String today) {
 List<Task> _visibleTasks({
   required List<Task> tasks,
   required _TaskFilter filter,
-  required String query,
   required String today,
   required TaskSort? sort,
 }) {
-  final needle = query.toLowerCase();
   final visible = <Task>[];
   for (final task in tasks) {
     if (filter == _TaskFilter.completed) {
@@ -33,17 +31,10 @@ List<Task> _visibleTasks({
       final compare = date.compareTo(today);
       if (filter == _TaskFilter.today ? compare > 0 : compare <= 0) continue;
     }
-    if (needle.isNotEmpty && !_matchesQuery(task, needle)) continue;
     visible.add(task);
   }
   if (sort != null) visible.sort((a, b) => compareTasks(a, b, sort));
   return visible;
-}
-
-bool _matchesQuery(Task task, String needle) {
-  if (task.title.toLowerCase().contains(needle)) return true;
-  final notes = task.notes;
-  return notes != null && notes.toLowerCase().contains(needle);
 }
 
 class _TasksList extends StatelessWidget {
@@ -120,34 +111,21 @@ class _OverdueHeader extends StatelessWidget {
 class _TasksEmpty extends StatelessWidget {
   const _TasksEmpty({
     required this.filter,
-    required this.query,
     required this.smart,
     required this.onAddTask,
     required this.onManageLists,
-    required this.onCloseSearch,
     required this.onEditSmart,
   });
 
   final _TaskFilter filter;
-  final String query;
   final SmartList? smart;
   final VoidCallback onAddTask;
   final VoidCallback onManageLists;
-  final VoidCallback onCloseSearch;
   final VoidCallback onEditSmart;
 
   @override
   Widget build(BuildContext context) {
     final strings = TasksStrings.of(context);
-    if (query.isNotEmpty) {
-      return AppEmptyState(
-        icon: Icons.search_off,
-        title: strings.searchEmptyTitle,
-        message: strings.searchEmptyMessage(query),
-        actionLabel: strings.closeSearch,
-        onAction: onCloseSearch,
-      );
-    }
     if (smart != null) {
       return AppEmptyState(
         icon: Icons.filter_alt_off,
