@@ -6,6 +6,7 @@ import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
+import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/domain/habits/date_key.dart';
 import 'package:ephemeron/features/calendar/application/calendar_providers.dart';
 import 'package:ephemeron/features/calendar/application/calendar_state.dart';
@@ -190,6 +191,49 @@ Future<void> _pressZoomOut(WidgetTester tester) async {
   await tester.sendKeyUpEvent(LogicalKeyboardKey.minus);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
   await tester.pump();
+}
+
+/// Creates a task directly in the DB so the occurrence cache picks it up.
+Future<String> _seedTask(
+  AppDatabase db, {
+  required String title,
+  String? parentId,
+  String? plannedStart,
+  String? plannedEnd,
+  String? dueDate,
+  int? dueTime,
+  String? plannedDate,
+}) => TaskRepository(db).createTask(
+  title: title,
+  parentId: parentId,
+  plannedStart: plannedStart,
+  plannedEnd: plannedEnd,
+  dueDate: dueDate,
+  dueTime: dueTime,
+  plannedDate: plannedDate,
+);
+
+Future<Task> _taskById(AppDatabase db, String id) =>
+    (db.select(db.tasks)..where((t) => t.id.equals(id))).getSingle();
+
+/// Long-presses [finder] until the drag recognizer starts, moves vertically
+/// by [dy] logical pixels, then releases and settles persistence.
+Future<void> _dragBlock(WidgetTester tester, Finder finder, double dy) async {
+  await tester.ensureVisible(finder);
+  await tester.pump();
+  final gesture = await tester.startGesture(tester.getCenter(finder));
+  await tester.pump(const Duration(milliseconds: 700));
+  await gesture.moveBy(Offset(0, dy));
+  await tester.pump(const Duration(milliseconds: 100));
+  await gesture.up();
+  await tester.pump();
+  // Drift stream/isolate work completes on the real event loop, which
+  // pumpAndSettle alone does not drive. Yield to it without wall-clock sleeps.
+  for (var i = 0; i < 12; i++) {
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -636,6 +680,110 @@ void main() {
       db.events,
     )..where((e) => e.id.equals('e1'))).getSingle();
     expect(after.startUtc, before.startUtc);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets(
+    'dragging a timed task snaps 15 minutes and persists planned times',
+    (WidgetTester tester) async {
+      final db = _db();
+      final day = DateTime(2027, 3, 1);
+      final id = await _seedTask(
+        db,
+        title: 'Focus block',
+        plannedStart: '2027-03-01T10:00',
+        plannedEnd: '2027-03-01T11:00',
+      );
+      await _pump(tester, db, day, 1);
+
+      // 16 minutes of travel must snap down to the nearest 15-minute slot.
+      final dy = _hourGap(tester) * 16 / 60;
+      await _dragBlock(tester, find.text('Focus block'), dy);
+
+      final task = await _taskById(db, id);
+      expect(task.plannedStart, '2027-03-01T10:15');
+      expect(task.plannedEnd, '2027-03-01T11:15');
+      expect(task.dueDate, isNull);
+      expect(find.text('Task moved'), findsOneWidget);
+      await _tearDown(tester, db);
+    },
+  );
+
+  testWidgets('dragging a due-time task persists snapped due date and time', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    final day = DateTime(2027, 3, 1);
+    final id = await _seedTask(
+      db,
+      title: 'Due task',
+      dueDate: '2027-03-01',
+      dueTime: 10 * 60,
+    );
+    await _pump(tester, db, day, 1);
+
+    final dy = _hourGap(tester) / 4; // exactly 15 minutes
+    await _dragBlock(tester, find.text('Due task'), dy);
+
+    final task = await _taskById(db, id);
+    expect(task.dueDate, '2027-03-01');
+    expect(task.dueTime, 10 * 60 + 15);
+    expect(task.plannedStart, isNull);
+    expect(task.plannedDate, isNull);
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('dragging a subtask reports the move was not applied', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    final day = DateTime(2027, 3, 1);
+    final parent = await _seedTask(db, title: 'Parent');
+    final sub = await _seedTask(
+      db,
+      title: 'Sub task',
+      parentId: parent,
+      plannedStart: '2027-03-01T10:00',
+      plannedEnd: '2027-03-01T11:00',
+    );
+    await _pump(tester, db, day, 1);
+
+    await _dragBlock(tester, find.text('Sub task'), _hourGap(tester) / 4);
+
+    expect(
+      find.text('Task move was not applied (task not found)'),
+      findsOneWidget,
+    );
+    final task = await _taskById(db, sub);
+    expect(task.plannedStart, '2027-03-01T10:00');
+    await _tearDown(tester, db);
+  });
+
+  testWidgets('dragging a plain event still moves it', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    await _seed(db);
+    final anchor = DateTime.now();
+    await _pump(tester, db, anchor, 1);
+    final before = await (db.select(
+      db.events,
+    )..where((e) => e.id.equals('e1'))).getSingle();
+
+    await _dragBlock(tester, find.text('Standup'), _hourGap(tester));
+
+    expect(find.text('Event moved'), findsOneWidget);
+    final after = await (db.select(
+      db.events,
+    )..where((e) => e.id.equals('e1'))).getSingle();
+    expect(
+      after.startUtc,
+      before.startUtc! + const Duration(hours: 1).inMilliseconds,
+    );
+    expect(
+      after.endUtc,
+      before.endUtc! + const Duration(hours: 1).inMilliseconds,
+    );
     await _tearDown(tester, db);
   });
 }

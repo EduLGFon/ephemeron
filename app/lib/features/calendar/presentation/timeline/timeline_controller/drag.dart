@@ -340,9 +340,21 @@ mixin TimelineDrag on TimelineInteraction {
       return;
     }
     final open = await ref.read(taskRepositoryProvider).watchOpen().first;
-    final matches = open.where((t) => t.id == taskId).toList();
-    if (matches.isEmpty || !context.mounted) {
+    if (!context.mounted) {
       _clearPending();
+      return;
+    }
+    final matches = open.where((t) => t.id == taskId).toList();
+    if (matches.isEmpty) {
+      // watchOpen() filters out subtasks (parentId != null) and there is no
+      // subtask-inclusive lookup by id, so surface the failure instead of
+      // silently discarding the drop.
+      _clearPending();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Task move was not applied (task not found)'),
+        ),
+      );
       return;
     }
     final task = matches.first;
@@ -358,11 +370,13 @@ mixin TimelineDrag on TimelineInteraction {
           plannedEnd: () => _localMinuteIso(newEnd),
         );
       } else {
+        // A due-time drop only moves the due timestamp. Leave plannedDate as
+        // stored: updateTask writes Value.absent() when it is omitted, so an
+        // existing planned day is preserved instead of being cleared.
         await repo.updateTask(
           taskId,
           dueDate: () => _dateKey(newStart),
           dueTime: () => newStart.hour * 60 + newStart.minute,
-          plannedDate: () => null,
         );
       }
     } catch (_) {
