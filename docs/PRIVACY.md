@@ -2,6 +2,8 @@
 
 Engineering draft. Not legal advice. Do not publish without review.
 
+Generic privacy baseline (data minimization, no production data in dev/test, secret handling): `~/.config/opencode/AGENTS.md` (Security and privacy). Project-specific rules below.
+
 ## English
 
 What stays on device only: calendar events, tasks, notes, countdowns, tags. They leave only via Google sync, directly app to Google. Server never receives them.

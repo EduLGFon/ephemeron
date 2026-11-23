@@ -1,0 +1,255 @@
+# Decisions
+
+Migrated from `docs/decisions.md`. Stable IDs in original order.
+
+## D01 - Cancelled exception rows as EXDATE equivalents
+Date: unknown (migrated)
+Decision: Cancelled exception rows act as EXDATE equivalents; no separate EXDATE column.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Recurrence expansion relies on cancelled rows instead of a dedicated column.
+
+## D02 - Root .gitignore bare test rule
+Date: unknown (migrated)
+Decision: Root .gitignore bare `test` rule ignores new test files; force-add them.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: New test files require `git add -f`.
+
+## D03 - Image compression without WebP
+Date: unknown (migrated)
+Decision: image 4.3.0 has no WebP encoder; attachment compression re-encodes to JPG q80 (opaque) or resized PNG (alpha) at max 1600 px; files under 200 KB skip re-encoding. No WebP, no version upgrade.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Attachments are stored as JPG/PNG only.
+
+## D04 - Native alarm package namespace
+Date: unknown (migrated)
+Decision: Native alarm classes moved from com.example.ephemeron to com.spotnik.ephemeron so receivers fire and MainActivity resolves AlarmPlugin.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Alarm receivers and plugin resolve correctly on Android.
+
+## D05 - Alarm snooze gentle default preset
+Date: unknown (migrated)
+Decision: Alarm snooze keeps gentle default preset (per-alarm preset not persisted in alarms_index).
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Snooze uses the gentle preset for all alarms.
+
+## D06 - Snoozed alarm state
+Date: unknown (migrated)
+Decision: Snoozed alarms use state `snoozed` (Dart and native snooze paths, written after schedule upsert); every pending-alarm query includes `scheduled` and `snoozed`; window rebuilds preserve snoozed rows and request codes until fire or resolve.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Snoozed rows survive window rebuilds until fire or resolve.
+
+## D07 - Meet join via system channel
+Date: unknown (migrated)
+Decision: Meet join uses tiny ephemeron/system channel (ACTION_VIEW) instead of url_launcher; unsupported platforms fall back to copy-link.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: No url_launcher dependency for Meet join; copy-link fallback on unsupported platforms.
+
+## D08 - Dropped device/SDK-dependent tests
+Date: 2026-10-30
+Decision: Dropped without devices/SDK (owner instruction 2026-10-30): physical-device alarm matrix, 60 fps bench, 24 h battery bench, APK/AAB size audit, 3-day real-account soak, MediaPlayer-on-alarm-stream sound, flashlight blink.
+Reason: Owner instruction; devices/SDK unavailable.
+Consequences: These checks remain owner/device tasks, not CI gates.
+
+## D09 - Widget test DB close before final pump
+Date: unknown (migrated)
+Decision: Widget tests close in-memory Drift DB and unmount inside test body before final pump; otherwise Drift stream-close zero-timer trips pending-timer check (addTearDown close runs too late).
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Widget tests must close DB in body, not only in teardown.
+
+## D10 - Session restore lightweight UI state
+Date: unknown (migrated)
+Decision: Session restore (PLAN 8.1/8.2): lightweight UI state (tab, route, calendar anchor/view/dayCount, selected list/folder, search query/scope, focus options, open-sheet marker) in SharedPreferences for sync read at startup; form contents in existing Drift drafts table, autosaved debounced 500 ms. No new dependency. Markers set when sheet opens and cleared in dispose (process kill skips), so kills restore but normal closes do not; drafts expire after 7 days, reopen silently under 24 h and behind "Restore draft?" banner above that. Notes need no draft row (autosave to DB).
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: UI state restores synchronously; drafts expire after 7 days.
+
+## D11 - Google sync account linking
+Date: 2026-11-03
+Decision: Google sync account linking (2026-11-03, Android tasks never synced): Calendar-only sign-in on Android meant Tasks calls 403d and engine deleted outbox rows as stale, then 401d on everything after expiry, while chip read synced. Fix: sign-in requests Calendar + Tasks everywhere (desktop already did); 401/permission-403 keeps row with backoff and raises reconnect banner instead of deleting; events and tasks gain googleAccount (schema v9, backfilled from parent calendar/list) so push/pull/discovery scoped per account and one account's loop can no longer 404-drop another's rows.
+Reason: Android tasks never synced due to Calendar-only scope.
+Consequences: Sign-in requests Calendar + Tasks scopes; rows retained with backoff on auth errors.
+
+## D12 - Google silent restore
+Date: 2026-11-13
+Decision: Google silent restore (2026-11-13): startup restore must never call attemptLightweightAuthentication. On Android it can show the Credential Manager account picker on every launch, and google_sign_in v7 does not support multiple accounts in practice. Restore now reuses unexpired secure-storage tokens and, for expired tokens, calls the public platform interface clientAuthorizationTokensForScopes with prompting disabled, bound to each stored account (email on Android, stored Google user id on iOS). Interactive sign-in still uses google_sign_in v7 and now persists the user id. Web cannot guarantee a silent token after a reload; revoked grants still need one reconnect.
+Reason: Avoid account picker on every launch.
+Consequences: Startup uses stored tokens; interactive sign-in persists user id.
+
+## D13 - Full-screen alarms keep Flutter RingScreen
+Date: unknown (migrated)
+Decision: Full-screen alarms keep existing Flutter RingScreen (no native alarm UI). Dedicated native activity may replace later.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Ring UI remains Flutter; native activity deferred.
+
+## D14 - Biometric exemption for ring screen
+Date: unknown (migrated)
+Decision: Biometric exemption: ring screen shown without _LockGate only when activeRingRequestProvider set from verified alarms_index row in state `fired`. Native intents alone never bypass gate; unknown/scheduled/missed/dismissed row rejected silently.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Only verified fired rows bypass lock gate.
+
+## D15 - Alarm fire marks row fired/missed before posting
+Date: unknown (migrated)
+Decision: Alarm fire marks row `fired` (or `missed` when notifications off) before posting, so full-screen tap always reads settled state. Notifications use setOnlyAlertOnce so foreground-service updates and minute repeats cannot re-alert or flash.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Full-screen tap reads settled state; no re-alert from updates.
+
+## D16 - full_long minute repeats restart service
+Date: unknown (migrated)
+Decision: full_long minute repeats restart AlarmRingService without posting new notification; only first fire notifies. phase extra carried through service re-posts so focus next-phase actions survive.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: No duplicate notifications on repeats; phase extra survives.
+
+## D17 - Occurrence cache source labels (schema v14)
+Date: unknown (migrated)
+Decision: Occurrence cache source labels (schema v14): occurrence_cache.source_label and source_account filled at rebuild time from event calendar or task list using shared source-label helpers. Rows created before upgrade keep null labels until next rebuild; timeline/agenda/month surfaces hide empty labels and never query per row.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Labels backfilled on next rebuild; empty labels hidden.
+
+## D18 - Shared calendar claims election
+Date: unknown (migrated)
+Decision: Shared calendar claims: one owner/reader election per shared calendar. When signed-in account list unknown (null), shared pull fails closed instead of pulling once per account. Stale cal:reader:<remoteId> keys removed only when provably stale (owner signed in, calendar gone or disabled, or no live reader); legacy cal:<id>:token rows deleted once cal:v2:<id>:token key exists.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Shared pull fails closed when account list unknown.
+
+## D19 - Sync diagnostics allowlisted labels
+Date: unknown (migrated)
+Decision: Sync diagnostics: Sync issues screen renders only allowlisted operation/entity/error labels plus attempt counts and ages. Outbox payloads, syncState values/tokens, account emails, titles, raw response bodies never passed to widgets. Discard offered only after retries exhausted; read-only SourceMoveException discards pending operation instead of retrying forever.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: No personal data in sync diagnostics UI.
+
+## D20 - Microsoft remote deletions
+Date: unknown (migrated)
+Decision: Microsoft remote deletions: calendars absent from complete /me/calendars soft-deleted only when owned by account, clean, remote-backed. Events reconciled only inside completely fetched calendarView window and only when clean, non-recurring, provable overlap. Tombstones revive when remote row reappears. Graph paginator throws instead of returning partial listing at page cap, so partial listing can never trigger deletion.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Deletions happen only under provable conditions.
+
+## D21 - Read-only calendars enforced at repository
+Date: unknown (migrated)
+Decision: Read-only calendars: source read-only enforced at repository boundary for create/move/edit/delete/attendee/RSVP, mirrored in details/timeline/editor UI. Moving exception resolves to master so series never leaves orphan exception in another calendar.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Read-only enforced at repository boundary.
+
+## D22 - Single-occurrence integrity
+Date: unknown (migrated)
+Decision: Single-occurrence integrity: exception uses own reminders and alarm preset when set, otherwise inherits master's. Details edit/delete target exact occurrence; new exception inherits master location/Meet/visibility/transparency/reminders/preset/color when not overridden.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Exceptions inherit master fields when not overridden.
+
+## D23 - Calendar quick create
+Date: unknown (migrated)
+Decision: Calendar quick create: all-day strip always rendered with 32dp minimum empty-day target; month cells create 09:00 timed event on long-press. Explicit all-day or time intent from gesture wins over autosaved draft.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Quick create always available; gesture intent wins.
+
+## D24 - Device calendars manual import/refresh
+Date: unknown (migrated)
+Decision: Device calendars stay user-initiated import/refresh with fixed [now-30d, now+365d] window; no background live sync (battery/API cost). Mappings pruned only for visible calendars deselected in completed import, keeping invisible and other-target mappings.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: No background device-calendar sync.
+
+## D25 - Localization English-only
+Date: unknown (migrated)
+Decision: Localization: UI remains English-only by decision. intl used for formatting and only existing ARB keys localized. Full localization pass is separate owner-approved effort.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Only existing ARB keys localized.
+
+## D26 - Startup state coalescing
+Date: unknown (migrated)
+Decision: Startup state: calendar rebuild fallback and session restore coalesce into one scheduled build; matrix board waits for saved mode (Auto only after real load error); task-chip tooltip uses manual trigger mode so touch long-press reaches management while desktop hover still works.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Single scheduled build at startup.
+
+## D27 - File-size review thresholds
+Date: unknown (migrated)
+Decision: File-size review: after two split passes, modules slightly above 300 lines (300-400 range, e.g. device_calendar_import_service.dart, calendar_settings_screen.dart, sync_engine.dart, focus_screen_start.dart) are cohesive single-responsibility and kept rather than split mechanically. app_localizations.dart follows ARB source. Earlier outliers (570, 568, 456, 435, 427, 422, 414, 413, 412) now split into part files under 300 lines.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Cohesive 300-400 line modules retained.
+
+## D28 - Material/Cupertino migration (Flutter 3.50)
+Date: 2026-11-13
+Decision: Material/Cupertino migration (2026-11-13): Flutter 3.50 deprecates package:flutter/material.dart, package:flutter/cupertino.dart, and the legacy Global*Localizations delegates. All app/test imports now use material_ui/cupertino_ui; app code uses GlobalMaterialLocalizations.delegates from material_ui.
+Reason: Flutter 3.50 deprecation.
+Consequences: All imports use material_ui/cupertino_ui.
+
+## D29 - Generated l10n header workaround
+Date: 2026-11-13
+Decision: Generated l10n header workaround (2026-11-13): Flutter gen-l10n still emits legacy delegates, so app/l10n.yaml sets header "// ignore_for_file: deprecated_member_use" for generated files only. Revisit when the generator migrates.
+Reason: gen-l10n still emits legacy delegates.
+Consequences: Generated files carry ignore header only.
+
+## D30 - Android toolchain versions
+Date: 2026-11-13
+Decision: Android toolchain (2026-11-13): AGP 9.5.1, Gradle 9.9.1, Kotlin 2.4.21, all latest stable; debug and arm64 release builds pass. Android.newDsl=false and builtInKotlin=false unchanged. flutter_web_auth_2, home_widget, and workmanager_android still apply Kotlin Gradle Plugin, which Flutter says will fail in a future release; all are latest, so this is upstream.
+Reason: Latest stable toolchain verified.
+Consequences: Toolchain pinned to verified versions.
+
+## D31 - sqlite3 direct dev dependency
+Date: unknown (migrated)
+Decision: sqlite3 is a direct dev dependency because tests import it, so it is not left transitive.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: sqlite3 listed as direct dev dependency.
+
+## D32 - home_widget pixelRatio
+Date: unknown (migrated)
+Decision: home_widget 0.10: all four renderFlutterWidget calls pass explicit pixelRatio (2/1/2/2), so the 0.8 default change cannot alter output dimensions. No Kotlin changes needed; imports were already fully qualified.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Widget rendering dimensions stable across home_widget default change.
+
+## D33 - Postgres image pin
+Date: unknown (migrated)
+Decision: Postgres image pinned to postgres:18.7-alpine; 18.7 is a patch within the 18.x data format, so no volume migration is needed.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: No volume migration needed for patch update.
+
+## D34 - Dockerfile warm-up bare specifiers
+Date: unknown (migrated)
+Decision: Dockerfile warm-up imports bare specifiers through deno.json so it cannot drift from the pinned dependency set.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Warm-up stays in sync with deno.json pins.
+
+## D35 - wakelock_plus held at 1.8.0
+Date: unknown (migrated)
+Decision: wakelock_plus held at 1.8.0: 1.8.2 requires dbus ^0.8.0 while battery_plus -> upower 0.7.0 pins dbus ^0.7.0. Other transitive holds from parents/SDK: cross_file 0.3.5+5, dbus 0.7.15, desktop_webview_window 0.3.2, material_color_utilities 0.13.0, test_api 0.7.14, window_to_front 0.0.4, built_collection 5.1.2.
+Reason: Dependency conflict with dbus.
+Consequences: wakelock_plus stays at 1.8.0 until pins relax.
+
+## D36 - Alarm wake reconciliation
+Date: 2026-11-16
+Decision: Alarm wake behavior (2026-11-16): app open/resume reconciles overdue `scheduled`/`snoozed` rows to `missed` and cancels their native registrations; stale `fired` rows older than 2 min become missed unless they are the verified active ring. `AlarmScheduler.activeRingRequestCode` protects the ringing row regardless of age. Recent missed rows stay indexed for 24 h so the Missed alarms list survives hibernation; older settled rows are trimmed.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Overdue rows become missed on resume; active ring protected.
+
+## D37 - Alarm ring containment
+Date: 2026-11-16
+Decision: Alarm ring containment (2026-11-16): full-screen audio starts only after RingScreen's first frame via the native `startRing` channel; native delivery no longer starts the ring service. Deliveries later than 2 min, or without a trustworthy fire time, become missed instead of ringing. Only one ring may own audio. Leaving RingScreen without Done/Snooze/Dismiss/Open item auto-snoozes 10 min, stops audio, and shows a toast. The web/desktop/iOS fallback dialog starts its sound only after the dialog is laid out.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Audio starts only after UI renders; single owner.
+
+## D38 - Google token recovery
+Date: 2026-11-16
+Decision: Google token recovery (2026-11-16): storing an account is independent of acquiring a token. Transient token failures (timeout, plugin not ready, offline, no token yet) keep accounts and do not raise reconnect. Sync skips an account with no token and reports offline/retry. A 401 clears only that account's access token and expiry, retries once with a silent token, then asks for reconnect only on a second auth failure; a 403 auth response is definitive. Startup never calls interactive authentication.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Transient token failures do not raise reconnect.
+
+## D39 - Linked countdowns (schema v15)
+Date: 2026-11-16
+Decision: Linked countdowns (2026-11-16, schema v15): countdowns gain optional `linked_type`/`linked_id` columns plus an index. Links are local-only and limited to event/task/habit. Event/task date edits keep linked target dates in step; backup restore normalizes unknown or empty links to unlinked. Existing standalone countdowns and older backups restore unchanged.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Countdown links are local-only; backup restores normalize.
+
+## D40 - Habit compliance statistics
+Date: 2026-11-16
+Decision: Habit compliance statistics (2026-11-16): stats use local logs only. Goal habits are scored by weighted amount/goal over scheduled past days; partial days count proportionally, skipped days are neutral, future days are excluded, and display compliance is capped at 100%. The stats screen shows 7/30-day compliance, streaks, day outcomes, totals, deficit, weekly-target progress, and catch-up actions for recent missing amounts. Binary habits use done/scheduled days.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Stats are local-only with weighted scoring.
+
+## D41 - Matrix density and lateness
+Date: 2026-11-16
+Decision: Matrix density and lateness (2026-11-16): matrix rows use natural height, with a second line only when a due date exists. Open tasks whose due date is before today render their title in `colorScheme.error`; today/future/no-due tasks keep the normal color. Calendar timeline titles wrap to the available event/habit block height, with clipping at the block edge and a source label only when it does not steal the last title line.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Late task titles render in error color.
+
+## D42 - UI rebirth design system
+Date: 2026-11-18
+Decision: UI rebirth (2026-11-18): new presentation design system under core/design; flat surfaces, tonal color, hairline borders, no blur/shadows; Inter/Fraunces; Ember default accent. Adaptive shell: primary Today/Tasks/Calendar/Habits/Focus; secondary Countdowns/Notes/Matrix/Stream; Settings via header/sidebar. Stream is opt-in via settings.streamEnabled (default off) with a secondary More/sidebar entry; direct /stream shows Today when off and every Stream component is retained. Additive SharedPreferences keys only (streamEnabled, dynamicColor, uiDensity, time24h, navOrderV2, session.navVersion); no Drift schema or migration change; data/domain/sync/repository layers untouched.
+Reason: Lightweight option chosen by default in the original decisions log.
+Consequences: Presentation layer replaced; no schema change.
