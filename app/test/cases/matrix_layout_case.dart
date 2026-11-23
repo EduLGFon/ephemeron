@@ -598,7 +598,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
-    await repo.createTask(
+    final lateId = await repo.createTask(
       title: 'Late task',
       priority: 3,
       dueDate: _date(now.subtract(const Duration(days: 2))),
@@ -611,20 +611,27 @@ void main() {
 
     await _pumpMatrix(tester, db);
 
+    final lateRow = find.byKey(ValueKey('matrix-task-$lateId'));
+    // Overdue is conveyed by a red date label, not a separate tag.
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('matrix-field-doFirst')),
         matching: find.text('Overdue'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('matrix-field-doFirst')),
         matching: find.byIcon(Icons.warning_amber_rounded),
       ),
-      findsOneWidget,
+      findsNothing,
     );
+    final error = Theme.of(tester.element(lateRow)).colorScheme.error;
+    final texts = tester.widgetList<Text>(
+      find.descendant(of: lateRow, matching: find.byType(Text)),
+    );
+    expect(texts.any((text) => text.style?.color == error), isTrue);
     expect(find.text('Future task'), findsOneWidget);
 
     await _dispose(tester, db);

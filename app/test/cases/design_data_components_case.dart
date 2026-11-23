@@ -102,6 +102,7 @@ void main() {
       _wrap(
         const AppTaskRow(
           title: 'Finished',
+          subtitle: 'Due yesterday',
           completed: true,
           overdue: true,
           priority: 1,
@@ -111,9 +112,15 @@ void main() {
     );
     final title = tester.widget<Text>(find.text('Finished'));
     expect(title.style?.decoration, TextDecoration.lineThrough);
-    expect(find.text('Overdue'), findsOneWidget);
+    // Overdue is conveyed by a red date label, not a separate tag.
+    expect(find.text('Overdue'), findsNothing);
+    expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
+    final date = tester.widget<Text>(find.text('Due yesterday'));
+    expect(
+      date.style?.color,
+      Theme.of(tester.element(find.byType(AppTaskRow))).colorScheme.error,
+    );
     expect(find.text('P1'), findsOneWidget);
-    expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
     expect(title.style?.fontSize, lessThan(16));
 
     await tester.pumpWidget(_wrap(const AppTaskRow(title: 'Quiet')));

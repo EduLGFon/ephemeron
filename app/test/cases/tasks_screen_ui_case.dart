@@ -53,6 +53,16 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 120));
 }
 
+String? _rowSubtitle(WidgetTester tester, String taskId) {
+  final texts = tester.widgetList<Text>(
+    find.descendant(
+      of: find.byKey(ValueKey('task-$taskId')),
+      matching: find.byType(Text),
+    ),
+  );
+  return texts.length > 1 ? texts.elementAt(1).data : null;
+}
+
 Future<void> _dispose(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(Container());
   await tester.pump();
@@ -181,6 +191,48 @@ void main() {
       await _dispose(tester, db);
     }
   });
+
+  testWidgets(
+    'today shows time only and overdue shows a red date without a tag',
+    (WidgetTester tester) async {
+      final db = _db();
+      try {
+        final repo = TaskRepository(db);
+        final todayId = await repo.createTask(
+          title: 'Today timed',
+          dueDate: dateKey(DateTime.now()),
+          dueTime: 15 * 60 + 30,
+        );
+        final lateId = await repo.createTask(
+          title: 'Late timed',
+          dueDate: dateKey(DateTime.now().subtract(const Duration(days: 1))),
+          dueTime: 9 * 60,
+        );
+        await _pumpTasks(tester, db);
+
+        final todaySubtitle = _rowSubtitle(tester, todayId);
+        expect(todaySubtitle, isNotNull);
+        expect(todaySubtitle, isNot(contains('Due')));
+        expect(todaySubtitle, contains('30'));
+
+        final lateSubtitle = _rowSubtitle(tester, lateId);
+        expect(lateSubtitle, contains('Due'));
+        final lateRow = find.byKey(ValueKey('task-$lateId'));
+        expect(
+          find.descendant(of: lateRow, matching: find.text('Overdue')),
+          findsNothing,
+        );
+        expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
+        final error = Theme.of(tester.element(lateRow)).colorScheme.error;
+        final lateTexts = tester.widgetList<Text>(
+          find.descendant(of: lateRow, matching: find.byType(Text)),
+        );
+        expect(lateTexts.any((text) => text.style?.color == error), isTrue);
+      } finally {
+        await _dispose(tester, db);
+      }
+    },
+  );
 
   testWidgets('checkbox completes a task and undo reopens it', (
     WidgetTester tester,
