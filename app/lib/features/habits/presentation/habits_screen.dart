@@ -191,6 +191,10 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
       data: (value) => value,
       orElse: () => const <Habit>[],
     );
+    final liveIds = habits.map((h) => h.id).toSet();
+    if (_selected.isNotEmpty && !_selected.every(liveIds.contains)) {
+      _selected.removeWhere((id) => !liveIds.contains(id));
+    }
     final selectedHabits = habits
         .where((h) => _selected.contains(h.id))
         .toList();

@@ -78,8 +78,6 @@ extension _AppShellNavigation on _AppShellState {
     // ignore: avoid_unused_parameters
     List<int>? navOrder,
   ]) {
-    final navigator = Navigator.of(context);
-
     Future<void> record(String route) async {
       try {
         final repo = await ref.read(settingsRepositoryProvider.future);

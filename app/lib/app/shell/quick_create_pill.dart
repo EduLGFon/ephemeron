@@ -4,10 +4,10 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/design/tokens.dart';
-import '../../core/time/device_date_format.dart';
 import '../../core/time/picker_memory.dart';
 import '../../core/ui/app_feedback.dart';
 import '../../data/drift/app_database.dart';
@@ -16,7 +16,6 @@ import '../../features/calendar/application/calendar_providers.dart';
 import '../../features/countdowns/application/countdowns_providers.dart';
 import '../../features/habits/application/habits_providers.dart';
 import '../../features/settings/application/settings_providers.dart';
-import '../../features/settings/data/settings_repository.dart';
 import '../../features/tasks/application/tasks_providers.dart';
 import '../../features/tasks/presentation/quick_add_strings.dart';
 
@@ -127,7 +126,6 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
   }
 
   Future<void> _pickTime() async {
-    final now = TimeOfDay.now();
     final initial =
         _pickedTime ?? TimeOfDay.fromDateTime(_effectiveDue ?? DateTime.now());
     final picked = await showTimePicker(context: context, initialTime: initial);
@@ -306,10 +304,15 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
           children: [
             Icon(Icons.add, size: 20, color: scheme.primary),
             const SizedBox(width: 8),
-            Text(
-              'Quick create',
-              style: Theme.of(context).textTheme.labelLarge
-                  ?.copyWith(color: scheme.onSurface),
+            Flexible(
+              child: Text(
+                'Quick create',
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelLarge
+                    ?.copyWith(color: scheme.onSurface),
+              ),
             ),
           ],
         ),
