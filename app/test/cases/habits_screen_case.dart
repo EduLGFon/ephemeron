@@ -59,7 +59,154 @@ class _RecordingPendingOperations extends PendingOperations {
   }
 }
 
+/// The row's semantics node mirrors the leading ring's fully-done state.
+bool? _habitRowDone(WidgetTester tester, String name) => tester
+    .widget<Semantics>(
+      find.bySemanticsLabel(RegExp('^${RegExp.escape(name)},')),
+    )
+    .properties
+    .toggled;
+
 void main() {
+  testWidgets('row taps count steps toward the goal, not full completion', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Water',
+      startDate: '2026-01-01',
+      goalAmount: 3,
+      increment: 1,
+    );
+    final today = habitDateKey(DateTime.now());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: HabitsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Water'));
+    await tester.pump();
+    await tester.pump();
+    var log = await repo.logFor(id, today);
+    expect(log?.amount, 1);
+    expect(log?.done, isFalse);
+    expect(_habitRowDone(tester, 'Water'), isFalse);
+
+    await tester.tap(find.text('Water'));
+    await tester.pump();
+    await tester.pump();
+    log = await repo.logFor(id, today);
+    expect(log?.amount, 2);
+    expect(log?.done, isFalse);
+    expect(_habitRowDone(tester, 'Water'), isFalse);
+
+    await tester.tap(find.text('Water'));
+    await tester.pump();
+    await tester.pump();
+    log = await repo.logFor(id, today);
+    expect(log?.amount, 3);
+    expect(log?.done, isTrue);
+    expect(_habitRowDone(tester, 'Water'), isTrue);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
+  testWidgets('leading circle marks fully done through the shared toggle API', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Walk',
+      startDate: '2026-01-01',
+      goalAmount: 5,
+      increment: 1,
+    );
+    final today = habitDateKey(DateTime.now());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: HabitsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final circle = find.byKey(ValueKey<String>('habit-done-$id'));
+    expect(circle, findsOneWidget);
+
+    // A row tap only advances progress; the ring stays unfilled and unchecked.
+    await tester.tap(find.text('Walk'));
+    await tester.pump();
+    await tester.pump();
+    var log = await repo.logFor(id, today);
+    expect(log?.amount, 1);
+    expect(log?.done, isFalse);
+    expect(_habitRowDone(tester, 'Walk'), isFalse);
+
+    // Only the leading circle marks the day fully done, filling the goal as
+    // the Today strip's shared toggle does.
+    await tester.tap(circle);
+    await tester.pump();
+    await tester.pump();
+    log = await repo.logFor(id, today);
+    expect(log?.amount, 5);
+    expect(log?.done, isTrue);
+    expect(_habitRowDone(tester, 'Walk'), isTrue);
+
+    await tester.tap(circle);
+    await tester.pump();
+    await tester.pump();
+    log = await repo.logFor(id, today);
+    expect(log?.done, isFalse);
+    expect(log?.amount, 0);
+    expect(_habitRowDone(tester, 'Walk'), isFalse);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
+  testWidgets('row taps respect the configured increment', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Run',
+      startDate: '2026-01-01',
+      goalAmount: 10,
+      unit: 'min',
+      increment: 2,
+    );
+    final today = habitDateKey(DateTime.now());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: HabitsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Run'));
+    await tester.pump();
+    await tester.pump();
+    expect((await repo.logFor(id, today))?.amount, 2);
+    expect(find.textContaining('2/10 min'), findsOneWidget);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
   testWidgets('habit complete writes today log', (WidgetTester tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
