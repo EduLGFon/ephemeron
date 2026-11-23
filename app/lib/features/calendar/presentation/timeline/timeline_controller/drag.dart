@@ -358,9 +358,40 @@ mixin TimelineDrag on TimelineInteraction {
       return;
     }
     final task = matches.first;
-    final shift = Duration(days: dayDelta, minutes: snapped);
-    final newStart = DateTime.fromMillisecondsSinceEpoch(startMs).add(shift);
-    final newEnd = DateTime.fromMillisecondsSinceEpoch(endMs).add(shift);
+    if (task.rrule != null && task.rrule!.isNotEmpty) {
+      // Recurring-task occurrence drags must not write plannedStart/End on the
+      // master without updating recurrence metadata; that shifts occurrences
+      // and can make them vanish. Decline explicitly until task scope editing
+      // matches the event path.
+      _clearPending();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Recurring tasks cannot be moved by dragging'),
+          ),
+        );
+      }
+      return;
+    }
+    final baseStart = DateTime.fromMillisecondsSinceEpoch(startMs);
+    final baseEnd = DateTime.fromMillisecondsSinceEpoch(endMs);
+    // Preserve wall-clock time across day moves and DST boundaries by
+    // constructing local DateTimes from components instead of adding a
+    // Duration(days: ...), which shifts by 24h and can move the clock hour.
+    final newStart = DateTime(
+      baseStart.year,
+      baseStart.month,
+      baseStart.day + dayDelta,
+      baseStart.hour,
+      baseStart.minute + snapped,
+    );
+    final newEnd = DateTime(
+      baseEnd.year,
+      baseEnd.month,
+      baseEnd.day + dayDelta,
+      baseEnd.hour,
+      baseEnd.minute + snapped,
+    );
     final repo = ref.read(taskRepositoryProvider);
     try {
       if (task.plannedStart != null && task.plannedStart!.isNotEmpty) {

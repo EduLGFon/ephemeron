@@ -203,6 +203,7 @@ Future<String> _seedTask(
   String? dueDate,
   int? dueTime,
   String? plannedDate,
+  String? rrule,
 }) => TaskRepository(db).createTask(
   title: title,
   parentId: parentId,
@@ -211,19 +212,25 @@ Future<String> _seedTask(
   dueDate: dueDate,
   dueTime: dueTime,
   plannedDate: plannedDate,
+  rrule: rrule,
 );
 
 Future<Task> _taskById(AppDatabase db, String id) =>
     (db.select(db.tasks)..where((t) => t.id.equals(id))).getSingle();
 
-/// Long-presses [finder] until the drag recognizer starts, moves vertically
-/// by [dy] logical pixels, then releases and settles persistence.
-Future<void> _dragBlock(WidgetTester tester, Finder finder, double dy) async {
+/// Long-presses [finder] until the drag recognizer starts, moves by [dx]/[dy]
+/// logical pixels, then releases and settles persistence.
+Future<void> _dragBlock(
+  WidgetTester tester,
+  Finder finder,
+  double dy, {
+  double dx = 0,
+}) async {
   await tester.ensureVisible(finder);
   await tester.pump();
   final gesture = await tester.startGesture(tester.getCenter(finder));
   await tester.pump(const Duration(milliseconds: 700));
-  await gesture.moveBy(Offset(0, dy));
+  await gesture.moveBy(Offset(dx, dy));
   await tester.pump(const Duration(milliseconds: 100));
   await gesture.up();
   await tester.pump();
@@ -693,6 +700,7 @@ void main() {
         title: 'Focus block',
         plannedStart: '2027-03-01T10:00',
         plannedEnd: '2027-03-01T11:00',
+        plannedDate: '2027-03-01',
       );
       await _pump(tester, db, day, 1);
 
@@ -703,6 +711,7 @@ void main() {
       final task = await _taskById(db, id);
       expect(task.plannedStart, '2027-03-01T10:15');
       expect(task.plannedEnd, '2027-03-01T11:15');
+      expect(task.plannedDate, '2027-03-01');
       expect(task.dueDate, isNull);
       expect(find.text('Task moved'), findsOneWidget);
       await _tearDown(tester, db);
@@ -758,6 +767,86 @@ void main() {
     expect(task.plannedStart, '2027-03-01T10:00');
     await _tearDown(tester, db);
   });
+
+  testWidgets(
+    'dragging a recurring task is declined without corrupting series',
+    (WidgetTester tester) async {
+      final db = _db();
+      final day = DateTime(2027, 3, 1);
+      final id = await _seedTask(
+        db,
+        title: 'Recurring block',
+        plannedStart: '2027-03-01T10:00',
+        plannedEnd: '2027-03-01T11:00',
+        rrule: 'FREQ=DAILY',
+      );
+      await _pump(tester, db, day, 1);
+
+      await _dragBlock(
+        tester,
+        find.text('Recurring block').first,
+        _hourGap(tester) / 4,
+      );
+
+      expect(
+        find.text('Recurring tasks cannot be moved by dragging'),
+        findsOneWidget,
+      );
+      final task = await _taskById(db, id);
+      expect(task.plannedStart, '2027-03-01T10:00');
+      expect(task.plannedEnd, '2027-03-01T11:00');
+      expect(task.rrule, 'FREQ=DAILY');
+      await _tearDown(tester, db);
+    },
+  );
+
+  testWidgets('dragging a timed task across days preserves wall-clock time', (
+    WidgetTester tester,
+  ) async {
+    final db = _db();
+    final day = DateTime(2027, 3, 1);
+    final id = await _seedTask(
+      db,
+      title: 'Cross-day block',
+      plannedStart: '2027-03-01T10:00',
+      plannedEnd: '2027-03-01T11:00',
+    );
+    await _pump(tester, db, day, 3);
+
+    final dayWidth =
+        (tester.getSize(find.byType(SingleChildScrollView)).width - 48) / 3;
+    await _dragBlock(tester, find.text('Cross-day block'), 0, dx: dayWidth);
+
+    final task = await _taskById(db, id);
+    expect(task.plannedStart, '2027-03-02T10:00');
+    expect(task.plannedEnd, '2027-03-02T11:00');
+    await _tearDown(tester, db);
+  });
+
+  testWidgets(
+    'dragging a due-time task across days preserves wall-clock time',
+    (WidgetTester tester) async {
+      final db = _db();
+      final day = DateTime(2027, 3, 1);
+      final id = await _seedTask(
+        db,
+        title: 'Cross-day due',
+        dueDate: '2027-03-01',
+        dueTime: 10 * 60,
+      );
+      await _pump(tester, db, day, 3);
+
+      final dayWidth =
+          (tester.getSize(find.byType(SingleChildScrollView)).width - 48) / 3;
+      await _dragBlock(tester, find.text('Cross-day due'), 0, dx: dayWidth);
+
+      final task = await _taskById(db, id);
+      expect(task.dueDate, '2027-03-02');
+      expect(task.dueTime, 10 * 60);
+      expect(task.plannedDate, isNull);
+      await _tearDown(tester, db);
+    },
+  );
 
   testWidgets('dragging a plain event still moves it', (
     WidgetTester tester,
