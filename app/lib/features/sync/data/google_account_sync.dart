@@ -99,6 +99,12 @@ Future<GoogleAccountSyncResult> syncGoogleAccount({
       account: account,
       signedInAccounts: signedInAccounts,
     );
+    if (retriedAfterAuthFailure) {
+      // The token was silently refreshed after a 401. The failed run left its
+      // outbox rows deferred with backoff; re-queue them so this run actually
+      // re-pushes them instead of reporting success with changes still queued.
+      await engine.clearAuthRetryBackoff();
+    }
     await engine.syncNow();
     if (engine.skipped) return const GoogleAccountSyncResult.skipped();
     if (!engine.authFailure) {
