@@ -143,9 +143,18 @@ extension _TimelineViewGrid on _TimelineViewState {
                                           );
                                         }
                                       },
-                                      onLongPressStart: o.sourceType == 'task'
-                                          ? () {}
-                                          : () => beginDrag(o.eventId),
+                                      onLongPressStart: () {
+                                        if (o.sourceType == 'task') {
+                                          beginDrag(
+                                            o.eventId,
+                                            sourceType: o.sourceType,
+                                            startUtcMs: o.startUtc,
+                                            endUtcMs: o.endUtc,
+                                          );
+                                        } else {
+                                          beginDrag(o.eventId);
+                                        }
+                                      },
                                       onLongPressMoveUpdate: (d) =>
                                           updateDrag(o.eventId, d),
                                       onLongPressEnd: () => endDrag(o.eventId),

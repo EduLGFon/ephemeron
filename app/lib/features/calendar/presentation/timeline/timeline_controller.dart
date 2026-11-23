@@ -15,6 +15,7 @@ import '../../../../data/repositories/event_repository.dart';
 import '../../../../domain/sources/source_move.dart';
 import '../../application/calendar_providers.dart';
 import '../../../settings/application/settings_providers.dart';
+import '../../../tasks/application/tasks_providers.dart';
 import '../event_editor_sheet.dart';
 import '../scope_sheet.dart';
 import 'timeline_utils.dart';

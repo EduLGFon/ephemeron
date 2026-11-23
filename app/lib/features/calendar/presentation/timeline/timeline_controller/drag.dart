@@ -1,6 +1,11 @@
 part of '../timeline_controller.dart';
 
 mixin TimelineDrag on TimelineInteraction {
+  // Tracks what is being dragged so the drop persists to the right repo.
+  String dragSourceType = 'event';
+  int? dragTaskStartMs;
+  int? dragTaskEndMs;
+
   void tapEmptyAt(
     Offset pos,
     double colW,
@@ -106,15 +111,35 @@ mixin TimelineDrag on TimelineInteraction {
     showEventEditor(context, initialStart: start, initialEnd: end);
   }
 
-  void beginDrag(String eventId) {
+  void beginDrag(
+    String eventId, {
+    String sourceType = 'event',
+    int? startUtcMs,
+    int? endUtcMs,
+  }) {
     final generation = ++_dragBeginGeneration;
-    unawaited(_beginDragIfWritable(eventId, generation));
+    unawaited(
+      _beginDragIfWritable(
+        eventId,
+        generation,
+        sourceType: sourceType,
+        startUtcMs: startUtcMs,
+        endUtcMs: endUtcMs,
+      ),
+    );
   }
 
   int _dragBeginGeneration = 0;
 
-  Future<void> _beginDragIfWritable(String eventId, int generation) async {
-    if (await _isReadOnlySource(eventId)) {
+  Future<void> _beginDragIfWritable(
+    String eventId,
+    int generation, {
+    required String sourceType,
+    int? startUtcMs,
+    int? endUtcMs,
+  }) async {
+    // Tasks have no calendar read-only flag; only events can be locked.
+    if (sourceType != 'task' && await _isReadOnlySource(eventId)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -129,6 +154,9 @@ mixin TimelineDrag on TimelineInteraction {
       dragId = eventId;
       dragDy = 0;
       dragDayDelta = 0;
+      dragSourceType = sourceType;
+      dragTaskStartMs = startUtcMs;
+      dragTaskEndMs = endUtcMs;
     });
   }
 
@@ -177,10 +205,16 @@ mixin TimelineDrag on TimelineInteraction {
     final id = dragId;
     final dy = dragDy;
     final dayDelta = dragDayDelta;
+    final sourceType = dragSourceType;
+    final startMs = dragTaskStartMs;
+    final endMs = dragTaskEndMs;
     setState(() {
       dragId = null;
       dragDy = 0;
       dragDayDelta = 0;
+      dragSourceType = 'event';
+      dragTaskStartMs = null;
+      dragTaskEndMs = null;
       pendingMovedId = id;
       dragOffset = dy;
       dragXOffset = dayDelta * lastColW;
@@ -190,6 +224,16 @@ mixin TimelineDrag on TimelineInteraction {
     final snapped = (snapMin / 15).round() * 15;
     if (snapped == 0 && dayDelta == 0) {
       _clearPending();
+      return;
+    }
+    if (sourceType == 'task') {
+      await _endTaskDrag(
+        id,
+        snapped: snapped,
+        dayDelta: dayDelta,
+        startMs: startMs,
+        endMs: endMs,
+      );
       return;
     }
     final repo = ref.read(eventRepositoryProvider);
@@ -280,4 +324,133 @@ mixin TimelineDrag on TimelineInteraction {
       }
     }
   }
+
+  /// Persists a dropped task block. The cache stores task times as local wall
+  /// clock converted to UTC ms, so reading them back as local restores the
+  /// exact values the task editor wrote.
+  Future<void> _endTaskDrag(
+    String taskId, {
+    required int snapped,
+    required int dayDelta,
+    required int? startMs,
+    required int? endMs,
+  }) async {
+    if (startMs == null || endMs == null) {
+      _clearPending();
+      return;
+    }
+    final open = await ref.read(taskRepositoryProvider).watchOpen().first;
+    if (!context.mounted) {
+      _clearPending();
+      return;
+    }
+    final matches = open.where((t) => t.id == taskId).toList();
+    if (matches.isEmpty) {
+      // watchOpen() filters out subtasks (parentId != null) and there is no
+      // subtask-inclusive lookup by id, so surface the failure instead of
+      // silently discarding the drop.
+      _clearPending();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Task move was not applied (task not found)'),
+        ),
+      );
+      return;
+    }
+    final task = matches.first;
+    if (task.rrule != null && task.rrule!.isNotEmpty) {
+      // Recurring-task occurrence drags must not write plannedStart/End on the
+      // master without updating recurrence metadata; that shifts occurrences
+      // and can make them vanish. Decline explicitly until task scope editing
+      // matches the event path.
+      _clearPending();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Recurring tasks cannot be moved by dragging'),
+          ),
+        );
+      }
+      return;
+    }
+    final baseStart = DateTime.fromMillisecondsSinceEpoch(startMs);
+    final baseEnd = DateTime.fromMillisecondsSinceEpoch(endMs);
+    // Preserve wall-clock time across day moves and DST boundaries by
+    // constructing local DateTimes from components instead of adding a
+    // Duration(days: ...), which shifts by 24h and can move the clock hour.
+    final newStart = DateTime(
+      baseStart.year,
+      baseStart.month,
+      baseStart.day + dayDelta,
+      baseStart.hour,
+      baseStart.minute + snapped,
+    );
+    final newEnd = DateTime(
+      baseEnd.year,
+      baseEnd.month,
+      baseEnd.day + dayDelta,
+      baseEnd.hour,
+      baseEnd.minute + snapped,
+    );
+    final repo = ref.read(taskRepositoryProvider);
+    try {
+      if (task.plannedStart != null && task.plannedStart!.isNotEmpty) {
+        await repo.updateTask(
+          taskId,
+          plannedStart: () => _localMinuteIso(newStart),
+          plannedEnd: () => _localMinuteIso(newEnd),
+        );
+      } else {
+        // A due-time drop only moves the due timestamp. Leave plannedDate as
+        // stored: updateTask writes Value.absent() when it is omitted, so an
+        // existing planned day is preserved instead of being cleared.
+        await repo.updateTask(
+          taskId,
+          dueDate: () => _dateKey(newStart),
+          dueTime: () => newStart.hour * 60 + newStart.minute,
+        );
+      }
+    } catch (_) {
+      _clearPending();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task could not be moved')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) {
+      _clearPending();
+      return;
+    }
+    try {
+      final range = ref.read(calendarCacheRangeProvider);
+      await ref
+          .read(occurrenceRepositoryProvider)
+          .rebuildWindow(
+            windowStartUtc: range.fromUtc,
+            windowEndUtc: range.toUtc,
+          );
+    } catch (_) {}
+    if (context.mounted) {
+      setState(() {
+        dragOffset = 0;
+        pendingMovedId = null;
+      });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Task moved')));
+    }
+  }
+
+  static String _localMinuteIso(DateTime dt) =>
+      '${dt.year.toString().padLeft(4, '0')}-'
+      '${dt.month.toString().padLeft(2, '0')}-'
+      '${dt.day.toString().padLeft(2, '0')}T'
+      '${dt.hour.toString().padLeft(2, '0')}:'
+      '${dt.minute.toString().padLeft(2, '0')}';
+
+  static String _dateKey(DateTime dt) =>
+      '${dt.year.toString().padLeft(4, '0')}-'
+      '${dt.month.toString().padLeft(2, '0')}-'
+      '${dt.day.toString().padLeft(2, '0')}';
 }
