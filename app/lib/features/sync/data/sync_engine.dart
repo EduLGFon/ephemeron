@@ -278,6 +278,22 @@ class SyncEngine {
     );
   }
 
+  /// Re-queues rows deferred by an auth failure so a retry made with a freshly
+  /// refreshed token actually re-pushes them. A 401 can be a stale cached
+  /// A stale cached token is invalidated by [syncGoogleAccount], which retries once, but the
+  /// failed rows carry a backoff from [_handleOpError]. Without clearing that
+  /// backoff the retry pushes nothing, reports success, and leaves the user's
+  /// changes queued until the backoff expires. Attempts are preserved so the
+  /// rows stay discardable when exhausted. Ownership is still enforced during
+  /// push, so another account's rows are never sent under the fresh token.
+  Future<void> clearAuthRetryBackoff() async {
+    await (_db.update(
+      _db.outbox,
+    )..where((o) => o.lastError.like('auth %'))).write(
+      const OutboxCompanion(nextTryAt: Value(null), lastError: Value(null)),
+    );
+  }
+
   /// Removes only an exhausted row. A queued row with retries left is kept so
   /// discarding a diagnostic can never silently drop a valid user change. A
   /// row that vanished concurrently reports [OutboxDiscardResult.missing].
