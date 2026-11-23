@@ -9,11 +9,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/shell/destinations.dart';
 import '../../../core/design/components/app_page.dart';
-import '../../../core/design/components/app_states.dart';
+import '../../../core/design/components/app_states.dart' hide AppSkeleton;
 import '../../../core/design/components/sync_indicator.dart';
 import '../../../core/design/layout.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/ui/app_feedback.dart';
+import '../../../core/ui/app_skeleton.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../features/calendar/application/calendar_cache_coordinator.dart';
 import '../../../features/calendar/presentation/event_details_sheet.dart';
@@ -91,13 +92,21 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     final taskLists = ref.watch(taskListsByIdProvider);
     final now = _now;
 
+    final hasError = occurrences.hasError || tasks.hasError || habits.hasError;
+    // Keep the first frame stable: async defaults must not flash the empty
+    // state or swap the hero before core data resolves.
+    final initialLoading =
+        (occurrences.isLoading && !occurrences.hasValue) ||
+        (tasks.isLoading && !tasks.hasValue) ||
+        (habits.isLoading && !habits.hasValue) ||
+        (countdowns.isLoading && !countdowns.hasValue);
+
     final events = occurrences.value ?? const <OccurrenceCacheData>[];
     final buckets =
         tasks.value ??
         const TodayTaskBuckets(today: <Task>[], overdue: <Task>[]);
     final habitEntries = habits.value ?? const [];
     final countdownItems = countdowns.value ?? const <TodayCountdown>[];
-    final hasError = occurrences.hasError || tasks.hasError || habits.hasError;
     final current = _currentEvent(events, now);
     final next = current == null ? _nextEvent(events, now) : null;
 
@@ -123,6 +132,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 ref.invalidate(openTasksProvider(null));
               },
             )
+          : initialLoading
+          ? _loadingBody(layout)
           : SingleChildScrollView(
               key: ValueKey<String>(
                 layout == AppLayout.expanded
@@ -184,6 +195,54 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _loadingBody(AppLayout layout) {
+    final hero = AppSkeleton.box(height: 112);
+    final agenda = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        AppSkeleton.box(height: 20, width: 120),
+        const SizedBox(height: DsSpace.x12),
+        AppSkeleton.box(height: 56),
+        const SizedBox(height: DsSpace.x8),
+        AppSkeleton.box(height: 56),
+        const SizedBox(height: DsSpace.x8),
+        AppSkeleton.box(height: 56),
+      ],
+    );
+    final side = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        AppSkeleton.box(height: 20, width: 100),
+        const SizedBox(height: DsSpace.x12),
+        AppSkeleton.box(height: 96),
+      ],
+    );
+    return SingleChildScrollView(
+      key: ValueKey<String>(
+        layout == AppLayout.expanded ? 'today-wide-body' : 'today-compact-body',
+      ),
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          hero,
+          const SizedBox(height: DsSpace.x16),
+          if (layout == AppLayout.expanded)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(flex: 3, child: agenda),
+                const SizedBox(width: DsSpace.x24),
+                SizedBox(width: 300, child: side),
+              ],
+            )
+          else ...<Widget>[side, const SizedBox(height: DsSpace.x16), agenda],
+          const SizedBox(height: DsSpace.x48),
+        ],
+      ),
     );
   }
 

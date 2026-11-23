@@ -13,6 +13,8 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/time/device_date_format.dart';
 import '../../../../core/ui/app_feedback.dart';
+import '../../../../core/ui/app_motion.dart';
+import '../../../../core/ui/app_skeleton.dart';
 import '../../../../data/drift/app_database.dart';
 import '../../../focus/application/focus_providers.dart';
 import '../today_strings.dart';
@@ -118,53 +120,40 @@ class _TodayHeroState extends ConsumerState<TodayHero> {
   @override
   Widget build(BuildContext context) {
     final strings = TodayStrings.of(context);
-    final session = ref.watch(currentFocusSessionProvider).value;
-    if (session != null) {
-      return AppSurface(
-        key: const ValueKey<String>('today-hero-focus'),
-        onTap: widget.onOpenFocus,
-        child: _focusBody(context, strings, session),
+    final sessionAsync = ref.watch(currentFocusSessionProvider);
+    final session = sessionAsync.value;
+    final Widget content;
+    VoidCallback? onTap;
+    if (sessionAsync.isLoading && !sessionAsync.hasValue) {
+      content = const _HeroLoading();
+    } else if (session != null) {
+      onTap = widget.onOpenFocus;
+      content = _focusBody(context, strings, session);
+    } else if (_paused != null) {
+      onTap = widget.onOpenFocus;
+      content = _pausedBody(context, strings, _paused!);
+    } else if (widget.currentEvent != null) {
+      final current = widget.currentEvent!;
+      onTap = () => widget.onOpenEvent(current);
+      content = _eventBody(
+        context,
+        strings,
+        label: strings.now,
+        event: current,
+        isCurrent: true,
       );
-    }
-    final paused = _paused;
-    if (paused != null) {
-      return AppSurface(
-        key: const ValueKey<String>('today-hero-paused'),
-        onTap: widget.onOpenFocus,
-        child: _pausedBody(context, strings, paused),
+    } else if (widget.nextEvent != null) {
+      final next = widget.nextEvent!;
+      onTap = () => widget.onOpenEvent(next);
+      content = _eventBody(
+        context,
+        strings,
+        label: strings.next,
+        event: next,
+        isCurrent: false,
       );
-    }
-    final current = widget.currentEvent;
-    if (current != null) {
-      return AppSurface(
-        key: const ValueKey<String>('today-hero-now'),
-        onTap: () => widget.onOpenEvent(current),
-        child: _eventBody(
-          context,
-          strings,
-          label: strings.now,
-          event: current,
-          isCurrent: true,
-        ),
-      );
-    }
-    final next = widget.nextEvent;
-    if (next != null) {
-      return AppSurface(
-        key: const ValueKey<String>('today-hero-next'),
-        onTap: () => widget.onOpenEvent(next),
-        child: _eventBody(
-          context,
-          strings,
-          label: strings.next,
-          event: next,
-          isCurrent: false,
-        ),
-      );
-    }
-    return AppSurface(
-      key: const ValueKey<String>('today-hero-empty'),
-      child: Row(
+    } else {
+      content = Row(
         children: <Widget>[
           Icon(
             Icons.wb_sunny_outlined,
@@ -179,6 +168,19 @@ class _TodayHeroState extends ConsumerState<TodayHero> {
             ),
           ),
         ],
+      );
+    }
+    return AppSurface(
+      key: const ValueKey<String>('today-hero'),
+      onTap: onTap,
+      child: AnimatedSize(
+        duration: AppMotion.duration(
+          context,
+          const Duration(milliseconds: 180),
+        ),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: content,
       ),
     );
   }
@@ -363,6 +365,24 @@ class _TodayHeroState extends ConsumerState<TodayHero> {
             onPressed: _resume,
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _HeroLoading extends StatelessWidget {
+  const _HeroLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        AppSkeleton.box(height: 14, width: 72),
+        const SizedBox(height: DsSpace.x12),
+        AppSkeleton.box(height: 28, width: 220),
+        const SizedBox(height: DsSpace.x8),
+        AppSkeleton.box(height: 14, width: 140),
       ],
     );
   }
