@@ -90,6 +90,33 @@ class _AppShellState extends ConsumerState<AppShell>
     });
   }
 
+  Widget _buildSearchStrip(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            key: const ValueKey<String>('shell-search'),
+            icon: const Icon(Icons.search),
+            label: const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Search'),
+            ),
+            style: OutlinedButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              foregroundColor: scheme.onSurfaceVariant,
+              side: BorderSide(color: scheme.outlineVariant),
+            ),
+            onPressed: _openSearch,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -225,18 +252,23 @@ class _AppShellState extends ConsumerState<AppShell>
       orElse: () => true,
     );
     if (!onboarded) return const OnboardingScreen();
-    final primary = orderAsync.maybeWhen(
-      data: (r) => r.navOrderV2,
-      orElse: () => SettingsRepository.defaultNavOrderV2,
-    );
     final streamEnabled = orderAsync.maybeWhen(
       data: (r) => r.streamEnabled,
       orElse: () => false,
     );
-    final secondary = <int>[
-      ...AppDestination.secondaryIds,
-      if (streamEnabled) AppDestination.stream.id,
+    final fullOrder = orderAsync.maybeWhen(
+      data: (r) => r.navOrderV2,
+      orElse: () => SettingsRepository.defaultNavOrderV2,
+    );
+    final visibleOrder = <int>[
+      for (final id in fullOrder)
+        if (id != AppDestination.stream.id || streamEnabled) id,
     ];
+    final split = visibleOrder.length <= AppDestination.barSlotCount
+        ? visibleOrder.length
+        : AppDestination.barSlotCount;
+    final primary = visibleOrder.take(split).toList(growable: false);
+    final secondary = visibleOrder.skip(split).toList(growable: false);
 
     final shortcuts = _buildShortcuts(primary, secondary);
     _shortcuts = shortcuts;
@@ -259,6 +291,7 @@ class _AppShellState extends ConsumerState<AppShell>
           child: Column(
             children: [
               const SyncReconnectBanner(),
+              _buildSearchStrip(context),
               Expanded(
                 child: AdaptiveShell(
                   currentIndex: widget.navigationShell.currentIndex,
@@ -266,7 +299,7 @@ class _AppShellState extends ConsumerState<AppShell>
                   primary: primary,
                   secondary: secondary,
                   onDestinationSelected: _onDestinationSelected,
-                  onMore: () => _showMore(context, secondary, primary),
+                  onMore: () => _showMore(context, secondary),
                   onSettings: _openSettings,
                   onQuickAdd: () => showQuickAdd(context),
                 ),

@@ -72,7 +72,12 @@ extension _AppShellNavigation on _AppShellState {
     });
   }
 
-  void _showMore(BuildContext context, List<int> secondary, List<int> primary) {
+  void _showMore(
+    BuildContext context,
+    List<int> secondary, [
+    // ignore: avoid_unused_parameters
+    List<int>? navOrder,
+  ]) {
     final navigator = Navigator.of(context);
 
     Future<void> record(String route) async {
@@ -93,12 +98,7 @@ extension _AppShellNavigation on _AppShellState {
           },
           onReorder: () async {
             Navigator.of(ctx).pop();
-            await _reorderSheet(context, primary);
-          },
-          onSearch: () {
-            Navigator.of(ctx).pop();
-            context.push('/search');
-            record('/search');
+            await _reorderSheet(context);
           },
           onSettings: () {
             Navigator.of(ctx).pop();
@@ -154,8 +154,15 @@ extension _AppShellNavigation on _AppShellState {
     }
   }
 
-  Future<void> _reorderSheet(BuildContext context, List<int> primary) async {
-    final current = List<int>.from(primary);
+  Future<void> _reorderSheet(BuildContext context) async {
+    SettingsRepository repo;
+    try {
+      repo = await ref.read(settingsRepositoryProvider.future);
+    } catch (_) {
+      return;
+    }
+    final current = List<int>.from(repo.navOrderV2);
+    if (!context.mounted) return;
     await showAppSheet<void>(
       context,
       builder: (ctx) => EscapeToClose(
@@ -171,7 +178,7 @@ extension _AppShellNavigation on _AppShellState {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Reorder primary destinations',
+                      'Customize navigation order',
                       style: Theme.of(ctx).textTheme.titleMedium,
                     ),
                   ),
@@ -199,10 +206,10 @@ extension _AppShellNavigation on _AppShellState {
                     padding: const EdgeInsets.all(16),
                     child: FilledButton(
                       onPressed: () async {
-                        final repo = await ref.read(
+                        final saveRepo = await ref.read(
                           settingsRepositoryProvider.future,
                         );
-                        await repo.setNavOrderV2(current);
+                        await saveRepo.setNavOrderV2(current);
                         ref.invalidate(settingsRepositoryProvider);
                         if (ctx.mounted) Navigator.of(ctx).pop();
                       },

@@ -228,12 +228,12 @@ class SettingsStrings {
 
   // Navigation.
   String get navigationTitle => 'Navigation';
-  String get navigationDescription => 'Order of the five primary destinations.';
-  String get reorderTitle => 'Reorder primary destinations';
+  String get navigationDescription => 'Order of all destinations.';
+  String get reorderTitle => 'Customize navigation order';
   String navigationOrder(String order) => 'Current order: $order';
-  String get reorderSheetTitle => 'Primary destinations';
+  String get reorderSheetTitle => 'Navigation order';
   String get reorderSheetDescription =>
-      'Drag to reorder. Secondary destinations stay in More.';
+      'Drag to reorder. The first five appear in the navigation bar.';
   String get reset => 'Reset';
   String get save => 'Save';
   String get dragHandle => 'Drag to reorder';

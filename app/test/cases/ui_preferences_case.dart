@@ -12,7 +12,7 @@ void main() {
     expect(repo.uiDensity, 'comfortable');
     expect(repo.time24h, isTrue);
     expect(repo.navOrderV2, SettingsRepository.defaultNavOrderV2);
-    expect(repo.navOrderV2, <int>[0, 1, 2, 3, 4]);
+    expect(repo.navOrderV2, <int>[0, 1, 2, 3, 4, 5, 6, 7, 8]);
     expect(repo.navVersion, 0);
     expect(repo.brightness, 'light');
   });
@@ -25,7 +25,7 @@ void main() {
     await repo.setDynamicColor(true);
     await repo.setUiDensity('compact');
     await repo.setTime24h(false);
-    await repo.setNavOrderV2(<int>[4, 3, 2, 1, 0]);
+    await repo.setNavOrderV2(<int>[4, 3, 2, 1, 0, 8, 7, 6, 5]);
     await repo.setNavVersion(2);
     await repo.setBrightness('system');
 
@@ -33,7 +33,7 @@ void main() {
     expect(repo.dynamicColor, isTrue);
     expect(repo.uiDensity, 'compact');
     expect(repo.time24h, isFalse);
-    expect(repo.navOrderV2, <int>[4, 3, 2, 1, 0]);
+    expect(repo.navOrderV2, <int>[4, 3, 2, 1, 0, 8, 7, 6, 5]);
     expect(repo.navVersion, 2);
     expect(repo.brightness, 'system');
   });
@@ -46,7 +46,7 @@ void main() {
       });
       final repo = SettingsRepository(await SharedPreferences.getInstance());
 
-      expect(repo.navOrderV2, <int>[4, 2, 0, 1, 3]);
+      expect(repo.navOrderV2, <int>[4, 2, 0, 1, 3, 5, 6, 7, 8]);
     },
   );
 

@@ -1,5 +1,5 @@
-// Bottom sheet used by Settings to reorder the five primary destinations.
-// Secondary destinations stay in More; this writes only `settings.navOrderV2`.
+// Bottom sheet used by Settings to reorder all destinations.
+// The adaptive shell splits this order into bar slots and More overflow.
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/shell/destinations.dart';

@@ -11,9 +11,12 @@ class SettingsRepository {
   /// replaced; the new shell reads [navOrderV2].
   static const List<int> defaultNavOrder = <int>[0, 1, 6, 3, 5, 4, 2];
 
-  /// Primary destinations in default order: Today, Tasks, Calendar, Habits,
-  /// Focus.
-  static const List<int> defaultNavOrderV2 = <int>[0, 1, 2, 3, 4];
+  static const int _minNavId = 0;
+  static const int _maxNavId = 8;
+
+  /// Default destination order. The adaptive shell splits this into visible
+  /// bar slots and the More sheet overflow.
+  static const List<int> defaultNavOrderV2 = <int>[0, 1, 2, 3, 4, 5, 6, 7, 8];
 
   static const _kPrimary = 'settings.primaryColor';
   static const _kBackground = 'settings.backgroundColor';
@@ -49,11 +52,11 @@ class SettingsRepository {
   Future<void> setNavOrder(List<int> order) =>
       _prefs.setStringList(_kNavOrder, order.map((e) => e.toString()).toList());
 
-  /// Primary destination ids (0..4) in the order the shell shows them.
+  /// Destination ids (0..8) in the order the shell shows them.
   ///
   /// Stored values are normalized on read: unknown ids and duplicates are
-  /// dropped, and every primary destination that is missing is appended in
-  /// canonical order. A valid stored order is always returned.
+  /// dropped, and every destination that is missing is appended in canonical
+  /// order. A valid stored order is always returned.
   List<int> get navOrderV2 {
     final raw = _prefs.getStringList(_kNavOrderV2);
     if (raw == null) return defaultNavOrderV2;
@@ -61,7 +64,9 @@ class SettingsRepository {
     final out = <int>[];
     for (final value in raw) {
       final id = int.tryParse(value.trim());
-      if (id == null || id < 0 || id > 4 || !seen.add(id)) continue;
+      if (id == null || id < _minNavId || id > _maxNavId || !seen.add(id)) {
+        continue;
+      }
       out.add(id);
     }
     for (final id in defaultNavOrderV2) {
