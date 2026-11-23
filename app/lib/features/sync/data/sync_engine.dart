@@ -34,6 +34,86 @@ enum SyncStatus { synced, syncing, offline, error }
 /// rate/network/server failures are retried without asking for credentials.
 enum SyncErrorKind { none, auth, rateLimited, network, server, unknown }
 
+/// Cooperative cross-isolate single-flight for sync.
+///
+/// The foreground engine and the periodic WorkManager worker each open their
+/// own Drift connection to the same SQLite file. The in-isolate [_busy] flag
+/// cannot see the other isolate, so two runs can overlap and intermittently
+/// fail with "database is locked" or duplicate outbox pushes (a 404 on the
+/// second push). A short-lived row in `sync_state` is visible to both and is
+/// used as a mutex. This is scheduling only: it never touches retries,
+/// backoff, auth handling, or user data.
+class SyncLease {
+  SyncLease(this._db, this.key);
+
+  final AppDatabase _db;
+
+  /// Distinct keys let Google/Microsoft and backend sync run concurrently in
+  /// the foreground (disjoint tables) while still blocking their matching
+  /// headless run.
+  final String key;
+
+  // Longer than a legitimate full resync, shorter than the 15 min minimum
+  // WorkManager period so a killed owner cannot block the next scheduled run.
+  static const int _leaseMs = 5 * 60 * 1000;
+
+  String? _token;
+
+  /// Claims the lease atomically. A held, unexpired lease from another owner
+  /// makes this a no-op and returns false; the caller skips this run.
+  Future<bool> acquire() async {
+    final token =
+        '${DateTime.now().toUtc().microsecondsSinceEpoch}-'
+        '${Random().nextInt(1 << 30)}';
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    final expiry = now + _leaseMs;
+    try {
+      // One statement: upsert only when the row is absent, empty, already
+      // ours, or expired. SQLite evaluates the WHERE against the stored row
+      // atomically, so two isolates cannot both claim it.
+      await _db.customStatement(
+        'INSERT INTO sync_state (key, value, last_sync_at) VALUES (?, ?, ?) '
+        'ON CONFLICT(key) DO UPDATE SET '
+        'value = excluded.value, last_sync_at = excluded.last_sync_at '
+        "WHERE sync_state.value IS NULL OR sync_state.value = '' "
+        'OR sync_state.value = excluded.value '
+        'OR sync_state.last_sync_at IS NULL '
+        'OR sync_state.last_sync_at <= ?',
+        [key, token, expiry, now],
+      );
+      final row = await (_db.select(
+        _db.syncState,
+      )..where((s) => s.key.equals(key))).getSingleOrNull();
+      if (row?.value != token) return false;
+      _token = token;
+      return true;
+    } catch (e) {
+      // Fail closed: if the lease store is unavailable, do not start a run
+      // that could overlap another isolate. The next scheduled run retries.
+      debugPrint('[sync] lease acquire failed type=${e.runtimeType}');
+      _token = null;
+      return false;
+    }
+  }
+
+  /// Releases only a lease still owned by this run. An expired lease that was
+  /// legitimately taken over by another run is left untouched.
+  Future<void> release() async {
+    final token = _token;
+    if (token == null) return;
+    _token = null;
+    try {
+      await _db.customStatement(
+        'UPDATE sync_state SET value = NULL, last_sync_at = NULL '
+        'WHERE key = ? AND value = ?',
+        [key, token],
+      );
+    } catch (e) {
+      debugPrint('[sync] lease release failed type=${e.runtimeType}');
+    }
+  }
+}
+
 /// Result of discarding an outbox diagnostic row. Missing rows can happen when
 /// a concurrent sync already pushed the change.
 enum OutboxDiscardResult { discarded, missing, retriesLeft }
@@ -85,6 +165,7 @@ class SyncEngine {
   /// Cross-instance single-flight: the notifier, auto-sync timer, sign-in
   /// flow and headless worker each build their own engine.
   static bool _busy = false;
+  static const String _leaseKey = 'sync.lease.google';
   final _rand = Random();
 
   /// Remote calendar/task-list ids seen for the active account in this run.
@@ -113,6 +194,15 @@ class SyncEngine {
   Future<void> syncNow() async {
     if (_running || _busy) {
       debugPrint('[sync] syncNow skipped: already running');
+      _skipped = true;
+      return;
+    }
+    // Cross-isolate single-flight. The WorkManager worker uses a separate
+    // Drift connection, so _busy alone cannot serialize it with this engine.
+    // Skipping is the same cooperative behavior as the guard above.
+    final lease = SyncLease(_db, _leaseKey);
+    if (!await lease.acquire()) {
+      debugPrint('[sync] syncNow skipped: lease held by another sync');
       _skipped = true;
       return;
     }
@@ -191,6 +281,7 @@ class SyncEngine {
     } finally {
       _running = false;
       _busy = false;
+      await lease.release();
     }
   }
 

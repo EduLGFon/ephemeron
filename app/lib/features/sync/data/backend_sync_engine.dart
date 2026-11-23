@@ -3,12 +3,13 @@
 // that never overwrites locally dirty rows. Google data never enters here:
 // only habit/focus tables are read and written.
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../data/drift/app_database.dart';
 import '../../../data/remote/backend_api_client.dart';
 import '../../../data/remote/backend_sync_api.dart';
 import '../../auth/data/backend_auth.dart';
-import 'sync_engine.dart' show SyncStatus;
+import 'sync_engine.dart' show SyncLease, SyncStatus;
 
 part 'backend_sync_engine/push.dart';
 part 'backend_sync_engine/pull.dart';
@@ -29,6 +30,7 @@ abstract class _BackendSyncEngineBase {
   String? get lastError => _lastError;
 
   static const int batchLimit = 200;
+  static const String _leaseKey = 'sync.lease.backend';
   static const String _logsCursorKey = 'backend.logsCursor';
   static const String _focusCursorKey = 'backend.focusCursor';
   static const String _pullCursorKey = 'backend.pullCursor';
@@ -45,6 +47,14 @@ abstract class _BackendSyncEngineBase {
   /// Pull runs first so locally dirty rows win until they are pushed.
   Future<void> syncNow() async {
     if (_running) return;
+    // Cross-isolate single-flight: the headless worker opens a second Drift
+    // connection, so the in-isolate guard above cannot serialize the two.
+    // Leave status untouched on a skip; the next tick retries.
+    final lease = SyncLease(_db, _leaseKey);
+    if (!await lease.acquire()) {
+      debugPrint('[sync] backend syncNow skipped: lease held by another sync');
+      return;
+    }
     _running = true;
     _status = SyncStatus.syncing;
     try {
@@ -71,6 +81,7 @@ abstract class _BackendSyncEngineBase {
       _lastError = 'sync failed';
     } finally {
       _running = false;
+      await lease.release();
     }
   }
 
