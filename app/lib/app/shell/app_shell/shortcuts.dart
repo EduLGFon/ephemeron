@@ -23,7 +23,7 @@ extension _AppShellShortcuts on _AppShellState {
     return <ShortcutActivator, VoidCallback>{
       SingleActivator(LogicalKeyboardKey.keyN): () {
         if (!mounted) return;
-        showQuickAdd(context);
+        ref.read(quickCreatePillRequestProvider.notifier).state++;
       },
       SingleActivator(LogicalKeyboardKey.keyC): () {
         if (!mounted) return;

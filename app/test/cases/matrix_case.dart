@@ -41,7 +41,6 @@ void main() {
     expect(_count('delegate'), '1');
     expect(_count('eliminate'), '1');
     expect(_trayCount(), '1');
-    expect(find.byKey(const Key('matrix-add-task')), findsOneWidget);
 
     await _dispose(tester, db);
   });
@@ -341,7 +340,6 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('matrix-unclassified')), findsOneWidget);
-    expect(find.byKey(const Key('matrix-add-task')), findsOneWidget);
 
     await _dispose(tester, db);
   });
@@ -378,7 +376,6 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('matrix-unclassified')), findsOneWidget);
-    expect(find.byKey(const Key('matrix-add-task')), findsOneWidget);
     expect(find.text('Auto'), findsOneWidget);
     expect(find.text('Priority'), findsOneWidget);
 

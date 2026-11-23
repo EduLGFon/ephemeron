@@ -191,6 +191,10 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
       data: (value) => value,
       orElse: () => const <Habit>[],
     );
+    final liveIds = habits.map((h) => h.id).toSet();
+    if (_selected.isNotEmpty && !_selected.every(liveIds.contains)) {
+      _selected.removeWhere((id) => !liveIds.contains(id));
+    }
     final selectedHabits = habits
         .where((h) => _selected.contains(h.id))
         .toList();
@@ -203,14 +207,6 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
         header: _selecting
             ? _selectionHeader(strings, selectedHabits)
             : _defaultHeader(strings, archived, habits.length),
-        fab: _selecting
-            ? null
-            : FloatingActionButton(
-                heroTag: 'habitsFab',
-                tooltip: strings.addHabit,
-                onPressed: () => showHabitEditor(context),
-                child: const Icon(Icons.add),
-              ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

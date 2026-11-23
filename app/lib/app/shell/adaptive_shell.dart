@@ -7,6 +7,7 @@ import '../../core/design/layout.dart';
 import '../../core/design/tokens.dart';
 import '../../core/time/device_date_format.dart';
 import 'destinations.dart';
+import 'quick_create_pill.dart';
 
 class AdaptiveShell extends StatelessWidget {
   const AdaptiveShell({
@@ -18,7 +19,6 @@ class AdaptiveShell extends StatelessWidget {
     required this.onDestinationSelected,
     required this.onMore,
     required this.onSettings,
-    required this.onQuickAdd,
   });
 
   final int currentIndex;
@@ -32,7 +32,6 @@ class AdaptiveShell extends StatelessWidget {
   final ValueChanged<int> onDestinationSelected;
   final VoidCallback onMore;
   final VoidCallback onSettings;
-  final VoidCallback onQuickAdd;
 
   int get _primarySlot => primary.indexOf(currentIndex);
 
@@ -60,14 +59,7 @@ class AdaptiveShell extends StatelessWidget {
     );
   }
 
-  Widget _fab() => FloatingActionButton(
-    // The shell owns the single main create action. A null hero tag avoids
-    // colliding with a branch screen's own FAB during transitions.
-    heroTag: null,
-    tooltip: 'New (N)',
-    onPressed: onQuickAdd,
-    child: const Icon(Icons.add),
-  );
+  Widget _pill() => const QuickCreatePill();
 
   Widget _buildCompact(BuildContext context, BoxConstraints constraints) {
     final slot = _primarySlot;
@@ -82,8 +74,8 @@ class AdaptiveShell extends StatelessWidget {
         : NavigationDestinationLabelBehavior.alwaysShow;
     return Scaffold(
       body: content,
-      floatingActionButton: _fab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: _pill(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       // NavigationBar wraps its content in a bottom SafeArea, so the selection
       // indicator stays above the system gesture inset.
       bottomNavigationBar: NavigationBar(
@@ -153,8 +145,8 @@ class AdaptiveShell extends StatelessWidget {
           Expanded(child: content),
         ],
       ),
-      floatingActionButton: _fab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: _pill(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -176,8 +168,8 @@ class AdaptiveShell extends StatelessWidget {
           Expanded(child: content),
         ],
       ),
-      floatingActionButton: _fab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: _pill(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }
