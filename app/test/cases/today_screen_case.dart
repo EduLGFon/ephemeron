@@ -225,4 +225,54 @@ void main() {
 
     await _unmount(tester, fixture.db);
   });
+
+  testWidgets('first frame is stable while data loads', (tester) async {
+    _setSize(tester, const Size(400, 800));
+    final fixture = await _fixture();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(fixture.db),
+          deviceNowProvider.overrideWithValue(() => fixture.now),
+          todayOccurrencesProvider.overrideWithValue(
+            const AsyncValue<List<OccurrenceCacheData>>.loading(),
+          ),
+          todayTasksProvider.overrideWithValue(
+            const AsyncValue<TodayTaskBuckets>.loading(),
+          ),
+          todayHabitEntriesProvider.overrideWithValue(
+            const AsyncValue.loading(),
+          ),
+          todayCountdownsProvider.overrideWithValue(const AsyncValue.loading()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(1)),
+            child: AppLayoutScope(
+              layout: AppLayout.compact,
+              child: TodayScreen(now: fixture.now),
+            ),
+          ),
+        ),
+      ),
+    );
+    // First frame only: providers are still loading, no settle.
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('today-compact-body')),
+      findsOneWidget,
+    );
+    expect(find.text('A clear day'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await _unmount(tester, fixture.db);
+  });
 }
