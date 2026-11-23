@@ -31,11 +31,15 @@ Global defaults: ~/.config/opencode/AGENTS.md
 - Platform priority Android max, Linux+Web medium, Windows low, iOS/macOS supported; platform stubs compile on all targets; unsupported features degrade gracefully.
 - Test runner guard: `test/all_test.dart` is generated; case files must be registered via `dart run tools/gen_test_runner.dart`.
 - Bundle budget and performance budgets: see `ARCHITECTURE.md` and `docs/PRINCIPLES.md`.
+- No telemetry, analytics, advertising, or crash-reporting SDKs.
+- No unnecessary platform permissions; request only what a feature needs.
+- No hard-coded environment-specific values; client config lives in `core/config/app_config.dart`.
+- No code generation beyond build_runner for Drift and the generated test runner.
 
 ## Do not touch
 - Do not edit generated files (`*.g.dart`, `test/all_test.dart`); regenerate via build_runner/gen_test_runner.
 - Do not touch `SUPER_TASK.md`, `TASKS_UI.md` (untracked task artifacts).
-- Do not touch code, feature docs, or `.opencode/` for doc-only work.
+- Do not edit code, feature docs, or `.opencode/` unless the task requires it; do not touch `.env` files, keystores, or secrets.
 
 ## Verify
 - `dart format .` clean
@@ -46,4 +50,3 @@ Global defaults: ~/.config/opencode/AGENTS.md
 
 ## Overrides
 - None beyond the project-specific invariants above. Generic rules (code quality, security baseline, testing, docs, git, shell efficiency) are global; see `~/.config/opencode/AGENTS.md`.
-- Pointer: global defaults loaded from `~/.config/opencode/AGENTS.md`.
