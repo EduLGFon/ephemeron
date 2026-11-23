@@ -339,16 +339,18 @@ mixin TimelineDrag on TimelineInteraction {
       _clearPending();
       return;
     }
-    final open = await ref.read(taskRepositoryProvider).watchOpen().first;
+    // Look up by id directly: watchOpen() filters out subtasks
+    // (parentId != null), so a timed subtask block would otherwise fail the
+    // lookup and silently lose its drop. A by-id query includes subtasks.
+    final db = ref.read(appDatabaseProvider);
+    final task = await (db.select(
+      db.tasks,
+    )..where((t) => t.id.equals(taskId))).getSingleOrNull();
     if (!context.mounted) {
       _clearPending();
       return;
     }
-    final matches = open.where((t) => t.id == taskId).toList();
-    if (matches.isEmpty) {
-      // watchOpen() filters out subtasks (parentId != null) and there is no
-      // subtask-inclusive lookup by id, so surface the failure instead of
-      // silently discarding the drop.
+    if (task == null || task.deletedAt != null) {
       _clearPending();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -357,7 +359,6 @@ mixin TimelineDrag on TimelineInteraction {
       );
       return;
     }
-    final task = matches.first;
     if (task.rrule != null && task.rrule!.isNotEmpty) {
       // Recurring-task occurrence drags must not write plannedStart/End on the
       // master without updating recurrence metadata; that shifts occurrences

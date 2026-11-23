@@ -45,9 +45,11 @@ Finder _smartChip(String smartListId) =>
     find.byKey(ValueKey<String>('task-smart-$smartListId'));
 
 class _AgendaWindow extends CalendarState {
+  _AgendaWindow(this.anchor);
+  final DateTime anchor;
   @override
   CalendarWindow build() =>
-      CalendarWindow(anchor: DateTime.now(), view: CalendarViewKind.agenda);
+      CalendarWindow(anchor: anchor, view: CalendarViewKind.agenda);
 }
 
 void main() {
@@ -276,7 +278,9 @@ void main() {
         frequency: 'daily',
         startDate: '2020-01-01',
       );
-      final today = DateTime.now();
+      // A fixed anchor keeps the habit row key stable across timezones and
+      // midnight boundaries; the window and the expected key share one date.
+      final today = DateTime(2026, 6, 15);
       final todayKey =
           '${today.year.toString().padLeft(4, '0')}-'
           '${today.month.toString().padLeft(2, '0')}-'
@@ -286,7 +290,7 @@ void main() {
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWithValue(db),
-            calendarStateProvider.overrideWith(_AgendaWindow.new),
+            calendarStateProvider.overrideWith(() => _AgendaWindow(today)),
           ],
           child: MaterialApp.router(routerConfig: router),
         ),
