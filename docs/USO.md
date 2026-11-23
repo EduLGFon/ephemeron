@@ -70,7 +70,7 @@ Web: alarmes indisponiveis; backups de arquivo indisponiveis; Drift via WASM/Ind
 Eventos, tarefas, notas, contagens e etiquetas nunca saem do dispositivo, exceto na sincronizacao com Google (direto do app para servidores do Google). Servidor armazena apenas e-mail, hash da senha, habitos, registros de habitos e sessoes de foco (com conta de e-mail). Tokens em armazenamento seguro (keystore); nunca em SharedPreferences, logs ou backups. Sem analytics, anuncios ou coleta de localizacao. Sem rastreamento. Exportar dados via Ajustes > Backup; excluir dados remotos via Conta > Excluir dados remotos. Detalhes: docs/PRIVACY.md, docs/SECURITY_REVIEW.md.
 
 ## 16. Mapa da documentacao
-- docs/ARCHITECTURE.md: arquitetura e especificacao.
+- ARCHITECTURE.md: arquitetura e especificacao.
 - docs/PRIVACY.md: politica de privacidade (rascunho).
 - docs/SECURITY_REVIEW.md: revisao de seguranca.
 - TODO.md: pendencias e limites de ambiente.
