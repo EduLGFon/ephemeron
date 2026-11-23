@@ -269,31 +269,24 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     final scheme = Theme.of(context).colorScheme;
     final canSubmit =
         !_busy && _parsed != null && _parsed!.title.trim().isNotEmpty;
-    return Align(
-      alignment: Alignment.bottomCenter,
+    return SafeArea(
+      top: false,
       child: Padding(
-        padding: const EdgeInsets.only(
-          bottom: DsSpace.x16,
-          left: 16,
-          right: 16,
-        ),
-        child: SafeArea(
-          top: false,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            constraints: BoxConstraints(maxWidth: _expanded ? 560 : 220),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(DsRadius.pill),
-              border: Border.all(color: scheme.outlineVariant),
-            ),
-            child: Material(
-              type: MaterialType.transparency,
-              child: _expanded
-                  ? _buildExpanded(context, scheme, canSubmit)
-                  : _buildCollapsed(context, scheme),
-            ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          constraints: BoxConstraints(maxWidth: _expanded ? 560 : 220),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(DsRadius.pill),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: _expanded
+                ? _buildExpanded(context, scheme, canSubmit)
+                : _buildCollapsed(context, scheme),
           ),
         ),
       ),
@@ -467,8 +460,42 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
                 ],
               ),
             ),
+            _buildListSelector(strings),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildListSelector(QuickAddStrings strings) {
+    final lists = (ref.watch(taskListsProvider).value ?? const <TaskList>[])
+        .where((list) => list.deletedAt == null)
+        .toList(growable: false);
+    if (lists.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: SizedBox(
+        height: 34,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            for (final list in lists)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  key: ValueKey<String>('quick-create-list-${list.id}'),
+                  label: Text(list.name),
+                  selected: _selectedListId == list.id,
+                  onSelected: (_) => setState(() {
+                    _selectedListId = _selectedListId == list.id
+                        ? null
+                        : list.id;
+                  }),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

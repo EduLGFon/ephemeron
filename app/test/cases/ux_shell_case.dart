@@ -9,7 +9,6 @@ Widget _sheet({
   ValueChanged<int>? onSelected,
   VoidCallback? onReorder,
   VoidCallback? onSettings,
-  ValueChanged<MoreCreateAction>? onCreate,
 }) {
   return MaterialApp(
     home: Scaffold(
@@ -18,39 +17,44 @@ Widget _sheet({
         onSelected: onSelected ?? (_) {},
         onReorder: onReorder ?? () {},
         onSettings: onSettings ?? () {},
-        onCreate: onCreate ?? (_) {},
       ),
     ),
   );
 }
 
 void main() {
-  testWidgets('more sheet renders create actions and secondary destinations', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(500, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'more sheet renders secondary destinations without create actions',
+    (tester) async {
+      tester.view.physicalSize = const Size(500, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(_sheet());
+      await tester.pumpWidget(_sheet());
 
-    expect(find.text('Search everything'), findsNothing);
-    expect(find.byKey(const ValueKey<String>('more-search')), findsNothing);
-    for (final action in MoreCreateAction.values) {
+      expect(find.text('Search everything'), findsNothing);
+      expect(find.byKey(const ValueKey<String>('more-search')), findsNothing);
+      expect(find.text('Create'), findsNothing);
       expect(
-        find.byKey(ValueKey<String>('more-create-${action.name}')),
+        find.byKey(const ValueKey<String>('more-create-task')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('more-settings')),
         findsOneWidget,
       );
-    }
-    expect(find.byKey(const ValueKey<String>('more-settings')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('more-reorder')), findsOneWidget);
-    expect(find.text('Countdowns'), findsOneWidget);
-    expect(find.text('Notes'), findsOneWidget);
-    expect(find.text('Matrix'), findsOneWidget);
-    // Stream is opt-in: not in the default secondary list.
-    expect(find.byKey(const ValueKey<String>('more-stream')), findsNothing);
-  });
+      expect(
+        find.byKey(const ValueKey<String>('more-reorder')),
+        findsOneWidget,
+      );
+      expect(find.text('Countdowns'), findsOneWidget);
+      expect(find.text('Notes'), findsOneWidget);
+      expect(find.text('Matrix'), findsOneWidget);
+      // Stream is opt-in: not in the default secondary list.
+      expect(find.byKey(const ValueKey<String>('more-stream')), findsNothing);
+    },
+  );
 
   testWidgets('more sheet shows Stream only when it is in the secondary list', (
     tester,
@@ -86,30 +90,26 @@ void main() {
     var settings = 0;
     var reorders = 0;
     int? selected;
-    MoreCreateAction? created;
 
     await tester.pumpWidget(
       _sheet(
         onSelected: (value) => selected = value,
         onReorder: () => reorders++,
         onSettings: () => settings++,
-        onCreate: (action) => created = action,
       ),
     );
 
-    await tester.tap(find.byKey(const ValueKey<String>('more-create-task')));
     await tester.tap(find.byKey(const ValueKey<String>('more-settings')));
     await tester.tap(find.byKey(const ValueKey<String>('more-reorder')));
     await tester.tap(find.text('Countdowns'));
     await tester.pump();
 
-    expect(created, MoreCreateAction.task);
     expect(settings, 1);
     expect(reorders, 1);
     expect(selected, 5);
   });
 
-  testWidgets('more sheet uses three columns on a 320dp screen at 200% text', (
+  testWidgets('more sheet renders on a 320dp screen at 200% text', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -130,7 +130,6 @@ void main() {
               onSelected: (_) {},
               onReorder: () {},
               onSettings: () {},
-              onCreate: (_) {},
             ),
           ),
         ),
@@ -138,15 +137,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    final keys = <String>['task', 'event', 'note', 'habit', 'countdown'];
-    final tops = <double>[
-      for (final key in keys)
-        tester.getTopLeft(find.byKey(ValueKey<String>('more-create-$key'))).dy,
-    ];
-    expect(tops[0], tops[1]);
-    expect(tops[1], tops[2]);
-    expect(tops[3], tops[4]);
-    expect(tops[3], greaterThan(tops[2]));
+    expect(find.byKey(const ValueKey<String>('more-settings')), findsOneWidget);
   });
 
   test('default nav order is the full destination order', () async {

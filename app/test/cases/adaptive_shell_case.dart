@@ -1,5 +1,6 @@
 import 'package:ephemeron/app/shell/adaptive_shell.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _harness({
@@ -11,24 +12,24 @@ Widget _harness({
   ValueChanged<int>? onSelected,
   VoidCallback? onMore,
   VoidCallback? onSettings,
-  VoidCallback? onQuickAdd,
   Widget? content,
 }) {
-  return MaterialApp(
-    home: MediaQuery(
-      data: MediaQueryData(
-        textScaler: TextScaler.linear(textScale),
-        padding: padding,
-      ),
-      child: AdaptiveShell(
-        currentIndex: currentIndex,
-        content: content ?? const Center(child: Text('Body')),
-        primary: primary,
-        secondary: secondary,
-        onDestinationSelected: onSelected ?? (_) {},
-        onMore: onMore ?? () {},
-        onSettings: onSettings ?? () {},
-        onQuickAdd: onQuickAdd ?? () {},
+  return ProviderScope(
+    child: MaterialApp(
+      home: MediaQuery(
+        data: MediaQueryData(
+          textScaler: TextScaler.linear(textScale),
+          padding: padding,
+        ),
+        child: AdaptiveShell(
+          currentIndex: currentIndex,
+          content: content ?? const Center(child: Text('Body')),
+          primary: primary,
+          secondary: secondary,
+          onDestinationSelected: onSelected ?? (_) {},
+          onMore: onMore ?? () {},
+          onSettings: onSettings ?? () {},
+        ),
       ),
     ),
   );
@@ -57,7 +58,7 @@ FadeTransition _labelFade(WidgetTester tester, String label) {
 }
 
 void main() {
-  testWidgets('compact width uses bottom navigation and a reachable FAB', (
+  testWidgets('compact width uses bottom navigation and a quick-create pill', (
     tester,
   ) async {
     _setSize(tester, const Size(400, 800));
@@ -65,7 +66,10 @@ void main() {
 
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(NavigationRail), findsNothing);
-    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('quick-create-pill')),
+      findsOneWidget,
+    );
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('Focus'), findsOneWidget);
     expect(find.text('More'), findsOneWidget);
