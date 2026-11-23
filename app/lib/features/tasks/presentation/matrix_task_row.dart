@@ -4,6 +4,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
+import 'package:ephemeron/core/time/time.dart';
 
 import '../../../core/design/components/rows.dart';
 import '../../../core/design/tokens.dart';
@@ -78,20 +79,33 @@ class _MatrixTaskRowContent extends ConsumerWidget {
 
   String? _dueLabel(BuildContext context) {
     final raw = task.dueDate;
-    if (raw == null) return null;
+    if (raw == null || raw.isEmpty) return null;
     final parsed = DateTime.tryParse(raw);
-    return parsed == null ? raw : DeviceDateFormat.shortDate(context, parsed);
+    if (parsed == null) return raw;
+
+    final minutes = task.dueTime;
+    final time = minutes == null
+        ? null
+        : DeviceDateFormat.time(
+            context,
+            DateTime(2000, 1, 1, minutes ~/ 60, minutes % 60),
+          );
+    final today = dateKey(DateTime.now());
+    if (dateKey(parsed) == today) return time ?? 'Today';
+
+    final date = DeviceDateFormat.shortDate(context, parsed);
+    if (_isLate() && time != null) return '$date, $time';
+    return date;
   }
 
   bool _isLate() {
     final raw = task.dueDate;
-    if (raw == null) return false;
-    final now = DateTime.now();
-    final today =
-        '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
-    return raw.compareTo(today) < 0;
+    if (raw == null || raw.isEmpty) return false;
+    final today = dateKey(DateTime.now());
+    final parsed = DateTime.tryParse(raw);
+    return parsed == null
+        ? raw.compareTo(today) < 0
+        : dateKey(parsed).compareTo(today) < 0;
   }
 
   Future<void> _complete(BuildContext context, WidgetRef ref) async {

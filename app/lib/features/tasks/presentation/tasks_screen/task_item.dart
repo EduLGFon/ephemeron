@@ -24,6 +24,12 @@ class _TaskItem extends ConsumerWidget with _TaskRowActions {
       listMicrosoftAccount: list?.microsoftAccount,
     );
     final completed = task.completedAt != null;
+    // The list groups overdue tasks, but other filters do not populate that
+    // flag. Derive it from the deadline so the red date label stays correct
+    // in every view.
+    final due = _dueDateTime();
+    final displayOverdue =
+        !completed && due != null && dateKey(due).compareTo(_todayKey()) < 0;
     return Dismissible(
       key: ValueKey('task-dismiss-${task.id}'),
       direction: isMicrosoft
@@ -58,7 +64,7 @@ class _TaskItem extends ConsumerWidget with _TaskRowActions {
           listColor: list == null ? null : taskListColor(list!),
           priority: task.priority == 0 ? 0 : 5 - task.priority,
           completed: completed,
-          overdue: overdue,
+          overdue: overdue || displayOverdue,
           onTap: isMicrosoft ? null : () => showTaskEditor(context, task: task),
           onToggle: isMicrosoft ? null : () => _toggleComplete(context, ref),
           trailing: _trailing(strings, scheme),
@@ -73,6 +79,23 @@ class _TaskItem extends ConsumerWidget with _TaskRowActions {
     if (listName == null) return when;
     if (when == null) return listName;
     return '$listName - $when';
+  }
+
+  DateTime? _dueDateTime() {
+    final raw = task.dueDate;
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  String _todayKey() => dateKey(DateTime.now());
+
+  String? _dueTimeLabel(BuildContext context) {
+    final minutes = task.dueTime;
+    if (minutes == null) return null;
+    return DeviceDateFormat.time(
+      context,
+      DateTime(2000, 1, 1, minutes ~/ 60, minutes % 60),
+    );
   }
 
   String? _whenLabel(BuildContext context, TasksStrings strings) {
@@ -97,13 +120,14 @@ class _TaskItem extends ConsumerWidget with _TaskRowActions {
     }
     final due = task.dueDate;
     if (due != null) {
+      final parsed = _dueDateTime();
+      final time = _dueTimeLabel(context);
+      if (parsed != null && dateKey(parsed) == _todayKey()) {
+        // A task due today only needs its time; the date is implied.
+        return time ?? strings.filterToday;
+      }
       final date = DeviceDateFormat.dateIso(context, due);
-      final minutes = task.dueTime;
-      if (minutes == null) return strings.due(date);
-      final time = DeviceDateFormat.time(
-        context,
-        DateTime(2000, 1, 1, minutes ~/ 60, minutes % 60),
-      );
+      if (time == null) return strings.due(date);
       return strings.dueAt(date, time);
     }
     return null;

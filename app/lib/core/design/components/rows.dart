@@ -48,6 +48,11 @@ class AppTaskRow extends StatelessWidget {
       decoration: completed ? TextDecoration.lineThrough : null,
       decorationColor: scheme.onSurfaceVariant,
     );
+    // Overdue state is conveyed by the date/time label colour rather than a
+    // separate tag, so the compact row keeps its single line of metadata.
+    final subtitleStyle = text.bodySmall?.copyWith(
+      color: overdue ? scheme.error : scheme.onSurfaceVariant,
+    );
     final parts = <String>[title];
     if (subtitle != null) parts.add(subtitle!);
     if (level > 0) parts.add('P$level');
@@ -114,14 +119,12 @@ class AppTaskRow extends StatelessWidget {
                                     padding: const EdgeInsets.only(top: 2),
                                     child: Text(
                                       subtitle!,
-                                      style: text.bodySmall?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                      ),
+                                      style: subtitleStyle,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                if (level > 0 || overdue)
+                                if (level > 0)
                                   Padding(
                                     padding: const EdgeInsets.only(
                                       top: DsSpace.x4,
@@ -132,17 +135,10 @@ class AppTaskRow extends StatelessWidget {
                                       crossAxisAlignment:
                                           WrapCrossAlignment.center,
                                       children: [
-                                        if (level > 0)
-                                          _PriorityMark(
-                                            level: level,
-                                            dense: dense,
-                                          ),
-                                        if (overdue)
-                                          _MetaLabel(
-                                            icon: Icons.warning_amber_rounded,
-                                            label: 'Overdue',
-                                            color: scheme.error,
-                                          ),
+                                        _PriorityMark(
+                                          level: level,
+                                          dense: dense,
+                                        ),
                                       ],
                                     ),
                                   ),
