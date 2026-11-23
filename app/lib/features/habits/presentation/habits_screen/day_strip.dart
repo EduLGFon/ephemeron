@@ -100,12 +100,28 @@ class _DayStripState extends State<_DayStrip> {
   }
 
   /// Keeps the selected chip visible, centered when possible. Runs after the
-  /// frame so the chip has a render object on first build.
+  /// frame so the chip has a render object on first build. Falls back to the
+  /// end of the strip when the selected chip is not built yet (it is the last
+  /// day on first load).
   void _revealSelected({required bool animate}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final target = _keys[widget.selected]?.currentContext;
-      if (target == null) return;
+      if (target == null) {
+        if (_controller.hasClients) {
+          final max = _controller.position.maxScrollExtent;
+          if (animate) {
+            _controller.animateTo(
+              max,
+              duration: AppMotion.duration(context, DsMotion.normal),
+              curve: DsMotion.standard,
+            );
+          } else {
+            _controller.jumpTo(max);
+          }
+        }
+        return;
+      }
       if (!animate) {
         Scrollable.ensureVisible(target, alignment: 0.5);
         return;
