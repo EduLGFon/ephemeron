@@ -46,6 +46,7 @@ import '../../features/countdowns/application/countdowns_providers.dart';
 import '../../features/notes/application/notes_providers.dart';
 import '../../features/focus/application/focus_providers.dart';
 import 'more_sheet.dart';
+import 'quick_create_pill.dart';
 
 part 'app_shell/navigation.dart';
 part 'app_shell/session_restore.dart';
@@ -301,7 +302,6 @@ class _AppShellState extends ConsumerState<AppShell>
                   onDestinationSelected: _onDestinationSelected,
                   onMore: () => _showMore(context, secondary),
                   onSettings: _openSettings,
-                  onQuickAdd: () => showQuickAdd(context),
                 ),
               ),
             ],

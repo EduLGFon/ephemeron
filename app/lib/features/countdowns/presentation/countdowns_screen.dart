@@ -37,12 +37,6 @@ class CountdownsScreen extends ConsumerWidget {
           orElse: () => null,
         ),
       ),
-      fab: FloatingActionButton(
-        heroTag: 'countdownsFab',
-        tooltip: strings.addCountdown,
-        onPressed: () => showCountdownEditor(context),
-        child: const Icon(Icons.add),
-      ),
       child: countdownsAsync.when(
         loading: () => const AppSkeletonList(rows: 5),
         error: (_, _) => AppErrorState(

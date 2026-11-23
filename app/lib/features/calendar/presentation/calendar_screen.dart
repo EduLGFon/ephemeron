@@ -27,7 +27,6 @@ import 'calendar_screen/calendar_defaults.dart';
 import 'calendar_screen/calendar_header.dart';
 import 'calendar_strings.dart';
 import 'calendar_swipe.dart';
-import 'event_editor_sheet.dart';
 import 'month_view.dart';
 import 'timeline/timeline_view.dart';
 import 'year_view.dart';
@@ -127,13 +126,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       // shrink month cells and timeline day columns.
       padding: EdgeInsets.zero,
       header: CalendarHeader(window: window),
-      fab: FloatingActionButton(
-        heroTag: 'calendarFab',
-        tooltip: strings.newEvent,
-        onPressed: () =>
-            showEventEditor(context, initialDay: window.anchor, initialHour: 9),
-        child: const Icon(Icons.add),
-      ),
       child: failed
           ? AppErrorState(
               title: strings.loadErrorTitle,

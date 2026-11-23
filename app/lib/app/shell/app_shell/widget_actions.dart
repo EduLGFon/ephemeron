@@ -89,7 +89,7 @@ extension _AppShellWidgetActions on _AppShellState {
     _handledWidgetAction = widgetAction;
     try {
       if (widgetAction == 'new_task') {
-        await showQuickAdd(context);
+        ref.read(quickCreatePillRequestProvider.notifier).state++;
         return;
       } else if (widgetAction == 'search') {
         GoRouter.of(context).push('/search');

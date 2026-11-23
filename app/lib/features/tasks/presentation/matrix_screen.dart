@@ -16,7 +16,6 @@ import '../../sync/application/sync_providers.dart';
 import '../../sync/data/sync_engine.dart';
 import '../application/tasks_providers.dart';
 import 'matrix_board.dart';
-import 'quick_add_sheet.dart';
 
 class MatrixScreen extends ConsumerWidget {
   const MatrixScreen({super.key});
@@ -59,13 +58,6 @@ class MatrixScreen extends ConsumerWidget {
         ],
       ),
       padding: const EdgeInsets.fromLTRB(DsSpace.x16, 0, DsSpace.x16, 0),
-      fab: FloatingActionButton(
-        key: const Key('matrix-add-task'),
-        heroTag: 'matrixFab',
-        tooltip: 'Add task',
-        onPressed: () => showQuickAdd(context),
-        child: const Icon(Icons.add),
-      ),
       child: mode == null
           ? const Center(
               child: SizedBox.square(

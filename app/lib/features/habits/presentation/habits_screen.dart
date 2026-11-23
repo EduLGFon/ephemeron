@@ -203,14 +203,6 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
         header: _selecting
             ? _selectionHeader(strings, selectedHabits)
             : _defaultHeader(strings, archived, habits.length),
-        fab: _selecting
-            ? null
-            : FloatingActionButton(
-                heroTag: 'habitsFab',
-                tooltip: strings.addHabit,
-                onPressed: () => showHabitEditor(context),
-                child: const Icon(Icons.add),
-              ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

@@ -105,53 +105,9 @@ extension _AppShellNavigation on _AppShellState {
             context.push('/settings');
             record('/settings');
           },
-          onCreate: (action) {
-            Navigator.of(ctx).pop();
-            // Use the navigator captured before the sheet mounted: the sheet
-            // context is gone once the pop animation starts.
-            unawaited(_createFromMore(action, navigator.context));
-          },
         ),
       ),
     );
-  }
-
-  Future<void> _createFromMore(
-    MoreCreateAction action,
-    BuildContext context,
-  ) async {
-    switch (action) {
-      case MoreCreateAction.task:
-        await showQuickAdd(context);
-        return;
-      case MoreCreateAction.event:
-        await showEventEditor(context, initialDay: DateTime.now());
-        return;
-      case MoreCreateAction.note:
-        try {
-          final id = await ref
-              .read(noteRepositoryProvider)
-              .createNote(title: '');
-          if (!context.mounted) return;
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => NoteEditorScreen(noteId: id),
-            ),
-          );
-        } catch (e) {
-          debugPrint('[more] note creation failed: $e');
-          if (context.mounted) {
-            showErrorSnackBar(context, 'Could not create a note.');
-          }
-        }
-        return;
-      case MoreCreateAction.habit:
-        await showHabitEditor(context);
-        return;
-      case MoreCreateAction.countdown:
-        await showCountdownEditor(context);
-        return;
-    }
   }
 
   Future<void> _reorderSheet(BuildContext context) async {
