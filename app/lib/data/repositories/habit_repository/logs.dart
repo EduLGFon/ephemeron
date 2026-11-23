@@ -202,6 +202,28 @@ mixin _HabitLogOps on _HabitRepositoryBase {
     }
   }
 
+  /// One row tap advances progress by one [step] for goal habits. The done
+  /// flag follows the goal, so a partial step never marks the day complete.
+  /// Goal-less habits have no amount to advance, so a tap flips their done
+  /// flag. Marking a day fully done is the leading circle's job and goes
+  /// through [toggleHabitDone], the same API the Today strip uses.
+  Future<void> advanceHabit(String habitId, String dayKey, double step) async {
+    final goal = await _habitGoal(habitId);
+    if (goal <= 0) {
+      await toggleHabitDone(habitId, dayKey);
+      return;
+    }
+    await addAmount(habitId, dayKey, step);
+    // Reaching the goal through a row tap must match setDone: a day is never
+    // both done and skipped. addAmount deliberately preserves skip for its
+    // other callers, so clear it here once completion has actually been
+    // reached, leaving partial progress on a skipped day untouched.
+    final log = await logFor(habitId, dayKey);
+    if (log != null && log.done && log.skipped) {
+      await setSkipped(habitId, dayKey, false);
+    }
+  }
+
   Future<void> toggleHabitDone(String habitId, String dayKey) async {
     final existing = await logFor(habitId, dayKey);
     if (existing != null && existing.done) {

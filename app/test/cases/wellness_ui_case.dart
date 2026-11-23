@@ -107,7 +107,10 @@ void main() {
     await tester.tap(find.text('Read'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect((await repo.logFor(id, today))?.done, isTrue);
+    // A row tap advances progress; the leading circle is what marks done.
+    final log = await repo.logFor(id, today);
+    expect(log?.amount, 1);
+    expect(log?.done, isFalse);
 
     await tester.tap(find.byTooltip('Skip day'));
     await tester.pump();

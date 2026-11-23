@@ -22,6 +22,11 @@ class _HabitTile extends ConsumerWidget {
   final VoidCallback onToggleSelection;
   final VoidCallback onStartSelection;
 
+  // Leading done hit target: aligns with AppHabitRow's 40dp ring and the
+  // horizontal padding (DsSpace.x12) of the shared row.
+  static const double _doneTargetInset = DsSpace.x12;
+  static const double _doneTargetSize = 40;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final day = ref.watch(selectedHabitDayProvider);
@@ -127,7 +132,7 @@ class _HabitTile extends ConsumerWidget {
       streakLabel: current > 0 ? strings.streak(current) : null,
       weekDots: _habitWeekDots(habit, logs, DateTime.now()),
       subtitle: subtitle,
-      onTap: selecting ? onToggleSelection : () => _toggleDone(ref, !done, day),
+      onTap: selecting ? onToggleSelection : () => _advanceStep(ref, day),
       onLongPress: onStartSelection,
       trailing: selecting
           ? null
@@ -142,13 +147,49 @@ class _HabitTile extends ConsumerWidget {
               timerRunning: timerRunning,
             ),
     );
-    if (!selecting || !selected) return row;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.secondaryContainer.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(DsRadius.r12),
-      ),
-      child: row,
+    if (selecting) {
+      if (!selected) return row;
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.secondaryContainer.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(DsRadius.r12),
+        ),
+        child: row,
+      );
+    }
+    // The shared row exposes one tap for its whole body. Overlay the leading
+    // ring with its own target so a body tap advances progress while only the
+    // circle marks the day fully done. The 40dp target matches AppHabitRow's
+    // ring size and starts at its horizontal padding.
+    return Stack(
+      children: [
+        row,
+        Positioned(
+          left: _doneTargetInset,
+          top: 0,
+          bottom: 0,
+          width: _doneTargetSize,
+          child: Center(
+            child: Semantics(
+              key: ValueKey<String>('habit-done-${habit.id}'),
+              button: true,
+              toggled: done,
+              label: strings.done,
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  onTap: () => _toggleFullyDone(ref, day),
+                  onLongPress: onStartSelection,
+                  child: const SizedBox(
+                    width: _doneTargetSize,
+                    height: _doneTargetSize,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -231,9 +272,19 @@ class _HabitTile extends ConsumerWidget {
     );
   }
 
-  Future<void> _toggleDone(WidgetRef ref, bool done, String day) async {
+  /// Row tap: one step toward the goal, or a done flip for goal-less habits.
+  Future<void> _advanceStep(WidgetRef ref, String day) async {
     AppFeedback.tap();
-    await ref.read(habitRepositoryProvider).setDone(habit.id, day, done);
+    await ref
+        .read(habitRepositoryProvider)
+        .advanceHabit(habit.id, day, habit.increment ?? 1.0);
+    ref.invalidate(habitStreakProvider(habit.id));
+  }
+
+  /// Leading circle: fully done, using the same toggle API as the Today strip.
+  Future<void> _toggleFullyDone(WidgetRef ref, String day) async {
+    AppFeedback.success();
+    await ref.read(habitRepositoryProvider).toggleHabitDone(habit.id, day);
     ref.invalidate(habitStreakProvider(habit.id));
   }
 
