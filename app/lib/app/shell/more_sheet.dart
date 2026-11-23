@@ -138,6 +138,9 @@ class _DestinationTile extends StatelessWidget {
       key: ValueKey<String>(
         stream ? 'more-stream' : 'more-dest-${destination.id}',
       ),
+      dense: true,
+      visualDensity: const VisualDensity(horizontal: -2, vertical: -3),
+      minTileHeight: 40,
       leading: Icon(destination.icon),
       title: Text(destination.title),
       trailing: const Icon(Icons.chevron_right, size: DsIcon.sm),
