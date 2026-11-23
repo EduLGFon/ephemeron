@@ -1,8 +1,8 @@
 // Part of the focus screen library: the one-per-second countdown face.
 part of 'focus_screen.dart';
 
-/// Big tabular digits inside a progress ring. Only this subtree listens to the
-/// one-second ticker; the surrounding page does not rebuild.
+/// Real clock/stopwatch face: tick marks around a goal-fill ring with tabular
+/// digits in the center. Only this subtree listens to the one-second ticker.
 class FocusTimeFace extends StatelessWidget {
   const FocusTimeFace({
     super.key,
@@ -28,15 +28,17 @@ class FocusTimeFace extends StatelessWidget {
       builder: (context, nowMs, _) {
         final target = session.targetEndUtc;
         final isStopwatch = target == null;
-        final elapsedMs = nowMs - session.startUtc;
+        final elapsedMs = math.max(0, nowMs - session.startUtc);
         final remainingMs = isStopwatch ? 0 : target - nowMs;
         final display = isStopwatch
             ? _formatElapsed(elapsedMs)
             : formatFocusCountdown(remainingMs);
-        final totalMs = isStopwatch ? 0 : target - session.startUtc;
-        final progress = isStopwatch || totalMs <= 0
-            ? 0.0
-            : (elapsedMs / totalMs).clamp(0.0, 1.0).toDouble();
+        final progress = _goalProgress(
+          isStopwatch: isStopwatch,
+          elapsedMs: elapsedMs,
+          target: target,
+          startUtc: session.startUtc,
+        );
         final semantics = isStopwatch
             ? strings.elapsedSemantics(display)
             : strings.remainingSemantics(display);
@@ -60,15 +62,23 @@ class FocusTimeFace extends StatelessWidget {
           child: ExcludeSemantics(
             child: SizedBox.square(
               dimension: size,
-              child: AppProgressRing(
-                value: progress,
-                size: size,
-                strokeWidth: 6,
-                color: accent,
-                semanticsLabel: semantics,
-                child: SizedBox(
-                  width: size - 48,
-                  child: FittedBox(fit: BoxFit.scaleDown, child: digits),
+              child: CustomPaint(
+                painter: _ClockDialPainter(
+                  tickColor: scheme.outlineVariant.withValues(alpha: 0.7),
+                  majorTickColor: scheme.onSurfaceVariant.withValues(
+                    alpha: 0.55,
+                  ),
+                ),
+                child: AppProgressRing(
+                  value: progress,
+                  size: size,
+                  strokeWidth: 6,
+                  color: accent,
+                  semanticsLabel: semantics,
+                  child: SizedBox(
+                    width: size - 52,
+                    child: FittedBox(fit: BoxFit.scaleDown, child: digits),
+                  ),
                 ),
               ),
             ),
@@ -77,6 +87,66 @@ class FocusTimeFace extends StatelessWidget {
       },
     );
   }
+}
+
+double _goalProgress({
+  required bool isStopwatch,
+  required int elapsedMs,
+  required int? target,
+  required int startUtc,
+}) {
+  if (isStopwatch) {
+    const cycleMs = 60 * msPerMinute;
+    if (elapsedMs <= 0) return 0.0;
+    final inCycle = elapsedMs % cycleMs;
+    // At exact hour boundaries show a full ring, then restart the cycle.
+    return inCycle == 0 ? 1.0 : inCycle / cycleMs;
+  }
+  if (target == null) return 0.0;
+  final totalMs = target - startUtc;
+  if (totalMs <= 0) return 1.0;
+  return (elapsedMs / totalMs).clamp(0.0, 1.0).toDouble();
+}
+
+class _ClockDialPainter extends CustomPainter {
+  const _ClockDialPainter({
+    required this.tickColor,
+    required this.majorTickColor,
+  });
+
+  final Color tickColor;
+  final Color majorTickColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = math.min(size.width, size.height) / 2;
+    final outer = radius - 2;
+    const tickCount = 60;
+    for (var i = 0; i < tickCount; i++) {
+      final isMajor = i % 5 == 0;
+      final len = isMajor ? 8.0 : 4.0;
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isMajor ? 1.6 : 1.0
+        ..strokeCap = StrokeCap.round
+        ..color = isMajor ? majorTickColor : tickColor;
+      final angle = (2 * math.pi * i / tickCount) - math.pi / 2;
+      final cosA = math.cos(angle);
+      final sinA = math.sin(angle);
+      final p1 = Offset(
+        center.dx + cosA * (outer - len),
+        center.dy + sinA * (outer - len),
+      );
+      final p2 = Offset(center.dx + cosA * outer, center.dy + sinA * outer);
+      canvas.drawLine(p1, p2, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ClockDialPainter oldDelegate) =>
+      oldDelegate.tickColor != tickColor ||
+      oldDelegate.majorTickColor != majorTickColor;
 }
 
 /// Isolated elapsed label so the rest of the running view stays static.
