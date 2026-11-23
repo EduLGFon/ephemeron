@@ -214,6 +214,14 @@ mixin _HabitLogOps on _HabitRepositoryBase {
       return;
     }
     await addAmount(habitId, dayKey, step);
+    // Reaching the goal through a row tap must match setDone: a day is never
+    // both done and skipped. addAmount deliberately preserves skip for its
+    // other callers, so clear it here once completion has actually been
+    // reached, leaving partial progress on a skipped day untouched.
+    final log = await logFor(habitId, dayKey);
+    if (log != null && log.done && log.skipped) {
+      await setSkipped(habitId, dayKey, false);
+    }
   }
 
   Future<void> toggleHabitDone(String habitId, String dayKey) async {

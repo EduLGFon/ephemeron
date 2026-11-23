@@ -118,6 +118,56 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('row taps to goal clear a prior skip', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Water',
+      startDate: '2026-01-01',
+      goalAmount: 3,
+      increment: 1,
+    );
+    final today = habitDateKey(DateTime.now());
+    // Reaching the goal through row taps must not leave a day both done and
+    // skipped: setDone cleared skip before row taps started advancing.
+    await repo.setSkipped(id, today, true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: HabitsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Partial progress keeps the skip intact; only completion clears it.
+    await tester.tap(find.text('Water'));
+    await tester.pump();
+    await tester.pump();
+    var log = await repo.logFor(id, today);
+    expect(log?.amount, 1);
+    expect(log?.done, isFalse);
+    expect(log?.skipped, isTrue);
+
+    await tester.tap(find.text('Water'));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.text('Water'));
+    await tester.pump();
+    await tester.pump();
+    log = await repo.logFor(id, today);
+    expect(log?.amount, 3);
+    expect(log?.done, isTrue);
+    expect(log?.skipped, isFalse);
+    expect(_habitRowDone(tester, 'Water'), isTrue);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
   testWidgets('leading circle marks fully done through the shared toggle API', (
     WidgetTester tester,
   ) async {

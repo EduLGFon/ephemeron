@@ -22,6 +22,11 @@ class _HabitTile extends ConsumerWidget {
   final VoidCallback onToggleSelection;
   final VoidCallback onStartSelection;
 
+  // Leading done hit target: aligns with AppHabitRow's 40dp ring and the
+  // horizontal padding (DsSpace.x12) of the shared row.
+  static const double _doneTargetInset = DsSpace.x12;
+  static const double _doneTargetSize = 40;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final day = ref.watch(selectedHabitDayProvider);
@@ -160,10 +165,10 @@ class _HabitTile extends ConsumerWidget {
       children: [
         row,
         Positioned(
-          left: DsSpace.x12,
+          left: _doneTargetInset,
           top: 0,
           bottom: 0,
-          width: 40,
+          width: _doneTargetSize,
           child: Center(
             child: Semantics(
               key: ValueKey<String>('habit-done-${habit.id}'),
@@ -175,7 +180,10 @@ class _HabitTile extends ConsumerWidget {
                 child: InkWell(
                   onTap: () => _toggleFullyDone(ref, day),
                   onLongPress: onStartSelection,
-                  child: const SizedBox(width: 40, height: 40),
+                  child: const SizedBox(
+                    width: _doneTargetSize,
+                    height: _doneTargetSize,
+                  ),
                 ),
               ),
             ),
@@ -275,7 +283,7 @@ class _HabitTile extends ConsumerWidget {
 
   /// Leading circle: fully done, using the same toggle API as the Today strip.
   Future<void> _toggleFullyDone(WidgetRef ref, String day) async {
-    AppFeedback.selection();
+    AppFeedback.success();
     await ref.read(habitRepositoryProvider).toggleHabitDone(habit.id, day);
     ref.invalidate(habitStreakProvider(habit.id));
   }
