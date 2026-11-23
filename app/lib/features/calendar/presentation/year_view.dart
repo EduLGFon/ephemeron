@@ -7,6 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/calendar_providers.dart';
 import 'calendar_error_banner.dart';
 
+/// Injectable "today" for the current-year/month highlight. Defaults to the
+/// real clock; tests override it so the summary is deterministic regardless of
+/// the host clock or timezone.
+final yearViewTodayProvider = Provider<DateTime>((ref) => DateTime.now());
+
 class YearView extends ConsumerWidget {
   const YearView({super.key});
 
@@ -69,7 +74,7 @@ class YearView extends ConsumerWidget {
     if (activeDays.isEmpty) longestStreak = 0;
 
     final max = monthCounts.values.fold<int>(1, (a, b) => a > b ? a : b);
-    final now = DateTime.now();
+    final now = ref.watch(yearViewTodayProvider);
     final isCurrentYear = year == now.year;
     // During loading or after a failure the counts are not final yet, so the
     // summary and month cards show a placeholder instead of zeros.

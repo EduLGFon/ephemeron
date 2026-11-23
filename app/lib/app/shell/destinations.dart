@@ -1,8 +1,8 @@
 // Single source of truth for Ephemeron's shell destinations. Branch indices
 // are stable: they are persisted in `session.lastTab` and used by
-// StatefulShellRoute.indexedStack. Primary destinations use ids 0..4 and are
-// reorderable through `settings.navOrderV2`; secondary destinations live in
-// More/sidebar only.
+// StatefulShellRoute.indexedStack. All destination ids (0..8) are reorderable
+// through `settings.navOrderV2`; the shell splits that order into visible bar
+// slots and the More overflow. Stream (8) is hidden until it is enabled.
 import 'package:material_ui/material_ui.dart';
 
 import '../../features/stream/presentation/stream_route_params.dart';

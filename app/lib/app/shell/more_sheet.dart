@@ -1,6 +1,6 @@
-// "More" sheet: quick creation, overflow destinations and settings in one
-// scrollable command center. The first bar slots live in the adaptive
-// navigation; this sheet lists the remaining destinations.
+// "More" sheet: overflow destinations and settings in one scrollable command
+// center. The first bar slots live in the adaptive navigation; this sheet
+// lists the remaining destinations.
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/design/components/app_headers.dart';
@@ -17,7 +17,8 @@ class MoreSheet extends StatelessWidget {
     required this.onSettings,
   });
 
-  /// Secondary destination ids (5..7, plus 8 only when Stream is enabled).
+  /// Destination ids in the More overflow (the tail of the reordered nav
+  /// order), excluding Stream when it is disabled.
   final List<int> secondary;
   final ValueChanged<int> onSelected;
   final VoidCallback onReorder;

@@ -742,7 +742,7 @@ void main() {
     await _tearDown(tester, db);
   });
 
-  testWidgets('dragging a subtask reports the move was not applied', (
+  testWidgets('dragging a timed subtask moves it via by-id lookup', (
     WidgetTester tester,
   ) async {
     final db = _db();
@@ -757,14 +757,15 @@ void main() {
     );
     await _pump(tester, db, day, 1);
 
+    // watchOpen() excludes subtasks, so the drag must fall back to a direct
+    // by-id lookup for the 15-minute move to be persisted.
     await _dragBlock(tester, find.text('Sub task'), _hourGap(tester) / 4);
 
-    expect(
-      find.text('Task move was not applied (task not found)'),
-      findsOneWidget,
-    );
+    expect(find.text('Task moved'), findsOneWidget);
     final task = await _taskById(db, sub);
-    expect(task.plannedStart, '2027-03-01T10:00');
+    expect(task.plannedStart, '2027-03-01T10:15');
+    expect(task.plannedEnd, '2027-03-01T11:15');
+    expect(task.parentId, parent);
     await _tearDown(tester, db);
   });
 

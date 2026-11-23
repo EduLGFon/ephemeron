@@ -80,6 +80,7 @@ Future<void> _pump(WidgetTester tester, AppDatabase db) async {
       overrides: [
         appDatabaseProvider.overrideWithValue(db),
         calendarStateProvider.overrideWith(() => _FixedWindow(window)),
+        yearViewTodayProvider.overrideWithValue(DateTime(2026, 6, 15)),
       ],
       child: const MaterialApp(home: Scaffold(body: YearView())),
     ),
@@ -111,6 +112,23 @@ void main() {
     expect(find.textContaining('Busiest: Mar (3)'), findsOneWidget);
     expect(find.textContaining('Longest streak: 2'), findsOneWidget);
     expect(find.byType(Card, skipOffstage: false), findsNWidgets(12));
+
+    // The injected today (2026-06-15) highlights only June, independent of the
+    // host clock or timezone.
+    final juneCard = tester.widget<Card>(
+      find.descendant(
+        of: find.bySemanticsLabel(RegExp('Open June 2026')),
+        matching: find.byType(Card),
+      ),
+    );
+    expect(juneCard.shape, isA<RoundedRectangleBorder>());
+    final marchCard = tester.widget<Card>(
+      find.descendant(
+        of: find.bySemanticsLabel(RegExp('Open March 2026')),
+        matching: find.byType(Card),
+      ),
+    );
+    expect(marchCard.shape == null, isTrue);
 
     await _tearDown(tester, db);
   });
