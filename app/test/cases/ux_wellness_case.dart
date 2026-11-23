@@ -257,4 +257,44 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
   });
+
+  testWidgets('habit day strip initial scroll offset is at maxScrollExtent', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: HabitsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final listFinder = find.byWidgetPredicate(
+      (w) => w is ListView && w.scrollDirection == Axis.horizontal,
+    );
+    expect(listFinder, findsOneWidget);
+    final list = tester.widget<ListView>(listFinder);
+    final position = list.controller!.position;
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 20.0));
+
+    final today = habitDateKey(DateTime.now());
+    final todayChip = find.byWidgetPredicate(
+      (w) => w is HabitDayChip && habitDateKey(w.day) == today,
+    );
+    expect(todayChip, findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
 }
