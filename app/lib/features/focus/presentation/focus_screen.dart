@@ -2,6 +2,7 @@
 // finished segments, stats, session history and CSV export. Widgets live in
 // part files so only the timer face rebuilds every second.
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:material_ui/material_ui.dart';
