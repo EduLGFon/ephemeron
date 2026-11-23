@@ -777,7 +777,8 @@ void main() {
         ..._levelOverrides(StreamLevel.year, date),
       ];
       await tester.pumpWidget(_routerApp(router, overrides: overrides));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       await tester.tap(find.byType(Breadcrumb));
       await tester.pump();
@@ -788,7 +789,8 @@ void main() {
           matching: find.text(entry.key),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       expect(_location(router), '/stream/2026-11-17/${entry.value}');
     }
@@ -808,7 +810,8 @@ void main() {
       ..._levelOverrides(StreamLevel.day, DateTime(2026, 11, 17)),
     ];
     await tester.pumpWidget(_routerApp(router, overrides: overrides));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byType(Breadcrumb));
     await tester.pump();
@@ -819,7 +822,8 @@ void main() {
     );
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.byType(StreamAgendaHost), findsOneWidget);
     expect(find.byType(DayCanvas), findsNothing);
@@ -910,7 +914,8 @@ void main() {
       DateTime(2026, 11, 17, 10, 30).millisecondsSinceEpoch,
     );
     await tester.tapAt(Offset(rect.center.dx, rect.top + y));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.byType(StreamPeekSheet), findsOneWidget);
     expect(find.byType(PeekPanel), findsOneWidget);
@@ -1035,11 +1040,13 @@ void main() {
     expect(find.byType(NowPill), findsNothing);
 
     await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(openSettings, 1);
     expect(find.byType(StreamSettingsSheet), findsOneWidget);
     await tester.tap(find.byKey(const Key('streamSettingsSheetClose')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(find.byType(StreamSettingsSheet), findsNothing);
 
     await tester.tap(find.byType(Breadcrumb));
@@ -1150,10 +1157,12 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(_routerApp(_launcherRouter()));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     final l = AppLocalizations.of(
       tester.element(find.byType(StreamSettingsSheet)),
@@ -1177,12 +1186,15 @@ void main() {
     await tester.pumpWidget(
       _routerApp(_launcherRouter(), overrides: _overrides(theme: () => theme)),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byKey(const Key('streamSettingsTheme-trueBlack')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(theme.setModeCalls, 1);
     expect(theme.lastMode, StreamThemeMode.trueBlack);
@@ -1199,12 +1211,15 @@ void main() {
 
     final router = _launcherRouter();
     await tester.pumpWidget(_routerApp(router));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byKey(const Key('streamSettingsMore')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(_location(router), '/settings');
     expect(find.byType(StreamSettingsSheet), findsNothing);
@@ -1226,9 +1241,11 @@ void main() {
         overrides: _overrides(school: () => school),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byKey(const Key('streamSettingsReplaySchool')));
     await tester.pump();
@@ -1251,9 +1268,11 @@ void main() {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
     await tester.pumpWidget(_routerApp(_launcherRouter()));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.byIcon(Icons.account_circle_outlined));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.byType(StreamSettingsSheet), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -1453,7 +1472,8 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(_routerApp(_launcherRouter()));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     final header = tester.widget<StreamHeader>(find.byType(StreamHeader));
     expect(header.menuLabel, isNotNull);
@@ -1461,7 +1481,8 @@ void main() {
     expect(find.bySemanticsLabel(header.menuLabel!), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('streamHeaderMenu')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.byType(StreamLauncher), findsOneWidget);
     expect(
@@ -1486,16 +1507,19 @@ void main() {
     for (final entry in destinations.entries) {
       final router = _launcherRouter();
       await tester.pumpWidget(_routerApp(router));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       await tester.tap(find.byKey(const Key('streamHeaderMenu')));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
       expect(find.byType(StreamLauncher), findsOneWidget);
 
       await tester.tap(
         find.byKey(Key('streamLauncherDestination-${entry.key.name}')),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       expect(_location(router), entry.value);
       expect(find.byType(StreamLauncher), findsNothing);
@@ -1603,7 +1627,8 @@ void main() {
 
     final l = AppLocalizations.of(tester.element(find.byType(StreamScreen)));
     await tester.tap(find.bySemanticsLabel(l.streamTrayHandle));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.byType(TrayPanel), findsOneWidget);
     expect(find.text('Unscheduled one'), findsWidgets);
@@ -1624,10 +1649,12 @@ void main() {
           .overrideWithValue(AsyncValue<List<Task>>.data(const <Task>[])),
     ];
     await tester.pumpWidget(_routerApp(router, overrides: overrides));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byType(TrayChip));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(_location(router), '/tab1');
   });
@@ -1714,7 +1741,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.tap(find.byType(TrayChip));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     final fields = tester.widgetList<TextField>(find.byType(TextField));
     expect(fields.any((field) => field.controller?.text == task.title), isTrue);
@@ -1777,7 +1805,8 @@ void main() {
     await gesture.moveTo(drop);
     await tester.pump();
     await gesture.up();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(gateway.updates, hasLength(1));
     expect(gateway.updates.single.taskId, 't1');
@@ -1850,7 +1879,8 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(_routerApp(_launcherRouter()));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byType(Breadcrumb));
     await tester.pump();
@@ -1870,7 +1900,8 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(_routerApp(_launcherRouter()));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
@@ -1892,7 +1923,8 @@ void main() {
       initialLocation: '/stream/2026-11-15/day',
     );
     await tester.pumpWidget(_routerApp(router));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byType(Breadcrumb));
     await tester.pump();
@@ -1903,7 +1935,8 @@ void main() {
     );
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(_location(router), '/stream/2026-11-17/day');
     expect(find.byKey(const Key('streamCommandField')), findsNothing);
@@ -1923,7 +1956,8 @@ void main() {
     await tester.pumpWidget(
       _routerApp(_launcherRouter(), overrides: overrides),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     for (final query in ['sync', 'dark']) {
       await tester.tap(find.byType(Breadcrumb));

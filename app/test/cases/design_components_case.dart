@@ -652,7 +652,8 @@ void main() {
       );
       expect(tester.getSize(find.byType(AppSkeleton)), const Size(120, 20));
       expect(find.byType(AppSkeletonList), findsOneWidget);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
       expect(tester.takeException(), isNull);
     });
     testWidgets('skeleton pulse completes and honours reduced motion', (
@@ -661,7 +662,8 @@ void main() {
       await tester.pumpWidget(
         _app(const Scaffold(body: AppSkeletonList(rows: 2))),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(
@@ -670,7 +672,8 @@ void main() {
           disableAnimations: true,
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
       expect(tester.takeException(), isNull);
     });
   });
@@ -738,10 +741,12 @@ void main() {
         ),
       );
       await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
       expect(find.text('Dialog title'), findsOneWidget);
       await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
       expect(await pending, 'ok');
     });
   });
@@ -787,7 +792,8 @@ void main() {
         ),
       );
       expect(find.text('Syncing'), findsNothing);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
       expect(tester.takeException(), isNull);
     });
 

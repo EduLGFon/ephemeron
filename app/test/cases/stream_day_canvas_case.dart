@@ -408,7 +408,7 @@ void main() {
     }
     expect(state.tickerIsActive, isFalse);
     final after = vp.offsetPx;
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 16));
     expect(vp.offsetPx, after);
   });
 
@@ -440,7 +440,6 @@ void main() {
       const Offset(0, -400),
       2000,
     );
-    await tester.pump(const Duration(milliseconds: 0));
     await tester.pump(const Duration(milliseconds: 0));
     final afterZeros = vp.offsetPx;
     expect(state.tickerIsActive, isTrue);

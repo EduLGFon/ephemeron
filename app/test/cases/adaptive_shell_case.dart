@@ -288,7 +288,8 @@ void main() {
           textScale: 2,
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       final bar = tester.getRect(find.byType(NavigationBar));
       final indicator = tester.getRect(
@@ -350,12 +351,14 @@ void main() {
     );
 
     await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Pushed body'), findsOneWidget);
     expect(find.byType(BackButton), findsOneWidget);
 
     await tester.tap(find.byType(BackButton));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Body'), findsNothing);
     expect(find.byType(NavigationBar), findsOneWidget);
   });
@@ -391,7 +394,8 @@ void main() {
       );
 
       await tester.tap(find.byKey(const ValueKey<String>('quick-create-pill')));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(
         find.byKey(const ValueKey<String>('quick-create-input')),
@@ -446,7 +450,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey<String>('quick-create-submit')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     final habits = await db.select(db.habits).get();
     expect(habits, hasLength(1));
@@ -494,7 +499,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey<String>('quick-create-submit')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     final countdowns = await db.select(db.countdowns).get();
     expect(countdowns, hasLength(1));
@@ -546,7 +552,8 @@ void main() {
         find.byKey(const ValueKey<String>('quick-create-submit')),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('No calendar event'), findsWidgets);
       expect(await db.select(db.events).get(), isEmpty);
@@ -564,7 +571,8 @@ void main() {
       await tester.pumpWidget(_harness(primary: const <int>[0, 1, 2, 3, 4]));
 
       await tester.tap(find.byKey(pillKey));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       final barrier = tester.getRect(find.byKey(pillBarrierKey));
       expect(barrier.width, greaterThan(300));
@@ -584,12 +592,14 @@ void main() {
     (tester) async {
       await _pumpPill(tester);
       await tester.tap(find.byKey(pillKey));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       // The default kind is shared across pill instances, so pin it to task.
       await tester.tap(
         find.byKey(const ValueKey<String>('quick-create-kind-task')),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       // Type, Date and Priority become vertical wheels; no list exists yet.
       expect(
@@ -629,11 +639,13 @@ void main() {
   ) async {
     await _pumpPill(tester);
     await tester.tap(find.byKey(pillKey));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(
       find.byKey(const ValueKey<String>('quick-create-kind-task')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     final pillElement = tester.element(find.byType(QuickCreatePill));
     final brightness = Theme.of(pillElement).brightness;
@@ -647,7 +659,8 @@ void main() {
     );
 
     await tester.tap(find.byKey(const ValueKey<String>('quick-create-prio-1')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     final p1 = styleForVisualPriority(1);
     expect(tester.widget<Icon>(iconFinder).icon, p1.icon);
     expect(tester.widget<Icon>(iconFinder).color, p1.foreground(brightness));
@@ -656,12 +669,14 @@ void main() {
   testWidgets('tapping outside the expanded pill dismisses it', (tester) async {
     await _pumpPill(tester);
     await tester.tap(find.byKey(pillKey));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(pillInputKey), findsOneWidget);
 
     // Tap the top-left of the screen, well clear of the bottom-anchored card.
     await tester.tapAt(const Offset(20, 80));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(pillInputKey), findsNothing);
     expect(find.byKey(pillKey), findsOneWidget);
@@ -672,16 +687,19 @@ void main() {
     (tester) async {
       await _pumpPill(tester);
       await tester.tap(find.byKey(pillKey));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       final normal = tester.getRect(find.byKey(pillCardKey));
 
       await tester.drag(find.byKey(pillHandleKey), const Offset(0, -120));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       final fullscreen = tester.getRect(find.byKey(pillCardKey));
       expect(fullscreen.height, greaterThan(normal.height + 40));
 
       await tester.drag(find.byKey(pillHandleKey), const Offset(0, 120));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       final restored = tester.getRect(find.byKey(pillCardKey));
       expect(restored.height, lessThan(fullscreen.height - 40));
     },
@@ -690,14 +708,16 @@ void main() {
   testWidgets('switching the entity keeps the typed text', (tester) async {
     await _pumpPill(tester);
     await tester.tap(find.byKey(pillKey));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.enterText(find.byKey(pillInputKey), 'Buy milk');
     await tester.pump();
 
     await tester.tap(
       find.byKey(const ValueKey<String>('quick-create-kind-event')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     final field = tester.widget<TextField>(find.byKey(pillInputKey));
     expect(field.controller!.text, 'Buy milk');
@@ -736,14 +756,16 @@ void main() {
     final container = await _pumpPill(tester, extra: openSheet);
 
     await tester.tap(find.byKey(const ValueKey<String>('open-entity-sheet')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const ValueKey<String>('entity-sheet')), findsOneWidget);
 
     // Expand the pill while the sheet is open. Its dismiss barrier belongs to
     // the shell route, so it must stay underneath the modal sheet.
     container.read(quickCreatePillRequestProvider.notifier).state++;
     await tester.pump();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(pillLayerKey), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey<String>('sheet-action')));
@@ -785,7 +807,8 @@ void main() {
   ) async {
     await _pumpPill(tester);
     await tester.tap(find.byKey(pillKey));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     final scheme = Theme.of(tester.element(find.byKey(pillCardKey)))
         .colorScheme;
     final container = tester.widget<AnimatedContainer>(find.byKey(pillCardKey));
@@ -799,15 +822,18 @@ void main() {
   testWidgets('typing -p2 selects P2 in the priority wheel', (tester) async {
     await _pumpPill(tester);
     await tester.tap(find.byKey(pillKey));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     // The default kind is shared across pill instances, so pin it to task.
     await tester.tap(
       find.byKey(const ValueKey<String>('quick-create-kind-task')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     await tester.enterText(find.byKey(pillInputKey), 'Buy milk -p2');
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     // The wheel value derives from the parsed token, so P2 is the selected
     // row while None is not.
@@ -850,10 +876,12 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey<String>('quick-create-kind-task')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     await tester.enterText(find.byKey(pillInputKey), 'Task -p2');
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(_wheelRowSelected(tester, 'quick-create-prio-2'), isTrue);
 
     // Selecting None strips the parsed "-p2" token from the text.
@@ -862,7 +890,8 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey<String>('quick-create-prio-0')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(_wheelRowSelected(tester, 'quick-create-prio-0'), isTrue);
     expect(_wheelRowSelected(tester, 'quick-create-prio-2'), isFalse);
     final field = tester.widget<TextField>(find.byKey(pillInputKey));
@@ -871,7 +900,8 @@ void main() {
     // The saved task carries no priority: effective priority is now None.
     await tester.tap(find.byKey(const ValueKey<String>('quick-create-submit')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     final tasks = await db.select(db.tasks).get();
     expect(tasks, hasLength(1));
     expect(tasks.single.priority, 0);

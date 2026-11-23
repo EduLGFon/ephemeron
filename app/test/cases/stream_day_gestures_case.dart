@@ -260,7 +260,7 @@ void main() {
     );
     await tester.pump();
     final gesture = await tester.startGesture(const Offset(100, 28));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
     await gesture.up();
     await tester.pump();
     expect(taps, isEmpty);
@@ -284,7 +284,7 @@ void main() {
     );
     await tester.pump();
     final gesture = await tester.startGesture(const Offset(100, 28));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
     await gesture.moveBy(const Offset(0, 60));
     await tester.pump();
     await gesture.up();
@@ -367,7 +367,7 @@ void main() {
     );
     await tester.pump();
     final gesture = await tester.startGesture(const Offset(100, 28));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
     await gesture.moveBy(const Offset(0, 60));
     await tester.pump();
     await gesture.up();
@@ -407,7 +407,7 @@ void main() {
     );
     await tester.pump();
     final gesture = await tester.startGesture(const Offset(100, 28));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
     await gesture.up();
     await tester.pump();
     expect(moves, 0);
@@ -435,7 +435,7 @@ void main() {
     // press at 30 min into mark
     final pressY = vp.timeToPx(30 * 60 * 1000);
     final gesture = await tester.startGesture(Offset(100, pressY));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
     // drag down by ~30 min
     final deltaPx = vp.timeToPx(60 * 60 * 1000) - vp.timeToPx(30 * 60 * 1000);
     await gesture.moveBy(Offset(0, deltaPx));
@@ -467,7 +467,7 @@ void main() {
     final startY = 200.0;
     final endY = 280.0;
     final gesture = await tester.startGesture(Offset(100, startY));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
     await gesture.moveBy(Offset(0, endY - startY));
     await tester.pump();
     await gesture.up();
@@ -729,7 +729,7 @@ void main() {
     );
     await tester.pump();
     final gesture = await tester.startGesture(const Offset(100, 28));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
     await gesture.moveBy(const Offset(0, 40));
     await tester.pump();
     expect(notifier.value, isNotNull);
@@ -775,7 +775,7 @@ void main() {
     );
     await tester.pump();
     final gesture = await tester.startGesture(const Offset(100, 28));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
     await gesture.moveBy(const Offset(0, 40));
     await tester.pump();
     expect(find.byType(DragMarkOverlay), findsOneWidget);
