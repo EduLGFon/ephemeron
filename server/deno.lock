@@ -3,7 +3,7 @@
   "specifiers": {
     "jsr:@denosaurs/plug@^1.1.0": "1.1.0",
     "jsr:@felix/argon2@^3.1.0": "3.1.0",
-    "jsr:@hono/hono@^4.13.18": "4.13.18",
+    "jsr:@hono/hono@^4.13.20": "4.13.20",
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/encoding@1": "1.0.11",
     "jsr:@std/fmt@1": "1.0.10",
@@ -30,8 +30,8 @@
         "jsr:@denosaurs/plug"
       ]
     },
-    "@hono/hono@4.13.18": {
-      "integrity": "2e9a294f8ed5ca8f0dddf08927ad46111e756f3329f1483db550cd60757f7e21"
+    "@hono/hono@4.13.20": {
+      "integrity": "1c118447d973717be6c36228821a91c1f09350c624ed67e6f9aafaefb64bc207"
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
@@ -135,7 +135,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@felix/argon2@^3.1.0",
-      "jsr:@hono/hono@^4.13.18",
+      "jsr:@hono/hono@^4.13.20",
       "jsr:@std/assert@^1.0.19",
       "npm:pg@^8.23.1"
     ]
