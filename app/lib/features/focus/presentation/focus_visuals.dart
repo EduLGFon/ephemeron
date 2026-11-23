@@ -63,7 +63,10 @@ class FocusTimeFace extends StatelessWidget {
             child: SizedBox.square(
               dimension: size,
               child: CustomPaint(
-                painter: _ClockDialPainter(
+                // Ticks must paint AFTER the ring: the ring stroke sits at
+                // radius 110-116 and otherwise covers the tick band at
+                // 106-114. As a foreground painter the dial stays visible.
+                foregroundPainter: _ClockDialPainter(
                   tickColor: scheme.outlineVariant.withValues(alpha: 0.7),
                   majorTickColor: scheme.onSurfaceVariant.withValues(
                     alpha: 0.55,
@@ -104,6 +107,8 @@ double _goalProgress({
   }
   if (target == null) return 0.0;
   final totalMs = target - startUtc;
+  // A non-positive duration means the target is at or before the start, so
+  // the goal is already reached: show a full ring instead of an empty one.
   if (totalMs <= 0) return 1.0;
   return (elapsedMs / totalMs).clamp(0.0, 1.0).toDouble();
 }

@@ -1,14 +1,46 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/design/components/visuals.dart';
 import 'package:ephemeron/core/ids/ids.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/focus_repository.dart';
 import 'package:ephemeron/features/focus/presentation/focus_screen.dart';
+import 'package:ephemeron/features/focus/presentation/focus_strings.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Minimal widget tree around the clock face so the goal ring value and dial
+/// paint layer can be inspected without booting the whole screen/providers.
+Widget _face(ValueNotifier<int> now, FocusSession session) {
+  return MaterialApp(
+    home: FocusTimeFace(
+      now: now,
+      session: session,
+      strings: const FocusStrings(Locale('en')),
+    ),
+  );
+}
+
+FocusSession _session({
+  required int startUtc,
+  int? targetEndUtc,
+  String phase = 'stopwatch',
+}) {
+  return FocusSession(
+    id: 's',
+    startUtc: startUtc,
+    targetEndUtc: targetEndUtc,
+    phase: phase,
+    createdAt: startUtc,
+    updatedAt: startUtc,
+  );
+}
+
+double _ringValue(WidgetTester tester) =>
+    tester.widget<AppProgressRing>(find.byType(AppProgressRing)).value;
 
 void main() {
   test('stopwatch start stores no target end and stopwatch phase', () async {
@@ -86,5 +118,104 @@ void main() {
     await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
+  });
+
+  testWidgets('stopwatch goal ring fills once per 60-minute cycle', (
+    WidgetTester tester,
+  ) async {
+    const min = 60000;
+    final now = ValueNotifier<int>(0);
+    addTearDown(now.dispose);
+    await tester.pumpWidget(_face(now, _session(startUtc: 0)));
+
+    expect(_ringValue(tester), 0.0);
+
+    now.value = 30 * min;
+    await tester.pump();
+    expect(_ringValue(tester), closeTo(0.5, 0.0001));
+
+    // At the exact hour boundary the ring is full before the next cycle.
+    now.value = 60 * min;
+    await tester.pump();
+    expect(_ringValue(tester), 1.0);
+
+    now.value = 75 * min;
+    await tester.pump();
+    expect(_ringValue(tester), closeTo(0.25, 0.0001));
+  });
+
+  testWidgets('timed goal ring fills from empty to complete', (
+    WidgetTester tester,
+  ) async {
+    const min = 60000;
+    const start = 1000;
+    const total = 20 * min;
+    final now = ValueNotifier<int>(start);
+    addTearDown(now.dispose);
+    await tester.pumpWidget(
+      _face(now, _session(startUtc: start, targetEndUtc: start + total)),
+    );
+
+    expect(_ringValue(tester), 0.0);
+
+    now.value = start + 5 * min;
+    await tester.pump();
+    expect(_ringValue(tester), closeTo(0.25, 0.0001));
+
+    now.value = start + 10 * min;
+    await tester.pump();
+    expect(_ringValue(tester), closeTo(0.5, 0.0001));
+
+    now.value = start + total;
+    await tester.pump();
+    expect(_ringValue(tester), 1.0);
+
+    // Past the target the value is clamped to a complete ring.
+    now.value = start + total + min;
+    await tester.pump();
+    expect(_ringValue(tester), 1.0);
+  });
+
+  testWidgets('non-positive goal duration shows a full ring', (
+    WidgetTester tester,
+  ) async {
+    final now = ValueNotifier<int>(5000);
+    addTearDown(now.dispose);
+    await tester.pumpWidget(
+      _face(now, _session(startUtc: 5000, targetEndUtc: 4000)),
+    );
+    expect(_ringValue(tester), 1.0);
+  });
+
+  testWidgets('clock dial is a foreground painter over the goal ring', (
+    WidgetTester tester,
+  ) async {
+    final now = ValueNotifier<int>(5 * 60000);
+    addTearDown(now.dispose);
+    await tester.pumpWidget(_face(now, _session(startUtc: 0)));
+
+    final dials = find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint &&
+          widget.foregroundPainter != null &&
+          widget.foregroundPainter!.runtimeType.toString().contains(
+            'ClockDialPainter',
+          ),
+    );
+    expect(dials, findsOneWidget);
+    final dial = tester.widget<CustomPaint>(dials);
+    expect(
+      dial.foregroundPainter!.runtimeType.toString(),
+      contains('ClockDialPainter'),
+    );
+    // Ticks live only in the foreground layer; the ring keeps the background
+    // painter slot, so nothing paints over the ticks after them.
+    expect(dial.painter, isNull);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is CustomPaint && widget.painter != null,
+      ),
+      findsWidgets,
+    );
   });
 }
