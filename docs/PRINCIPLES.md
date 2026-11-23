@@ -14,4 +14,5 @@ Project-specific UI/performance rules. Generic UX/perf baseline is global (`~/.c
 - Animations 120-250 ms, transform/opacity only. Honor reduced motion.
 - Tabular figures; `CustomPainter` or plain shapes. No image assets, Lottie, or network fonts.
 - 48dp touch targets; WCAG AA; Semantics for icon-only; never colour alone for status.
+- Primary actions bottom-aligned for single-hand use.
 - Web uses hash URLs and keeps initial bundle under 2 MB gzip; no heavy assets.
