@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/core/time/time.dart';
 
+import '../../../core/design/components/app_wheel.dart';
 import '../../../core/design/components/rows.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/ui/app_feedback.dart';
 import '../../../data/drift/app_database.dart';
 import '../../../domain/sources/microsoft_source.dart';
+import '../../../domain/tasks/eisenhower.dart';
 import '../application/tasks_providers.dart';
 import 'task_editor_sheet.dart';
 import 'task_list_dialogs.dart';
@@ -70,6 +72,13 @@ class _MatrixTaskRowContent extends ConsumerWidget {
       title: task.title,
       subtitle: _dueLabel(context),
       listColor: list == null ? null : taskListColor(list!),
+      leading: task.priority > 0
+          ? AppPriorityFlag(
+              flag: priorityFlag(task.priority),
+              dense: true,
+              showLabel: false,
+            )
+          : null,
       overdue: _isLate(),
       dense: true,
       onTap: readOnly ? null : () => showTaskEditor(context, task: task),

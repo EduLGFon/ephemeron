@@ -1,5 +1,8 @@
 part of '../quick_add_sheet.dart';
 
+/// Date shortcuts shown in the vertical date wheel.
+enum _QuickAddDate { today, tomorrow, pickDate }
+
 mixin _QuickAddSections on _QuickAddSheetStateBase {
   void _onChanged(String value);
   void _setText(String text);
@@ -10,8 +13,15 @@ mixin _QuickAddSections on _QuickAddSheetStateBase {
     setState(() => _kind = kind);
   }
 
-  void _toggleList(String id) {
-    setState(() => _selectedListId = _selectedListId == id ? null : id);
+  void _selectList(String? id) {
+    setState(() => _selectedListId = id);
+  }
+
+  _QuickAddDate? get _selectedDateChoice {
+    if (_isToday(_effectiveDue)) return _QuickAddDate.today;
+    if (_isTomorrow(_effectiveDue)) return _QuickAddDate.tomorrow;
+    if (_isPickedOtherDay) return _QuickAddDate.pickDate;
+    return null;
   }
 
   void _setPickedDate(DateTime date) {
@@ -123,79 +133,106 @@ mixin _QuickAddSections on _QuickAddSheetStateBase {
                   lists: lists,
                 ),
                 const SizedBox(height: DsSpace.x12),
-                _ChipGroup(
+                _WheelGroup<_QuickAddKind>(
                   label: strings.sectionType,
-                  children: <Widget>[
+                  items: <WheelItem<_QuickAddKind>>[
                     for (final kind in _QuickAddKind.values)
-                      AppChip(
+                      WheelItem<_QuickAddKind>(
+                        value: kind,
                         label: kind.label(strings),
                         icon: kind.icon,
-                        selected: _kind == kind,
-                        onTap: () => _selectKind(kind),
+                        key: ValueKey('quick-add-kind-${kind.name}'),
                       ),
                   ],
+                  value: _kind,
+                  onChanged: _selectKind,
                 ),
                 if (_kind != _QuickAddKind.habit) ...<Widget>[
                   const SizedBox(height: DsSpace.x12),
-                  _ChipGroup(
+                  _WheelGroup<_QuickAddDate?>(
                     label: strings.sectionDate,
-                    children: <Widget>[
-                      AppChip(
+                    items: <WheelItem<_QuickAddDate?>>[
+                      WheelItem<_QuickAddDate?>(
+                        value: _QuickAddDate.today,
                         label: strings.today,
                         icon: Icons.today_outlined,
-                        selected: _isToday(_effectiveDue),
-                        onTap: () => _setPickedDate(DateTime.now()),
+                        key: const ValueKey('quick-add-date-today'),
                       ),
-                      AppChip(
+                      WheelItem<_QuickAddDate?>(
+                        value: _QuickAddDate.tomorrow,
                         label: strings.tomorrow,
                         icon: Icons.event_available_outlined,
-                        selected: _isTomorrow(_effectiveDue),
-                        onTap: () => _setPickedDate(
-                          DateTime.now().add(const Duration(days: 1)),
-                        ),
+                        key: const ValueKey('quick-add-date-tomorrow'),
                       ),
-                      AppChip(
+                      WheelItem<_QuickAddDate?>(
+                        value: _QuickAddDate.pickDate,
                         label: strings.pickDate,
                         icon: Icons.calendar_month_outlined,
-                        selected: _isPickedOtherDay,
-                        onTap: () => _pickDate(strings),
+                        key: const ValueKey('quick-add-date-pickDate'),
                       ),
                     ],
+                    value: _selectedDateChoice,
+                    onChanged: (choice) {
+                      switch (choice) {
+                        case _QuickAddDate.today:
+                          _setPickedDate(DateTime.now());
+                        case _QuickAddDate.tomorrow:
+                          _setPickedDate(
+                            DateTime.now().add(const Duration(days: 1)),
+                          );
+                        case _QuickAddDate.pickDate:
+                          _pickDate(strings);
+                        case null:
+                          break;
+                      }
+                    },
                   ),
                 ],
                 if (_kind == _QuickAddKind.task &&
                     lists.isNotEmpty) ...<Widget>[
                   const SizedBox(height: DsSpace.x12),
-                  _ChipGroup(
+                  _WheelGroup<String?>(
                     label: strings.sectionList,
-                    children: <Widget>[
+                    items: <WheelItem<String?>>[
+                      WheelItem<String?>(
+                        value: null,
+                        label: 'No list',
+                        key: const ValueKey('quick-add-list-none'),
+                      ),
                       for (final list in lists)
-                        AppChip(
+                        WheelItem<String?>(
+                          value: list.id,
                           label: list.name,
                           color: _listColor(list),
-                          selected: _selectedListId == list.id,
-                          onTap: () => _toggleList(list.id),
+                          key: ValueKey('quick-add-list-${list.id}'),
                         ),
                     ],
+                    value: _selectedListId,
+                    onChanged: (id) => _selectList(id),
                   ),
                 ],
                 if (_kind == _QuickAddKind.task) ...<Widget>[
                   const SizedBox(height: DsSpace.x12),
-                  _ChipGroup(
+                  _WheelGroup<int>(
                     label: strings.sectionPriority,
-                    children: <Widget>[
-                      AppChip(
+                    items: <WheelItem<int>>[
+                      WheelItem<int>(
+                        value: 0,
                         label: strings.priorityNone,
-                        selected: _visualPriority == 0,
-                        onTap: () => _setPriority(0),
+                        icon: Icons.flag_outlined,
+                        key: const ValueKey('quick-add-priority-0'),
                       ),
                       for (var visual = 1; visual <= 4; visual++)
-                        AppChip(
+                        WheelItem<int>(
+                          value: visual,
                           label: strings.priorityLabel(visual),
-                          selected: _visualPriority == visual,
-                          onTap: () => _setPriority(visual),
+                          icon: Icons.flag,
+                          color: styleForVisualPriority(visual).color,
+                          key: ValueKey('quick-add-priority-$visual'),
                         ),
                     ],
+                    value: _visualPriority,
+                    onChanged: _setPriority,
                   ),
                 ],
                 const SizedBox(height: DsSpace.x24),

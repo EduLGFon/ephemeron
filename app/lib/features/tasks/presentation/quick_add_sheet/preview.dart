@@ -23,11 +23,21 @@ class _QuickAddPreview extends StatelessWidget {
     final p = parsed;
     final title = p?.title.trim() ?? '';
     final chips = <Widget>[];
-    void add(IconData icon, String label, {bool muted = false}) {
+    void add(
+      IconData icon,
+      String label, {
+      bool muted = false,
+      Color? iconColor,
+    }) {
       chips.add(
         Padding(
           padding: const EdgeInsets.only(right: DsSpace.x8),
-          child: _PreviewChip(icon: icon, label: label, muted: muted),
+          child: _PreviewChip(
+            icon: icon,
+            label: label,
+            muted: muted,
+            iconColor: iconColor,
+          ),
         ),
       );
     }
@@ -48,8 +58,13 @@ class _QuickAddPreview extends StatelessWidget {
         }
         final listName = _selectedListName() ?? p?.list;
         if (listName != null) add(Icons.list_alt, listName);
-        if ((p?.priority ?? 0) > 0) {
-          add(Icons.flag_outlined, strings.priorityLabel(5 - p!.priority));
+        if (p != null && p.priority > 0) {
+          final style = styleForStoredPriority(p.priority);
+          add(
+            style.icon,
+            strings.priorityLabel(5 - p.priority),
+            iconColor: style.foreground(Theme.of(context).brightness),
+          );
         }
         if (p != null && p.tags.isNotEmpty) {
           add(Icons.sell_outlined, p.tags.map((tag) => '#$tag').join(' '));
@@ -123,11 +138,13 @@ class _PreviewChip extends StatelessWidget {
     required this.icon,
     required this.label,
     this.muted = false,
+    this.iconColor,
   });
 
   final IconData icon;
   final String label;
   final bool muted;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +165,11 @@ class _PreviewChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: DsIcon.sm, color: scheme.onSurfaceVariant),
+          Icon(
+            icon,
+            size: DsIcon.sm,
+            color: iconColor ?? scheme.onSurfaceVariant,
+          ),
           const SizedBox(width: DsSpace.x4),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 220),

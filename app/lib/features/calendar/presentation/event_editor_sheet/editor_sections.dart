@@ -73,9 +73,12 @@ class _EventWhenSection extends StatelessWidget {
   }
 }
 
-// Google Calendar color strip; null color uses the theme primary and
-// shows a check on the selected swatch.
-class _EventColorSection extends StatelessWidget {
+// Google Calendar color wheel; null color uses the theme primary and
+// shows a check on the selected row. The swatch is paired with a text label so
+// the choice is not conveyed by colour alone. Dart part files cannot add
+// imports and the parent library is outside this unit's ownership, so this
+// wheel uses only widgets already in scope.
+class _EventColorSection extends StatefulWidget {
   const _EventColorSection({required this.colorId, required this.onChanged});
 
   static const _colorIds = <String?>[
@@ -97,24 +100,86 @@ class _EventColorSection extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   @override
+  State<_EventColorSection> createState() => _EventColorSectionState();
+}
+
+class _EventColorSectionState extends State<_EventColorSection> {
+  static const double _itemExtent = 48;
+  late final ScrollController _controller;
+
+  int _index(String? colorId) {
+    final index = _EventColorSection._colorIds.indexOf(colorId);
+    return index < 0 ? 0 : index;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ScrollController(
+      initialScrollOffset: _index(widget.colorId) * _itemExtent,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _EventColorSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.colorId == oldWidget.colorId || !_controller.hasClients) return;
+    _controller.animateTo(
+      _index(widget.colorId) * _itemExtent,
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      children: [
-        for (final c in _colorIds)
-          GestureDetector(
-            onTap: () => onChanged(c),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: c == null
-                  ? Theme.of(context).colorScheme.primary
-                  : googleCalendarColor(c),
-              child: colorId == c
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
-                  : null,
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 192,
+      child: ListView.builder(
+        controller: _controller,
+        itemExtent: _itemExtent,
+        itemCount: _EventColorSection._colorIds.length,
+        itemBuilder: (context, index) {
+          final c = _EventColorSection._colorIds[index];
+          final selected = widget.colorId == c;
+          final swatch = c == null ? scheme.primary : googleCalendarColor(c);
+          return Semantics(
+            button: true,
+            selected: selected,
+            label: c == null ? 'Default' : 'Color $c',
+            child: InkWell(
+              key: ValueKey('event-color-${c ?? 'default'}'),
+              onTap: () => widget.onChanged(c),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  children: [
+                    CircleAvatar(radius: 12, backgroundColor: swatch),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        c == null ? 'Default' : 'Color $c',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: selected ? scheme.primary : scheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    if (selected)
+                      Icon(Icons.check, size: 18, color: scheme.primary),
+                  ],
+                ),
+              ),
             ),
-          ),
-      ],
+          );
+        },
+      ),
     );
   }
 }

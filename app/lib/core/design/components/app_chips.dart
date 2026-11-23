@@ -5,6 +5,11 @@ import 'package:material_ui/material_ui.dart';
 import '../tokens.dart';
 import '../typography.dart';
 
+// The wheel is the vertical counterpart to these chips. Re-exporting it here
+// keeps single-import libraries (for example the quick-add sheet, whose parent
+// already imports this file) able to use the shared selector.
+export 'app_wheel.dart';
+
 class AppChip extends StatelessWidget {
   const AppChip({
     super.key,

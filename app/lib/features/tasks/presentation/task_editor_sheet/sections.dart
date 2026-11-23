@@ -14,7 +14,6 @@ mixin _TaskEditorSections on _TaskEditorStateBase {
   Future<void> _save();
   Widget _plannedIntervalSection(BuildContext context);
   Widget _repeatSection(BuildContext context);
-  Widget _dueChip(BuildContext context, String label, String value);
   String _pad(int v);
   DateTime _nextWeekday(DateTime now, int weekday);
   @override
@@ -100,33 +99,14 @@ mixin _TaskEditorSections on _TaskEditorStateBase {
                 orElse: () => const SizedBox.shrink(),
               ),
               const SizedBox(height: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Priority'),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      for (final option in const [
-                        (value: 0, label: 'None'),
-                        (value: 1, label: 'P4'),
-                        (value: 2, label: 'P3'),
-                        (value: 3, label: 'P2'),
-                        (value: 4, label: 'P1'),
-                      ])
-                        ChoiceChip(
-                          label: Text(option.label),
-                          selected: _priority == option.value,
-                          onSelected: (_) {
-                            setState(() => _priority = option.value);
-                            _queueDraft();
-                          },
-                        ),
-                    ],
-                  ),
-                ],
+              const Text('Priority'),
+              const SizedBox(height: 4),
+              _PriorityWheel(
+                value: _priority,
+                onChanged: (value) {
+                  setState(() => _priority = value);
+                  _queueDraft();
+                },
               ),
               const SizedBox(height: 8),
               _dateRow(
@@ -161,21 +141,24 @@ mixin _TaskEditorSections on _TaskEditorStateBase {
                 },
               ),
               const SizedBox(height: 4),
-              Wrap(
-                spacing: 8,
-                children: [
-                  _dueChip(context, 'Today', _fmtDue(DateTime.now())),
-                  _dueChip(
-                    context,
-                    'Tomorrow',
+              _DueWheel(
+                value: _dueDate,
+                options: <_DueOption>[
+                  _DueOption(null, 'No due date'),
+                  _DueOption(_fmtDue(DateTime.now()), 'Today'),
+                  _DueOption(
                     _fmtDue(DateTime.now().add(const Duration(days: 1))),
+                    'Tomorrow',
                   ),
-                  _dueChip(
-                    context,
-                    'Next Mon',
+                  _DueOption(
                     _fmtDue(_nextWeekday(DateTime.now(), DateTime.monday)),
+                    'Next Mon',
                   ),
                 ],
+                onChanged: (value) {
+                  setState(() => _dueDate = value);
+                  _queueDraft();
+                },
               ),
               const SizedBox(height: 8),
               TextField(
@@ -284,6 +267,190 @@ mixin _TaskEditorSections on _TaskEditorStateBase {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// Vertical wheels for the editor. Dart part files cannot add imports and the
+// parent library file is outside this unit's ownership, so these use only
+// widgets already in scope. The priority palette is the single in-file source
+// mirroring priorityFlagStyles in core/design/components/app_wheel.dart; both
+// show a label beside each colour so status never depends on colour alone.
+class _PriorityOption {
+  const _PriorityOption(
+    this.value,
+    this.label,
+    this.color,
+    this.icon, {
+    required this.lightForeground,
+    required this.darkForeground,
+  });
+
+  final int value;
+  final String label;
+  final Color color;
+  final IconData icon;
+  final Color lightForeground;
+  final Color darkForeground;
+
+  Color foreground(Brightness brightness) =>
+      brightness == Brightness.dark ? darkForeground : lightForeground;
+}
+
+class _DueOption {
+  const _DueOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+}
+
+List<_PriorityOption> _priorityOptions() => const <_PriorityOption>[
+  _PriorityOption(
+    0,
+    'None',
+    Color(0xFF9E9E9E),
+    Icons.flag_outlined,
+    lightForeground: Color(0xFF616161),
+    darkForeground: Color(0xFFBDBDBD),
+  ),
+  _PriorityOption(
+    1,
+    'P4',
+    Color(0xFF388E3C),
+    Icons.flag,
+    lightForeground: Color(0xFF2E7D32),
+    darkForeground: Color(0xFFA5D6A7),
+  ),
+  _PriorityOption(
+    2,
+    'P3',
+    Color(0xFFFBC02D),
+    Icons.flag,
+    lightForeground: Color(0xFF8A5A00),
+    darkForeground: Color(0xFFFFE082),
+  ),
+  _PriorityOption(
+    3,
+    'P2',
+    Color(0xFFF57C00),
+    Icons.flag,
+    lightForeground: Color(0xFFB45309),
+    darkForeground: Color(0xFFFFCC80),
+  ),
+  _PriorityOption(
+    4,
+    'P1',
+    Color(0xFFD32F2F),
+    Icons.flag,
+    lightForeground: Color(0xFFC62828),
+    darkForeground: Color(0xFFEF9A9A),
+  ),
+];
+
+class _PriorityWheel extends StatelessWidget {
+  const _PriorityWheel({required this.value, required this.onChanged});
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
+    final options = _priorityOptions();
+    return SizedBox(
+      height: 48.0 * options.length,
+      child: ListView.builder(
+        itemExtent: 48,
+        itemCount: options.length,
+        itemBuilder: (context, index) {
+          final option = options[index];
+          final selected = option.value == value;
+          final fg = option.foreground(brightness);
+          return Semantics(
+            button: true,
+            selected: selected,
+            label: option.label,
+            child: InkWell(
+              key: ValueKey('task-editor-priority-${option.value}'),
+              onTap: () => onChanged(option.value),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? scheme.secondaryContainer
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(option.icon, size: 18, color: fg),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(option.label)),
+                    if (selected)
+                      Icon(Icons.check, size: 18, color: scheme.primary),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DueWheel extends StatelessWidget {
+  const _DueWheel({
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final List<_DueOption> options;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 48.0 * options.length,
+      child: ListView.builder(
+        itemExtent: 48,
+        itemCount: options.length,
+        itemBuilder: (context, index) {
+          final option = options[index];
+          final selected = option.value == value;
+          return Semantics(
+            button: true,
+            selected: selected,
+            label: option.label,
+            child: InkWell(
+              key: ValueKey('task-editor-due-$index'),
+              onTap: () => onChanged(option.value),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? scheme.secondaryContainer
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.event_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(option.label)),
+                    if (selected)
+                      Icon(Icons.check, size: 18, color: scheme.primary),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

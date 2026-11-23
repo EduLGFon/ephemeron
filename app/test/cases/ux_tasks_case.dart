@@ -111,7 +111,12 @@ void main() {
     expect(find.text('P1'), findsWidgets);
     expect(find.text('Tomorrow'), findsWidgets);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Add task'));
+    final addTaskBtn = find.widgetWithText(FilledButton, 'Add task');
+    await tester.ensureVisible(addTaskBtn);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(addTaskBtn);
     await tester.pumpAndSettle();
 
     expect(find.text('Task added'), findsOneWidget);
@@ -136,7 +141,12 @@ void main() {
     await _openQuickAdd(tester);
     await tester.enterText(find.byType(TextField), 'Buy milk');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add task'));
+    final addTaskBtn = find.widgetWithText(FilledButton, 'Add task');
+    await tester.ensureVisible(addTaskBtn);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(addTaskBtn);
     await tester.pumpAndSettle();
 
     expect(find.text('Task added'), findsOneWidget);

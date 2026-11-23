@@ -1,6 +1,5 @@
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
-import 'package:ephemeron/core/design/components/app_chips.dart';
 import 'package:ephemeron/core/design/theme.dart';
 import 'package:ephemeron/core/time/picker_memory.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -41,18 +40,40 @@ void main() {
     await _pumpHost(tester, db);
     await _open(tester);
 
+    final home = (await db.select(db.taskLists).get()).firstWhere(
+      (l) => l.name == 'Home',
+    );
     await tester.enterText(find.byType(TextField), 'Buy milk #work 9h');
     await tester.pump();
-    await tester.tap(find.widgetWithText(AppChip, 'Home'));
-    await tester.tap(find.widgetWithText(AppChip, 'P1'));
-    await tester.tap(find.widgetWithText(AppChip, 'Today'));
+    await tester.ensureVisible(
+      find.byKey(ValueKey('quick-add-list-${home.id}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('quick-add-list-${home.id}')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('quick-add-priority-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quick-add-priority-1')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('quick-add-date-today')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quick-add-date-today')));
     await tester.pump();
 
     expect(find.text('Buy milk'), findsOneWidget);
     expect(find.text('#work'), findsOneWidget);
     expect(find.text('P1'), findsWidgets);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Add task'));
+    final addTaskButton = find.widgetWithText(FilledButton, 'Add task');
+    await tester.dragUntilVisible(
+      addTaskButton,
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(addTaskButton);
     await tester.pumpAndSettle();
 
     final rows = await db.select(db.tasks).get();
@@ -80,7 +101,14 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'Buy milk ~Inbox');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add task'));
+    final addTaskButton = find.widgetWithText(FilledButton, 'Add task');
+    await tester.dragUntilVisible(
+      addTaskButton,
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(addTaskButton);
     await tester.pumpAndSettle();
 
     final task = (await db.select(db.tasks).get()).single;
@@ -101,10 +129,19 @@ void main() {
     final container = _container(tester);
     container.read(occurrenceDirtyProvider.notifier).clear();
 
-    await tester.tap(find.widgetWithText(AppChip, 'Event'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('quick-add-kind-event')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quick-add-kind-event')));
     await tester.enterText(find.byType(TextField), 'Standup tomorrow 9h');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add event'));
+    final addEventBtn = find.widgetWithText(FilledButton, 'Add event');
+    await tester.ensureVisible(addEventBtn);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(addEventBtn);
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
@@ -130,13 +167,24 @@ void main() {
     await _pumpHost(tester, db);
     await _open(tester);
 
-    await tester.tap(find.widgetWithText(AppChip, 'Habit'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('quick-add-kind-habit')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quick-add-kind-habit')));
     await tester.pump();
-    expect(find.widgetWithText(AppChip, 'Today'), findsNothing);
+    expect(find.byKey(const ValueKey('quick-add-date-today')), findsNothing);
 
     await tester.enterText(find.byType(TextField), 'Meditate');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add habit'));
+    final addHabitButton = find.widgetWithText(FilledButton, 'Add habit');
+    await tester.dragUntilVisible(
+      addHabitButton,
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(addHabitButton);
     await tester.pumpAndSettle();
 
     final habit = (await db.select(db.habits).get()).single;
@@ -152,10 +200,19 @@ void main() {
     await _pumpHost(tester, db);
     await _open(tester);
 
-    await tester.tap(find.widgetWithText(AppChip, 'Countdown'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('quick-add-kind-countdown')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quick-add-kind-countdown')));
     await tester.enterText(find.byType(TextField), 'Trip');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add countdown'));
+    final addCountdownBtn = find.widgetWithText(FilledButton, 'Add countdown');
+    await tester.ensureVisible(addCountdownBtn);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(addCountdownBtn);
     await tester.pumpAndSettle();
 
     final countdown = (await db.select(db.countdowns).get()).single;
@@ -184,7 +241,12 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'First');
     await tester.pump();
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Add another'));
+    final addAnotherBtn = find.widgetWithText(OutlinedButton, 'Add another');
+    await tester.ensureVisible(addAnotherBtn);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(addAnotherBtn);
     await tester.pumpAndSettle();
 
     expect(find.text('Quick add'), findsOneWidget);
@@ -193,7 +255,15 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'Second');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add task'));
+    final addTaskAfterAnotherBtn = find.widgetWithText(
+      FilledButton,
+      'Add task',
+    );
+    await tester.ensureVisible(addTaskAfterAnotherBtn);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(addTaskAfterAnotherBtn);
     await tester.pumpAndSettle();
 
     expect(find.text('Quick add'), findsNothing);
@@ -319,7 +389,14 @@ void main() {
     await tester.pump();
     await db.close();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Add task'));
+    final addTaskButton = find.widgetWithText(FilledButton, 'Add task');
+    await tester.dragUntilVisible(
+      addTaskButton,
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(addTaskButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -336,10 +413,19 @@ void main() {
     await _pumpHost(tester, db);
     await _open(tester);
 
-    await tester.tap(find.widgetWithText(AppChip, 'Event'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('quick-add-kind-event')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quick-add-kind-event')));
     await tester.enterText(find.byType(TextField), 'No calendar event');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add event'));
+    final addEventFallbackBtn = find.widgetWithText(FilledButton, 'Add event');
+    await tester.ensureVisible(addEventFallbackBtn);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(addEventFallbackBtn);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
