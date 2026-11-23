@@ -78,7 +78,7 @@ class _EventWhenSection extends StatelessWidget {
 // the choice is not conveyed by colour alone. Dart part files cannot add
 // imports and the parent library is outside this unit's ownership, so this
 // wheel uses only widgets already in scope.
-class _EventColorSection extends StatelessWidget {
+class _EventColorSection extends StatefulWidget {
   const _EventColorSection({required this.colorId, required this.onChanged});
 
   static const _colorIds = <String?>[
@@ -100,16 +100,55 @@ class _EventColorSection extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   @override
+  State<_EventColorSection> createState() => _EventColorSectionState();
+}
+
+class _EventColorSectionState extends State<_EventColorSection> {
+  static const double _itemExtent = 48;
+  late final ScrollController _controller;
+
+  int _index(String? colorId) {
+    final index = _EventColorSection._colorIds.indexOf(colorId);
+    return index < 0 ? 0 : index;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ScrollController(
+      initialScrollOffset: _index(widget.colorId) * _itemExtent,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _EventColorSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.colorId == oldWidget.colorId || !_controller.hasClients) return;
+    _controller.animateTo(
+      _index(widget.colorId) * _itemExtent,
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 180,
+      height: 192,
       child: ListView.builder(
-        itemExtent: 36,
-        itemCount: _colorIds.length,
+        controller: _controller,
+        itemExtent: _itemExtent,
+        itemCount: _EventColorSection._colorIds.length,
         itemBuilder: (context, index) {
-          final c = _colorIds[index];
-          final selected = colorId == c;
+          final c = _EventColorSection._colorIds[index];
+          final selected = widget.colorId == c;
           final swatch = c == null ? scheme.primary : googleCalendarColor(c);
           return Semantics(
             button: true,
@@ -117,22 +156,25 @@ class _EventColorSection extends StatelessWidget {
             label: c == null ? 'Default' : 'Color $c',
             child: InkWell(
               key: ValueKey('event-color-${c ?? 'default'}'),
-              onTap: () => onChanged(c),
-              child: Row(
-                children: [
-                  CircleAvatar(radius: 12, backgroundColor: swatch),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      c == null ? 'Default' : 'Color $c',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: selected ? scheme.primary : scheme.onSurface,
+              onTap: () => widget.onChanged(c),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  children: [
+                    CircleAvatar(radius: 12, backgroundColor: swatch),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        c == null ? 'Default' : 'Color $c',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: selected ? scheme.primary : scheme.onSurface,
+                        ),
                       ),
                     ),
-                  ),
-                  if (selected)
-                    Icon(Icons.check, size: 16, color: scheme.primary),
-                ],
+                    if (selected)
+                      Icon(Icons.check, size: 18, color: scheme.primary),
+                  ],
+                ),
               ),
             ),
           );

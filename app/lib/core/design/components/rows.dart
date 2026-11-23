@@ -817,15 +817,15 @@ class _PriorityMark extends StatelessWidget {
     // Callers pass a visual P number (1 = P1). The flag mapping owns both the
     // colour and the icon so a P label reads as a coloured flag everywhere.
     final style = styleForVisualPriority(level);
+    final fg = style.foreground(Theme.of(context).brightness);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(style.icon, size: dense ? 12 : 14, color: style.color),
+        Icon(style.icon, size: dense ? 12 : 14, color: fg),
         const SizedBox(width: DsSpace.x4),
         Text(
           'P$level',
-          style: Theme.of(context).textTheme.labelSmall
-              ?.copyWith(color: style.color),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg),
         ),
       ],
     );

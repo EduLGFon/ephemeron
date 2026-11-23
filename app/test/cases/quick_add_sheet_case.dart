@@ -66,14 +66,14 @@ void main() {
     expect(find.text('#work'), findsOneWidget);
     expect(find.text('P1'), findsWidgets);
 
-    final btn_2868_3 = find.widgetWithText(FilledButton, 'Add task');
+    final addTaskButton = find.widgetWithText(FilledButton, 'Add task');
     await tester.dragUntilVisible(
-      btn_2868_3,
+      addTaskButton,
       find.byType(SingleChildScrollView).first,
       const Offset(0, -200),
     );
     await tester.pumpAndSettle();
-    await tester.tap(btn_2868_3);
+    await tester.tap(addTaskButton);
     await tester.pumpAndSettle();
 
     final rows = await db.select(db.tasks).get();
@@ -101,14 +101,14 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'Buy milk ~Inbox');
     await tester.pump();
-    final btn_2868_2 = find.widgetWithText(FilledButton, 'Add task');
+    final addTaskButton = find.widgetWithText(FilledButton, 'Add task');
     await tester.dragUntilVisible(
-      btn_2868_2,
+      addTaskButton,
       find.byType(SingleChildScrollView).first,
       const Offset(0, -200),
     );
     await tester.pumpAndSettle();
-    await tester.tap(btn_2868_2);
+    await tester.tap(addTaskButton);
     await tester.pumpAndSettle();
 
     final task = (await db.select(db.tasks).get()).single;
@@ -177,14 +177,14 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'Meditate');
     await tester.pump();
-    final btn_4228 = find.widgetWithText(FilledButton, 'Add habit');
+    final addHabitButton = find.widgetWithText(FilledButton, 'Add habit');
     await tester.dragUntilVisible(
-      btn_4228,
+      addHabitButton,
       find.byType(SingleChildScrollView).first,
       const Offset(0, -200),
     );
     await tester.pumpAndSettle();
-    await tester.tap(btn_4228);
+    await tester.tap(addHabitButton);
     await tester.pumpAndSettle();
 
     final habit = (await db.select(db.habits).get()).single;
@@ -389,14 +389,14 @@ void main() {
     await tester.pump();
     await db.close();
 
-    final btn_2868_0 = find.widgetWithText(FilledButton, 'Add task');
+    final addTaskButton = find.widgetWithText(FilledButton, 'Add task');
     await tester.dragUntilVisible(
-      btn_2868_0,
+      addTaskButton,
       find.byType(SingleChildScrollView).first,
       const Offset(0, -200),
     );
     await tester.pumpAndSettle();
-    await tester.tap(btn_2868_0);
+    await tester.tap(addTaskButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 

@@ -1,7 +1,9 @@
+import 'package:drift/drift.dart' hide Column, isNull;
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
+import 'package:ephemeron/features/calendar/presentation/event_editor_sheet.dart';
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 import 'package:ephemeron/features/tasks/presentation/task_editor_sheet.dart';
@@ -230,5 +232,109 @@ void main() {
     expect(row.plannedStart, isNull);
     expect(row.plannedEnd, isNull);
     await _close(tester, db);
+  });
+
+  testWidgets('event color wheel shows current color and selects a new one', (
+    tester,
+  ) async {
+    final db = _db();
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.calendars)
+        .insert(
+          CalendarsCompanion.insert(
+            id: 'cal-1',
+            name: 'Local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await db
+        .into(db.events)
+        .insert(
+          EventsCompanion.insert(
+            id: 'ev-1',
+            calendarId: 'cal-1',
+            title: const Value('Color event'),
+            startUtc: Value(now),
+            endUtc: Value(now + 3600000),
+            colorId: const Value('8'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final event = await (db.select(
+      db.events,
+    )..where((t) => t.id.equals('ev-1'))).getSingle();
+
+    const channel = MethodChannel('ephemeron/system');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'canPostNotifications') return true;
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    tester.view.physicalSize = const Size(1000, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWith(
+            (ref) async => SettingsRepository(prefs),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Center(
+                child: TextButton(
+                  onPressed: () => showEventEditor(context, event: event),
+                  child: const Text('Open editor'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open editor'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // colorId>=5 was off-screen before the scroll-to-selected fix.
+    final selected = find.byKey(const ValueKey('event-color-8'));
+    expect(selected, findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const ValueKey('event-color-8')),
+      const Offset(0, 400),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('event-color-3')));
+    await tester.pump();
+    final semantics = tester.widget<Semantics>(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('event-color-3')),
+            matching: find.byType(Semantics),
+          )
+          .first,
+    );
+    expect(semantics.properties.selected, isTrue);
+
+    await tester.pumpWidget(Container());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await db.close();
+    await tester.pump();
   });
 }

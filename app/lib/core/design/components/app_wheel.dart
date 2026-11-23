@@ -45,7 +45,7 @@ class WheelSelector<T> extends StatefulWidget {
     required this.items,
     required this.value,
     required this.onChanged,
-    this.itemExtent = 44,
+    this.itemExtent = 48,
     this.height,
     this.semanticsLabel,
   });
@@ -184,6 +184,10 @@ class _WheelSelectorState<T> extends State<WheelSelector<T>> {
 }
 
 /// Visual identity of a priority flag: colour + icon + short label.
+///
+/// [color] is the stable identity swatch. [foreground] returns a
+/// brightness-aware variant for text/icons that meets WCAG AA on the current
+/// surface, so status never relies on a low-contrast decorative colour.
 @immutable
 class PriorityFlagStyle {
   const PriorityFlagStyle({
@@ -191,12 +195,23 @@ class PriorityFlagStyle {
     required this.label,
     required this.color,
     required this.icon,
-  });
+    Color? lightForeground,
+    Color? darkForeground,
+  }) : _lightForeground = lightForeground ?? color,
+       _darkForeground = darkForeground ?? color;
 
   final PriorityFlag flag;
   final String label;
+
+  /// Identity swatch colour (chip/dot). Not guaranteed to pass AA as text.
   final Color color;
   final IconData icon;
+  final Color _lightForeground;
+  final Color _darkForeground;
+
+  /// AA-safe foreground for text/icons on [brightness] surfaces.
+  Color foreground(Brightness brightness) =>
+      brightness == Brightness.dark ? _darkForeground : _lightForeground;
 }
 
 /// Fixed palette shared by every flag rendering. P1 is the most urgent (red)
@@ -209,30 +224,40 @@ const Map<PriorityFlag, PriorityFlagStyle> priorityFlagStyles =
         label: 'None',
         color: Color(0xFF9E9E9E),
         icon: Icons.flag_outlined,
+        lightForeground: Color(0xFF616161),
+        darkForeground: Color(0xFFBDBDBD),
       ),
       PriorityFlag.p4: PriorityFlagStyle(
         flag: PriorityFlag.p4,
         label: 'P4',
         color: Color(0xFF388E3C),
         icon: Icons.flag,
+        lightForeground: Color(0xFF2E7D32),
+        darkForeground: Color(0xFFA5D6A7),
       ),
       PriorityFlag.p3: PriorityFlagStyle(
         flag: PriorityFlag.p3,
         label: 'P3',
         color: Color(0xFFFBC02D),
         icon: Icons.flag,
+        lightForeground: Color(0xFF8A5A00),
+        darkForeground: Color(0xFFFFE082),
       ),
       PriorityFlag.p2: PriorityFlagStyle(
         flag: PriorityFlag.p2,
         label: 'P2',
         color: Color(0xFFF57C00),
         icon: Icons.flag,
+        lightForeground: Color(0xFFB45309),
+        darkForeground: Color(0xFFFFCC80),
       ),
       PriorityFlag.p1: PriorityFlagStyle(
         flag: PriorityFlag.p1,
         label: 'P1',
         color: Color(0xFFD32F2F),
         icon: Icons.flag,
+        lightForeground: Color(0xFFC62828),
+        darkForeground: Color(0xFFEF9A9A),
       ),
     };
 
@@ -269,19 +294,20 @@ class AppPriorityFlag extends StatelessWidget {
     final style = priorityFlagStyle(flag);
     final text = label ?? style.label;
     final size = dense ? 14.0 : DsIcon.sm;
+    final fg = style.foreground(Theme.of(context).brightness);
     return Semantics(
       label: 'Priority $text',
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(style.icon, size: size, color: style.color),
+          Icon(style.icon, size: size, color: fg),
           if (showLabel && text.isNotEmpty) ...<Widget>[
             const SizedBox(width: DsSpace.x4),
             Text(
               text,
               style:
                   (Theme.of(context).textTheme.labelSmall ?? const TextStyle())
-                      .copyWith(color: style.color),
+                      .copyWith(color: fg),
             ),
           ],
         ],

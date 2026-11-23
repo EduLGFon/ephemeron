@@ -63,7 +63,7 @@ class _QuickAddPreview extends StatelessWidget {
           add(
             style.icon,
             strings.priorityLabel(5 - p.priority),
-            iconColor: style.color,
+            iconColor: style.foreground(Theme.of(context).brightness),
           );
         }
         if (p != null && p.tags.isNotEmpty) {

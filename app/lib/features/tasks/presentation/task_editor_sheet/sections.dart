@@ -274,16 +274,28 @@ mixin _TaskEditorSections on _TaskEditorStateBase {
 
 // Vertical wheels for the editor. Dart part files cannot add imports and the
 // parent library file is outside this unit's ownership, so these use only
-// widgets already in scope. The priority palette mirrors priorityFlagStyles in
-// core/design/components/app_wheel.dart; both show a label beside each colour
-// so status never depends on colour alone.
+// widgets already in scope. The priority palette is the single in-file source
+// mirroring priorityFlagStyles in core/design/components/app_wheel.dart; both
+// show a label beside each colour so status never depends on colour alone.
 class _PriorityOption {
-  const _PriorityOption(this.value, this.label, this.color, this.icon);
+  const _PriorityOption(
+    this.value,
+    this.label,
+    this.color,
+    this.icon, {
+    required this.lightForeground,
+    required this.darkForeground,
+  });
 
   final int value;
   final String label;
   final Color color;
   final IconData icon;
+  final Color lightForeground;
+  final Color darkForeground;
+
+  Color foreground(Brightness brightness) =>
+      brightness == Brightness.dark ? darkForeground : lightForeground;
 }
 
 class _DueOption {
@@ -293,31 +305,69 @@ class _DueOption {
   final String label;
 }
 
+List<_PriorityOption> _priorityOptions() => const <_PriorityOption>[
+  _PriorityOption(
+    0,
+    'None',
+    Color(0xFF9E9E9E),
+    Icons.flag_outlined,
+    lightForeground: Color(0xFF616161),
+    darkForeground: Color(0xFFBDBDBD),
+  ),
+  _PriorityOption(
+    1,
+    'P4',
+    Color(0xFF388E3C),
+    Icons.flag,
+    lightForeground: Color(0xFF2E7D32),
+    darkForeground: Color(0xFFA5D6A7),
+  ),
+  _PriorityOption(
+    2,
+    'P3',
+    Color(0xFFFBC02D),
+    Icons.flag,
+    lightForeground: Color(0xFF8A5A00),
+    darkForeground: Color(0xFFFFE082),
+  ),
+  _PriorityOption(
+    3,
+    'P2',
+    Color(0xFFF57C00),
+    Icons.flag,
+    lightForeground: Color(0xFFB45309),
+    darkForeground: Color(0xFFFFCC80),
+  ),
+  _PriorityOption(
+    4,
+    'P1',
+    Color(0xFFD32F2F),
+    Icons.flag,
+    lightForeground: Color(0xFFC62828),
+    darkForeground: Color(0xFFEF9A9A),
+  ),
+];
+
 class _PriorityWheel extends StatelessWidget {
   const _PriorityWheel({required this.value, required this.onChanged});
 
   final int value;
   final ValueChanged<int> onChanged;
 
-  static const List<_PriorityOption> options = <_PriorityOption>[
-    _PriorityOption(0, 'None', Color(0xFF9E9E9E), Icons.flag_outlined),
-    _PriorityOption(1, 'P4', Color(0xFF388E3C), Icons.flag),
-    _PriorityOption(2, 'P3', Color(0xFFFBC02D), Icons.flag),
-    _PriorityOption(3, 'P2', Color(0xFFF57C00), Icons.flag),
-    _PriorityOption(4, 'P1', Color(0xFFD32F2F), Icons.flag),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
+    final options = _priorityOptions();
     return SizedBox(
-      height: 44.0 * options.length,
+      height: 48.0 * options.length,
       child: ListView.builder(
-        itemExtent: 44,
+        itemExtent: 48,
         itemCount: options.length,
         itemBuilder: (context, index) {
           final option = options[index];
           final selected = option.value == value;
+          final fg = option.foreground(brightness);
           return Semantics(
             button: true,
             selected: selected,
@@ -335,7 +385,7 @@ class _PriorityWheel extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(option.icon, size: 18, color: option.color),
+                    Icon(option.icon, size: 18, color: fg),
                     const SizedBox(width: 8),
                     Expanded(child: Text(option.label)),
                     if (selected)
@@ -366,9 +416,9 @@ class _DueWheel extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 44.0 * options.length,
+      height: 48.0 * options.length,
       child: ListView.builder(
-        itemExtent: 44,
+        itemExtent: 48,
         itemCount: options.length,
         itemBuilder: (context, index) {
           final option = options[index];
