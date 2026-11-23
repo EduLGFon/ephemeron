@@ -244,9 +244,7 @@ void main() {
           todayHabitEntriesProvider.overrideWithValue(
             const AsyncValue.loading(),
           ),
-          todayCountdownsProvider.overrideWithValue(
-            const AsyncValue.loading(),
-          ),
+          todayCountdownsProvider.overrideWithValue(const AsyncValue.loading()),
         ],
         child: MaterialApp(
           localizationsDelegates: const [
