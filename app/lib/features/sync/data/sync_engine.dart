@@ -34,6 +34,33 @@ enum SyncStatus { synced, syncing, offline, error }
 /// rate/network/server failures are retried without asking for credentials.
 enum SyncErrorKind { none, auth, rateLimited, network, server, unknown }
 
+const bool _verboseSyncLog = bool.fromEnvironment('EPHEMERON_VERBOSE_SYNC');
+
+String _syncErrorKind(Object error) {
+  if (error is GoogleApiException) {
+    if (error.isAuthFailure) return 'auth';
+    if (error.isRateLimited) return 'rate';
+    if (error.isForbidden) return 'forbidden';
+    if (error.status == 404 || error.isGone) return 'not_found';
+    if (error.isServerError) return 'server';
+    return 'unknown';
+  }
+  final name = error.runtimeType.toString();
+  if (error is TimeoutException ||
+      error is http.ClientException ||
+      name == 'SocketException' ||
+      name == 'HandshakeException' ||
+      name == 'HttpException') {
+    return 'network';
+  }
+  return 'unknown';
+}
+
+String _syncErrorLogSuffix(Object error) {
+  final status = error is GoogleApiException ? ' status=${error.status}' : '';
+  return '$status kind=${_syncErrorKind(error)}';
+}
+
 /// Cooperative cross-isolate single-flight for sync.
 ///
 /// The foreground engine and the periodic WorkManager worker each open their
@@ -245,12 +272,16 @@ class SyncEngine {
         );
       });
       await _runStage('calendar pull', () async {
-        final events = await _pullCalendars(client);
-        debugPrint('[sync] calendar pull done events=$events');
+        final cal = await _pullCalendars(client);
+        debugPrint(
+          '[sync] calendars pulled calendars=${cal.calendars} events=${cal.events} full=${cal.full} incremental=${cal.incremental} skipped=${cal.skipped}',
+        );
       });
       await _runStage('tasks pull', () async {
         final tasks = await _pullTasks(client);
-        debugPrint('[sync] tasks pull done tasks=$tasks');
+        debugPrint(
+          '[sync] tasks pulled lists=${tasks.lists} tasks=${tasks.tasks}',
+        );
       });
       if (_authFailure) {
         // Push or pull hit an auth/permission error (expired token, revoked
@@ -270,12 +301,12 @@ class SyncEngine {
         debugPrint('[sync] syncNow ok');
       }
     } on GoogleApiException catch (e) {
-      debugPrint('[sync] GoogleApiException status=${e.status}');
+      debugPrint('[sync] syncNow failed${_syncErrorLogSuffix(e)}');
       _recordFailure(e);
       _status = SyncStatus.error;
       if (_authFailure) _lastError = 'Google auth';
     } catch (e) {
-      debugPrint('[sync] unexpected error type=${e.runtimeType}');
+      debugPrint('[sync] syncNow failed${_syncErrorLogSuffix(e)}');
       _recordFailure(e);
       _status = SyncStatus.error;
     } finally {
@@ -292,7 +323,7 @@ class SyncEngine {
       // Catch Object, not just Exception: a thrown Error (for example a
       // StateError from a malformed response) must only fail this stage and
       // not abort later stages.
-      debugPrint('[sync] $stage failed type=${e.runtimeType}');
+      debugPrint('[sync] $stage failed${_syncErrorLogSuffix(e)}');
       _recordFailure(e);
     }
   }

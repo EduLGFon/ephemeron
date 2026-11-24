@@ -7,7 +7,9 @@ extension on SyncEngine {
 
   Future<(int, int)> _syncCalendarList(GoogleApiClient client) async {
     final remote = await client.calendarList();
-    debugPrint('[sync] calendarList returned ${remote.length} items');
+    if (_verboseSyncLog) {
+      debugPrint('[sync] calendarList returned ${remote.length} items');
+    }
     _accountCalendarIds = {for (final c in remote) c['id'] as String?}
         .whereType<String>()
         .toSet();
@@ -184,7 +186,7 @@ extension on SyncEngine {
     try {
       remote = await client.taskLists();
     } on GoogleApiException catch (e) {
-      debugPrint('[sync] taskLists discovery failed status=${e.status}');
+      debugPrint('[sync] taskLists discovery failed${_syncErrorLogSuffix(e)}');
       // 404 and forbidden 403 are list-only: the token/account is fine, so do
       // not demand reconnect or mark the whole run as failed. Auth, rate,
       // server and other statuses stay global failures.
@@ -192,12 +194,14 @@ extension on SyncEngine {
       await _setSyncMeta('tasks', error: 'Google ${e.status}');
       return (0, 0);
     } catch (e) {
-      debugPrint('[sync] taskLists discovery failed type=${e.runtimeType}');
+      debugPrint('[sync] taskLists discovery failed${_syncErrorLogSuffix(e)}');
       _recordFailure(e);
       await _setSyncMeta('tasks', error: 'sync failed');
       return (0, 0);
     }
-    debugPrint('[sync] taskLists returned ${remote.length} items');
+    if (_verboseSyncLog) {
+      debugPrint('[sync] taskLists returned ${remote.length} items');
+    }
     _accountListIds = account == null
         ? null
         : {for (final l in remote) l['id'] as String?}

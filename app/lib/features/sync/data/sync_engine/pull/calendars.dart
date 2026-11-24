@@ -1,7 +1,8 @@
 part of '../../sync_engine.dart';
 
 extension on SyncEngine {
-  Future<int> _pullCalendars(GoogleApiClient client) async {
+  Future<({int calendars, int events, int full, int incremental, int skipped})>
+  _pullCalendars(GoogleApiClient client) async {
     await _cleanupLegacyCalendarTokens();
     final calendars =
         await (_db.select(_db.calendars)..where(
@@ -11,26 +12,42 @@ extension on SyncEngine {
                   c.deletedAt.isNull(),
             ))
             .get();
-    debugPrint('[sync] pulling ${calendars.length} google calendars');
-    var total = 0;
+    var events = 0;
+    var full = 0;
+    var incremental = 0;
+    var skipped = 0;
     for (final cal in calendars) {
-      if (!await _pullableCalendar(cal)) continue;
-      debugPrint('[sync] pulling calendar id=${cal.id} enabled=${cal.enabled}');
+      if (!await _pullableCalendar(cal)) {
+        skipped++;
+        continue;
+      }
+      if (_verboseSyncLog) {
+        debugPrint(
+          '[sync] pulling calendar id=${cal.id} enabled=${cal.enabled}',
+        );
+      }
       final token = await _syncValue('cal:v2:${cal.id}:token');
       final remoteId = cal.remoteId;
       if (remoteId == null) {
-        debugPrint('[sync] skip calendar with null remoteId');
+        if (_verboseSyncLog) {
+          debugPrint('[sync] skip calendar with null remoteId');
+        }
+        skipped++;
         continue;
       }
       try {
         if (token == null) {
-          total += await _fullCalendarResync(cal, client, keepDirty: true);
+          events += await _fullCalendarResync(cal, client, keepDirty: true);
+          full++;
         } else {
           final page = await client.eventsList(remoteId, syncToken: token);
-          debugPrint(
-            '[sync] incremental pull got ${page.items.length} items (has remoteId=${cal.remoteId != null})',
-          );
-          total += await _mergeEvents(cal, page.items);
+          if (_verboseSyncLog) {
+            debugPrint(
+              '[sync] incremental pull got ${page.items.length} items (has remoteId=${cal.remoteId != null})',
+            );
+          }
+          events += await _mergeEvents(cal, page.items);
+          incremental++;
           if (page.nextSyncToken != null) {
             await _setSyncValue('cal:v2:${cal.id}:token', page.nextSyncToken!);
             // Best-effort cleanup of legacy token key.
@@ -44,7 +61,7 @@ extension on SyncEngine {
         // non-auth per-calendar failures are recorded in syncState meta and retried
         // next run instead of aborting the whole account.
       } on GoogleApiException catch (e) {
-        debugPrint('[sync] calendar pull failed status=${e.status}');
+        debugPrint('[sync] calendar pull failed${_syncErrorLogSuffix(e)}');
         if (e.isGone) {
           // Drop the stale token before retrying: if the resync itself fails,
           // a surviving token would repeat 410 forever. A successful resync
@@ -55,11 +72,12 @@ extension on SyncEngine {
           // Full resync from inside a catch must not escape this calendar and
           // abort the remaining pull.
           try {
-            total += await _fullCalendarResync(cal, client, keepDirty: true);
+            events += await _fullCalendarResync(cal, client, keepDirty: true);
+            full++;
             await _setSyncMeta('cal:${cal.id}', error: null);
           } on Exception catch (retryError) {
             debugPrint(
-              '[sync] calendar resync failed type=${retryError.runtimeType}',
+              '[sync] calendar resync failed${_syncErrorLogSuffix(retryError)}',
             );
             _recordFailure(retryError);
             await _clearReaderClaim(remoteId);
@@ -88,13 +106,19 @@ extension on SyncEngine {
           await _setSyncMeta('cal:${cal.id}', error: 'Google ${e.status}');
         }
       } on Exception catch (e) {
-        debugPrint('[sync] calendar pull failed type=${e.runtimeType}');
+        debugPrint('[sync] calendar pull failed${_syncErrorLogSuffix(e)}');
         _recordFailure(e);
         await _clearReaderClaim(remoteId);
         await _setSyncMeta('cal:${cal.id}', error: 'sync failed');
       }
     }
-    return total;
+    return (
+      calendars: calendars.length,
+      events: events,
+      full: full,
+      incremental: incremental,
+      skipped: skipped,
+    );
   }
 
   Future<int> _fullCalendarResync(
@@ -103,9 +127,11 @@ extension on SyncEngine {
     required bool keepDirty,
   }) async {
     final page = await client.eventsList(cal.remoteId ?? cal.id);
-    debugPrint(
-      '[sync] full resync got ${page.items.length} items (has remoteId=${cal.remoteId != null})',
-    );
+    if (_verboseSyncLog) {
+      debugPrint(
+        '[sync] full resync got ${page.items.length} items (has remoteId=${cal.remoteId != null})',
+      );
+    }
     return _db.transaction(() async {
       // Drop synced rows in the window; keep dirty local rows.
       final local =
@@ -129,7 +155,9 @@ extension on SyncEngine {
         await (_db.delete(_db.events)..where((x) => x.id.equals(id))).go();
       }
       final n = await _mergeEvents(cal, page.items);
-      debugPrint('[sync] full resync merged $n events');
+      if (_verboseSyncLog) {
+        debugPrint('[sync] full resync merged $n events');
+      }
       if (page.nextSyncToken != null) {
         await _setSyncValue('cal:v2:${cal.id}:token', page.nextSyncToken!);
       }

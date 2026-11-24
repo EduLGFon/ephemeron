@@ -1,14 +1,10 @@
 part of '../../sync_engine.dart';
 
 extension on SyncEngine {
-  Future<int> _pullTasks(GoogleApiClient client) async {
+  Future<({int lists, int tasks})> _pullTasks(GoogleApiClient client) async {
     final lists = await (_db.select(
       _db.taskLists,
     )..where((l) => l.deletedAt.isNull())).get();
-    debugPrint(
-      '[sync] pulling ${lists.length} task lists '
-      '(${lists.where((l) => l.remoteId != null).length} remote)',
-    );
     var total = 0;
     for (final list in lists) {
       // Device-only lists have no remote counterpart; skip them instead
@@ -49,9 +45,11 @@ extension on SyncEngine {
           try {
             page = await client.tasksList(remoteId);
             fullFetch = true;
-            debugPrint(
-              '[sync] tasksList cursor retry got ${page.items.length} items',
-            );
+            if (_verboseSyncLog) {
+              debugPrint(
+                '[sync] tasksList cursor retry got ${page.items.length} items',
+              );
+            }
           } catch (retryError) {
             await _recordTaskPullError(list, retryError);
             continue;
@@ -69,23 +67,27 @@ extension on SyncEngine {
         try {
           page = await client.tasksList(remoteId);
           fullFetch = true;
-          debugPrint(
-            '[sync] tasksList empty-state retry got ${page.items.length} items',
-          );
+          if (_verboseSyncLog) {
+            debugPrint(
+              '[sync] tasksList empty-state retry got ${page.items.length} items',
+            );
+          }
         } catch (retryError) {
           await _recordTaskPullError(list, retryError);
           continue;
         }
       }
 
-      debugPrint('[sync] tasksList got ${page.items.length} items');
+      if (_verboseSyncLog) {
+        debugPrint('[sync] tasksList got ${page.items.length} items');
+      }
       for (final g in page.items) {
         if (await _mergeTask(list, g)) total++;
       }
       await _setTaskCursor(key, cursor, page.nextUpdatedMin);
       await _setSyncMeta('tasks:${list.id}', error: null);
     }
-    return total;
+    return (lists: lists.length, tasks: total);
   }
 
   /// Whether [status] signals an unusable `updatedMin` cursor.
@@ -106,7 +108,9 @@ extension on SyncEngine {
       final prev = DateTime.tryParse(current);
       final next = DateTime.tryParse(candidate);
       if (prev != null && next != null && next.isBefore(prev)) {
-        debugPrint('[sync] tasksList cursor kept (would regress)');
+        if (_verboseSyncLog) {
+          debugPrint('[sync] tasksList cursor kept (would regress)');
+        }
         return;
       }
     }
@@ -117,7 +121,7 @@ extension on SyncEngine {
   /// Failure labels are fixed; no task content or ids are logged.
   Future<void> _recordTaskPullError(TaskList list, Object error) async {
     if (error is GoogleApiException) {
-      debugPrint('[sync] tasks pull failed status=${error.status}');
+      debugPrint('[sync] tasks pull failed${_syncErrorLogSuffix(error)}');
       // Keep rows for every failure. Auth, rate, network and server
       // failures are account-wide; 404/forbidden are list-only and must
       // not demand reconnect.
@@ -138,7 +142,7 @@ extension on SyncEngine {
       }
       await _setSyncMeta('tasks:${list.id}', error: label);
     } else {
-      debugPrint('[sync] tasks pull failed type=${error.runtimeType}');
+      debugPrint('[sync] tasks pull failed${_syncErrorLogSuffix(error)}');
       _recordFailure(error);
       await _setSyncMeta('tasks:${list.id}', error: 'sync failed');
     }
