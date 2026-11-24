@@ -13,12 +13,6 @@ const _testDir = 'test';
 const _shardCount = 4;
 const _legacyRunner = 'test/all_test.dart';
 
-// TODO: Remove when wheel_picker_test.dart is registered as a case under
-// test/cases.
-const _temporarilyAllowedStrayEntrypoints = <String>{
-  'test/wheel_picker_test.dart',
-};
-
 void main() {
   final files =
       Directory(_casesDir)
@@ -144,17 +138,6 @@ void _writeShard({
     ..writeln('      .toSet();')
     ..writeln('}')
     ..writeln()
-    ..writeln(
-      '// TODO: Remove when wheel_picker_test.dart is registered as a case under',
-    )
-    ..writeln('// test/cases.')
-    ..writeln('const _temporarilyAllowedStrayEntrypoints = <String>{');
-  for (final path in _temporarilyAllowedStrayEntrypoints) {
-    out.writeln("  '$path',");
-  }
-  out
-    ..writeln('};')
-    ..writeln()
     ..writeln('void _checkNoStrayEntrypoints() {')
     ..writeln("  final shard = RegExp(r'^test/shard[0-9]+_test\\.dart\$');")
     ..writeln("  final stray = Directory('$_testDir')")
@@ -163,9 +146,6 @@ void _writeShard({
     ..writeln("      .map((f) => f.path.replaceAll(r'\\', '/'))")
     ..writeln("      .where((path) => path.endsWith('_test.dart'))")
     ..writeln('      .where((path) => !shard.hasMatch(path))')
-    ..writeln(
-      '      .where((path) => !_temporarilyAllowedStrayEntrypoints.contains(path))',
-    )
     ..writeln('      .toSet();')
     ..writeln('  expect(stray, isEmpty,')
     ..writeln("      reason: 'Move top-level test files under test/cases/ as '")
