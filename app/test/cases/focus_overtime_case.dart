@@ -4,7 +4,6 @@ import 'package:ephemeron/data/repositories/focus_repository.dart';
 import 'package:ephemeron/features/focus/presentation/focus_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
 void main() {
   test('overtime countdown formats negative remaining', () {
     expect(formatFocusCountdown(-300000), '-05:00');

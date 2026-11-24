@@ -1,7 +1,6 @@
 import 'package:ephemeron/core/time/picker_memory.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
 void main() {
   group('resolvePickerDate', () {
     final fallback = DateTime(2026, 1, 15);

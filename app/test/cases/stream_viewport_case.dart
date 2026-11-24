@@ -1,7 +1,6 @@
 import 'package:ephemeron/features/stream/engine/time_viewport.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
 void main() {
   test('scroll offset moves drawn content', () {
     final vp = TimeViewport(

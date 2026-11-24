@@ -4,7 +4,6 @@ import 'package:ephemeron/features/stream/presentation/peek/peek_data.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_editor.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_panel.dart';
 
-
 Widget _app(Widget home) => MaterialApp(home: Scaffold(body: home));
 
 void main() {

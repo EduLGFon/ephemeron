@@ -8,7 +8,6 @@ import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-
 void main() {
   testWidgets('empty state renders labels and one primary action', (
     tester,

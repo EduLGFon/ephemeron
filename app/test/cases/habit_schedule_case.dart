@@ -1,7 +1,6 @@
 import 'package:ephemeron/domain/habits/streaks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
 void main() {
   test('daily habits are scheduled every day', () {
     final spec = HabitSpec(frequency: 'daily');

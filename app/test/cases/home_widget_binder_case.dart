@@ -6,7 +6,6 @@ import 'package:ephemeron/data/services/home_widget_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
 void main() {
   test('encodeItems produces JSON array', () {
     final out = HomeWidgetService.encodeItems([

@@ -2,7 +2,6 @@
 import 'package:ephemeron/features/auth/domain/account_email.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
 void main() {
   test('normalizes case and surrounding whitespace', () {
     expect(normalizeAccountEmail('  User@Example.com '), 'user@example.com');

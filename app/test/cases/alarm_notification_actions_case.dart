@@ -10,7 +10,6 @@ import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
 String _tomorrowKey() {

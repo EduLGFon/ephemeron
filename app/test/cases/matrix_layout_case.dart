@@ -189,7 +189,8 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     for (final textScale in const [2.5, 3.0]) {
-        final repo = TaskRepository(db);
+      await resetTestDb(db);
+      final repo = TaskRepository(db);
       for (var i = 0; i < 6; i++) {
         await repo.createTask(title: 'Task number $i', priority: i % 4);
       }
@@ -457,7 +458,7 @@ void main() {
       for (final textScale in const [2.5, 3.0]) {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
-    
+
         await tester.pumpWidget(
           ProviderScope(
             overrides: [appDatabaseProvider.overrideWithValue(db)],
