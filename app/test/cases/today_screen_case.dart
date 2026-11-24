@@ -363,9 +363,7 @@ void main() {
     await _unmount(tester, fixture.db);
   });
 
-  testWidgets('chip tap adds a fixed one-step regardless of increment', (
-    tester,
-  ) async {
+  testWidgets('chip tap adds the configured increment per tap', (tester) async {
     _setSize(tester, const Size(400, 800));
     final fixture = await _fixture();
     final habitRepo = HabitRepository(fixture.db);
@@ -383,8 +381,14 @@ void main() {
 
     await tester.tap(find.text('Walk'));
     await _settle(tester);
-    final log = await habitRepo.logFor(habitId, fixture.todayKey);
-    expect(log?.amount, 1.0);
+    var log = await habitRepo.logFor(habitId, fixture.todayKey);
+    expect(log?.amount, 2.0);
+    expect(log?.done, isFalse);
+
+    await tester.tap(find.text('Walk'));
+    await _settle(tester);
+    log = await habitRepo.logFor(habitId, fixture.todayKey);
+    expect(log?.amount, 4.0);
     expect(log?.done, isFalse);
     expect(tester.takeException(), isNull);
 

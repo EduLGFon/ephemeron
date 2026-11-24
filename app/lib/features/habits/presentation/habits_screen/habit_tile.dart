@@ -280,11 +280,13 @@ class _HabitTile extends ConsumerWidget {
     );
   }
 
-  /// Row tap: exactly one step toward the goal, regardless of configured
-  /// increment. Goal-less habits flip done through advanceHabit.
+  /// Row tap: advance by the habit's configured increment (default 1).
+  /// Goal-less habits flip done through advanceHabit.
   Future<void> _advanceStep(WidgetRef ref, String day) async {
     AppFeedback.tap();
-    await ref.read(habitRepositoryProvider).advanceHabit(habit.id, day, 1.0);
+    await ref
+        .read(habitRepositoryProvider)
+        .advanceHabit(habit.id, day, habit.increment ?? 1.0);
     ref.invalidate(habitStreakProvider(habit.id));
   }
 
