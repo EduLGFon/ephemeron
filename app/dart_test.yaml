@@ -1,0 +1,4 @@
+# package:test defaults concurrency to CPUs/2 (2 on a 4-core runner), which
+# leaves two cores idle. Four shard entrypoints need four concurrent suites for
+# plain `flutter test` to finish in about a quarter of the serial time.
+concurrency: 4
