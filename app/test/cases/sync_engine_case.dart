@@ -1,13 +1,16 @@
 // Fake-server suite: 410 resets, etag conflicts, 429 backoff, offline
 // queues, partial failure, idempotent resume.
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/data/remote/google_api_client.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 class FakeGoogle implements GoogleApiClient {
   List<Map<String, dynamic>> events = [];
@@ -178,8 +181,6 @@ class FakeGoogle implements GoogleApiClient {
   }
 }
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
-
 Future<String> _cal(AppDatabase db, {String source = 'google'}) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
   await db
@@ -291,9 +292,11 @@ Map<String, dynamic> _cancelledInstance(
 };
 
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
+
   test('pull saves token, second pull sends it', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final fake = FakeGoogle()
       ..events = [
@@ -317,8 +320,6 @@ void main() {
   });
 
   test('410 clears synced rows but keeps dirty local rows', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -363,8 +364,6 @@ void main() {
   });
 
   test('push insert assigns remote id; patch sends etag', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -406,8 +405,6 @@ void main() {
   });
 
   test('412 conflict refetches and reapplies with new etag', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -455,8 +452,6 @@ void main() {
   });
 
   test('429 sets nextTryAt; retryFailed resets', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -499,8 +494,6 @@ void main() {
   });
 
   test('single occurrence edit patches the Google instance', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _seedToken(db);
     await _seedMaster(db);
@@ -542,8 +535,6 @@ void main() {
   test(
     'exception push creates a local master before instance lookup',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       await _cal(db);
       await _seedToken(db);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -596,8 +587,6 @@ void main() {
   );
 
   test('single occurrence delete removes the Google instance once', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _seedToken(db);
     await _seedMaster(db);
@@ -634,8 +623,6 @@ void main() {
   });
 
   test('pull relinks an echoed cancelled instance after delete', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _seedToken(db);
     await _seedMaster(db);
@@ -669,8 +656,6 @@ void main() {
   });
 
   test('re-editing a deleted occurrence restores the same row', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _seedToken(db);
     await _seedMaster(db);
@@ -733,8 +718,6 @@ void main() {
   });
 
   test('synced exception patches and deletes without lookup', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _seedToken(db);
     await _seedMaster(db);
@@ -780,8 +763,6 @@ void main() {
   });
 
   test('exception patch retries once with a fresh etag after 412', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _seedToken(db);
     await _seedMaster(db);
@@ -814,8 +795,6 @@ void main() {
   });
 
   test('edit all resetExceptions deletes remote exceptions', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _seedToken(db);
     await _seedMaster(db);
@@ -868,8 +847,6 @@ void main() {
   test(
     'resetExceptions drops queued update for local-only exception',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       await _cal(db);
       await _seedToken(db);
       await _seedMaster(db);
@@ -910,8 +887,6 @@ void main() {
   );
 
   test('missing Google instance 404 does not stop other ops', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _seedToken(db);
     await _seedMaster(db);
@@ -968,8 +943,6 @@ void main() {
   });
 
   test('missing instance on edit keeps the outbox op for retry', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _seedToken(db);
     await _seedMaster(db);
@@ -1031,8 +1004,6 @@ void main() {
   test(
     'tasks: first pull with no cursor fetches once and stores a cursor',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final listId = await _seedTaskList(db);
       final fake = _TaskPullFake()..page('cursor-1');
       final engine = SyncEngine(db, clientFactory: () => fake);
@@ -1045,8 +1016,6 @@ void main() {
   );
 
   test('tasks: no-change incremental makes exactly one request', () async {
-    final db = _db();
-    addTearDown(db.close);
     final listId = await _seedTaskList(db);
     await _seedCursor(db, listId, 'cursor-1');
     await _seedTaskRow(db, id: 't0', listId: listId, remoteId: 'g0');
@@ -1063,8 +1032,6 @@ void main() {
     test(
       'tasks: invalid cursor $status triggers exactly one full retry',
       () async {
-        final db = _db();
-        addTearDown(db.close);
         final listId = await _seedTaskList(db);
         await _seedCursor(db, listId, 'cursor-1');
         await _seedTaskRow(db, id: 't0', listId: listId, remoteId: 'g0');
@@ -1098,8 +1065,6 @@ void main() {
   test(
     'tasks: local-empty list with cursor does at most one full fetch',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final listId = await _seedTaskList(db);
       await _seedCursor(db, listId, 'cursor-1');
       // No local task rows: the only recovery allowed is one bounded fetch.
@@ -1118,8 +1083,6 @@ void main() {
   test(
     'tasks: failed full retry keeps cursor and does not duplicate rows',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final listId = await _seedTaskList(db);
       await _seedCursor(db, listId, 'cursor-1');
       await _seedTaskRow(db, id: 't0', listId: listId, remoteId: 'g0');

@@ -1,16 +1,18 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test(
     'range stream returns scheduled entries with done/skipped state',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = HabitRepository(db);
       final id = await repo.createHabit(
         name: 'Read',
@@ -43,8 +45,6 @@ void main() {
   );
 
   test('range stream respects schedule and excludes archived habits', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final weekdays = await repo.createHabit(
       name: 'Gym',
@@ -73,8 +73,6 @@ void main() {
   });
 
   test('range stream includes reminder time and goal metadata', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Water',
@@ -100,8 +98,6 @@ void main() {
   test(
     'addAmount increments, preserves skip, and completes the goal',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = HabitRepository(db);
       final id = await repo.createHabit(
         name: 'Water',
@@ -137,8 +133,6 @@ void main() {
   );
 
   test('subtractAmount ignores zero and negative amounts', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Run',
@@ -161,8 +155,6 @@ void main() {
   });
 
   test('skip and backfill enqueue habit log updates', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Read',
@@ -189,8 +181,6 @@ void main() {
   });
 
   test('toggleHabitDone flips the log state', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Read',
@@ -207,8 +197,6 @@ void main() {
   test(
     'logDone fills a positive goal, preserves overfill and is idempotent',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = HabitRepository(db);
       final id = await repo.createHabit(
         name: 'Run',
@@ -237,8 +225,6 @@ void main() {
   );
 
   test('setDone fills the goal and unmarking resets progress', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Run',
@@ -273,8 +259,6 @@ void main() {
   test(
     'subtractAmount clamps, clears done, preserves skip, no-ops without log',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = HabitRepository(db);
       final id = await repo.createHabit(
         name: 'Run',
@@ -321,8 +305,6 @@ void main() {
   );
 
   test('no-goal habits keep their amount when marked done', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Read',

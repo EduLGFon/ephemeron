@@ -25,6 +25,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/test_fixtures.dart';
+
 const TrayItem _item = TrayItem(
   id: 't1',
   title: 'Unscheduled task',
@@ -166,7 +168,7 @@ void main() {
     await gesture.moveTo(drop);
     await tester.pump();
     await gesture.up();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(gateway.updates, hasLength(1));
     final update = gateway.updates.single;

@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/focus_repository.dart';
@@ -11,6 +10,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 void _mockPlatformChannels() {
   final messenger =
@@ -39,13 +42,15 @@ void _mockPlatformChannels() {
 }
 
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+  tearDownAll(() => db.close());
 
   testWidgets('running session finishes from the screen', (
     WidgetTester tester,
   ) async {
     _mockPlatformChannels();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = FocusRepository(db);
     await repo.startSession(durationMin: 25);
     await tester.pumpWidget(
@@ -68,18 +73,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(await repo.currentSession(), isNull);
-    // Close the db and unmount inside the test body so Drift's
-    // stream-close timer fires before the pending-timer check.
-    await db.close();
+    // Unmount and settle inside the test body so Drift's stream-close
+    // timer fires before the pending-timer check.
     await tester.pumpWidget(Container());
-    await tester.pump();
+    await settle(tester);
   });
 
   testWidgets('running focus shows linked habit live goal progress', (
     WidgetTester tester,
   ) async {
     _mockPlatformChannels();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final habits = HabitRepository(db);
     final habitId = await habits.createHabit(
       name: 'Deep work',
@@ -119,16 +122,14 @@ void main() {
     expect(pct, greaterThanOrEqualTo(49.5));
     expect(pct, lessThan(52.0));
     expect(find.textContaining('/ 10 min'), findsOneWidget);
-    await db.close();
     await tester.pumpWidget(Container());
-    await tester.pump();
+    await settle(tester);
   });
 
   testWidgets('finishing focus credits minute progress and undo restores it', (
     WidgetTester tester,
   ) async {
     _mockPlatformChannels();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final habits = HabitRepository(db);
     final habitId = await habits.createHabit(
       name: 'Run',
@@ -188,14 +189,12 @@ void main() {
     await tester.runAsync(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
-    await db.close();
   });
 
   testWidgets('finishing a break does not credit the linked habit', (
     WidgetTester tester,
   ) async {
     _mockPlatformChannels();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final habits = HabitRepository(db);
     final habitId = await habits.createHabit(
       name: 'Run',
@@ -246,14 +245,12 @@ void main() {
     await tester.runAsync(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
-    await db.close();
   });
 
   testWidgets('pause finishes the segment and resume keeps the remainder', (
     WidgetTester tester,
   ) async {
     _mockPlatformChannels();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = FocusRepository(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -300,9 +297,8 @@ void main() {
     );
 
     await tester.pumpWidget(Container());
-    await tester.pump();
+    await settle(tester);
     await tester.pump(const Duration(milliseconds: 100));
-    await db.close();
     await tester.pump();
   });
 
@@ -310,7 +306,6 @@ void main() {
     WidgetTester tester,
   ) async {
     _mockPlatformChannels();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appDatabaseProvider.overrideWithValue(db)],
@@ -345,14 +340,12 @@ void main() {
       findsOneWidget,
     );
 
-    await db.close();
     await tester.pumpWidget(Container());
-    await tester.pump();
+    await settle(tester);
   });
 
   testWidgets('running break session shows clock', (WidgetTester tester) async {
     _mockPlatformChannels();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.focusSessions)
@@ -383,8 +376,7 @@ void main() {
       findsOneWidget,
     );
 
-    await db.close();
     await tester.pumpWidget(Container());
-    await tester.pump();
+    await settle(tester);
   });
 }

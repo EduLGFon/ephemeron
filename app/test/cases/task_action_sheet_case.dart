@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/calendar/presentation/task_action_sheet.dart';
@@ -7,7 +6,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 Future<void> _seedTask(
   AppDatabase db, {
@@ -84,16 +85,18 @@ Future<void> _pumpSheet(
 Future<void> _tearDown(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(Container());
   await tester.pump();
-  // Flush the 6 s undo snackbar timer before the in-memory database closes.
+  // Flush the 6 s undo snackbar timer before the next test reuses the DB.
   await tester.pump(const Duration(seconds: 7));
-  await db.close();
 }
 
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
+
   testWidgets('mark as concluded completes task and closes sheet', (
     tester,
   ) async {
-    final db = _db();
     try {
       await _seedTask(db, dueDate: '2026-01-01');
       await _pumpSheet(tester, db, 't1', '2026-01-01');
@@ -112,7 +115,6 @@ void main() {
   });
 
   testWidgets("won't do sets wontDo", (tester) async {
-    final db = _db();
     try {
       await _seedTask(db, dueDate: '2026-01-01');
       await _pumpSheet(tester, db, 't1', '2026-01-01');
@@ -129,7 +131,6 @@ void main() {
   });
 
   testWidgets('subtask circle toggles completion', (tester) async {
-    final db = _db();
     try {
       await _seedTask(db, dueDate: '2026-01-01');
       await _seedTask(
@@ -156,7 +157,6 @@ void main() {
   testWidgets(
     'projected recurring occurrence completes per-occurrence without advancing series',
     (tester) async {
-      final db = _db();
       try {
         final now = DateTime.now().toUtc().millisecondsSinceEpoch;
         await db
@@ -199,7 +199,6 @@ void main() {
   testWidgets('uncompleting a suppressed projected occurrence offers undo', (
     tester,
   ) async {
-    final db = _db();
     try {
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await db
@@ -251,7 +250,6 @@ void main() {
   testWidgets("projected recurring occurrence won't do writes local state", (
     tester,
   ) async {
-    final db = _db();
     try {
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await db
@@ -286,7 +284,6 @@ void main() {
   });
 
   testWidgets('planned interval shows start and end time', (tester) async {
-    final db = _db();
     try {
       await _seedTask(
         db,
