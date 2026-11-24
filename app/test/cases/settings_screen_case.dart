@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/design/components/app_chips.dart';
+import 'package:ephemeron/core/design/components/app_fields.dart';
 import 'package:ephemeron/core/design/components/app_headers.dart';
 import 'package:ephemeron/core/design/theme.dart';
 import 'package:ephemeron/core/design/tokens.dart';
@@ -409,6 +410,38 @@ void main() {
     );
   });
 
+  testWidgets('search is a title-row button with no inline screen field', (
+    tester,
+  ) async {
+    _setViewport(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await _pumpSettings(tester);
+
+    expect(
+      find.descendant(
+        of: find.byType(AppPageHeader),
+        matching: find.byKey(const ValueKey('settings-search-toggle')),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(AppSearchField), findsNothing);
+    expect(find.byKey(const ValueKey('settings-search-field')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('settings-search-toggle')));
+    await tester.pumpAndSettle();
+
+    final field = find.descendant(
+      of: find.byKey(const ValueKey('settings-search-field')),
+      matching: find.byType(TextField),
+    );
+    expect(field, findsOneWidget);
+    expect(
+      find.ancestor(of: field, matching: find.byType(AlertDialog)),
+      findsOneWidget,
+    );
+    expect(find.byType(AppSearchField), findsOneWidget);
+  });
+
   testWidgets('search filters sections and reports no matches', (tester) async {
     _setViewport(tester);
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -423,12 +456,25 @@ void main() {
     );
     await tester.enterText(field, 'stream');
     await tester.pumpAndSettle();
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
 
+    expect(find.byType(AppSearchField), findsNothing);
     expect(find.byKey(const ValueKey('settings-stream')), findsOneWidget);
     expect(find.byKey(const ValueKey('settings-brightness')), findsNothing);
 
+    await tester.tap(find.byKey(const ValueKey('settings-search-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('settings-brightness')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('settings-search-toggle')));
+    await tester.pumpAndSettle();
     await tester.enterText(field, 'nothing-matches-this');
     await tester.pumpAndSettle();
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppSearchField), findsNothing);
     expect(find.text('No settings match'), findsOneWidget);
   });
 

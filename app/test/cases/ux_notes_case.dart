@@ -1,5 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+import 'package:ephemeron/core/design/components/app_fields.dart';
+import 'package:ephemeron/core/design/components/app_headers.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/auth/application/auth_providers.dart';
 import 'package:ephemeron/features/auth/data/backend_auth.dart';
@@ -121,6 +123,37 @@ void main() {
     expect(find.byTooltip('List view'), findsOneWidget);
     expect(find.text('All notes'), findsOneWidget);
     expect(find.text('No notes here'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
+  testWidgets('notes search is a title-row button with no inline field', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: NotesScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.byType(AppPageHeader),
+        matching: find.byTooltip('Search'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(AppSearchField), findsNothing);
+    expect(find.byKey(const Key('notes-search-field')), findsNothing);
     expect(tester.takeException(), isNull);
 
     await db.close();
