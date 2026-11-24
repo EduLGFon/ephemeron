@@ -1,5 +1,6 @@
 // Settings hub. Every control maps to a persisted SettingsRepository value;
-// sections are grouped in flat AppSurfaces and can be filtered with search.
+// sections are grouped in flat AppSurfaces; search is reached from the
+// title-row search button and opens the global search screen.
 import 'package:ephemeron/core/design/components/app_buttons.dart';
 import 'package:ephemeron/core/design/components/app_chips.dart';
 import 'package:ephemeron/core/design/components/app_headers.dart';

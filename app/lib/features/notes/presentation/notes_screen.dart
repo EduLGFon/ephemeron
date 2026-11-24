@@ -1,5 +1,5 @@
 // Notes screen: nested folders with breadcrumbs, note list with counts,
-// FTS search with snippets, trash, new note / new folder.
+// trash, new note / new folder. Search opens the global search screen.
 //
 // Split across `notes_screen/` parts; this file stays the stable import
 // path for callers.
