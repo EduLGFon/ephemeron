@@ -839,6 +839,13 @@ void main() {
     // row while None is not.
     expect(_wheelRowSelected(tester, 'quick-create-prio-2'), isTrue);
     expect(_wheelRowSelected(tester, 'quick-create-prio-0'), isFalse);
+    expect(find.byIcon(Icons.flag), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Text && RegExp(r'^P[1-4]$').hasMatch(w.data ?? ''),
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 

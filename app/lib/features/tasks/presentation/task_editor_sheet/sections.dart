@@ -386,8 +386,7 @@ class _PriorityWheel extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(option.icon, size: 18, color: fg),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(option.label)),
+                    const Spacer(),
                     if (selected)
                       Icon(Icons.check, size: 18, color: scheme.primary),
                   ],

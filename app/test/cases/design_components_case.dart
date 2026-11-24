@@ -7,6 +7,7 @@ import 'package:ephemeron/core/design/components/app_page.dart';
 import 'package:ephemeron/core/design/components/app_states.dart';
 import 'package:ephemeron/core/design/components/app_surface.dart';
 import 'package:ephemeron/core/design/components/sync_indicator.dart';
+import 'package:ephemeron/domain/tasks/eisenhower.dart';
 import 'package:ephemeron/core/design/layout.dart';
 import 'package:ephemeron/core/design/platform.dart';
 import 'package:ephemeron/core/design/theme.dart';
@@ -930,5 +931,33 @@ void main() {
     );
     expect(tester.getSize(find.byType(AppPage)).width, 320);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('priority flag renders icon only with no P-label text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: _theme(),
+        home: const Scaffold(
+          body: Column(
+            children: <Widget>[
+              AppPriorityFlag(flag: PriorityFlag.p1),
+              AppPriorityFlag(flag: PriorityFlag.p2),
+              AppPriorityFlag(flag: PriorityFlag.p3),
+              AppPriorityFlag(flag: PriorityFlag.p4),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.flag), findsNWidgets(4));
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Text && RegExp(r'^P[1-4]$').hasMatch(w.data ?? ''),
+      ),
+      findsNothing,
+    );
   });
 }

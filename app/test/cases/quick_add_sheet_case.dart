@@ -64,7 +64,13 @@ void main() {
 
     expect(find.text('Buy milk'), findsOneWidget);
     expect(find.text('#work'), findsOneWidget);
-    expect(find.text('P1'), findsWidgets);
+    expect(find.byIcon(Icons.flag), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Text && RegExp(r'^P[1-4]$').hasMatch(w.data ?? ''),
+      ),
+      findsNothing,
+    );
 
     final addTaskButton = find.widgetWithText(FilledButton, 'Add task');
     await tester.dragUntilVisible(

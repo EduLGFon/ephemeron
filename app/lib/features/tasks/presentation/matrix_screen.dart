@@ -161,6 +161,7 @@ class _ModeSelector extends ConsumerWidget {
             id: matrixPriorityLabel(priority)!.toLowerCase(),
             title: matrixPriorityLabel(priority)!,
             tasks: buckets[priority]!,
+            priority: priority,
           ),
       ],
       unclassified: unclassified,

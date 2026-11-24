@@ -66,6 +66,13 @@ void main() {
     expect(_inField('p2', 'P2 task'), findsOneWidget);
     expect(_inField('p3', 'P3 task'), findsOneWidget);
     expect(_inField('p4', 'P4 task'), findsOneWidget);
+    expect(find.byIcon(Icons.flag), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Text && RegExp(r'^P[1-4]$').hasMatch(w.data ?? ''),
+      ),
+      findsNothing,
+    );
     expect(_inTray('No priority task'), findsOneWidget);
     expect(_count('p1'), '1');
     expect(_count('p2'), '1');

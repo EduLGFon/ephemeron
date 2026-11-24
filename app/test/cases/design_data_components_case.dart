@@ -120,7 +120,13 @@ void main() {
       date.style?.color,
       Theme.of(tester.element(find.byType(AppTaskRow))).colorScheme.error,
     );
-    expect(find.text('P1'), findsOneWidget);
+    expect(find.byIcon(Icons.flag), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Text && RegExp(r'^P[1-4]$').hasMatch(w.data ?? ''),
+      ),
+      findsNothing,
+    );
     expect(title.style?.fontSize, lessThan(16));
 
     await tester.pumpWidget(_wrap(const AppTaskRow(title: 'Quiet')));

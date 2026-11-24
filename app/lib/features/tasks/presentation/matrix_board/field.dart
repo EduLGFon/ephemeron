@@ -50,6 +50,7 @@ class _MatrixFieldState extends State<_MatrixField> {
             title: field.title,
             count: field.tasks.length,
             countKey: ValueKey('matrix-count-${field.id}'),
+            priority: field.priority,
           ),
           Expanded(
             child: field.tasks.isEmpty

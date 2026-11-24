@@ -220,6 +220,7 @@ mixin _QuickAddSections on _QuickAddSheetStateBase {
                         value: 0,
                         label: strings.priorityNone,
                         icon: Icons.flag_outlined,
+                        showLabel: false,
                         key: const ValueKey('quick-add-priority-0'),
                       ),
                       for (var visual = 1; visual <= 4; visual++)
@@ -228,6 +229,7 @@ mixin _QuickAddSections on _QuickAddSheetStateBase {
                           label: strings.priorityLabel(visual),
                           icon: Icons.flag,
                           color: styleForVisualPriority(visual).color,
+                          showLabel: false,
                           key: ValueKey('quick-add-priority-$visual'),
                         ),
                     ],

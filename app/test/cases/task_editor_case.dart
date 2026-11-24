@@ -44,9 +44,20 @@ void main() {
 
     final error = tester.takeException();
     expect(error, isNull);
-    for (final label in const ['None', 'P4', 'P3', 'P2', 'P1']) {
-      expect(find.text(label), findsOneWidget);
+    for (var value = 0; value <= 4; value++) {
+      expect(
+        find.byKey(ValueKey('task-editor-priority-$value')),
+        findsOneWidget,
+      );
     }
+    expect(find.byIcon(Icons.flag), findsWidgets);
+    expect(find.byIcon(Icons.flag_outlined), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Text && RegExp(r'^P[1-4]$').hasMatch(w.data ?? ''),
+      ),
+      findsNothing,
+    );
 
     await tester.pumpWidget(Container());
     await tester.pump();
