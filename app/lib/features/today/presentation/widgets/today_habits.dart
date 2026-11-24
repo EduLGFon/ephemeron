@@ -41,6 +41,7 @@ class TodayHabits extends StatelessWidget {
           color: DsCategoryColors.forIndex(i).fill(theme.brightness),
           onAdvance: () => onAdvance(entries[i]),
           onDone: () => onDone(entries[i]),
+          onLongPressComplete: () => onDone(entries[i]),
         ),
     ];
     return Column(
@@ -79,6 +80,7 @@ class _TodayHabitChip extends StatelessWidget {
     required this.color,
     required this.onAdvance,
     required this.onDone,
+    required this.onLongPressComplete,
   });
 
   final HabitCalendarEntry entry;
@@ -86,6 +88,7 @@ class _TodayHabitChip extends StatelessWidget {
   final Color color;
   final VoidCallback onAdvance;
   final VoidCallback onDone;
+  final VoidCallback onLongPressComplete;
 
   // AppHabitChip pads 8dp and draws a 56dp ring. A 40dp target centred on the
   // ring starts at 8 + (56 - 40) / 2 = 16dp from the chip's top edge, matching
@@ -104,6 +107,7 @@ class _TodayHabitChip extends StatelessWidget {
           done: entry.done,
           color: color,
           onTap: onAdvance,
+          onLongPress: onLongPressComplete,
         ),
         Positioned(
           left: 0,
@@ -120,6 +124,7 @@ class _TodayHabitChip extends StatelessWidget {
                 type: MaterialType.transparency,
                 child: InkWell(
                   onTap: onDone,
+                  onLongPress: onLongPressComplete,
                   child: const SizedBox(
                     width: _doneTargetSize,
                     height: _doneTargetSize,

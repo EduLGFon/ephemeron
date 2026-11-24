@@ -385,15 +385,15 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     }
   }
 
-  /// Chip body tap: one step toward the goal, or a done flip for a goal-less
-  /// habit. The repository also clears skip once a step reaches the goal.
+  /// Chip body tap: exactly one step toward the goal, regardless of configured
+  /// increment. Goal-less habits flip done through advanceHabit.
   Future<void> _advanceHabit(HabitCalendarEntry entry) async {
     final strings = TodayStrings.of(context);
     try {
       AppFeedback.tap();
       await ref
           .read(habitRepositoryProvider)
-          .advanceHabit(entry.habitId, habitTodayKey(), entry.increment ?? 1.0);
+          .advanceHabit(entry.habitId, habitTodayKey(), 1.0);
       ref.invalidate(habitStreakProvider(entry.habitId));
     } catch (_) {
       if (mounted) showErrorSnackBar(context, strings.couldNotUpdateHabit);
