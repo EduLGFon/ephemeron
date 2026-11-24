@@ -106,6 +106,38 @@ void main() {
     expect(changes, isEmpty);
   });
 
+  testWidgets('retargeting an in-flight scroll reports no intermediate value', (
+    tester,
+  ) async {
+    final changes = <String>[];
+    final value = ValueNotifier<String>('A');
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<String>(
+          valueListenable: value,
+          builder: (context, current, _) => WheelPicker<String>(
+            items: _items,
+            value: current,
+            onChanged: changes.add,
+          ),
+        ),
+      ),
+    );
+    expect(_selectedItem(tester), 0);
+
+    // The first animation is interrupted while the second one is still
+    // crossing rows. Only the second completion may release the guard.
+    value.value = 'E';
+    await tester.pump(const Duration(milliseconds: 1));
+    value.value = 'C';
+    for (var i = 0; i < 25; i++) {
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+
+    expect(_selectedItem(tester), 2);
+    expect(changes, isEmpty);
+  });
+
   testWidgets('drag snaps to the next item and reports it', (tester) async {
     final changes = <String>[];
     await tester.pumpWidget(

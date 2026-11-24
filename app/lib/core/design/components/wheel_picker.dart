@@ -57,6 +57,11 @@ class _WheelPickerState<T> extends State<WheelPicker<T>> {
   /// visuals but must not echo [WheelPicker.onChanged] to the parent.
   bool _programmatic = false;
 
+  /// Identifies the current programmatic scroll. An interrupted animation can
+  /// complete after a newer one has started, so only the matching completion
+  /// may release [_programmatic].
+  int _scrollGeneration = 0;
+
   int get _count => widget.items.length;
 
   int _indexOf(T? value) {
@@ -98,18 +103,24 @@ class _WheelPickerState<T> extends State<WheelPicker<T>> {
     if (report && widget.items[index].value != widget.value) {
       widget.onChanged(widget.items[index].value);
     }
-    if (!_controller.hasClients) return;
+    final generation = ++_scrollGeneration;
+    if (!_controller.hasClients) {
+      if (generation == _scrollGeneration) _programmatic = false;
+      return;
+    }
     final duration = _motion;
     _programmatic = true;
     if (duration == Duration.zero) {
       _controller.jumpToItem(index);
-      _programmatic = false;
+      if (generation == _scrollGeneration) _programmatic = false;
       return;
     }
     _controller
         .animateToItem(index, duration: duration, curve: DsMotion.standard)
         .whenComplete(() {
-          if (mounted) _programmatic = false;
+          if (mounted && generation == _scrollGeneration) {
+            _programmatic = false;
+          }
         });
   }
 
