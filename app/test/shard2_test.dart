@@ -105,6 +105,7 @@ const _allCases = <String>{
   'home_widget_callback_case.dart',
   'home_widget_case.dart',
   'l10n_case.dart',
+  'log_hygiene_case.dart',
   'markdown_editing_controller_case.dart',
   'matrix_case.dart',
   'matrix_layout_case.dart',
