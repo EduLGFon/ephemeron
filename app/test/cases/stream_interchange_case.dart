@@ -15,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 const Map<String, Object> _basePrefs = <String, Object>{
   'settings.onboarded': true,
   'stream.school.completed': true,

@@ -4,6 +4,7 @@ import 'package:ephemeron/features/stream/presentation/tray/tray_chip.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+
 void main() {
   testWidgets('strip shows right number of chips', (tester) async {
     final items = List.generate(

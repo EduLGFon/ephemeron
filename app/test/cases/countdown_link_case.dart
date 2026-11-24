@@ -14,6 +14,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/test_fixtures.dart';
+
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
 Future<Countdown> _row(AppDatabase db, String id) {
@@ -400,13 +402,13 @@ void main() {
     expect(find.text('Add countdown'), findsOneWidget);
 
     await tester.tap(find.text('Add countdown'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('New countdown'), findsOneWidget);
     expect(find.text('Launch party'), findsOneWidget);
     expect(find.text('Linked to Event'), findsOneWidget);
 
     Navigator.of(tester.element(find.text('New countdown'))).pop();
-    await tester.pumpAndSettle();
+    await settle(tester);
     // Close the db and unmount inside the test body so Drift's stream-close
     // timer fires before the pending-timer check.
     await db.close();

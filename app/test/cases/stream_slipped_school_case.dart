@@ -19,6 +19,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/test_fixtures.dart';
+
 class _FixedThemeNotifier extends StreamThemeNotifier {
   @override
   StreamThemeMode build() => StreamThemeMode.dark;
@@ -103,7 +105,7 @@ Widget _app({
 
 Future<void> _pump(WidgetTester tester, Widget app) async {
   await tester.pumpWidget(app);
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 void _useSize(WidgetTester tester, Size size) {
@@ -129,7 +131,7 @@ void main() {
     expect(trailRect.left, closeTo(nowRect.left, 0.1));
 
     await tester.tap(find.byType(SlippedTrail));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text(l.streamSlippedTitle), findsOneWidget);
     expect(find.text('First slipped'), findsOneWidget);

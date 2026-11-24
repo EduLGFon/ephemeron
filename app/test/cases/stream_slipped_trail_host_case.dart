@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/test_fixtures.dart';
+
 SlippedItem _item(int i) => SlippedItem(
   id: 's$i',
   title: 'Slipped $i',
@@ -58,14 +60,14 @@ Widget _app({
 void main() {
   testWidgets('empty provider renders nothing', (tester) async {
     await tester.pumpWidget(_app());
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(SlippedTrail), findsNothing);
     expect(find.textContaining('slipped'), findsNothing);
   });
 
   testWidgets('one item shows the singular label', (tester) async {
     await tester.pumpWidget(_app(items: _items(1)));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('1 slipped'), findsOneWidget);
   });
 
@@ -73,7 +75,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(_app(items: _items(5)));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('5 slipped'), findsOneWidget);
     final trail = tester.widget<SlippedTrail>(find.byType(SlippedTrail));
     expect(trail.count, 5);
@@ -82,7 +84,7 @@ void main() {
   testWidgets('tapping the pill opens triage once', (tester) async {
     var taps = 0;
     await tester.pumpWidget(_app(items: _items(3), onOpenTriage: () => taps++));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('3 slipped'));
     await tester.pump();
     expect(taps, 1);
@@ -95,18 +97,18 @@ void main() {
     await tester.pump();
 
     controller.add(_items(2));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('2 slipped'), findsOneWidget);
 
     controller.add(_items(4));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('4 slipped'), findsOneWidget);
     expect(find.text('2 slipped'), findsNothing);
   });
 
   testWidgets('320 dp at 2.0 text scale does not overflow', (tester) async {
     await tester.pumpWidget(_app(items: _items(5), width: 320, textScale: 2.0));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('5 slipped'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

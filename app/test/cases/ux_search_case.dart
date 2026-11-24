@@ -22,6 +22,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/test_fixtures.dart';
+
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
 Widget _app(ProviderContainer container) {
@@ -155,7 +157,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(_app(container));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Type to search.'), findsOneWidget);
     expect(find.widgetWithText(AppChip, 'milk'), findsOneWidget);
@@ -176,14 +178,14 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(_app(container));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.enterText(find.byKey(const Key('search-field')), 'milk');
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byTooltip('Clear search'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byTooltip('Clear search'), findsNothing);
     expect(find.text('Type to search.'), findsOneWidget);
@@ -210,10 +212,10 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(_app(container));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.enterText(find.byKey(const Key('search-field')), 'zzzz');
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byTooltip('Clear search'), findsOneWidget);
     expect(find.text('No results'), findsOneWidget);
@@ -221,7 +223,7 @@ void main() {
     expect(find.text('Clear search'), findsOneWidget);
 
     await tester.tap(find.text('Clear search'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('No results'), findsNothing);
     expect(find.text('Type to search.'), findsOneWidget);
@@ -245,17 +247,17 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(_app(container));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.enterText(find.byKey(const Key('search-field')), 'zzzz');
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Search failed'), findsOneWidget);
     expect(find.text('No results'), findsNothing);
     expect(attempts, 1);
 
     await tester.tap(find.text('Retry'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(attempts, greaterThan(1));
   });
@@ -283,10 +285,10 @@ void main() {
       addTearDown(container.dispose);
 
       await tester.pumpWidget(_app(container));
-      await tester.pumpAndSettle();
+      await settle(tester);
 
       await tester.enterText(find.byKey(const Key('search-field')), 'milk');
-      await tester.pumpAndSettle();
+      await settle(tester);
 
       expect(find.text('Milk run'), findsOneWidget);
       expect(find.text('Events failed to load'), findsOneWidget);
@@ -294,7 +296,7 @@ void main() {
       expect(attempts, 1);
 
       await tester.tap(find.text('Retry'));
-      await tester.pumpAndSettle();
+      await settle(tester);
 
       expect(attempts, greaterThan(1));
     },
@@ -327,7 +329,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(_app(container));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.enterText(find.byKey(const Key('search-field')), 'zzzz');
     await tester.pump();
@@ -340,7 +342,7 @@ void main() {
     habits.complete(<Habit>[]);
     countdowns.complete(<Countdown>[]);
     tags.complete(<Tag>[]);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('No results'), findsOneWidget);
   });
@@ -384,7 +386,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(tester.takeException(), isNull);
     expect(find.text('Search'), findsOneWidget);
@@ -392,7 +394,7 @@ void main() {
     expect(find.text('Type to search.'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('search-field')), 'zzzz');
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('No results'), findsOneWidget);
     expect(tester.takeException(), isNull);

@@ -4,6 +4,7 @@ import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/focus_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+
 AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
 void main() {

@@ -7,6 +7,8 @@ import 'package:ephemeron/core/ui/empty_state.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/test_fixtures.dart';
+
 ThemeData _theme([AppBrightness brightness = AppBrightness.light]) {
   return buildTheme(
     primary: primaryPresets.first,
@@ -41,7 +43,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Nothing here'), findsOneWidget);
     expect(find.text('Create your first item.'), findsOneWidget);
@@ -50,7 +52,7 @@ void main() {
 
     await tester.tap(find.text('Create'));
     await tester.tap(find.text('Learn more'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(primaryTaps, 1);
     expect(secondaryTaps, 1);
@@ -86,7 +88,7 @@ void main() {
     expect(find.text('Undo'), findsOneWidget);
 
     await tester.tap(find.text('Undo'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(undone, isTrue);
   });
