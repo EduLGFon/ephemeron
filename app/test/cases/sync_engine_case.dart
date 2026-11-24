@@ -30,6 +30,8 @@ class FakeGoogle implements GoogleApiClient {
   bool? lastInstanceShowDeleted;
   int singleEventsCalls = 0;
   bool fail410Once = false;
+  int fail410OnIncremental = 0;
+  int fullFetchCount = 0;
   bool fail429Once = false;
   bool fail412Once = false;
   int inserts = 0;
@@ -62,6 +64,12 @@ class FakeGoogle implements GoogleApiClient {
       lastInstanceTimeMax = timeMax;
       lastInstanceShowDeleted = showDeleted;
       return CalendarPage(items: List.of(instances));
+    }
+    if (syncToken == null) {
+      fullFetchCount++;
+    } else if (fail410OnIncremental > 0) {
+      fail410OnIncremental--;
+      throw GoogleApiException(410, 'gone');
     }
     if (fail410Once) {
       fail410Once = false;
@@ -361,6 +369,47 @@ void main() {
     final rows = await db.select(db.events).get();
     expect(rows.map((e) => e.id), contains('dirty'));
     expect(rows.map((e) => e.id), isNot(contains('synced')));
+  });
+
+  test('410 cooldown prevents repeated full resync', () async {
+    await _cal(db);
+    await _seedToken(db);
+    final fake = FakeGoogle()
+      ..fail410OnIncremental = 1
+      ..events = [
+        {
+          'id': 'g1',
+          'etag': 'a',
+          'summary': 'Meet',
+          'status': 'confirmed',
+          'start': {'dateTime': '2026-03-03T09:00:00Z'},
+          'end': {'dateTime': '2026-03-03T10:00:00Z'},
+        },
+      ];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+
+    await engine.syncNow();
+    expect(fake.fullFetchCount, 1);
+    final afterFirst = await db.select(db.events).get();
+    expect(afterFirst.where((e) => e.remoteId == 'g1'), hasLength(1));
+
+    await engine.syncNow();
+    expect(fake.fullFetchCount, 1);
+    final meta = await (db.select(
+      db.syncState,
+    )..where((s) => s.key.equals('cal:c1:meta'))).getSingle();
+    expect(meta.lastError, 'Google 410');
+    final afterSecond = await db.select(db.events).get();
+    expect(afterSecond.where((e) => e.remoteId == 'g1'), hasLength(1));
+
+    await (db.delete(
+      db.syncState,
+    )..where((s) => s.key.equals('cal:v2:c1:goneAt'))).go();
+    fake.fail410OnIncremental = 1;
+    await engine.syncNow();
+    expect(fake.fullFetchCount, 2);
+    final afterThird = await db.select(db.events).get();
+    expect(afterThird.where((e) => e.remoteId == 'g1'), hasLength(1));
   });
 
   test('push insert assigns remote id; patch sends etag', () async {

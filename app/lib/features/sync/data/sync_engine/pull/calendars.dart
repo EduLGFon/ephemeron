@@ -21,6 +21,14 @@ extension on SyncEngine {
         skipped++;
         continue;
       }
+      if (await _isCalendarGoneCooldownActive(cal.id)) {
+        await _setSyncMeta('cal:${cal.id}', error: 'Google 410');
+        debugPrint(
+          '[sync] calendar pull failed status=410 kind=not_found cooldown=true',
+        );
+        skipped++;
+        continue;
+      }
       if (_verboseSyncLog) {
         debugPrint(
           '[sync] pulling calendar id=${cal.id} enabled=${cal.enabled}',
@@ -55,6 +63,7 @@ extension on SyncEngine {
               _db.syncState,
             )..where((s) => s.key.equals('cal:${cal.id}:token'))).go();
           }
+          await _clearCalendarGoneAt(cal.id);
         }
         await _setSyncMeta('cal:${cal.id}', error: null);
         // 404 stays enabled (fail-open) to avoid hiding shared calendars; transient
@@ -63,25 +72,33 @@ extension on SyncEngine {
       } on GoogleApiException catch (e) {
         debugPrint('[sync] calendar pull failed${_syncErrorLogSuffix(e)}');
         if (e.isGone) {
-          // Drop the stale token before retrying: if the resync itself fails,
-          // a surviving token would repeat 410 forever. A successful resync
-          // writes a fresh token.
-          await (_db.delete(
-            _db.syncState,
-          )..where((s) => s.key.equals('cal:v2:${cal.id}:token'))).go();
-          // Full resync from inside a catch must not escape this calendar and
-          // abort the remaining pull.
-          try {
-            events += await _fullCalendarResync(cal, client, keepDirty: true);
-            full++;
-            await _setSyncMeta('cal:${cal.id}', error: null);
-          } on Exception catch (retryError) {
-            debugPrint(
-              '[sync] calendar resync failed${_syncErrorLogSuffix(retryError)}',
-            );
-            _recordFailure(retryError);
+          final inCooldown = await _isCalendarGoneCooldownActive(cal.id);
+          if (!inCooldown) {
+            // Drop the stale token before retrying: if the resync itself fails,
+            // a surviving token would repeat 410 forever. A successful resync
+            // writes a fresh token.
+            await (_db.delete(
+              _db.syncState,
+            )..where((s) => s.key.equals('cal:v2:${cal.id}:token'))).go();
+            await _setSyncValue(_calendarGoneAtKey(cal.id), _now().toString());
+            // Full resync from inside a catch must not escape this calendar and
+            // abort the remaining pull.
+            try {
+              events += await _fullCalendarResync(cal, client, keepDirty: true);
+              full++;
+              await _setSyncMeta('cal:${cal.id}', error: null);
+            } on Exception catch (retryError) {
+              debugPrint(
+                '[sync] calendar resync failed${_syncErrorLogSuffix(retryError)}',
+              );
+              _recordFailure(retryError);
+              await _clearReaderClaim(remoteId);
+              await _clearCalendarGoneAt(cal.id);
+              await _setSyncMeta('cal:${cal.id}', error: 'sync failed');
+            }
+          } else {
             await _clearReaderClaim(remoteId);
-            await _setSyncMeta('cal:${cal.id}', error: 'sync failed');
+            await _setSyncMeta('cal:${cal.id}', error: 'Google 410');
           }
         } else if (e.isAuthFailure) {
           _recordFailure(e);

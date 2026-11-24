@@ -1,5 +1,7 @@
 part of '../../sync_engine.dart';
 
+const _calendarGoneCooldownMs = 60 * 60 * 1000;
+
 extension on SyncEngine {
   Future<String?> _remoteCalendarId(String localId) async {
     final cal = await (_db.select(
@@ -46,5 +48,21 @@ extension on SyncEngine {
             lastError: Value(error),
           ),
         );
+  }
+
+  String _calendarGoneAtKey(String calendarId) => 'cal:v2:$calendarId:goneAt';
+
+  Future<bool> _isCalendarGoneCooldownActive(String calendarId) async {
+    final raw = await _syncValue(_calendarGoneAtKey(calendarId));
+    if (raw == null) return false;
+    final at = int.tryParse(raw);
+    if (at == null) return false;
+    return _now() - at < _calendarGoneCooldownMs;
+  }
+
+  Future<void> _clearCalendarGoneAt(String calendarId) async {
+    await (_db.delete(
+      _db.syncState,
+    )..where((s) => s.key.equals(_calendarGoneAtKey(calendarId)))).go();
   }
 }
