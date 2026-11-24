@@ -25,6 +25,7 @@ import 'cases/stream_tray_strip_case.dart' as stream_tray_strip;
 import 'cases/stream_viewport_case.dart' as stream_viewport;
 import 'cases/stream_week_view_case.dart' as stream_week_view;
 import 'cases/stream_year_view_case.dart' as stream_year_view;
+import 'cases/support_fixtures_case.dart' as support_fixtures;
 import 'cases/sync_all_case.dart' as sync_all;
 import 'cases/sync_attention_case.dart' as sync_attention;
 import 'cases/sync_calendar_integrity_case.dart' as sync_calendar_integrity;
@@ -243,6 +244,7 @@ const _allCases = <String>{
   'stream_viewport_case.dart',
   'stream_week_view_case.dart',
   'stream_year_view_case.dart',
+  'support_fixtures_case.dart',
   'sync_all_case.dart',
   'sync_attention_case.dart',
   'sync_calendar_integrity_case.dart',
@@ -320,6 +322,7 @@ void main() {
   group('stream_viewport', stream_viewport.main);
   group('stream_week_view', stream_week_view.main);
   group('stream_year_view', stream_year_view.main);
+  group('support_fixtures', support_fixtures.main);
   group('sync_all', sync_all.main);
   group('sync_attention', sync_attention.main);
   group('sync_calendar_integrity', sync_calendar_integrity.main);

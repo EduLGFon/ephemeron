@@ -239,6 +239,7 @@ const _allCases = <String>{
   'stream_viewport_case.dart',
   'stream_week_view_case.dart',
   'stream_year_view_case.dart',
+  'support_fixtures_case.dart',
   'sync_all_case.dart',
   'sync_attention_case.dart',
   'sync_calendar_integrity_case.dart',
