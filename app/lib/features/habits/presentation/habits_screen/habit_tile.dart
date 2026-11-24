@@ -2,7 +2,7 @@
 // timer/progress actions, streak, week dots and selection support.
 part of '../habits_screen.dart';
 
-enum _HabitAction { edit, activity, add, subtract, skip }
+enum _HabitAction { edit, activity, add, subtract, skip, select }
 
 class _HabitTile extends ConsumerWidget {
   const _HabitTile({
@@ -133,7 +133,9 @@ class _HabitTile extends ConsumerWidget {
       weekDots: _habitWeekDots(habit, logs, DateTime.now()),
       subtitle: subtitle,
       onTap: selecting ? onToggleSelection : () => _advanceStep(ref, day),
-      onLongPress: onStartSelection,
+      onLongPress: selecting
+          ? onStartSelection
+          : () => _toggleFullyDone(ref, day),
       trailing: selecting
           ? null
           : _trailing(
@@ -179,7 +181,9 @@ class _HabitTile extends ConsumerWidget {
                 type: MaterialType.transparency,
                 child: InkWell(
                   onTap: () => _toggleFullyDone(ref, day),
-                  onLongPress: onStartSelection,
+                  onLongPress: selecting
+                      ? onStartSelection
+                      : () => _toggleFullyDone(ref, day),
                   child: const SizedBox(
                     width: _doneTargetSize,
                     height: _doneTargetSize,
@@ -253,6 +257,10 @@ class _HabitTile extends ConsumerWidget {
               child: Text(strings.viewActivity),
             ),
             PopupMenuItem(
+              value: _HabitAction.select,
+              child: const Text('Select'),
+            ),
+            PopupMenuItem(
               value: _HabitAction.skip,
               child: Text(skipped ? strings.unskipDay : strings.skipDay),
             ),
@@ -272,12 +280,11 @@ class _HabitTile extends ConsumerWidget {
     );
   }
 
-  /// Row tap: one step toward the goal, or a done flip for goal-less habits.
+  /// Row tap: exactly one step toward the goal, regardless of configured
+  /// increment. Goal-less habits flip done through advanceHabit.
   Future<void> _advanceStep(WidgetRef ref, String day) async {
     AppFeedback.tap();
-    await ref
-        .read(habitRepositoryProvider)
-        .advanceHabit(habit.id, day, habit.increment ?? 1.0);
+    await ref.read(habitRepositoryProvider).advanceHabit(habit.id, day, 1.0);
     ref.invalidate(habitStreakProvider(habit.id));
   }
 
@@ -303,6 +310,8 @@ class _HabitTile extends ConsumerWidget {
     switch (action) {
       case _HabitAction.edit:
         await showHabitEditor(context, habit: habit);
+      case _HabitAction.select:
+        onStartSelection();
       case _HabitAction.skip:
         final current =
             _logFor(

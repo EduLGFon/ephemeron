@@ -363,7 +363,7 @@ void main() {
     await _unmount(tester, fixture.db);
   });
 
-  testWidgets('chip tap uses the habit increment, not a hardcoded step', (
+  testWidgets('chip tap adds a fixed one-step regardless of increment', (
     tester,
   ) async {
     _setSize(tester, const Size(400, 800));
@@ -384,8 +384,37 @@ void main() {
     await tester.tap(find.text('Walk'));
     await _settle(tester);
     final log = await habitRepo.logFor(habitId, fixture.todayKey);
-    expect(log?.amount, 2.0);
+    expect(log?.amount, 1.0);
     expect(log?.done, isFalse);
+    expect(tester.takeException(), isNull);
+
+    await _unmount(tester, fixture.db);
+  });
+
+  testWidgets('long-press on habit chip marks complete without adding a step', (
+    tester,
+  ) async {
+    _setSize(tester, const Size(400, 800));
+    final fixture = await _fixture();
+    final habitRepo = HabitRepository(fixture.db);
+    final habitId = await habitRepo.createHabit(
+      name: 'Meditate',
+      startDate: fixture.todayKey,
+      goalAmount: 5,
+      increment: 1,
+    );
+
+    await tester.pumpWidget(
+      _app(fixture: fixture, occurrences: const <OccurrenceCacheData>[]),
+    );
+    await _settle(tester);
+
+    await tester.longPress(find.text('Meditate'));
+    await _settle(tester);
+
+    final log = await habitRepo.logFor(habitId, fixture.todayKey);
+    expect(log?.done, isTrue);
+    expect(log?.amount, 5.0);
     expect(tester.takeException(), isNull);
 
     await _unmount(tester, fixture.db);

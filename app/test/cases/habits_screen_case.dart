@@ -224,7 +224,42 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('row taps respect the configured increment', (
+  testWidgets('long-press on row marks habit complete without adding a step', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final repo = HabitRepository(db);
+    final id = await repo.createHabit(
+      name: 'Meditate',
+      startDate: '2026-01-01',
+      goalAmount: 5,
+      increment: 1,
+    );
+    final today = habitDateKey(DateTime.now());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: const MaterialApp(home: HabitsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.longPress(find.text('Meditate'));
+    await tester.pump();
+    await tester.pump();
+
+    final log = await repo.logFor(id, today);
+    expect(log?.done, isTrue);
+    expect(log?.amount, 5);
+    expect(_habitRowDone(tester, 'Meditate'), isTrue);
+
+    await db.close();
+    await tester.pumpWidget(Container());
+    await tester.pump();
+  });
+
+  testWidgets('row taps add a fixed one-step regardless of increment', (
     WidgetTester tester,
   ) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -249,8 +284,8 @@ void main() {
     await tester.tap(find.text('Run'));
     await tester.pump();
     await tester.pump();
-    expect((await repo.logFor(id, today))?.amount, 2);
-    expect(find.textContaining('2/10 min'), findsOneWidget);
+    expect((await repo.logFor(id, today))?.amount, 1);
+    expect(find.textContaining('1/10 min'), findsOneWidget);
 
     await db.close();
     await tester.pumpWidget(Container());
@@ -409,40 +444,43 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('long-press selects and archive schedules a pending op', (
-    WidgetTester tester,
-  ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    final repo = HabitRepository(db);
-    final pendingOps = _RecordingPendingOperations(db);
-    final id = await repo.createHabit(name: 'Read', startDate: '2026-01-01');
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          pendingOperationsProvider.overrideWithValue(pendingOps),
-        ],
-        child: const MaterialApp(home: HabitsScreen()),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.longPress(find.text('Read'));
-    await tester.pump();
-    expect(find.text('1 selected'), findsOneWidget);
-    expect(find.byTooltip('Archive'), findsOneWidget);
-    expect(find.byTooltip('Delete'), findsOneWidget);
-    await tester.tap(find.byTooltip('Archive'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(pendingOps.archiveCalls, {id: true});
-    expect(find.text('1 selected'), findsNothing);
-    // Close the db and unmount inside the test body so Drift's
-    // stream-close timer fires before the pending-timer check.
-    await db.close();
-    await tester.pumpWidget(Container());
-    await tester.pump();
-  });
+  testWidgets(
+    'menu select enters selection and archive schedules a pending op',
+    (WidgetTester tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      final repo = HabitRepository(db);
+      final pendingOps = _RecordingPendingOperations(db);
+      final id = await repo.createHabit(name: 'Read', startDate: '2026-01-01');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appDatabaseProvider.overrideWithValue(db),
+            pendingOperationsProvider.overrideWithValue(pendingOps),
+          ],
+          child: const MaterialApp(home: HabitsScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Select').last);
+      await tester.pump();
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(find.byTooltip('Archive'), findsOneWidget);
+      expect(find.byTooltip('Delete'), findsOneWidget);
+      await tester.tap(find.byTooltip('Archive'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(pendingOps.archiveCalls, {id: true});
+      expect(find.text('1 selected'), findsNothing);
+      // Close the db and unmount inside the test body so Drift's
+      // stream-close timer fires before the pending-timer check.
+      await db.close();
+      await tester.pumpWidget(Container());
+      await tester.pump();
+    },
+  );
 
   testWidgets('selection prunes rows that leave the active list', (
     WidgetTester tester,
@@ -462,7 +500,9 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.longPress(find.text('Read'));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select').last);
     await tester.pump();
     expect(find.text('1 selected'), findsOneWidget);
 
@@ -505,7 +545,9 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.longPress(find.text('Read'));
+    await tester.tap(find.byTooltip('More options').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select').last);
     await tester.pump();
     await tester.tap(find.text('Run'));
     await tester.pump();
@@ -550,7 +592,9 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.longPress(find.text('Read'));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select').last);
     await tester.pump();
     await tester.tap(find.byTooltip('Delete'));
     await tester.pump();
