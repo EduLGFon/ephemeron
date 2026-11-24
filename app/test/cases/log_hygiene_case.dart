@@ -27,13 +27,18 @@ class _LogCapture {
 }
 
 class _FakeGoogle implements GoogleApiClient {
-  _FakeGoogle({this.taskListsError, this.eventsListError});
+  _FakeGoogle({
+    this.taskListsError,
+    this.eventsListError,
+    this.calendarListItems = const [],
+  });
 
   final Object? taskListsError;
   final Object? eventsListError;
+  final List<Map<String, dynamic>> calendarListItems;
 
   @override
-  Future<List<Map<String, dynamic>>> calendarList() async => const [];
+  Future<List<Map<String, dynamic>>> calendarList() async => calendarListItems;
 
   @override
   Future<List<Map<String, dynamic>>> taskLists() async {
@@ -238,6 +243,40 @@ void main() {
       final joined = capture.lines.join('\n');
       expect(joined, contains('status=410'));
       expect(joined, contains('kind=not_found'));
+    });
+
+    test('legacy calendar repair log does not contain local id', () async {
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      await db
+          .into(db.calendars)
+          .insert(
+            CalendarsCompanion.insert(
+              id: 'local-secret-id',
+              name: 'Legacy',
+              source: const Value('google'),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+
+      final capture = _LogCapture()..start();
+      addTearDown(capture.stop);
+
+      final engine = SyncEngine(
+        db,
+        clientFactory: () => _FakeGoogle(
+          calendarListItems: const [
+            {'id': 'remote-1', 'summary': 'Legacy'},
+          ],
+        ),
+      );
+      await engine.syncNow();
+
+      final row = await (db.select(
+        db.calendars,
+      )..where((t) => t.id.equals('local-secret-id'))).getSingle();
+      expect(row.remoteId, 'remote-1');
+      expect(capture.lines.join('\n'), isNot(contains('local-secret-id')));
     });
   });
 }

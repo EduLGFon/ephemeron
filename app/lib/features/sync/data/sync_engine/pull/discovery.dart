@@ -51,9 +51,7 @@ extension on SyncEngine {
               googleAccount: Value(account),
             ),
           );
-          debugPrint(
-            '[sync] repaired legacy calendar remoteId id=${existing.id}',
-          );
+          debugPrint('[sync] repaired legacy calendar remoteId');
         }
       }
       if (existing == null) {
