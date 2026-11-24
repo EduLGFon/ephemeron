@@ -1,16 +1,17 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test(
     'deleteHabit hides habit from watchHabits and enqueues outbox op',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = HabitRepository(db);
       final id = await repo.createHabit(
         name: 'Read',
@@ -36,8 +37,6 @@ void main() {
   );
 
   test('restoreHabit clears deletedAt and reappears in watchHabits', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Read',
@@ -64,8 +63,6 @@ void main() {
   });
 
   test('calendar entries exclude deleted habits', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Read',
@@ -82,8 +79,6 @@ void main() {
   test(
     'calendar entries exclude habits with pending delete outbox row',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = HabitRepository(db);
       final id = await repo.createHabit(
         name: 'Read',
@@ -111,8 +106,6 @@ void main() {
   test(
     'calendar entries exclude habits with pending archive outbox row',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = HabitRepository(db);
       final id = await repo.createHabit(
         name: 'Read',

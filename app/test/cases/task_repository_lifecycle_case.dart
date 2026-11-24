@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/native.dart';
+
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/countdown_repository.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
@@ -14,12 +14,14 @@ import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/features/sync/application/pending_operations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('skip occurrence advances due without completing', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final id = await repo.createTask(
       title: 'Gym',
@@ -33,8 +35,6 @@ void main() {
   });
 
   test('trash, restore and purge', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final id = await repo.createTask(title: 'Temp');
     await repo.softDeleteTasks([id]);
@@ -48,8 +48,6 @@ void main() {
   });
 
   test('pending delete and purge hide optimistically', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final pending = PendingOperationsRepository(db);
     final id = await repo.createTask(title: 'Temp');
@@ -82,8 +80,6 @@ void main() {
   });
 
   test('tags and smart list filter', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final a = await repo.createTask(title: 'A', priority: 4, tags: ['work']);
     await repo.createTask(title: 'B', priority: 1, tags: ['home']);
@@ -101,8 +97,6 @@ void main() {
   });
 
   test('subtasks progress and move with undo mapping', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final l1 = await repo.createList('L1');
     final l2 = await repo.createList('L2');
@@ -118,8 +112,6 @@ void main() {
   test(
     'moving a parent moves live children and preserves their fields',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = TaskRepository(db);
       final l1 = await repo.createList('L1');
       final l2 = await repo.createList('L2');
@@ -171,8 +163,6 @@ void main() {
   );
 
   test('moving a parent handles nested subtasks', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final l1 = await repo.createList('L1');
     final l2 = await repo.createList('L2');
@@ -196,8 +186,6 @@ void main() {
   });
 
   test('move undo restores previous list', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final l1 = await repo.createList('A');
     final l2 = await repo.createList('B');
@@ -214,8 +202,6 @@ void main() {
   });
 
   test('disposed pending operations ignore an in-flight schedule', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final first = await repo.createTask(title: 'First');
     final second = await repo.createTask(title: 'Second');
@@ -247,8 +233,6 @@ void main() {
   });
 
   test('task reminders and alarm preset persist', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final id = await repo.createTask(
       title: 'Report',
@@ -270,8 +254,6 @@ void main() {
   });
 
   test('pending deletes on a read-only event are discarded', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.calendars)

@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/layout.dart';
 import 'package:ephemeron/core/time/time.dart';
@@ -15,6 +14,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/test_fixtures.dart';
+
 class _Fixture {
   _Fixture(this.db, this.now, this.todayKey);
 
@@ -23,8 +24,7 @@ class _Fixture {
   final String todayKey;
 }
 
-Future<_Fixture> _fixture() async {
-  final db = AppDatabase.forTesting(NativeDatabase.memory());
+_Fixture _fixture(AppDatabase db) {
   final base = DateTime.now();
   final now = DateTime(base.year, base.month, base.day, 9, 30);
   return _Fixture(db, now, dateKey(now));
@@ -93,20 +93,23 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 300));
 }
 
-Future<void> _unmount(WidgetTester tester, AppDatabase db) async {
+Future<void> _unmount(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
   await tester.pump();
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   testWidgets('renders hero, agenda, habit and countdown without a spinner', (
     tester,
   ) async {
     _setSize(tester, const Size(400, 800));
-    final fixture = await _fixture();
+    final fixture = _fixture(db);
     final taskRepo = TaskRepository(fixture.db);
     final habitRepo = HabitRepository(fixture.db);
     final countdownRepo = CountdownRepository(fixture.db);
@@ -147,14 +150,14 @@ void main() {
     expect(log?.done, isTrue);
     expect(tester.takeException(), isNull);
 
-    await _unmount(tester, fixture.db);
+    await _unmount(tester);
   });
 
   testWidgets('shows the calm empty state when the day is clear', (
     tester,
   ) async {
     _setSize(tester, const Size(400, 800));
-    final fixture = await _fixture();
+    final fixture = _fixture(db);
 
     await tester.pumpWidget(
       _app(fixture: fixture, occurrences: const <OccurrenceCacheData>[]),
@@ -165,12 +168,12 @@ void main() {
     expect(find.text('Add something'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
-    await _unmount(tester, fixture.db);
+    await _unmount(tester);
   });
 
   testWidgets('expanded layout uses the two-column body', (tester) async {
     _setSize(tester, const Size(1000, 900));
-    final fixture = await _fixture();
+    final fixture = _fixture(db);
     await TaskRepository(fixture.db)
         .createTask(title: 'Pay rent', dueDate: fixture.todayKey);
 
@@ -192,14 +195,14 @@ void main() {
       findsNothing,
     );
 
-    await _unmount(tester, fixture.db);
+    await _unmount(tester);
   });
 
   testWidgets('renders at 320dp and 200% text without overflow', (
     tester,
   ) async {
     _setSize(tester, const Size(320, 640));
-    final fixture = await _fixture();
+    final fixture = _fixture(db);
     await TaskRepository(fixture.db)
         .createTask(title: 'Pay rent', dueDate: fixture.todayKey, dueTime: 600);
     await HabitRepository(fixture.db)
@@ -224,12 +227,12 @@ void main() {
       findsOneWidget,
     );
 
-    await _unmount(tester, fixture.db);
+    await _unmount(tester);
   });
 
   testWidgets('first frame is stable while data loads', (tester) async {
     _setSize(tester, const Size(400, 800));
-    final fixture = await _fixture();
+    final fixture = _fixture(db);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -274,14 +277,14 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
 
-    await _unmount(tester, fixture.db);
+    await _unmount(tester);
   });
 
   testWidgets('chip tap advances one step and clears skip at goal', (
     tester,
   ) async {
     _setSize(tester, const Size(400, 800));
-    final fixture = await _fixture();
+    final fixture = _fixture(db);
     final habitRepo = HabitRepository(fixture.db);
     final habitId = await habitRepo.createHabit(
       name: 'Read',
@@ -321,14 +324,14 @@ void main() {
     expect(log?.skipped, isFalse);
     expect(tester.takeException(), isNull);
 
-    await _unmount(tester, fixture.db);
+    await _unmount(tester);
   });
 
   testWidgets('leading circle marks fully done without a partial step', (
     tester,
   ) async {
     _setSize(tester, const Size(400, 800));
-    final fixture = await _fixture();
+    final fixture = _fixture(db);
     final habitRepo = HabitRepository(fixture.db);
     final habitId = await habitRepo.createHabit(
       name: 'Meditate',
@@ -360,12 +363,12 @@ void main() {
     expect(log?.amount, 0.0);
     expect(tester.takeException(), isNull);
 
-    await _unmount(tester, fixture.db);
+    await _unmount(tester);
   });
 
   testWidgets('chip tap adds the configured increment per tap', (tester) async {
     _setSize(tester, const Size(400, 800));
-    final fixture = await _fixture();
+    final fixture = _fixture(db);
     final habitRepo = HabitRepository(fixture.db);
     final habitId = await habitRepo.createHabit(
       name: 'Walk',
@@ -392,14 +395,14 @@ void main() {
     expect(log?.done, isFalse);
     expect(tester.takeException(), isNull);
 
-    await _unmount(tester, fixture.db);
+    await _unmount(tester);
   });
 
   testWidgets('long-press on habit chip marks complete without adding a step', (
     tester,
   ) async {
     _setSize(tester, const Size(400, 800));
-    final fixture = await _fixture();
+    final fixture = _fixture(db);
     final habitRepo = HabitRepository(fixture.db);
     final habitId = await habitRepo.createHabit(
       name: 'Meditate',
@@ -421,6 +424,6 @@ void main() {
     expect(log?.amount, 5.0);
     expect(tester.takeException(), isNull);
 
-    await _unmount(tester, fixture.db);
+    await _unmount(tester);
   });
 }

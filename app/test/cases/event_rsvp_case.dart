@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart' hide isNull;
-import 'package:drift/native.dart';
+
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/countdown_repository.dart';
@@ -21,7 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<String> _eventWithAttendees(
   AppDatabase db, {
@@ -110,7 +110,7 @@ Future<void> _openEventSheet(
     ),
   );
   await tester.tap(find.text('Open event'));
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 void _collectSpans(InlineSpan span, List<TextSpan> out) {
@@ -182,9 +182,11 @@ class _RecordingPendingOperations extends PendingOperations {
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('flagged isSelf row wins over email match', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final id = await _eventWithAttendees(
       db,
@@ -198,8 +200,6 @@ void main() {
   });
 
   test('email match resolves self when flag missing', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final id = await _eventWithAttendees(
       db,
@@ -214,8 +214,6 @@ void main() {
   });
 
   test('known accounts without match resolve to null', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final id = await _eventWithAttendees(
       db,
@@ -227,8 +225,6 @@ void main() {
   });
 
   test('no attendees resolve to null', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final id = await _eventWithAttendees(db, rows: []);
     expect(await repo.selfAttendeeOf(id, ['me@x.com']), isNull);
@@ -236,8 +232,6 @@ void main() {
   });
 
   test('signed out falls back to first guest', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final id = await _eventWithAttendees(
       db,
@@ -251,8 +245,6 @@ void main() {
   });
 
   test('setRsvp heals missing isSelf flag', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final id = await _eventWithAttendees(
       db,
@@ -268,8 +260,6 @@ void main() {
   testWidgets('RSVP chip updates immediately after selection', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final id = await _eventWithAttendees(
       db,
       rows: [(email: 'me@x.com', rsvp: null, self: true, org: false)],
@@ -281,7 +271,7 @@ void main() {
 
     await tester.ensureVisible(yes);
     await tester.tap(yes);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     // The same sheet (no reopen) reflects the new response.
     expect(
@@ -296,7 +286,7 @@ void main() {
     ).attendeesOf(id)).single;
     expect(row.rsvp, 'accepted');
     await tester.pumpWidget(Container());
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 
   testWidgets('event notes render markdown with tappable links', (
@@ -304,8 +294,6 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final id = await _eventWithAttendees(
       db,
       rows: [(email: 'me@x.com', rsvp: 'accepted', self: true, org: false)],
@@ -342,7 +330,7 @@ void main() {
     );
 
     await tester.pumpWidget(Container());
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 
   Future<String> seedSeries(AppDatabase db, String calendarId) async {
@@ -374,8 +362,6 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     stubSystemChannel();
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final cal = await repo.createCalendar('Series calendar');
     final master = await seedSeries(db, cal);
@@ -391,7 +377,7 @@ void main() {
     final edit = find.text('Edit');
     await tester.ensureVisible(edit);
     await tester.tap(edit);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final save = find.widgetWithText(FilledButton, 'Save');
     await tester.ensureVisible(save);
@@ -402,18 +388,18 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
     expect(find.text('Which events?'), findsOneWidget);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.ensureVisible(find.text('This event'));
     await tester.pump();
     await tester.tap(find.text('This event'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final rows = await db.select(db.events).get();
     final ex = rows.firstWhere((e) => e.recurringMasterId == master);
     expect(ex.originalStart, later.millisecondsSinceEpoch);
     expect(ex.startUtc, later.millisecondsSinceEpoch);
     await tester.pumpWidget(Container());
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 
   testWidgets('details delete single on a later occurrence uses that start', (
@@ -421,8 +407,6 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final cal = await repo.createCalendar('Series calendar');
     final master = await seedSeries(db, cal);
@@ -440,19 +424,19 @@ void main() {
     final delete = find.text('Delete');
     await tester.ensureVisible(delete);
     await tester.tap(delete);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Which events?'), findsOneWidget);
     await tester.ensureVisible(find.text('This event'));
     await tester.pump();
     await tester.tap(find.text('This event'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final op = pending.occurrenceDeletes.single;
     expect(op.eventId, master);
     expect(op.originalStart, later);
     expect(op.scope, EditScope.single);
     await tester.pumpWidget(Container());
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 
   testWidgets('details delete cancels an overridden series occurrence', (
@@ -460,8 +444,6 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final cal = await repo.createCalendar('Series calendar');
     final master = await seedSeries(db, cal);
@@ -488,7 +470,7 @@ void main() {
     final delete = find.text('Delete');
     await tester.ensureVisible(delete);
     await tester.tap(delete);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final op = pending.occurrenceDeletes.single;
     expect(op.eventId, master);
@@ -509,7 +491,7 @@ void main() {
     );
     expect(await occurrences.occurrencesForDay('2026-03-03'), isEmpty);
     await tester.pumpWidget(Container());
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 
   testWidgets('details delete refuses a source that became read-only', (
@@ -517,8 +499,6 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final cal = await repo.createCalendar('Writable');
     final id = await repo.createEvent(
@@ -537,7 +517,7 @@ void main() {
     final delete = find.text('Delete');
     await tester.ensureVisible(delete);
     await tester.tap(delete);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('This calendar is read-only.'), findsOneWidget);
     expect(find.text('Event deleted'), findsNothing);
@@ -545,14 +525,12 @@ void main() {
     expect(pending.eventDeletes, isEmpty);
     expect((await repo.getEvent(id))!.deletedAt, isNull);
     await tester.pumpWidget(Container());
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 
   testWidgets('read-only details hide move, edit and delete', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.calendars)
@@ -588,6 +566,6 @@ void main() {
     expect(find.text('Delete'), findsNothing);
     expect(find.byIcon(Icons.swap_horiz), findsNothing);
     await tester.pumpWidget(Container());
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 }

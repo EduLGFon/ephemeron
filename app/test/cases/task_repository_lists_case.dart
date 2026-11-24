@@ -1,15 +1,16 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('update list queues patch; delete hides and tombstones', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final first = await repo.createList('Home', color: '#111111');
     final second = await repo.createList('Work');
@@ -54,8 +55,6 @@ void main() {
   });
 
   test('delete list moves tasks or sends them to trash', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final source = await repo.createList('Source');
     final target = await repo.createList('Target');
