@@ -2,7 +2,6 @@
 // draining, and the stale-401 silent-refresh path that used to leave queued
 // changes stranded behind backoff after reporting a clean success.
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/remote/google_api_client.dart';
 import 'package:ephemeron/features/auth/data/google_auth.dart';
@@ -13,8 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'sync_engine_case.dart' show FakeGoogle;
-
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<void> _seedQueuedEvent(AppDatabase db) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -109,6 +107,10 @@ class _RecoveringAuth extends GoogleAuth {
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test(
     'syncNow classifies auth, rate-limited and network push failures',
     () async {
@@ -122,8 +124,7 @@ void main() {
         (http.ClientException('offline'), SyncErrorKind.network, false),
       ];
       for (final (error, kind, auth) in cases) {
-        final db = _db();
-        addTearDown(db.close);
+        await resetTestDb(db);
         await _seedQueuedEvent(db);
         final engine = SyncEngine(db, clientFactory: () => _FlakyPush(error));
 
@@ -142,8 +143,6 @@ void main() {
   );
 
   test('outbox drains on a later successful retry', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedQueuedEvent(db);
     final fake = _FlakyPush(http.ClientException('offline'));
     final engine = SyncEngine(db, clientFactory: () => fake);
@@ -166,8 +165,6 @@ void main() {
   });
 
   test('stale 401 silent refresh re-pushes and drains the outbox', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedQueuedEvent(db);
     const account = 'a@example.com';
     final auth = _RecoveringAuth(account, 'stale-a');

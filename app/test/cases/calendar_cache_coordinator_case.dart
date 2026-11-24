@@ -2,7 +2,6 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart' hide isNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
@@ -12,7 +11,7 @@ import 'package:ephemeron/features/calendar/application/calendar_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 CalendarRange _range(int fromDay, int toDay) => CalendarRange(
   fromUtc: DateTime.utc(2026, 3, fromDay),
@@ -57,9 +56,11 @@ class _CountingOccurrenceRepository extends OccurrenceRepository {
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('concurrent ensureRange calls coalesce into one rebuild', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = _CountingOccurrenceRepository(db);
     final coordinator = CalendarCacheCoordinator(repo);
     final gate = Completer<void>();
@@ -81,8 +82,6 @@ void main() {
   });
 
   test('a wider built range covers later narrower requests', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = _CountingOccurrenceRepository(db);
     final coordinator = CalendarCacheCoordinator(repo);
     final wide = _range(1, 20);
@@ -97,8 +96,6 @@ void main() {
   });
 
   test('an overlapping rebuild does not keep stale coverage', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = _CountingOccurrenceRepository(db);
     final coordinator = CalendarCacheCoordinator(repo);
     final first = _range(1, 20);
@@ -118,8 +115,6 @@ void main() {
   });
 
   test('a disjoint range rebuilds', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = _CountingOccurrenceRepository(db);
     final coordinator = CalendarCacheCoordinator(repo);
     final later = _range(10, 15);
@@ -132,8 +127,6 @@ void main() {
   });
 
   test('a failed rebuild does not poison the chain', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = _CountingOccurrenceRepository(db);
     final coordinator = CalendarCacheCoordinator(repo);
     final range = _range(1, 10);
@@ -149,8 +142,6 @@ void main() {
   });
 
   test('occurrences provider rebuilds the range and emits rows', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.calendars)

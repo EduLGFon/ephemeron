@@ -1,7 +1,6 @@
 // Calendar atomic load: a new view range shows either the complete
 // occurrence set or a loading state, never a partial mix of ranges.
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -19,7 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 final _rangeA = CalendarWindow(
   anchor: DateTime(2027, 3, 1),
@@ -152,11 +151,10 @@ Future<void> _revealAgenda(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 500));
 }
 
-Future<void> _tearDown(WidgetTester tester, AppDatabase db) async {
+Future<void> _tearDown(WidgetTester tester) async {
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
 }
 
 Future<void> _pumpTwice(WidgetTester tester) async {
@@ -165,6 +163,10 @@ Future<void> _pumpTwice(WidgetTester tester) async {
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
@@ -186,7 +188,6 @@ void main() {
   });
 
   test('source map is populated only for the built cache range', () async {
-    final db = _db();
     await _seed(db);
     final window = CalendarWindow(
       anchor: _rangeA.anchor,
@@ -198,10 +199,7 @@ void main() {
         calendarStateProvider.overrideWith(() => _FixedWindow(window)),
       ],
     );
-    addTearDown(() async {
-      container.dispose();
-      await db.close();
-    });
+    addTearDown(container.dispose);
 
     final range = container.read(calendarCacheRangeProvider);
     expect(range, window.cacheRange);
@@ -234,7 +232,6 @@ void main() {
   testWidgets('switching ranges shows the complete set or a loading state', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _seed(db);
     final repo = OccurrenceRepository(db);
     await repo.rebuildWindow(
@@ -295,13 +292,12 @@ void main() {
     expect(find.text('Alpha Two'), findsNothing);
     expect(find.byType(LinearProgressIndicator), findsNothing);
 
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('month range switch shows a loading agenda, not an empty one', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _seed(db);
     final repo = OccurrenceRepository(db);
     final windowA = CalendarWindow(
@@ -353,13 +349,12 @@ void main() {
       contains('0 events'),
     );
 
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('month shows an error banner and retry when occurrences fail', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _pumpMonth(
       tester,
       db,
@@ -379,13 +374,12 @@ void main() {
     expect(find.byKey(const Key('month-agenda-empty')), findsNothing);
     expect(find.text('No events'), findsNothing);
 
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets(
     'timeline shows an error banner and retry when occurrences fail',
     (WidgetTester tester) async {
-      final db = _db();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -406,14 +400,13 @@ void main() {
       await _pumpTwice(tester);
       expect(find.text('Could not load calendar.'), findsOneWidget);
 
-      await _tearDown(tester, db);
+      await _tearDown(tester);
     },
   );
 
   testWidgets('year does not show final counts while the range loads', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -445,13 +438,12 @@ void main() {
     expect(find.textContaining(RegExp(r'\n0')), findsNothing);
     expect(find.textContaining('\n...'), findsWidgets);
 
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('year shows an error banner and no final counts when failing', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -479,13 +471,12 @@ void main() {
     expect(find.textContaining(RegExp(r'\n0')), findsNothing);
     expect(find.textContaining('\n...'), findsWidgets);
 
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('agenda shows an error and retry when only habits fail', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _seed(db);
     await OccurrenceRepository(db).rebuildWindow(
       windowStartUtc: _rangeA.fromUtc,
@@ -516,6 +507,6 @@ void main() {
     expect(find.text('Could not load agenda.'), findsOneWidget);
     expect(find.text('Nothing scheduled'), findsNothing);
 
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 }
