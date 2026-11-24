@@ -32,6 +32,18 @@ void main() {
     _writeShard(index: i, shard: shards[i], allCases: files);
   }
 
+  // Generated import lines exceed the formatter's line limit, so format the
+  // entrypoints here: `dart format --set-exit-if-changed` must pass right after
+  // regeneration without requiring a separate manual step.
+  final formatted = Process.runSync(Platform.resolvedExecutable, [
+    'format',
+    for (var i = 0; i < _shardCount; i++) '$_testDir/shard${i}_test.dart',
+  ]);
+  if (formatted.exitCode != 0) {
+    stderr.writeln(formatted.stderr);
+    exit(formatted.exitCode);
+  }
+
   // The old single entrypoint must not survive regeneration: `flutter test`
   // would discover it alongside the shards and run every case twice.
   final legacy = File(_legacyRunner);
