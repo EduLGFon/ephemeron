@@ -1,7 +1,6 @@
 // Calendar screen chrome and adaptive defaults: fresh-install day/week views,
 // persisted view preservation, menu switching, empty/error states, narrow and
 // large text layouts, and coordinator rebuilds after occurrence invalidation.
-import 'package:drift/native.dart';
 import 'package:ephemeron/app/session/session_restore.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/components/app_states.dart';
@@ -20,9 +19,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+late AppDatabase db;
 
 final _anchor = DateTime(2026, 11, 4);
 
@@ -143,10 +145,16 @@ Future<void> _tearDown(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
 }
 
 void main() {
+  setUpAll(() {
+    db = newTestDb();
+  });
+  setUp(() => resetTestDb(db));
+  tearDownAll(() async {
+    await db.close();
+  });
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
@@ -154,7 +162,6 @@ void main() {
   testWidgets('compact fresh install opens Day and persists it', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _pumpCalendar(tester, db);
 
     expect(find.byType(TimelineView), findsOneWidget);
@@ -169,7 +176,6 @@ void main() {
   testWidgets('expanded fresh install opens a full week and persists it', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _pumpCalendar(
       tester,
       db,
@@ -192,7 +198,6 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'calendar.view': 'month',
     });
-    final db = _db();
     await _pumpCalendar(
       tester,
       db,
@@ -216,25 +221,24 @@ void main() {
   testWidgets('view menu switches the visible view and persists it', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _pumpCalendar(tester, db);
     expect(find.byType(TimelineView), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('calendar-view-menu')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(
       find.widgetWithText(CheckedPopupMenuItem<CalendarViewChoice>, 'Agenda'),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await _pumpFrames(tester);
     expect(find.byType(AgendaView), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('calendar-view-menu')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(
       find.widgetWithText(CheckedPopupMenuItem<CalendarViewChoice>, 'Month'),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await _pumpFrames(tester);
     expect(find.byType(MonthView), findsOneWidget);
     final prefs = await SharedPreferences.getInstance();
@@ -246,15 +250,14 @@ void main() {
   testWidgets('agenda shows its empty state when the range is clear', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _pumpCalendar(tester, db);
 
     await tester.tap(find.byKey(const Key('calendar-view-menu')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(
       find.widgetWithText(CheckedPopupMenuItem<CalendarViewChoice>, 'Agenda'),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await _pumpFrames(tester);
 
     expect(find.byType(AgendaView), findsOneWidget);
@@ -267,7 +270,6 @@ void main() {
   testWidgets('a failed range rebuild shows the screen error state', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _pumpCalendar(
       tester,
       db,
@@ -288,7 +290,6 @@ void main() {
   testWidgets('chrome fits 320dp at 200 percent text', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _pumpCalendar(tester, db, size: const Size(320, 640), textScale: 2);
 
     expect(find.text('Calendar'), findsOneWidget);
@@ -301,7 +302,6 @@ void main() {
   testWidgets('dirty occurrences rebuild through a fresh coordinator', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final repository = _RecordingOccurrenceRepository(db);
     final container = await _pumpCalendar(
       tester,
@@ -322,7 +322,6 @@ void main() {
   testWidgets('dirty cold start does not invalidate the cache during build', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final repository = _RecordingOccurrenceRepository(db);
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1;

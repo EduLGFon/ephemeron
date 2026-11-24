@@ -4,6 +4,9 @@ import 'package:ephemeron/core/design/theme.dart';
 import 'package:ephemeron/core/design/tokens.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 Widget _wrap(Widget child, {double textScale = 1, bool reduceMotion = false}) {
@@ -83,7 +86,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Write report'), findsOneWidget);
     expect(find.text('Standup'), findsOneWidget);
@@ -159,12 +162,12 @@ void main() {
     await tester.tapAt(
       tester.getTopLeft(row) + Offset(24, tester.getSize(row).height / 2),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(toggles, 1);
     expect(taps, 0);
 
     await tester.tap(find.text('Check me'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(taps, 1);
     expect(toggles, 1);
   });
@@ -201,7 +204,7 @@ void main() {
       'isFalse',
     );
     await tester.tap(_sem('Mark complete'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       _data(tester, _sem('Mark incomplete')).flagsCollection.isChecked.name,
       'isTrue',
@@ -241,7 +244,7 @@ void main() {
     await tester.pumpWidget(
       _wrap(const AppProgressRing(value: 1.5, semanticsLabel: 'Ring')),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(_data(tester, _sem('Ring')).value, '100%');
     expect(
       find.descendant(
@@ -308,7 +311,7 @@ void main() {
     );
     await tester.pumpWidget(_wrap(const AppCheckmark(checked: true)));
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       _data(tester, find.byType(AppCheckmark)).flagsCollection.isChecked.name,
       'isTrue',
@@ -381,7 +384,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tester.takeException(), isNull);
   });
 
@@ -395,7 +398,7 @@ void main() {
     await tester.pumpWidget(
       _wrap(const AppCheckmark(checked: true), reduceMotion: true),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       _data(tester, find.byType(AppCheckmark)).flagsCollection.isChecked.name,
       'isTrue',
@@ -413,7 +416,7 @@ void main() {
         reduceMotion: true,
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(_data(tester, _sem('Ring')).value, '90%');
     handle.dispose();
   });

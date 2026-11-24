@@ -1,15 +1,21 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 void main() {
+  setUpAll(() {
+    db = newTestDb();
+  });
+  setUp(() => resetTestDb(db));
+  tearDownAll(() async {
+    await db.close();
+  });
   test('smart list create, update, delete and reactive watch', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final id = await repo.createSmartList('Mine', {
       'showCompleted': false,
@@ -42,8 +48,6 @@ void main() {
   test(
     'smart filter matches list, tag, priority, due, query, completed',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = TaskRepository(db);
       final work = await repo.createList('Work');
       final home = await repo.createList('Home');
@@ -110,8 +114,6 @@ void main() {
   );
 
   test('smart filter applies due, priority, created and title sorts', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final ids = <String, String>{};
     for (final (key, title, due, priority, created) in [
@@ -144,8 +146,6 @@ void main() {
   });
 
   test('smart due windows use the saved preset', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final now = DateTime.now();
     String key(int offset) {

@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart' hide Column, isNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
@@ -11,9 +10,12 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+late AppDatabase db;
 
 Future<void> _openEditor(
   WidgetTester tester,
@@ -68,20 +70,20 @@ Future<void> _openEditor(
 Future<void> _selectRepeat(WidgetTester tester, String label) async {
   final dropdown = find.byType(DropdownButtonFormField<String?>).first;
   await tester.ensureVisible(dropdown);
-  await tester.pumpAndSettle();
+  await settle(tester);
   await tester.tap(dropdown);
-  await tester.pumpAndSettle();
+  await settle(tester);
   final item = find.text(label).last;
   await tester.ensureVisible(item);
-  await tester.pumpAndSettle();
+  await settle(tester);
   await tester.tap(item);
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 Future<void> _save(WidgetTester tester, String label) async {
   final button = find.widgetWithText(FilledButton, label);
   await tester.ensureVisible(button);
-  await tester.pumpAndSettle();
+  await settle(tester);
   await tester.tap(button);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 500));
@@ -91,7 +93,6 @@ Future<void> _close(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
   await tester.pump();
 }
 
@@ -100,8 +101,14 @@ final _customRruleField = find.byWidgetPredicate(
 );
 
 void main() {
+  setUpAll(() {
+    db = newTestDb();
+  });
+  setUp(() => resetTestDb(db));
+  tearDownAll(() async {
+    await db.close();
+  });
   testWidgets('repeat preset Daily saves rrule on create', (tester) async {
-    final db = _db();
     await _openEditor(tester, db);
     await tester.enterText(find.widgetWithText(TextField, 'Title'), 'T1');
     await tester.pump();
@@ -115,7 +122,6 @@ void main() {
   });
 
   testWidgets('repeat preset Weekly saves rrule on update', (tester) async {
-    final db = _db();
     final repo = TaskRepository(db);
     final id = await repo.createTask(title: 'T2');
     final task = await (db.select(
@@ -133,7 +139,6 @@ void main() {
   });
 
   testWidgets('custom valid rrule saves', (tester) async {
-    final db = _db();
     await _openEditor(tester, db);
     await tester.enterText(find.widgetWithText(TextField, 'Title'), 'T3');
     await tester.pump();
@@ -151,7 +156,6 @@ void main() {
   testWidgets('invalid custom rrule shows validation and does not save', (
     tester,
   ) async {
-    final db = _db();
     await _openEditor(tester, db);
     await tester.enterText(find.widgetWithText(TextField, 'Title'), 'T4');
     await tester.pump();
@@ -168,7 +172,6 @@ void main() {
   testWidgets(
     'restored draft planned interval saves and replaces planned date',
     (tester) async {
-      final db = _db();
       await _openEditor(
         tester,
         db,
@@ -191,7 +194,6 @@ void main() {
   );
 
   testWidgets('planned end before start is rejected', (tester) async {
-    final db = _db();
     await _openEditor(
       tester,
       db,
@@ -211,7 +213,6 @@ void main() {
   testWidgets('clearing the planned interval clears both values', (
     tester,
   ) async {
-    final db = _db();
     final repo = TaskRepository(db);
     final id = await repo.createTask(
       title: 'Clear me',
@@ -237,7 +238,6 @@ void main() {
   testWidgets('event color wheel shows current color and selects a new one', (
     tester,
   ) async {
-    final db = _db();
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.calendars)
@@ -318,7 +318,7 @@ void main() {
       find.byKey(const ValueKey('event-color-8')),
       const Offset(0, 400),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('event-color-3')));
     await tester.pump();
     final semantics = tester.widget<Semantics>(
@@ -334,7 +334,6 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    await db.close();
     await tester.pump();
   });
 }

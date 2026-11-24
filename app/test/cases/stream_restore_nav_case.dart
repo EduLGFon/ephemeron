@@ -1,7 +1,6 @@
 // Cold-start restore and navigation for the Today-first shell with the opt-in
 // Stream. Mounts the real router and AppShell; never mocks the behavior under
 // test.
-import 'package:drift/native.dart';
 import 'package:ephemeron/app/router/app_router.dart';
 import 'package:ephemeron/app/shell/app_shell.dart';
 import 'package:ephemeron/app/shell/destinations.dart';
@@ -16,9 +15,14 @@ import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+late AppDatabase db;
 
 class _Harness {
   _Harness(this.router, this.db);
@@ -67,7 +71,6 @@ Future<_Harness> _pumpApp(
 ) async {
   _mockPlatformChannels();
   SharedPreferences.setMockInitialValues(prefs);
-  final db = AppDatabase.forTesting(NativeDatabase.memory());
   GoRouter? router;
   await tester.pumpWidget(
     ProviderScope(
@@ -105,7 +108,6 @@ Future<void> _unmount(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
   await tester.pump();
 }
 
@@ -115,6 +117,13 @@ String _location(GoRouter router) =>
 String _streamLocation() => AppDestination.streamLocation();
 
 void main() {
+  setUpAll(() {
+    db = newTestDb();
+  });
+  setUp(() => resetTestDb(db));
+  tearDownAll(() async {
+    await db.close();
+  });
   testWidgets('fresh install lands on Today', (tester) async {
     _setPhoneView(tester);
     final app = await _pumpApp(tester, _prefs());

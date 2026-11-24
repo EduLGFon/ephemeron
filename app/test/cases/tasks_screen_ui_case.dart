@@ -1,7 +1,6 @@
 // Tasks screen design coverage: list and smart-list chips, quick filters,
 // completion undo, swipe actions, pending delete undo, empty state, custom
 // drag mode and narrow-screen large-text layout.
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/components/app_chips.dart';
 import 'package:ephemeron/core/design/components/visuals.dart';
@@ -13,11 +12,14 @@ import 'package:ephemeron/features/tasks/presentation/task_lists_screen.dart';
 import 'package:ephemeron/features/tasks/presentation/tasks_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+late AppDatabase db;
 
 GoRouter _router({String initialLocation = '/tasks'}) {
   return GoRouter(
@@ -84,17 +86,23 @@ Future<void> _dispose(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
 }
 
 Future<void> _swipe(WidgetTester tester, String taskId, double dx) async {
   final row = find.byKey(ValueKey<String>('task-dismiss-$taskId'));
   expect(row, findsOneWidget);
   await tester.drag(row, Offset(dx, 0));
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 void main() {
+  setUpAll(() {
+    db = newTestDb();
+  });
+  setUp(() => resetTestDb(db));
+  tearDownAll(() async {
+    await db.close();
+  });
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'tasks.sort': 'due',
@@ -105,7 +113,6 @@ void main() {
   testWidgets('list and smart-list chips filter rows and show counts', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final work = await repo.createList('Work');
@@ -164,7 +171,6 @@ void main() {
   testWidgets('All, Today, Upcoming and Completed filters slice the list', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       await repo.createTask(
@@ -212,7 +218,6 @@ void main() {
   testWidgets(
     'today shows time only and overdue shows a red date without a tag',
     (WidgetTester tester) async {
-      final db = _db();
       try {
         final repo = TaskRepository(db);
         final todayId = await repo.createTask(
@@ -254,7 +259,6 @@ void main() {
   testWidgets('checkbox completes a task and undo reopens it', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final id = await repo.createTask(title: 'Undoable');
@@ -281,7 +285,6 @@ void main() {
   });
 
   testWidgets('swiping right completes a task', (WidgetTester tester) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final id = await repo.createTask(title: 'Swipe done');
@@ -300,7 +303,6 @@ void main() {
   testWidgets('swiping left reschedules with a 6 second undo', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final today = dateKey(DateTime.now());
@@ -331,7 +333,6 @@ void main() {
   testWidgets('swiping left deletes through the pending buffer and undo', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final id = await repo.createTask(title: 'Temp');
@@ -339,7 +340,7 @@ void main() {
 
       await _swipe(tester, id, -400);
       await tester.tap(find.text('Delete task'));
-      await tester.pumpAndSettle();
+      await settle(tester);
 
       final ops = await db.select(db.pendingOperations).get();
       expect(ops, hasLength(1));
@@ -366,14 +367,13 @@ void main() {
   testWidgets('long press opens the task action sheet', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       await repo.createTask(title: 'Task one');
       await _pumpTasks(tester, db);
 
       await tester.longPress(find.text('Task one'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(find.text('Mark as concluded'), findsOneWidget);
     } finally {
       await _dispose(tester, db);
@@ -383,14 +383,13 @@ void main() {
   testWidgets('tapping a row opens the task editor', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       await repo.createTask(title: 'Task two');
       await _pumpTasks(tester, db);
 
       await tester.tap(find.text('Task two'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(find.text('Priority'), findsOneWidget);
       expect(find.text('Pinned'), findsOneWidget);
     } finally {
@@ -401,7 +400,6 @@ void main() {
   testWidgets('empty state offers add and list management', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       await _pumpTasks(tester, db);
 
@@ -425,7 +423,6 @@ void main() {
       'tasks.sort': 'custom',
       'lists.sort': 'custom',
     });
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final id = await repo.createTask(title: 'Alpha');
@@ -456,7 +453,6 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final list = await repo.createList('Long list name for narrow layout');

@@ -7,6 +7,9 @@ import 'package:ephemeron/features/stream/presentation/stream_day_controller.dar
 import 'package:ephemeron/features/stream/presentation/surface/stream_countdown_layer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 final DateTime _day = DateTime(2026, 11, 17);
@@ -82,7 +85,7 @@ void main() {
         items: [_item('c0', 'Tomorrow', '2026-11-18')],
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(CountdownLandmark), findsOneWidget);
     expect(find.byType(CountdownEdgeChips), findsNothing);
@@ -111,7 +114,7 @@ void main() {
         ],
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(CountdownLandmark), findsNothing);
     expect(find.byType(CountdownEdgeChips), findsOneWidget);
@@ -137,7 +140,7 @@ void main() {
         ],
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Nearest'), findsOneWidget);
     expect(find.text('Middle'), findsOneWidget);
@@ -159,7 +162,7 @@ void main() {
         onTap: (id) => tapped = id,
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.text('Today'));
     await tester.pump();
@@ -180,7 +183,7 @@ void main() {
         onTap: (id) => tapped = id,
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.text('Future'));
     await tester.pump();
@@ -205,7 +208,7 @@ void main() {
         onShowAll: () => showAll++,
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.text('+1'));
     await tester.pump();
@@ -224,7 +227,7 @@ void main() {
         items: [_item('c0', 'Tomorrow', '2026-11-18')],
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(CountdownLandmark), findsOneWidget);
     expect(find.byType(CountdownEdgeChips), findsNothing);
 
@@ -253,7 +256,7 @@ void main() {
         ],
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(CountdownLandmark), findsOneWidget);
     expect(find.text('Valid'), findsOneWidget);
@@ -272,7 +275,7 @@ void main() {
     await tester.pumpWidget(
       _host(controller: controller, items: const <CountdownLandmarkItem>[]),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(CountdownLandmark), findsNothing);
     expect(find.byType(CountdownEdgeChips), findsNothing);
@@ -307,7 +310,7 @@ void main() {
         ],
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(tester.takeException(), isNull);
     expect(find.byType(CountdownLandmark), findsOneWidget);
