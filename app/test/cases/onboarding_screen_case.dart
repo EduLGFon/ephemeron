@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/test_fixtures.dart';
+
 ThemeData _theme() =>
     EphemeronTheme.build(mode: 'light', platformBrightness: Brightness.light);
 
@@ -48,7 +50,7 @@ void main() {
     _setViewport(tester);
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await tester.pumpWidget(_onboardingApp());
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Ephemeron'), findsOneWidget);
     expect(find.text('Step 1 of 3'), findsOneWidget);
@@ -56,7 +58,7 @@ void main() {
     expect(find.byKey(const ValueKey('onboarding-skip')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('onboarding-primary')));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Step 2 of 3'), findsOneWidget);
     expect(find.textContaining('Alarms that actually ring'), findsOneWidget);
@@ -66,7 +68,7 @@ void main() {
     );
 
     await tester.tap(find.byKey(const ValueKey('onboarding-primary')));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Step 3 of 3'), findsOneWidget);
     expect(find.textContaining('Sync only if you want it'), findsOneWidget);
@@ -86,7 +88,7 @@ void main() {
     await tester.pumpWidget(
       _onboardingApp(padding: const EdgeInsets.only(top: 24)),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final title = find.descendant(
       of: find.byType(AppPageHeader),
@@ -102,10 +104,10 @@ void main() {
     _setViewport(tester);
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await tester.pumpWidget(_onboardingApp());
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byKey(const ValueKey('onboarding-skip')));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final repo = SettingsRepository(await SharedPreferences.getInstance());
     expect(repo.onboarded, isTrue);
@@ -117,16 +119,16 @@ void main() {
     _setViewport(tester);
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await tester.pumpWidget(_onboardingApp());
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byKey(const ValueKey('onboarding-primary')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('onboarding-primary')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Get started'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('onboarding-primary')));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final repo = SettingsRepository(await SharedPreferences.getInstance());
     expect(repo.onboarded, isTrue);
@@ -138,15 +140,15 @@ void main() {
     _setViewport(tester, width: 320, height: 640);
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await tester.pumpWidget(_onboardingApp(textScale: 2));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const ValueKey('onboarding-primary')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const ValueKey('onboarding-primary')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tester.takeException(), isNull);
     expect(find.text('Get started'), findsOneWidget);
   });

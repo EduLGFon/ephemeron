@@ -5,6 +5,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/test_fixtures.dart';
+
 Widget _app(Widget home) => MaterialApp(home: home);
 
 void main() {
@@ -38,11 +40,11 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('close'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('close'), findsNothing);
     expect(find.text('Unsaved changes'), findsNothing);
   });
@@ -84,27 +86,27 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byKey(const Key('mark')));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
 
     // Cancel keeps sheet open.
     await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsNothing);
     expect(find.text('close'), findsOneWidget);
 
     // Discard closes.
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
     await tester.tap(find.text('Discard'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('close'), findsNothing);
   });
 
@@ -142,13 +144,13 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
     await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(saved, isTrue);
     expect(find.text('close'), findsNothing);
 
@@ -186,13 +188,13 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
     await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(saved2, isTrue);
     expect(find.text('Unsaved changes'), findsNothing);
     expect(find.text('close'), findsOneWidget);
@@ -218,19 +220,19 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 
   testWidgets('external isDirty discard via system-back', (tester) async {
@@ -253,15 +255,15 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final nav = tester.state<NavigatorState>(find.byType(Navigator));
     await nav.maybePop();
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
 
     await tester.tap(find.text('Discard'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsNothing);
   });
 
@@ -296,14 +298,14 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byKey(const Key('close')));
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 
   testWidgets('guarded dialog prompts when dirty', (tester) async {
@@ -340,15 +342,15 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('editor'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
 
     await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(saved, isTrue);
     expect(find.text('editor'), findsNothing);
   });
@@ -381,11 +383,11 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('editor'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('editor'), findsNothing);
     expect(find.text('Unsaved changes'), findsNothing);
   });
@@ -419,24 +421,24 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
 
     // cancel keeps open
     await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsNothing);
     expect(find.text('editor'), findsOneWidget);
 
     // discard closes
     await tester.tap(find.byKey(const Key('close')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
     await tester.tap(find.text('Discard'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('editor'), findsNothing);
   });
 
@@ -462,16 +464,16 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final nav = tester.state<NavigatorState>(find.byType(Navigator));
     await nav.maybePop();
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsOneWidget);
 
     // dismiss the prompt dialog via system back -> cancel
     await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Unsaved changes'), findsNothing);
     expect(find.text('open'), findsOneWidget);
   });

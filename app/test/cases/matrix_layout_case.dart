@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/components/visuals.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -9,7 +8,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
+
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   testWidgets('quadrant card is taller than the unclassified tray', (
     WidgetTester tester,
   ) async {
@@ -19,7 +25,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     await repo.createTask(
@@ -39,7 +44,7 @@ void main() {
     expect(fieldHeight, greaterThan(trayHeight));
     expect(fieldHeight, greaterThan(380));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('each field exposes a scrollbar key with many tasks', (
@@ -51,7 +56,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     await repo.createTask(
@@ -81,7 +85,7 @@ void main() {
       expect(find.byKey(ValueKey('matrix-scrollbar-$id')), findsOneWidget);
     }
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('320x480 renders the tray without overflow', (
@@ -93,7 +97,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     for (var i = 0; i < 6; i++) {
       await repo.createTask(title: 'Task number $i', priority: i % 4);
@@ -104,7 +107,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('matrix-unclassified')), findsOneWidget);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('tray with many tasks stays compact and scrolls', (
@@ -116,7 +119,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     for (var i = 0; i < 20; i++) {
       await repo.createTask(title: 'Unclassified $i');
@@ -132,7 +134,7 @@ void main() {
       findsOneWidget,
     );
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('empty tray is compact', (WidgetTester tester) async {
@@ -142,14 +144,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpMatrix(tester, db);
     final trayHeight = tester
         .getSize(find.byKey(const ValueKey('matrix-unclassified')))
         .height;
     expect(trayHeight, lessThan(80));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('tall viewport gives taller quadrants', (
@@ -161,7 +162,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     await repo.createTask(
@@ -176,7 +176,7 @@ void main() {
         .height;
     expect(fieldHeight, greaterThan(300));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('2.5x and 3x large text scaling does not overflow', (
@@ -189,7 +189,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     for (final textScale in const [2.5, 3.0]) {
-      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      await resetTestDb(db);
       final repo = TaskRepository(db);
       for (var i = 0; i < 6; i++) {
         await repo.createTask(title: 'Task number $i', priority: i % 4);
@@ -212,7 +212,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byKey(const ValueKey('matrix-unclassified')), findsOneWidget);
 
-      await _dispose(tester, db);
+      await _dispose(tester);
     }
   });
 
@@ -225,7 +225,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     final ids = <String>[];
@@ -256,10 +255,10 @@ void main() {
       find.byKey(const ValueKey('matrix-list-doFirst')),
       const Offset(0, -2000),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byKey(ValueKey('matrix-task-${ids.last}')), findsOneWidget);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('800x1200 shows at least six compact task rows', (
@@ -271,7 +270,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     final ids = <String>[];
@@ -302,7 +300,7 @@ void main() {
         .height;
     expect(rowHeight, inInclusiveRange(44, 58));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('max scroll shows the last task and checkbox fully', (
@@ -314,7 +312,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     final ids = <String>[];
@@ -333,7 +330,7 @@ void main() {
       find.byKey(const ValueKey('matrix-list-doFirst')),
       const Offset(0, -2000),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final lastId = ids.last;
     final cardRect = tester.getRect(
@@ -355,7 +352,7 @@ void main() {
     expect(checkboxRect.bottom, lessThanOrEqualTo(cardRect.bottom));
     expect(textRect.bottom, lessThanOrEqualTo(cardRect.bottom));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('switching auto and priority recreates field controllers', (
@@ -367,7 +364,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     for (var i = 0; i < 12; i++) {
@@ -383,7 +379,7 @@ void main() {
       find.byKey(const ValueKey('matrix-list-doFirst')),
       const Offset(0, -200),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.text('Priority'));
     await tester.pump();
@@ -402,7 +398,7 @@ void main() {
     );
     expect(scrollable.position.pixels, 0);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('drag after scrolling still moves a task between fields', (
@@ -414,7 +410,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final ids = <String>[];
     for (var i = 0; i < 12; i++) {
@@ -430,7 +425,7 @@ void main() {
       find.byKey(const ValueKey('matrix-list-p1')),
       const Offset(0, -2000),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final row = find.byKey(ValueKey('matrix-task-${ids.last}'));
     final target = find.byKey(const ValueKey('matrix-field-p2'));
@@ -439,7 +434,7 @@ void main() {
     await gesture.moveTo(tester.getCenter(target));
     await tester.pump();
     await gesture.up();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(
       find.descendant(
@@ -449,7 +444,7 @@ void main() {
       findsOneWidget,
     );
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('empty tray adapts to 2.5x and 3x text without overflow', (
@@ -463,7 +458,6 @@ void main() {
       for (final textScale in const [2.5, 3.0]) {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
-        final db = AppDatabase.forTesting(NativeDatabase.memory());
 
         await tester.pumpWidget(
           ProviderScope(
@@ -486,7 +480,7 @@ void main() {
           findsOneWidget,
         );
 
-        await _dispose(tester, db);
+        await _dispose(tester);
       }
     }
   });
@@ -500,7 +494,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     for (var i = 0; i < 20; i++) {
       await repo.createTask(title: 'Unclassified $i');
@@ -531,7 +524,7 @@ void main() {
       findsOneWidget,
     );
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('due-date row is taller than no-due row', (
@@ -543,7 +536,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     final dueId = await repo.createTask(
@@ -562,7 +554,7 @@ void main() {
         .height;
     expect(dueHeight, greaterThan(noDueHeight));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('no-due row stays compact', (WidgetTester tester) async {
@@ -572,7 +564,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final id = await repo.createTask(title: 'No due task', priority: 3);
 
@@ -582,7 +573,7 @@ void main() {
         .height;
     expect(rowHeight, lessThanOrEqualTo(56));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('late task shows an overdue marker, future task does not', (
@@ -594,7 +585,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     final lateId = await repo.createTask(
@@ -633,7 +623,7 @@ void main() {
     expect(texts.any((text) => text.style?.color == error), isTrue);
     expect(find.text('Future task'), findsOneWidget);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 }
 
@@ -648,11 +638,10 @@ Future<void> _pumpMatrix(WidgetTester tester, AppDatabase db) async {
   await tester.pump(const Duration(milliseconds: 100));
 }
 
-Future<void> _dispose(WidgetTester tester, AppDatabase db) async {
+Future<void> _dispose(WidgetTester tester) async {
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
-  await db.close();
   await tester.pump();
 }
 

@@ -11,6 +11,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/test_fixtures.dart';
+
 void main() {
   group('quick add shorthands', () {
     test('append and toggle never duplicate a token', () {
@@ -119,11 +121,11 @@ void main() {
 
     final addTaskBtn = find.widgetWithText(FilledButton, 'Add task');
     await tester.ensureVisible(addTaskBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addTaskBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Task added'), findsOneWidget);
     final rows = await db.select(db.tasks).get();
@@ -149,15 +151,15 @@ void main() {
     await tester.pump();
     final addTaskBtn = find.widgetWithText(FilledButton, 'Add task');
     await tester.ensureVisible(addTaskBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addTaskBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Task added'), findsOneWidget);
     await tester.tap(find.text('Undo'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final rows = await db.select(db.tasks).get();
     expect(rows, hasLength(1));

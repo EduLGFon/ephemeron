@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/test_fixtures.dart';
+
 const _oneItem = [
   SlippedItem(
     id: 'x',
@@ -36,7 +38,7 @@ void main() {
   ) async {
     final l = await _en();
     await tester.pumpWidget(_app(items: _twoItems));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('First slipped'), findsOneWidget);
     expect(find.text('Second slipped'), findsOneWidget);
@@ -50,7 +52,7 @@ void main() {
   ) async {
     final l = await _en();
     await tester.pumpWidget(_app());
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text(l.streamSlippedEmpty), findsOneWidget);
     expect(find.byKey(const Key('streamSlippedClose')), findsOneWidget);
@@ -60,7 +62,7 @@ void main() {
     final l = await _en();
     final actions = _FakeSlippedActions();
     await tester.pumpWidget(_app(items: _oneItem, actions: actions));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byTooltip(l.streamSlippedDone));
     await _settleAction(tester);
@@ -78,7 +80,7 @@ void main() {
     final l = await _en();
     final actions = _FakeSlippedActions();
     await tester.pumpWidget(_app(items: _oneItem, actions: actions));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byTooltip(l.streamSlippedTomorrow));
     await _settleAction(tester);
@@ -95,7 +97,7 @@ void main() {
     final l = await _en();
     final actions = _FakeSlippedActions();
     await tester.pumpWidget(_app(items: _oneItem, actions: actions));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byTooltip(l.streamSlippedDrop));
     await _settleAction(tester);
@@ -121,7 +123,7 @@ void main() {
         picker: (context, id) async => picked,
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byTooltip(l.streamSlippedPickTime));
     await _settleAction(tester);
@@ -147,7 +149,7 @@ void main() {
         picker: (context, id) async => null,
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byTooltip(l.streamSlippedPickTime));
     await _settleAction(tester);
@@ -162,7 +164,7 @@ void main() {
     final actions = _FakeSlippedActions()
       ..failure = const StreamSlippedException.repository(cause: 'boom');
     await tester.pumpWidget(_app(items: _oneItem, actions: actions));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byTooltip(l.streamSlippedDone));
     await _settleAction(tester);
@@ -184,7 +186,7 @@ void main() {
     await tester.pumpWidget(
       _app(media: (mq) => mq.copyWith(textScaler: const TextScaler.linear(2))),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text(l.streamSlippedTitle), findsOneWidget);
     expect(find.text(l.streamSlippedEmpty), findsOneWidget);
