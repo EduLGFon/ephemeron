@@ -15,6 +15,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAlarmRepo extends AlarmRepository {
@@ -410,72 +411,53 @@ void main() {
     );
   });
 
-  testWidgets('search is a title-row button with no inline screen field', (
+  testWidgets('title-row search button navigates to global search', (
     tester,
   ) async {
     _setViewport(tester);
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    await _pumpSettings(tester);
-
-    expect(
-      find.descendant(
-        of: find.byType(AppPageHeader),
-        matching: find.byKey(const ValueKey('settings-search-toggle')),
+    final router = GoRouter(
+      initialLocation: '/settings',
+      routes: [
+        GoRoute(
+          path: '/settings',
+          builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/search',
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('global-search'))),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+          theme: _theme(),
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
       ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchButton = find.byKey(const ValueKey('settings-search-toggle'));
+    expect(
+      find.descendant(of: find.byType(AppPageHeader), matching: searchButton),
       findsOneWidget,
     );
     expect(find.byType(AppSearchField), findsNothing);
     expect(find.byKey(const ValueKey('settings-search-field')), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('settings-search-toggle')));
-    await tester.pumpAndSettle();
+    await tester.tap(searchButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
-    final field = find.descendant(
-      of: find.byKey(const ValueKey('settings-search-field')),
-      matching: find.byType(TextField),
-    );
-    expect(field, findsOneWidget);
-    expect(
-      find.ancestor(of: field, matching: find.byType(AlertDialog)),
-      findsOneWidget,
-    );
-    expect(find.byType(AppSearchField), findsOneWidget);
-  });
-
-  testWidgets('search filters sections and reports no matches', (tester) async {
-    _setViewport(tester);
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    await _pumpSettings(tester);
-
-    await tester.tap(find.byKey(const ValueKey('settings-search-toggle')));
-    await tester.pumpAndSettle();
-
-    final field = find.descendant(
-      of: find.byKey(const ValueKey('settings-search-field')),
-      matching: find.byType(TextField),
-    );
-    await tester.enterText(field, 'stream');
-    await tester.pumpAndSettle();
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(AppSearchField), findsNothing);
-    expect(find.byKey(const ValueKey('settings-stream')), findsOneWidget);
-    expect(find.byKey(const ValueKey('settings-brightness')), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('settings-search-toggle')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('settings-brightness')), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('settings-search-toggle')));
-    await tester.pumpAndSettle();
-    await tester.enterText(field, 'nothing-matches-this');
-    await tester.pumpAndSettle();
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(AppSearchField), findsNothing);
-    expect(find.text('No settings match'), findsOneWidget);
+    expect(find.text('global-search'), findsOneWidget);
   });
 
   testWidgets('settings screen does not overflow at 320dp and 200% text', (

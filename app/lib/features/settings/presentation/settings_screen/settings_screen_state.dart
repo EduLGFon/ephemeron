@@ -25,10 +25,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _time24h = true;
   int _weekStart = DateTime.monday;
   bool _focusDnd = false;
-  bool _searchOpen = false;
-  String _query = '';
-  final TextEditingController _searchController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
@@ -37,7 +33,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -278,25 +273,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _toggleSearch() {
-    setState(() {
-      _searchOpen = !_searchOpen;
-      if (!_searchOpen) {
-        _query = '';
-        _searchController.clear();
-      }
-    });
-  }
-
-  void _onSearchChanged(String value) {
-    setState(() => _query = value);
-  }
-
   bool _sectionMatches(String title, String keywords) {
-    final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return true;
-    return title.toLowerCase().contains(query) ||
-        keywords.toLowerCase().contains(query);
+    return true;
   }
 
   @override

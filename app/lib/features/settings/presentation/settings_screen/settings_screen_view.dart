@@ -14,88 +14,13 @@ Widget _settingsHeader(_SettingsScreenState state, SettingsStrings strings) {
     actions: <Widget>[
       AppIconButton(
         key: const ValueKey('settings-search-toggle'),
-        icon: state._searchOpen ? Icons.close : Icons.search,
-        tooltip: state._searchOpen ? strings.closeSearch : strings.search,
-        semanticLabel: state._searchOpen ? strings.closeSearch : strings.search,
-        selected: state._searchOpen,
-        onPressed: state._searchOpen
-            ? state._toggleSearch
-            : () => _openSearchDialog(state, strings),
+        icon: Icons.search,
+        tooltip: strings.search,
+        semanticLabel: strings.search,
+        onPressed: () => state.context.push('/search'),
       ),
     ],
   );
-}
-
-/// Opens search in a dialog so the screen itself never hosts a search field.
-/// The submitted query becomes the section filter.
-Future<void> _openSearchDialog(
-  _SettingsScreenState state,
-  SettingsStrings strings,
-) async {
-  final query = await showDialog<String>(
-    context: state.context,
-    builder: (_) => _SettingsSearchDialog(
-      controller: state._searchController,
-      strings: strings,
-    ),
-  );
-  if (!state.mounted) return;
-  if (query == null) {
-    // Barrier/back dismissal: discard any half-typed text.
-    state._searchController.text = state._query;
-    return;
-  }
-  final trimmed = query.trim();
-  if (trimmed.isEmpty) {
-    if (state._searchOpen) state._toggleSearch();
-    return;
-  }
-  state._onSearchChanged(trimmed);
-  if (!state._searchOpen) state._toggleSearch();
-}
-
-/// The only place the settings search field lives: a button-opened dialog.
-class _SettingsSearchDialog extends StatelessWidget {
-  const _SettingsSearchDialog({
-    required this.controller,
-    required this.strings,
-  });
-
-  final TextEditingController controller;
-  final SettingsStrings strings;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(strings.search),
-      content: AppSearchField(
-        key: const ValueKey('settings-search-field'),
-        controller: controller,
-        hintText: strings.searchHint,
-        autofocus: true,
-        onSubmitted: (value) {
-          AppFeedback.selection();
-          Navigator.of(context).pop(value.trim());
-        },
-      ),
-      actions: <Widget>[
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: controller,
-          builder: (context, value, _) {
-            return AppButton(
-              label: strings.search,
-              onPressed: value.text.trim().isEmpty
-                  ? null
-                  : () {
-                      AppFeedback.selection();
-                      Navigator.of(context).pop(value.text.trim());
-                    },
-            );
-          },
-        ),
-      ],
-    );
-  }
 }
 
 Widget _settingsBody(
