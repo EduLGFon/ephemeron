@@ -1,6 +1,6 @@
-// Today habits strip. A chip tap advances one step toward the goal; only the
-// leading circle marks the day fully done. The entry stream is the optimistic
-// source of truth, so no local copy is kept.
+// Today habits strip. A chip tap advances by the habit's configured increment;
+// only the leading circle marks the day fully done. The entry stream is the
+// optimistic source of truth, so no local copy is kept.
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/design/components/app_headers.dart';
@@ -21,8 +21,8 @@ class TodayHabits extends StatelessWidget {
   final List<HabitCalendarEntry> entries;
   final bool expanded;
 
-  /// Chip body tap: one step toward the goal. The repository turns this into a
-  /// done flip for goal-less habits.
+  /// Chip body tap: advance by the habit's configured increment (default 1).
+  /// The repository turns this into a done flip for goal-less habits.
   final ValueChanged<HabitCalendarEntry> onAdvance;
 
   /// Leading circle tap: mark the day fully done.

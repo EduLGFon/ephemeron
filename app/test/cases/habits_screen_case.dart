@@ -259,7 +259,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('row taps add a fixed one-step regardless of increment', (
+  testWidgets('row taps add the configured increment per tap', (
     WidgetTester tester,
   ) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -284,8 +284,14 @@ void main() {
     await tester.tap(find.text('Run'));
     await tester.pump();
     await tester.pump();
-    expect((await repo.logFor(id, today))?.amount, 1);
-    expect(find.textContaining('1/10 min'), findsOneWidget);
+    expect((await repo.logFor(id, today))?.amount, 2);
+    expect(find.textContaining('2/10 min'), findsOneWidget);
+
+    await tester.tap(find.text('Run'));
+    await tester.pump();
+    await tester.pump();
+    expect((await repo.logFor(id, today))?.amount, 4);
+    expect(find.textContaining('4/10 min'), findsOneWidget);
 
     await db.close();
     await tester.pumpWidget(Container());
