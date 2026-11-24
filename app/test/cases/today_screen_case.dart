@@ -139,8 +139,9 @@ void main() {
     expect(find.text('Trip'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
-    // One tap toggles the habit for today and the stream reflects it.
-    await tester.tap(find.byKey(ValueKey<String>('today-habit-$habitId')));
+    // A chip body tap toggles the goal-less habit for today and the stream
+    // reflects it. The leading circle is a separate, fully-done target.
+    await tester.tap(find.text('Stretch'));
     await _settle(tester);
     final log = await habitRepo.logFor(habitId, habitTodayKey());
     expect(log?.done, isTrue);
@@ -271,6 +272,120 @@ void main() {
     );
     expect(find.text('A clear day'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await _unmount(tester, fixture.db);
+  });
+
+  testWidgets('chip tap advances one step and clears skip at goal', (
+    tester,
+  ) async {
+    _setSize(tester, const Size(400, 800));
+    final fixture = await _fixture();
+    final habitRepo = HabitRepository(fixture.db);
+    final habitId = await habitRepo.createHabit(
+      name: 'Read',
+      startDate: fixture.todayKey,
+      goalAmount: 3,
+      increment: 1,
+    );
+
+    await tester.pumpWidget(
+      _app(fixture: fixture, occurrences: const <OccurrenceCacheData>[]),
+    );
+    await _settle(tester);
+    expect(find.text('Read'), findsOneWidget);
+
+    // Body tap advances by one increment; a partial step is not done.
+    await tester.tap(find.text('Read'));
+    await _settle(tester);
+    var log = await habitRepo.logFor(habitId, fixture.todayKey);
+    expect(log?.amount, 1.0);
+    expect(log?.done, isFalse);
+
+    // A skipped day stays skipped until a step actually reaches the goal.
+    await habitRepo.setSkipped(habitId, fixture.todayKey, true);
+    await _settle(tester);
+    await tester.tap(find.text('Read'));
+    await _settle(tester);
+    log = await habitRepo.logFor(habitId, fixture.todayKey);
+    expect(log?.amount, 2.0);
+    expect(log?.done, isFalse);
+    expect(log?.skipped, isTrue);
+
+    await tester.tap(find.text('Read'));
+    await _settle(tester);
+    log = await habitRepo.logFor(habitId, fixture.todayKey);
+    expect(log?.amount, 3.0);
+    expect(log?.done, isTrue);
+    expect(log?.skipped, isFalse);
+    expect(tester.takeException(), isNull);
+
+    await _unmount(tester, fixture.db);
+  });
+
+  testWidgets('leading circle marks fully done without a partial step', (
+    tester,
+  ) async {
+    _setSize(tester, const Size(400, 800));
+    final fixture = await _fixture();
+    final habitRepo = HabitRepository(fixture.db);
+    final habitId = await habitRepo.createHabit(
+      name: 'Meditate',
+      startDate: fixture.todayKey,
+      goalAmount: 5,
+      increment: 1,
+    );
+
+    await tester.pumpWidget(
+      _app(fixture: fixture, occurrences: const <OccurrenceCacheData>[]),
+    );
+    await _settle(tester);
+
+    final circle = find.byKey(ValueKey<String>('today-habit-done-$habitId'));
+    expect(circle, findsOneWidget);
+
+    // Circle tap fills the goal and marks the day done; no body step is taken.
+    await tester.tap(circle);
+    await _settle(tester);
+    var log = await habitRepo.logFor(habitId, fixture.todayKey);
+    expect(log?.done, isTrue);
+    expect(log?.amount, 5.0);
+
+    // The same target toggles done off again.
+    await tester.tap(circle);
+    await _settle(tester);
+    log = await habitRepo.logFor(habitId, fixture.todayKey);
+    expect(log?.done, isFalse);
+    expect(log?.amount, 0.0);
+    expect(tester.takeException(), isNull);
+
+    await _unmount(tester, fixture.db);
+  });
+
+  testWidgets('chip tap uses the habit increment, not a hardcoded step', (
+    tester,
+  ) async {
+    _setSize(tester, const Size(400, 800));
+    final fixture = await _fixture();
+    final habitRepo = HabitRepository(fixture.db);
+    final habitId = await habitRepo.createHabit(
+      name: 'Walk',
+      startDate: fixture.todayKey,
+      goalAmount: 6,
+      increment: 2,
+    );
+
+    await tester.pumpWidget(
+      _app(fixture: fixture, occurrences: const <OccurrenceCacheData>[]),
+    );
+    await _settle(tester);
+
+    await tester.tap(find.text('Walk'));
+    await _settle(tester);
+    final log = await habitRepo.logFor(habitId, fixture.todayKey);
+    expect(log?.amount, 2.0);
+    expect(log?.done, isFalse);
     expect(tester.takeException(), isNull);
 
     await _unmount(tester, fixture.db);
