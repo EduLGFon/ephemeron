@@ -15,6 +15,9 @@ import 'package:ephemeron/features/stream/presentation/stream_day_controller.dar
 import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 final DateTime _day = DateTime(2026, 11, 17);
@@ -117,7 +120,7 @@ Widget _host({
 
 Future<void> _pump(WidgetTester tester, Widget widget) async {
   await tester.pumpWidget(widget);
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 Finder _glyph(String label) =>

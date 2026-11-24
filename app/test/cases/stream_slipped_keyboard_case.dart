@@ -4,6 +4,9 @@ import 'package:ephemeron/features/stream/presentation/slipped/slipped_triage.da
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 const _labels = SlippedActionLabels(
@@ -83,7 +86,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
     await tester.pump();
     expect(done, ['k']);
@@ -123,7 +126,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
@@ -162,7 +165,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     for (var i = 0; i < 20; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
@@ -209,12 +212,12 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     for (var i = 0; i < 29; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
     }
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Item 29'), findsOneWidget);
   });
 
@@ -238,7 +241,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tester.takeException(), isNull);
   });
 
@@ -270,7 +273,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     final data = tester
         .getSemantics(find.byType(Dismissible))
         .getSemanticsData();

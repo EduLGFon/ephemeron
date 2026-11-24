@@ -8,6 +8,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/test_fixtures.dart';
+
 Future<List<int>> _pump(WidgetTester tester, {bool enabled = true}) async {
   final shifts = <int>[];
   await tester.pumpWidget(
@@ -32,7 +34,7 @@ void main() {
       const Offset(-300, 0),
       const Duration(milliseconds: 500),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(shifts, [1]);
   });
 
@@ -43,7 +45,7 @@ void main() {
       const Offset(300, 0),
       const Duration(milliseconds: 500),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(shifts, [-1]);
   });
 
@@ -54,13 +56,13 @@ void main() {
       const Offset(-40, 0),
       const Duration(milliseconds: 500),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.timedDrag(
       find.byType(CalendarSwipe),
       const Offset(0, -300),
       const Duration(milliseconds: 500),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(shifts, isEmpty);
   });
 
@@ -71,7 +73,7 @@ void main() {
       const Offset(-300, 0),
       const Duration(milliseconds: 500),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(shifts, isEmpty);
   });
 
