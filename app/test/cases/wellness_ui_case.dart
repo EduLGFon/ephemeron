@@ -1,21 +1,40 @@
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/native.dart';
+
 import 'package:ephemeron/core/db/db_provider.dart';
+
 import 'package:ephemeron/core/design/components/rows.dart';
+
 import 'package:ephemeron/core/design/components/visuals.dart';
+
 import 'package:ephemeron/data/drift/app_database.dart';
+
 import 'package:ephemeron/data/repositories/countdown_repository.dart';
+
 import 'package:ephemeron/data/repositories/habit_repository.dart';
+
 import 'package:ephemeron/domain/habits/date_key.dart';
+
 import 'package:ephemeron/features/countdowns/presentation/countdowns_screen.dart';
+
 import 'package:ephemeron/features/focus/presentation/focus_screen.dart';
+
 import 'package:ephemeron/features/habits/presentation/habit_heatmap_screen.dart';
+
 import 'package:ephemeron/features/habits/presentation/habits_screen.dart';
+
 import 'package:material_ui/material_ui.dart';
+
 import 'package:flutter/services.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
+late AppDatabase db;
 
 void _mockPlatformChannels() {
   final messenger =
@@ -39,7 +58,6 @@ Future<void> _unmount(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
-  await db.close();
   await tester.pump();
 }
 
@@ -53,6 +71,13 @@ Widget _scaled(Widget home) {
 }
 
 void main() {
+  setUpAll(() {
+    db = newTestDb();
+  });
+  setUp(() => resetTestDb(db));
+  tearDownAll(() async {
+    await db.close();
+  });
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     _mockPlatformChannels();
@@ -77,7 +102,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final sectionId = await repo.createSection('Health');
     final id = await repo.createHabit(
@@ -118,7 +142,7 @@ void main() {
     expect((await repo.logFor(id, today))?.skipped, isTrue);
 
     await tester.tap(find.byTooltip('Habit heatmap'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Habit activity'), findsOneWidget);
     expect(find.byType(AppHeatmap), findsOneWidget);
     final heatmap = tester.widget<AppHeatmap>(find.byType(AppHeatmap));
@@ -136,7 +160,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = CountdownRepository(db);
     final nextYear = DateTime.now().year + 1;
     await repo.createCountdown(
@@ -163,7 +186,6 @@ void main() {
   testWidgets('focus digits run in a RepaintBoundary and pause resumes', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.focusSessions)
@@ -224,7 +246,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final habits = HabitRepository(db);
     final habitId = await habits.createHabit(
       name: 'Read a long book every day',
@@ -282,7 +303,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appDatabaseProvider.overrideWithValue(db)],

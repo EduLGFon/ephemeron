@@ -1,16 +1,35 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
+
 import 'package:ephemeron/data/drift/app_database.dart';
+
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
+
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
+
 import 'package:ephemeron/features/tasks/presentation/task_editor_sheet.dart';
+
 import 'package:flutter/services.dart';
+
 import 'package:material_ui/material_ui.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() {
+    db = newTestDb();
+  });
+  setUp(() => resetTestDb(db));
+  tearDownAll(() async {
+    await db.close();
+  });
   testWidgets('priority options fit a 320dp task editor without overflow', (
     WidgetTester tester,
   ) async {
@@ -20,7 +39,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appDatabaseProvider.overrideWithValue(db)],
@@ -62,7 +80,6 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    await db.close();
     await tester.pump();
   });
 
@@ -85,7 +102,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
@@ -136,7 +152,6 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    await db.close();
     await tester.pump();
   });
 
@@ -159,7 +174,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
@@ -211,7 +225,6 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    await db.close();
     await tester.pump();
   });
 }
