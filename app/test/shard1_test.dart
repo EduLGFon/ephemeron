@@ -351,12 +351,6 @@ Set<String> _caseFilesOnDisk() {
       .toSet();
 }
 
-// TODO: Remove when wheel_picker_test.dart is registered as a case under
-// test/cases.
-const _temporarilyAllowedStrayEntrypoints = <String>{
-  'test/wheel_picker_test.dart',
-};
-
 void _checkNoStrayEntrypoints() {
   final shard = RegExp(r'^test/shard[0-9]+_test\.dart$');
   final stray = Directory('test')
@@ -365,7 +359,6 @@ void _checkNoStrayEntrypoints() {
       .map((f) => f.path.replaceAll(r'\', '/'))
       .where((path) => path.endsWith('_test.dart'))
       .where((path) => !shard.hasMatch(path))
-      .where((path) => !_temporarilyAllowedStrayEntrypoints.contains(path))
       .toSet();
   expect(
     stray,
