@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:ephemeron/core/design/components/app_buttons.dart';
 import 'package:ephemeron/core/design/components/app_chips.dart';
 import 'package:ephemeron/core/design/components/app_fields.dart';
@@ -960,4 +962,83 @@ void main() {
       findsNothing,
     );
   });
+
+  group('priority flag palette', () {
+    test('stored priority 4 and visual priority 1 map to the red style', () {
+      final stored = styleForStoredPriority(4);
+      final visual = styleForVisualPriority(1);
+      expect(stored, same(priorityFlagStyle(PriorityFlag.p1)));
+      expect(visual, same(stored));
+      expect(stored.flag, PriorityFlag.p1);
+      expect(_isRed(stored.color), isTrue, reason: 'P1 swatch must be red');
+    });
+
+    test('P1 red, P2 orange, P3 blue and P4 grey are distinct hues', () {
+      expect(_isRed(priorityFlagStyle(PriorityFlag.p1).color), isTrue);
+      expect(_isOrange(priorityFlagStyle(PriorityFlag.p2).color), isTrue);
+      expect(_isBlue(priorityFlagStyle(PriorityFlag.p3).color), isTrue);
+      expect(_isGrey(priorityFlagStyle(PriorityFlag.p4).color), isTrue);
+      final swatches = priorityFlagStyles.values
+          .map((style) => style.color.toARGB32())
+          .toSet();
+      expect(swatches.length, priorityFlagStyles.length);
+    });
+
+    test('every flag foreground meets WCAG AA on light and dark surfaces', () {
+      const lightSurface = Color(0xFFFAF9F7);
+      const darkSurface = Color(0xFF111110);
+      for (final style in priorityFlagStyles.values) {
+        expect(
+          _contrast(style.foreground(Brightness.light), lightSurface),
+          greaterThanOrEqualTo(4.5),
+          reason: '${style.label} light foreground on #FAF9F7',
+        );
+        expect(
+          _contrast(style.foreground(Brightness.dark), darkSurface),
+          greaterThanOrEqualTo(4.5),
+          reason: '${style.label} dark foreground on #111110',
+        );
+      }
+    });
+  });
+}
+
+// Hue checks operate on the swatch channels so the semantic mapping is tested
+// without tying it to exact hex literals.
+bool _channels(Color color, bool Function(int r, int g, int b) predicate) {
+  final argb = color.toARGB32();
+  return predicate((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF);
+}
+
+bool _isRed(Color color) =>
+    _channels(color, (r, g, b) => r > g + 40 && r > b + 40);
+
+bool _isOrange(Color color) =>
+    _channels(color, (r, g, b) => r > g && g > b + 40 && g > 60);
+
+bool _isBlue(Color color) =>
+    _channels(color, (r, g, b) => b > r + 40 && b > g + 40);
+
+bool _isGrey(Color color) => _channels(
+  color,
+  (r, g, b) => (r - g).abs() <= 8 && (g - b).abs() <= 8 && (r - b).abs() <= 8,
+);
+
+double _contrast(Color a, Color b) {
+  final values = <double>[_luminance(a), _luminance(b)]..sort();
+  return (values.last + 0.05) / (values.first + 0.05);
+}
+
+double _luminance(Color color) {
+  double channel(int value) {
+    final c = value / 255.0;
+    return c <= 0.03928
+        ? c / 12.92
+        : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
+  }
+
+  final argb = color.toARGB32();
+  return 0.2126 * channel((argb >> 16) & 0xFF) +
+      0.7152 * channel((argb >> 8) & 0xFF) +
+      0.0722 * channel(argb & 0xFF);
 }

@@ -221,9 +221,10 @@ class PriorityFlagStyle {
       brightness == Brightness.dark ? _darkForeground : _lightForeground;
 }
 
-/// Fixed palette shared by every flag rendering. P1 is the most urgent (red)
-/// through P4 (green); the P label is always shown beside the icon so colour
-/// is never the only signal.
+/// Fixed palette shared by every flag rendering. P1 is the most urgent (red),
+/// then P2 (orange), P3 (blue) and P4 (grey/neutral). Flags render icon-only by
+/// default; the P label is optional and a semantics label always names the
+/// priority, so colour is never the only signal.
 const Map<PriorityFlag, PriorityFlagStyle> priorityFlagStyles =
     <PriorityFlag, PriorityFlagStyle>{
       PriorityFlag.none: PriorityFlagStyle(
@@ -237,18 +238,18 @@ const Map<PriorityFlag, PriorityFlagStyle> priorityFlagStyles =
       PriorityFlag.p4: PriorityFlagStyle(
         flag: PriorityFlag.p4,
         label: 'P4',
-        color: Color(0xFF388E3C),
+        color: Color(0xFF757575),
         icon: Icons.flag,
-        lightForeground: Color(0xFF2E7D32),
-        darkForeground: Color(0xFFA5D6A7),
+        lightForeground: Color(0xFF616161),
+        darkForeground: Color(0xFFBDBDBD),
       ),
       PriorityFlag.p3: PriorityFlagStyle(
         flag: PriorityFlag.p3,
         label: 'P3',
-        color: Color(0xFFFBC02D),
+        color: Color(0xFF1976D2),
         icon: Icons.flag,
-        lightForeground: Color(0xFF8A5A00),
-        darkForeground: Color(0xFFFFE082),
+        lightForeground: Color(0xFF1565C0),
+        darkForeground: Color(0xFF90CAF9),
       ),
       PriorityFlag.p2: PriorityFlagStyle(
         flag: PriorityFlag.p2,
@@ -280,7 +281,7 @@ PriorityFlagStyle styleForStoredPriority(int priority) =>
 PriorityFlagStyle styleForVisualPriority(int visual) =>
     styleForStoredPriority(storedPriority(visual));
 
-/// A coloured flag plus its P label. [none] renders nothing.
+/// A coloured flag with an optional P label. [none] renders nothing.
 class AppPriorityFlag extends StatelessWidget {
   const AppPriorityFlag({
     super.key,
