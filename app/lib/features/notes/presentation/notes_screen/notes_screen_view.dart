@@ -14,7 +14,6 @@ class NotesScreen extends ConsumerStatefulWidget {
 
 class _NotesScreenState extends ConsumerState<NotesScreen> {
   String? _folderId;
-  String _query = '';
   bool _folderRestored = false;
 
   @override
@@ -58,9 +57,11 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         subtitle: noteCount == null ? null : Text(strings.noteCount(noteCount)),
         actions: <Widget>[
           AppIconButton(
+            key: const ValueKey('notes-search'),
             icon: Icons.search,
             tooltip: strings.search,
-            onPressed: () => _search(context),
+            semanticLabel: strings.search,
+            onPressed: () => context.push('/search'),
           ),
           AppIconButton(
             icon: Icons.note_add_outlined,
@@ -291,24 +292,5 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
           .read(noteRepositoryProvider)
           .createFolder(name, parentId: _folderId);
     }
-  }
-
-  Future<void> _search(BuildContext context) async {
-    final strings = NotesStrings.of(context);
-    final query = await showAppDialog<String>(
-      context: context,
-      builder: (_) => _SearchDialog(initialQuery: _query, strings: strings),
-    );
-    if (query == null || query.isEmpty || !mounted) return;
-    setState(() => _query = query);
-    final hits = await ref.read(noteRepositoryProvider).searchNotes(query);
-    if (!context.mounted) return;
-    final navigator = Navigator.of(context);
-    navigator.push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            _SearchResults(query: query, hits: hits, onOpen: _openById),
-      ),
-    );
   }
 }

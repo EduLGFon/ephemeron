@@ -8,9 +8,11 @@ import 'package:ephemeron/features/auth/data/backend_auth.dart';
 import 'package:ephemeron/features/auth/presentation/auth_screen.dart';
 import 'package:ephemeron/features/notes/presentation/note_editor_screen.dart';
 import 'package:ephemeron/features/notes/presentation/notes_screen.dart';
+import 'package:ephemeron/l10n/src/app_localizations.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'backend_auth_case.dart' show FakeBackend, MemoryTokenStore;
@@ -135,25 +137,51 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final router = GoRouter(
+      initialLocation: '/notes',
+      routes: [
+        GoRoute(
+          path: '/notes',
+          builder: (context, state) => const NotesScreen(),
+        ),
+        GoRoute(
+          path: '/search',
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('global-search'))),
+        ),
+      ],
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appDatabaseProvider.overrideWithValue(db)],
-        child: const MaterialApp(home: NotesScreen()),
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump();
 
+    final searchButton = find.byKey(const ValueKey('notes-search'));
     expect(
-      find.descendant(
-        of: find.byType(AppPageHeader),
-        matching: find.byTooltip('Search'),
-      ),
+      find.descendant(of: find.byType(AppPageHeader), matching: searchButton),
       findsOneWidget,
     );
     expect(find.byType(AppSearchField), findsNothing);
     expect(find.byKey(const Key('notes-search-field')), findsNothing);
+
+    await tester.tap(searchButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('global-search'), findsOneWidget);
+
     expect(tester.takeException(), isNull);
 
     await db.close();
