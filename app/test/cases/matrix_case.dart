@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/components/visuals.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -13,12 +12,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/test_fixtures.dart';
+
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   testWidgets('auto mode groups tasks into four fields and a tray', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final now = DateTime.now();
     final urgent = _date(now.add(const Duration(days: 1)));
@@ -49,7 +53,6 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     await repo.createTask(title: 'P1 task', priority: 4);
     await repo.createTask(title: 'P2 task', priority: 3);
@@ -107,7 +110,6 @@ void main() {
       'matrix.mode': 'priority',
     });
     final prefs = await SharedPreferences.getInstance();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     await repo.createTask(title: 'P1 task', priority: 4);
 
@@ -145,7 +147,6 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     await repo.createTask(title: 'P1 task', priority: 4);
     final p4Id = await repo.createTask(title: 'P4 task', priority: 1);
@@ -165,7 +166,7 @@ void main() {
     await gesture.moveTo(tester.getCenter(target));
     await tester.pump();
     await gesture.up();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(_inField('p1', 'P4 task'), findsOneWidget);
     expect(_inField('p4', 'P4 task'), findsNothing);
@@ -184,7 +185,6 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final id = await repo.createTask(title: 'P1 task', priority: 4);
     await repo.createTask(title: 'P2 task', priority: 3);
@@ -204,7 +204,7 @@ void main() {
     await gesture.moveTo(tester.getCenter(target));
     await tester.pump();
     await gesture.up();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(_inTray('P1 task'), findsOneWidget);
     expect(_inField('p1', 'P1 task'), findsNothing);
@@ -218,7 +218,6 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final id = await repo.createTask(title: 'P1 task', priority: 4);
 
@@ -234,7 +233,7 @@ void main() {
     await gesture.moveTo(tester.getCenter(target));
     await tester.pump();
     await gesture.up();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('P1 task'), findsOneWidget);
     expect(_inField('p1', 'P1 task'), findsOneWidget);
@@ -248,7 +247,6 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final id = await repo.createTask(title: 'P1 task', priority: 4);
 
@@ -262,7 +260,7 @@ void main() {
       matching: find.text('P1 task'),
     );
     await tester.tap(text);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(TextField), findsWidgets);
     expect(find.text('Notes'), findsOneWidget);
@@ -274,7 +272,6 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final id = await repo.createTask(title: 'P1 task', priority: 4);
 
@@ -289,7 +286,7 @@ void main() {
         matching: find.byType(AppCheckmark),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(TextField), findsNothing);
     expect(find.text('P1 task'), findsNothing);
@@ -297,7 +294,7 @@ void main() {
     expect(_count('p1'), '0');
 
     await tester.tap(find.text('Undo'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(_inField('p1', 'P1 task'), findsOneWidget);
     expect(_count('p1'), '1');
@@ -309,7 +306,6 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     await repo.createTask(
       title: 'Auto task',
@@ -334,7 +330,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     for (var i = 0; i < 6; i++) {
       await repo.createTask(
@@ -360,7 +355,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     for (var i = 0; i < 6; i++) {
       await repo.createTask(title: 'Task number $i', priority: i % 4);
@@ -406,7 +400,6 @@ Future<void> _dispose(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
   await tester.pump();
 }
 

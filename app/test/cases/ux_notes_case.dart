@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/components/app_fields.dart';
 import 'package:ephemeron/core/design/components/app_headers.dart';
@@ -17,7 +16,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'backend_auth_case.dart' show FakeBackend, MemoryTokenStore;
 
+import '../support/test_fixtures.dart';
+
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   group('savedAgeLabel', () {
     final now = DateTime(2026, 1, 1, 12);
 
@@ -106,7 +111,6 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appDatabaseProvider.overrideWithValue(db)],
@@ -127,16 +131,14 @@ void main() {
     expect(find.text('No notes here'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await db.close();
     await tester.pumpWidget(Container());
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
   testWidgets('notes search is a title-row button with no inline field', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final router = GoRouter(
       initialLocation: '/notes',
       routes: [
@@ -184,15 +186,13 @@ void main() {
 
     expect(tester.takeException(), isNull);
 
-    await db.close();
     await tester.pumpWidget(Container());
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
   testWidgets('password visibility toggle updates the obscure flag', (
     tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final auth = BackendAuth(
       client: FakeBackend(),
       tokenStore: MemoryTokenStore(),
@@ -222,8 +222,7 @@ void main() {
     await tester.pump();
     expect(tester.widget<TextField>(password).obscureText, isTrue);
 
-    await db.close();
     await tester.pumpWidget(Container());
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
   });
 }

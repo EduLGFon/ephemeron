@@ -1,6 +1,5 @@
 // Fake-server suite (errors): offline queues, partial failure, auth/permission/rate-limit/404.
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/remote/google_api_client.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart';
@@ -8,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'sync_engine_case.dart' show FakeGoogle;
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<String> _cal(AppDatabase db, {String source = 'google'}) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -28,9 +27,11 @@ Future<String> _cal(AppDatabase db, {String source = 'google'}) async {
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('offline keeps queue and reports offline', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -51,8 +52,6 @@ void main() {
   });
 
   test('partial failure lets other ops proceed', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     for (final id in ['ok', 'bad']) {
@@ -87,8 +86,6 @@ void main() {
   });
 
   test('401 push keeps the row and reports auth failure', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -134,8 +131,8 @@ void main() {
       '{"error":{"errors":[{"reason":"insufficientPermissions"}],"code":403}}',
       '{"error":{"errors":[{"reason":"rateLimitExceeded"}],"code":403}}',
     ]) {
-      final db = _db();
-      addTearDown(db.close);
+      // Each flavor needs the same pristine state a fresh db provided.
+      await resetTestDb(db);
       await _cal(db);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await db
@@ -179,8 +176,6 @@ void main() {
   });
 
   test('404 drops owned rows but keeps foreign-account rows', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     for (final entry in [('mine', 'a@x'), ('theirs', 'b@x')]) {

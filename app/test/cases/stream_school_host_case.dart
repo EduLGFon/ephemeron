@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/test_fixtures.dart';
+
 class _FakeSchoolNotifier extends StreamSchoolCompletedNotifier {
   _FakeSchoolNotifier(this.initial);
 
@@ -74,7 +76,7 @@ Widget _app({
 
 Future<void> _pump(WidgetTester tester, Widget app) async {
   await tester.pumpWidget(app);
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 AppLocalizations _l10n(WidgetTester tester) =>
@@ -102,7 +104,7 @@ void main() {
     final l = _l10n(tester);
 
     await tester.tap(find.text(l.onboardingNext));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text(l.streamSchoolCaptureTitle), findsOneWidget);
     expect(find.text(l.streamSchoolCaptureBody), findsOneWidget);
@@ -117,7 +119,7 @@ void main() {
     final l = _l10n(tester);
 
     await tester.tap(find.text(l.onboardingSkip));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(GestureSchoolOverlay), findsNothing);
     expect(find.text('child'), findsOneWidget);
@@ -136,13 +138,13 @@ void main() {
 
     for (var i = 0; i < 5; i++) {
       await tester.tap(find.text(l.onboardingNext));
-      await tester.pumpAndSettle();
+      await settle(tester);
     }
     expect(find.text(l.streamSchoolPinchTitle), findsOneWidget);
     expect(find.text(l.streamSchoolDone), findsOneWidget);
 
     await tester.tap(find.text(l.streamSchoolDone));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(GestureSchoolOverlay), findsNothing);
     expect(notifier.markCalls, 1);
@@ -162,12 +164,12 @@ void main() {
 
     for (var i = 0; i < 5; i++) {
       await tester.tap(find.text(l.onboardingNext));
-      await tester.pumpAndSettle();
+      await settle(tester);
     }
     final done = find.text(l.streamSchoolDone);
     await tester.tap(done);
     await tester.tap(done);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(finished, 1);
     expect(notifier.markCalls, 1);
@@ -194,13 +196,13 @@ void main() {
     final l = _l10n(tester);
 
     await tester.tap(find.text(l.onboardingSkip));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(GestureSchoolOverlay), findsNothing);
     expect(notifier.markCalls, 1);
     expect(finished, 1);
 
     await notifier.reset();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(notifier.resetCalls, 1);
     expect(find.byType(GestureSchoolOverlay), findsOneWidget);
@@ -209,7 +211,7 @@ void main() {
     expect(find.text('child'), findsOneWidget);
 
     await tester.tap(find.text(l.onboardingSkip));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(GestureSchoolOverlay), findsNothing);
     expect(notifier.markCalls, 2);

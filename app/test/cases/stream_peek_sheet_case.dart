@@ -15,6 +15,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/test_fixtures.dart';
+
 class _UnusedGateway implements StreamPeekGateway {
   @override
   Future<Never> noSuchMethod(Invocation invocation) =>
@@ -143,7 +145,7 @@ Future<AppLocalizations> _openSheet(
     ),
   );
   await tester.tap(find.text('open'));
-  await tester.pumpAndSettle();
+  await settle(tester);
   return AppLocalizations.delegate.load(const Locale('en'));
 }
 
@@ -165,7 +167,7 @@ void main() {
     await tester.enterText(_titleField, 'Edited');
     await tester.pump();
     await tester.tap(find.text(l.streamPeekSave));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(actions.calls, hasLength(1));
     expect(actions.calls.single.$1, same(target));
@@ -188,31 +190,31 @@ void main() {
     await tester.pump();
 
     await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(StreamPeekSheet), findsOneWidget);
     expect(find.text(l.streamPeekDiscardTitle), findsNothing);
 
     await tester.drag(find.byType(StreamPeekSheet), const Offset(0, 300));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(StreamPeekSheet), findsOneWidget);
     expect(find.text(l.streamPeekDiscardTitle), findsNothing);
 
     await tester.tap(find.byIcon(Icons.close));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text(l.streamPeekDiscardTitle), findsOneWidget);
     expect(find.byType(StreamPeekSheet), findsOneWidget);
 
     await tester.tap(find.text(l.streamPeekKeepEditing));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(StreamPeekSheet), findsOneWidget);
     expect(find.text(l.streamPeekDiscardTitle), findsNothing);
     expect(find.text('Edited'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.close));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text(l.streamPeekDiscardConfirm));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(StreamPeekSheet), findsNothing);
   });
 
@@ -225,7 +227,7 @@ void main() {
     );
 
     await tester.tap(find.byIcon(Icons.close));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text(l.streamPeekDiscardTitle), findsNothing);
     expect(find.byType(StreamPeekSheet), findsNothing);
@@ -243,11 +245,11 @@ void main() {
     );
 
     await tester.tap(find.byType(DropdownButtonFormField<String?>));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('Home').last);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text(l.streamPeekSave));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(actions.calls, hasLength(1));
     expect(actions.calls.single.$2.listId, 'l2');
@@ -273,7 +275,7 @@ void main() {
     );
 
     await tester.tap(find.text(label(9, 0)));
-    await tester.pumpAndSettle();
+    await settle(tester);
     var fields = find.descendant(
       of: find.byType(TimePickerDialog),
       matching: find.byType(TextField),
@@ -282,10 +284,10 @@ void main() {
     await tester.enterText(fields.at(0), '14');
     await tester.enterText(fields.at(1), '45');
     await tester.tap(find.text(material.okButtonLabel));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.text(label(10, 0)));
-    await tester.pumpAndSettle();
+    await settle(tester);
     fields = find.descendant(
       of: find.byType(TimePickerDialog),
       matching: find.byType(TextField),
@@ -294,10 +296,10 @@ void main() {
     await tester.enterText(fields.at(0), '16');
     await tester.enterText(fields.at(1), '30');
     await tester.tap(find.text(material.okButtonLabel));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.text(l.streamPeekSave));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(actions.calls, hasLength(1));
     expect(actions.calls.single.$2.startMs, _at(14, 45));
@@ -319,7 +321,7 @@ void main() {
     expect(find.byIcon(Icons.close), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.close));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(StreamPeekSheet), findsNothing);
   });
 
@@ -353,7 +355,7 @@ void main() {
     await tester.enterText(_titleField, 'Edited');
     await tester.pump();
     await tester.tap(find.text(l.streamPeekSave));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(StreamPeekSheet), findsOneWidget);
     expect(find.text(l.streamPeekSaveFailed), findsOneWidget);
@@ -398,9 +400,9 @@ void main() {
         )
         .first;
     await tester.drag(editorScroll, const Offset(0, -500));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text(l.streamPeekSave));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(actions.calls, hasLength(1));
   });

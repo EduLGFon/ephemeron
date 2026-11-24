@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart' hide isNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/data/services/headless_widget_push.dart';
@@ -7,20 +6,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../support/test_fixtures.dart';
+
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('headless push does not throw on empty db', () async {
     SharedPreferences.setMockInitialValues({});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     await pushAllHeadlessWidgets(db);
   });
 
   test('toggle cancels scheduled alarms for the entity', () async {
     SharedPreferences.setMockInitialValues({});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     await db
         .into(db.alarmsIndex)
         .insert(
@@ -44,8 +45,6 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'widget_config_PendingTasksWidgetProvider': 'list-a',
     });
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final listId = await repo.createList('A');
     await repo.createTask(title: 'in list', listId: listId);

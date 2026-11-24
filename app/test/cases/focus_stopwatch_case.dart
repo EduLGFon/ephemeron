@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/components/visuals.dart';
 import 'package:ephemeron/core/ids/ids.dart';
@@ -11,6 +10,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
 
 /// Minimal widget tree around the clock face so the goal ring value and dial
 /// paint layer can be inspected without booting the whole screen/providers.
@@ -43,9 +44,11 @@ double _ringValue(WidgetTester tester) =>
     tester.widget<AppProgressRing>(find.byType(AppProgressRing)).value;
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('stopwatch start stores no target end and stopwatch phase', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final repo = FocusRepository(db);
 
     final id = await repo.startSession();
@@ -69,7 +72,6 @@ void main() {
     // Handlers installed on the default messenger persist across widget tests
     // in this file, so reset before the next file runs.
     addTearDown(() => messenger.setMockMethodCallHandler(alarms, null));
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = FocusRepository(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     final id = newId();
@@ -113,11 +115,10 @@ void main() {
     )..where((f) => f.id.equals(id))).getSingle();
     expect(finished.endUtc, isNotNull);
 
-    // Close the db and unmount inside the test body so Drift's
-    // stream-close timer fires before the pending-timer check.
-    await db.close();
+    // Advance fake time so Drift's stream-close timer fires before
+    // the pending-timer check; the shared db stays open for the file.
     await tester.pumpWidget(Container());
-    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('stopwatch goal ring fills once per 60-minute cycle', (

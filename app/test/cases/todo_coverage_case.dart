@@ -1,6 +1,5 @@
 // Widget coverage for task-list and smart-list chip management, drag-handle
 // reordering, and habit agenda rows with "Open habits" navigation.
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/components/app_chips.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -18,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<void> _pumpTasks(WidgetTester tester, AppDatabase db) async {
   await tester.pumpWidget(
@@ -31,11 +30,10 @@ Future<void> _pumpTasks(WidgetTester tester, AppDatabase db) async {
   await tester.pump(const Duration(milliseconds: 100));
 }
 
-Future<void> _dispose(WidgetTester tester, AppDatabase db) async {
+Future<void> _dispose(WidgetTester tester) async {
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
 }
 
 Finder _listChip(String listId) =>
@@ -53,6 +51,10 @@ class _AgendaWindow extends CalendarState {
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'tasks.sort': 'custom',
@@ -63,7 +65,6 @@ void main() {
   testWidgets('long-pressing a list chip opens list management', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final work = await repo.createList('Work');
@@ -77,14 +78,13 @@ void main() {
       expect(find.byType(TaskListsScreen), findsOneWidget);
       expect(find.text('Manage lists'), findsOneWidget);
     } finally {
-      await _dispose(tester, db);
+      await _dispose(tester);
     }
   });
 
   testWidgets('tapping list and smart-list chips selects them', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final work = await repo.createList('Work');
@@ -111,14 +111,13 @@ void main() {
       expect(tester.widget<AppChip>(_smartChip(important)).selected, isTrue);
       expect(tester.widget<AppChip>(_listChip(work)).selected, isFalse);
     } finally {
-      await _dispose(tester, db);
+      await _dispose(tester);
     }
   });
 
   testWidgets('desktop hover still shows the list chip tooltip', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final work = await repo.createList('Work');
@@ -139,14 +138,13 @@ void main() {
 
       expect(find.text('On this device'), findsOneWidget);
     } finally {
-      await _dispose(tester, db);
+      await _dispose(tester);
     }
   });
 
   testWidgets('long-pressing a smart-list chip can delete it', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final important = await repo.createSmartList('Important', {
@@ -170,7 +168,7 @@ void main() {
       expect(find.textContaining('Important'), findsNothing);
       expect(await db.select(db.smartLists).get(), isEmpty);
     } finally {
-      await _dispose(tester, db);
+      await _dispose(tester);
     }
   });
 
@@ -182,7 +180,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final list = await repo.createList('Work');
@@ -198,7 +195,7 @@ void main() {
       await gesture.moveBy(const Offset(0, 140));
       await tester.pump();
       await gesture.up();
-      await tester.pumpAndSettle();
+      await settle(tester);
 
       final orders = {
         for (final task in await db.select(db.tasks).get())
@@ -208,7 +205,7 @@ void main() {
       expect(orders[first], greaterThan(orders[second]!));
       expect(orders[third], isNotNull);
     } finally {
-      await _dispose(tester, db);
+      await _dispose(tester);
     }
   });
 
@@ -220,7 +217,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = _db();
     try {
       final repo = TaskRepository(db);
       final first = await repo.createList('Alpha list');
@@ -241,7 +237,7 @@ void main() {
       await gesture.moveBy(const Offset(0, 90));
       await tester.pump();
       await gesture.up();
-      await tester.pumpAndSettle();
+      await settle(tester);
 
       final orders = {
         for (final list in await db.select(db.taskLists).get())
@@ -250,14 +246,13 @@ void main() {
       expect(orders[first], 1);
       expect(orders[second], 0);
     } finally {
-      await _dispose(tester, db);
+      await _dispose(tester);
     }
   });
 
   testWidgets('agenda shows habit rows and Open habits navigates', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final router = GoRouter(
       initialLocation: '/calendar',
       routes: [
@@ -316,7 +311,7 @@ void main() {
       expect(find.text('Habits tab'), findsOneWidget);
       expect(find.text('Open habits'), findsNothing);
     } finally {
-      await _dispose(tester, db);
+      await _dispose(tester);
       router.dispose();
     }
   });
