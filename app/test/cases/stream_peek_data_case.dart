@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
@@ -9,6 +8,10 @@ import 'package:ephemeron/features/stream/presentation/peek/peek_data.dart';
 import 'package:ephemeron/features/tasks/application/tasks_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 class _FakeGateway implements StreamPeekGateway {
   int updateCalls = 0;
@@ -217,6 +220,13 @@ Future<StreamPeekTarget?> _readTarget(
 }
 
 void main() {
+  setUpAll(() {
+    db = newTestDb();
+  });
+  setUp(() => resetTestDb(db));
+  tearDownAll(() async {
+    await db.close();
+  });
   test('task mark maps task title, time, list, priority and notes', () async {
     final container = _container(
       tasks: [
@@ -376,8 +386,6 @@ void main() {
   });
 
   test('rebuildDay keeps the adjacent cache days D-2 and D+3', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final tasks = TaskRepository(db);
     for (var day = 15; day <= 20; day++) {
       final key = '2026-11-${day.toString().padLeft(2, '0')}';

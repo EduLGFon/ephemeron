@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/countdown_repository.dart';
@@ -15,6 +14,10 @@ import 'package:ephemeron/features/sync/application/pending_operations.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 /// Records bulk habit actions without arming the real durable undo timer.
 class _RecordingPendingOperations extends PendingOperations {
@@ -68,10 +71,16 @@ bool? _habitRowDone(WidgetTester tester, String name) => tester
     .toggled;
 
 void main() {
+  setUpAll(() {
+    db = newTestDb();
+  });
+  setUp(() => resetTestDb(db));
+  tearDownAll(() async {
+    await db.close();
+  });
   testWidgets('row taps count steps toward the goal, not full completion', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Water',
@@ -113,15 +122,14 @@ void main() {
     expect(log?.done, isTrue);
     expect(_habitRowDone(tester, 'Water'), isTrue);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('row taps to goal clear a prior skip', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Water',
@@ -163,15 +171,14 @@ void main() {
     expect(log?.skipped, isFalse);
     expect(_habitRowDone(tester, 'Water'), isTrue);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('leading circle marks fully done through the shared toggle API', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Walk',
@@ -219,15 +226,14 @@ void main() {
     expect(log?.amount, 0);
     expect(_habitRowDone(tester, 'Walk'), isFalse);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('long-press on row marks habit complete without adding a step', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Meditate',
@@ -254,15 +260,14 @@ void main() {
     expect(log?.amount, 5);
     expect(_habitRowDone(tester, 'Meditate'), isTrue);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('row taps add the configured increment per tap', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Run',
@@ -293,13 +298,12 @@ void main() {
     expect((await repo.logFor(id, today))?.amount, 4);
     expect(find.textContaining('4/10 min'), findsOneWidget);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('habit complete writes today log', (WidgetTester tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(name: 'Read', startDate: '2026-01-01');
     await tester.pumpWidget(
@@ -316,17 +320,16 @@ void main() {
     await tester.pump();
     final today = habitDateKey(DateTime.now());
     expect((await repo.logFor(id, today))?.done, isTrue);
-    // Close the db and unmount inside the test body so Drift's
-    // stream-close timer fires before the pending-timer check.
-    await db.close();
+    // Unmount inside the test body so Drift's stream-close timer fires
+    // before the pending-timer check.
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('habit row shows live progress from a linked focus session', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Run',
@@ -365,17 +368,16 @@ void main() {
     );
     expect(pct, greaterThanOrEqualTo(50.0));
     expect(pct, lessThan(52.0));
-    // Close the db and unmount inside the test body so Drift's
-    // stream-close timer fires before the pending-timer check.
-    await db.close();
+    // Unmount inside the test body so Drift's stream-close timer fires
+    // before the pending-timer check.
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('break session does not add live habit progress', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Run',
@@ -409,17 +411,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.textContaining('2/10 min'), findsOneWidget);
     expect(find.textContaining('70.0%'), findsNothing);
-    // Close the db and unmount inside the test body so Drift's
-    // stream-close timer fires before the pending-timer check.
-    await db.close();
+    // Unmount inside the test body so Drift's stream-close timer fires
+    // before the pending-timer check.
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('habit row minus control decrements the amount', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Run',
@@ -439,21 +440,20 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byTooltip('More options'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('Subtract 2'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect((await repo.logFor(id, today))?.amount, 3);
-    // Close the db and unmount inside the test body so Drift's
-    // stream-close timer fires before the pending-timer check.
-    await db.close();
+    // Unmount inside the test body so Drift's stream-close timer fires
+    // before the pending-timer check.
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets(
     'menu select enters selection and archive schedules a pending op',
     (WidgetTester tester) async {
-      final db = AppDatabase.forTesting(NativeDatabase.memory());
       final repo = HabitRepository(db);
       final pendingOps = _RecordingPendingOperations(db);
       final id = await repo.createHabit(name: 'Read', startDate: '2026-01-01');
@@ -469,7 +469,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(find.byTooltip('More options'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       await tester.tap(find.text('Select').last);
       await tester.pump();
       expect(find.text('1 selected'), findsOneWidget);
@@ -480,18 +480,17 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(pendingOps.archiveCalls, {id: true});
       expect(find.text('1 selected'), findsNothing);
-      // Close the db and unmount inside the test body so Drift's
-      // stream-close timer fires before the pending-timer check.
-      await db.close();
+      // Unmount inside the test body so Drift's stream-close timer fires
+      // before the pending-timer check.
       await tester.pumpWidget(Container());
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
     },
   );
 
   testWidgets('selection prunes rows that leave the active list', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final pendingOps = _RecordingPendingOperations(db);
     final id = await repo.createHabit(name: 'Read', startDate: '2026-01-01');
@@ -507,7 +506,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byTooltip('More options'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('Select').last);
     await tester.pump();
     expect(find.text('1 selected'), findsOneWidget);
@@ -525,14 +524,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
-    await db.close();
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pump();
   });
 
   testWidgets('bulk archive resolves the live selected rows', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final pendingOps = _RecordingPendingOperations(db);
     final readId = await repo.createHabit(
@@ -552,7 +550,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byTooltip('More options').first);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('Select').last);
     await tester.pump();
     await tester.tap(find.text('Run'));
@@ -576,14 +574,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
-    await db.close();
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pump();
   });
 
   testWidgets('delete action requires confirmation and schedules deletes', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final pendingOps = _RecordingPendingOperations(db);
     final id = await repo.createHabit(name: 'Read', startDate: '2026-01-01');
@@ -599,7 +596,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byTooltip('More options'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('Select').last);
     await tester.pump();
     await tester.tap(find.byTooltip('Delete'));
@@ -612,10 +609,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(pendingOps.deleteCalls, [id]);
     expect(find.text('1 selected'), findsNothing);
-    // Close the db and unmount inside the test body so Drift's
-    // stream-close timer fires before the pending-timer check.
-    await db.close();
+    // Unmount inside the test body so Drift's stream-close timer fires
+    // before the pending-timer check.
     await tester.pumpWidget(Container());
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 }

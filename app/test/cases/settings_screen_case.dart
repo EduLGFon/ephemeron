@@ -15,6 +15,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -84,7 +87,7 @@ Future<void> _pumpSettings(
   await tester.pumpWidget(
     _settingsApp(overrides: overrides, textScale: textScale, padding: padding),
   );
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 void main() {
@@ -172,7 +175,7 @@ void main() {
     );
 
     await tester.tap(find.byKey(const ValueKey('primary-color-#00897b')));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(
       find.byKey(const ValueKey('primary-selected-#00897b')),
@@ -190,7 +193,7 @@ void main() {
     );
 
     await tester.tap(find.byKey(const ValueKey('brightness-amoled')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       tester
           .widget<AppChip>(find.byKey(const ValueKey('brightness-amoled')))
@@ -203,7 +206,7 @@ void main() {
     );
 
     await tester.tap(find.byKey(const ValueKey('brightness-system')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       tester
           .widget<AppChip>(find.byKey(const ValueKey('brightness-system')))
@@ -235,7 +238,7 @@ void main() {
 
     await tester.enterText(field, '#445566');
     await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(tester.widget<TextField>(field).controller?.text, '#445566');
     expect(find.text('Enter a valid hex like #RRGGBB.'), findsNothing);
@@ -279,7 +282,7 @@ void main() {
     expect(tester.widget<Switch>(switchKey).value, isTrue);
 
     await tester.tap(switchKey);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(tester.widget<Switch>(switchKey).value, isFalse);
     expect(
@@ -333,35 +336,35 @@ void main() {
     );
 
     await tester.tap(find.byKey(const ValueKey('brightness-dark')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       (await SharedPreferences.getInstance()).getString('settings.brightness'),
       'dark',
     );
 
     await tester.tap(find.byKey(const ValueKey('density-comfortable')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       (await SharedPreferences.getInstance()).getString('settings.uiDensity'),
       'comfortable',
     );
 
     await tester.tap(find.byKey(const ValueKey('stream-toggle')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       (await SharedPreferences.getInstance()).getBool('settings.streamEnabled'),
       isFalse,
     );
 
     await tester.tap(find.byKey(const ValueKey('time-24h-switch')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       (await SharedPreferences.getInstance()).getBool('settings.time24h'),
       isTrue,
     );
 
     await tester.tap(find.byKey(const ValueKey('dynamic-color-switch')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(
       (await SharedPreferences.getInstance()).getBool('settings.dynamicColor'),
       isFalse,
@@ -395,13 +398,13 @@ void main() {
     );
 
     await tester.tap(find.byKey(const ValueKey('settings-nav-order')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byKey(const ValueKey('nav-order-item-4')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('nav-order-reset')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('nav-order-save')));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(
       (await SharedPreferences.getInstance()).getStringList(
@@ -443,7 +446,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final searchButton = find.byKey(const ValueKey('settings-search-toggle'));
     expect(
@@ -471,7 +474,7 @@ void main() {
     final scrollable = find.byType(Scrollable).first;
     for (var i = 0; i < 40; i++) {
       await tester.drag(scrollable, const Offset(0, -250));
-      await tester.pumpAndSettle();
+      await settle(tester);
     }
     expect(tester.takeException(), isNull);
   });
@@ -513,7 +516,7 @@ void main() {
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.pumpAndSettle();
+      await settle(tester);
 
       expect(tester.takeException(), isNull);
       expect(tile, findsOneWidget);
