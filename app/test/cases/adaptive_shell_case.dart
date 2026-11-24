@@ -403,7 +403,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey<String>('quick-create-kind-button')),
+        find.byKey(const ValueKey<String>('quick-create-kind-wheel')),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
@@ -437,20 +437,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('quick-create-pill')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(
-      find.byKey(const ValueKey<String>('quick-create-kind-button')),
-    );
-    await tester.pumpAndSettle();
     final kindWheel = tester.widget<ListWheelScrollView>(
-      find.byType(ListWheelScrollView),
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('quick-create-kind-wheel')),
+        matching: find.byType(ListWheelScrollView),
+      ),
     );
     (kindWheel.controller! as FixedExtentScrollController).jumpToItem(2);
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('quick-create-kind-habit')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey<String>('quick-create-input')),
@@ -494,20 +487,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('quick-create-pill')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(
-      find.byKey(const ValueKey<String>('quick-create-kind-button')),
-    );
-    await tester.pumpAndSettle();
     final kindWheel = tester.widget<ListWheelScrollView>(
-      find.byType(ListWheelScrollView),
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('quick-create-kind-wheel')),
+        matching: find.byType(ListWheelScrollView),
+      ),
     );
     (kindWheel.controller! as FixedExtentScrollController).jumpToItem(3);
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('quick-create-kind-countdown')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey<String>('quick-create-input')),
@@ -553,20 +539,13 @@ void main() {
       await tester.tap(find.byKey(const ValueKey<String>('quick-create-pill')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(
-        find.byKey(const ValueKey<String>('quick-create-kind-button')),
-      );
-      await tester.pumpAndSettle();
       final kindWheel = tester.widget<ListWheelScrollView>(
-        find.byType(ListWheelScrollView),
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('quick-create-kind-wheel')),
+          matching: find.byType(ListWheelScrollView),
+        ),
       );
       (kindWheel.controller! as FixedExtentScrollController).jumpToItem(1);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey<String>('quick-create-kind-event')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey<String>('quick-create-input')),
@@ -620,30 +599,45 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      // Task default: kind, date, time, priority buttons; no list exists yet.
+      // Task default: inline wheels for kind/date/time/priority; no list wheel.
       expect(
-        find.byKey(const ValueKey<String>('quick-create-kind-button')),
+        find.byKey(const ValueKey<String>('quick-create-kind-wheel')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey<String>('quick-create-date-button')),
+        find.byKey(const ValueKey<String>('quick-create-date-wheel')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey<String>('quick-create-time-button')),
+        find.byKey(const ValueKey<String>('quick-create-time-hour-wheel')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey<String>('quick-create-prio-button')),
+        find.byKey(const ValueKey<String>('quick-create-time-minute-wheel')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey<String>('quick-create-list-button')),
+        find.byKey(const ValueKey<String>('quick-create-prio-wheel')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('quick-create-list-wheel')),
         findsNothing,
       );
       expect(find.byKey(pillInputKey), findsOneWidget);
 
-      // Each field button carries its icon key.
+      expect(
+        find.byKey(const ValueKey<String>('quick-create-kind-label')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('quick-create-time-label')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('quick-create-prio-label')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey<String>('quick-create-kind-icon')),
         findsOneWidget,
@@ -675,13 +669,13 @@ void main() {
       noneStyle.foreground(brightness),
     );
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('quick-create-prio-button')),
+    final prioWheel = tester.widget<ListWheelScrollView>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('quick-create-prio-wheel')),
+        matching: find.byType(ListWheelScrollView),
+      ),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('quick-create-prio-1')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Done'));
+    (prioWheel.controller! as FixedExtentScrollController).jumpToItem(1);
     await tester.pumpAndSettle();
 
     final p1 = styleForVisualPriority(1);
@@ -736,20 +730,13 @@ void main() {
     await tester.enterText(find.byKey(pillInputKey), 'Buy milk');
     await tester.pump();
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('quick-create-kind-button')),
-    );
-    await tester.pumpAndSettle();
     final kindWheel = tester.widget<ListWheelScrollView>(
-      find.byType(ListWheelScrollView),
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('quick-create-kind-wheel')),
+        matching: find.byType(ListWheelScrollView),
+      ),
     );
     (kindWheel.controller! as FixedExtentScrollController).jumpToItem(1);
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('quick-create-kind-event')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
 
     final field = tester.widget<TextField>(find.byKey(pillInputKey));
@@ -862,13 +849,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    // The priority button reflects the parsed token (text stays source of truth).
-    final prioButton = find.byKey(
-      const ValueKey<String>('quick-create-prio-button'),
-    );
+    // The priority label reflects the parsed token (text stays source of truth).
     expect(
-      find.descendant(of: prioButton, matching: find.text('P2')),
-      findsOneWidget,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('quick-create-prio-label')),
+          )
+          .data,
+      'Priority: P2',
     );
     final pillElement = tester.element(find.byType(QuickCreatePill));
     final brightness = Theme.of(pillElement).brightness;
@@ -913,30 +901,32 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    final prioButton = find.byKey(
-      const ValueKey<String>('quick-create-prio-button'),
-    );
     expect(
-      find.descendant(of: prioButton, matching: find.text('P2')),
-      findsOneWidget,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('quick-create-prio-label')),
+          )
+          .data,
+      'Priority: P2',
     );
 
     // Selecting None strips the parsed "-p2" token from the text.
-    await tester.tap(prioButton);
-    await tester.pumpAndSettle();
     final prioWheel = tester.widget<ListWheelScrollView>(
-      find.byType(ListWheelScrollView),
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('quick-create-prio-wheel')),
+        matching: find.byType(ListWheelScrollView),
+      ),
     );
     (prioWheel.controller! as FixedExtentScrollController).jumpToItem(0);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('quick-create-prio-0')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Done'));
-    await tester.pumpAndSettle();
 
     expect(
-      find.descendant(of: prioButton, matching: find.text('None')),
-      findsOneWidget,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('quick-create-prio-label')),
+          )
+          .data,
+      'Priority: None',
     );
     final field = tester.widget<TextField>(find.byKey(pillInputKey));
     expect(field.controller!.text, 'Task');

@@ -12,7 +12,6 @@ import '../../core/design/components/wheel_picker.dart';
 import '../../core/design/tokens.dart';
 import '../../core/time/picker_memory.dart';
 import '../../core/ui/app_feedback.dart';
-import '../../core/ui/app_sheet.dart';
 import '../../data/drift/app_database.dart';
 import '../../domain/parsing/quick_add_parser.dart';
 import '../../features/calendar/application/calendar_providers.dart';
@@ -67,6 +66,8 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
   DateTime? _pickedDate;
   TimeOfDay? _pickedTime;
   String? _selectedListId;
+  int _dateWheelNonce = 0;
+  bool _pickingDate = false;
 
   @override
   void initState() {
@@ -105,6 +106,8 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
         _pickedDate = null;
         _pickedTime = null;
         _selectedListId = null;
+        _dateWheelNonce = 0;
+        _pickingDate = false;
       }
     });
   }
@@ -630,8 +633,7 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     );
   }
 
-  /// Compact field buttons replace the old inline wheels. Each button opens a
-  /// dedicated 3-row wheel picker sheet; results apply on Done only.
+  /// Inline 3-row wheels keep selection direct: scrolling changes the value.
   Widget _buildSelectors(BuildContext context, ColorScheme scheme) {
     final strings = QuickAddStrings.of(context);
     final brightness = Theme.of(context).brightness;
@@ -639,66 +641,141 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
         .where((list) => list.deletedAt == null)
         .toList(growable: false);
     final flagStyle = styleForVisualPriority(_visualPriority);
-    final fields = <Widget>[
-      _fieldButton(
-        key: const ValueKey<String>('quick-create-kind-button'),
+    final columns = <Widget>[
+      _wheelColumn(
+        headerKey: const ValueKey<String>('quick-create-kind-label'),
         iconKey: const ValueKey<String>('quick-create-kind-icon'),
         icon: _kind.icon,
         iconColor: scheme.primary,
-        label: _kindLabel(strings, _kind),
+        header: 'Type: ${_kindLabel(strings, _kind)}',
         semanticsLabel: strings.sectionType,
-        onTap: _openKindPicker,
+        wheel: WheelPicker<QuickCreateKind>(
+          key: const ValueKey<String>('quick-create-kind-wheel'),
+          items: <WheelItem<QuickCreateKind>>[
+            for (final kind in QuickCreateKind.values)
+              WheelItem<QuickCreateKind>(
+                value: kind,
+                label: _kindLabel(strings, kind),
+                icon: kind.icon,
+                key: ValueKey<String>('quick-create-kind-${kind.name}'),
+              ),
+          ],
+          value: _kind,
+          onChanged: _selectKind,
+          itemExtent: 44,
+          semanticsLabel: strings.sectionType,
+        ),
       ),
     ];
     if (_kind != QuickCreateKind.habit) {
-      fields.add(
-        _fieldButton(
-          key: const ValueKey<String>('quick-create-date-button'),
-          iconKey: const ValueKey<String>('quick-create-date-icon'),
+      columns.add(
+        _wheelColumn(
+          headerKey: const ValueKey<String>('quick-create-date-label'),
           icon: Icons.calendar_month_outlined,
           iconColor: scheme.primary,
-          label: _dateLabel(strings),
+          header: 'Date: ${_dateLabel(strings)}',
           semanticsLabel: strings.sectionDate,
-          onTap: _openDatePicker,
+          wheel: KeyedSubtree(
+            key: ValueKey<String>('quick-create-date-wheel-$_dateWheelNonce'),
+            child: WheelPicker<_PillDate>(
+              key: const ValueKey<String>('quick-create-date-wheel'),
+              items: <WheelItem<_PillDate>>[
+                WheelItem<_PillDate>(
+                  value: _PillDate.today,
+                  label: strings.today,
+                  icon: Icons.today_outlined,
+                  key: const ValueKey<String>('quick-create-date-today'),
+                ),
+                WheelItem<_PillDate>(
+                  value: _PillDate.tomorrow,
+                  label: strings.tomorrow,
+                  icon: Icons.event_available_outlined,
+                  key: const ValueKey<String>('quick-create-date-tomorrow'),
+                ),
+                WheelItem<_PillDate>(
+                  value: _PillDate.pickDate,
+                  label: strings.pickDate,
+                  icon: Icons.calendar_month_outlined,
+                  key: const ValueKey<String>('quick-create-date-pick'),
+                ),
+              ],
+              value: _selectedDateChoice ?? _PillDate.today,
+              onChanged: _onDateWheelChanged,
+              itemExtent: 44,
+              semanticsLabel: strings.sectionDate,
+            ),
+          ),
         ),
       );
-      fields.add(
-        _fieldButton(
-          key: const ValueKey<String>('quick-create-time-button'),
-          icon: Icons.schedule,
-          iconColor: scheme.primary,
-          label: _pickedTime == null ? 'Time' : _pickedTime!.format(context),
-          semanticsLabel: 'Time',
-          onTap: _openTimePicker,
-        ),
-      );
+      columns.add(_timeColumn(strings, scheme));
     }
     if (_kind == QuickCreateKind.task) {
-      fields.add(
-        _fieldButton(
-          key: const ValueKey<String>('quick-create-prio-button'),
+      columns.add(
+        _wheelColumn(
+          headerKey: const ValueKey<String>('quick-create-prio-label'),
           iconKey: const ValueKey<String>('quick-create-prio-icon'),
           icon: flagStyle.icon,
           iconColor: flagStyle.foreground(brightness),
-          label: _visualPriority == 0
-              ? strings.priorityNone
-              : strings.priorityLabel(_visualPriority),
+          header:
+              'Priority: ${_visualPriority == 0 ? strings.priorityNone : strings.priorityLabel(_visualPriority)}',
           semanticsLabel: strings.sectionPriority,
-          onTap: _openPriorityPicker,
+          wheel: WheelPicker<int>(
+            key: const ValueKey<String>('quick-create-prio-wheel'),
+            items: <WheelItem<int>>[
+              for (var visual = 0; visual <= 4; visual++)
+                WheelItem<int>(
+                  value: visual,
+                  label: visual == 0
+                      ? strings.priorityNone
+                      : strings.priorityLabel(visual),
+                  icon: styleForVisualPriority(visual).icon,
+                  color: visual == 0
+                      ? null
+                      : styleForVisualPriority(visual).color,
+                  showLabel: false,
+                  key: ValueKey<String>('quick-create-prio-$visual'),
+                ),
+            ],
+            value: _visualPriority,
+            onChanged: _setPriority,
+            itemExtent: 44,
+            semanticsLabel: strings.sectionPriority,
+          ),
         ),
       );
       if (lists.isNotEmpty) {
         final selectedList = lists
             .where((l) => l.id == _selectedListId)
             .firstOrNull;
-        fields.add(
-          _fieldButton(
-            key: const ValueKey<String>('quick-create-list-button'),
+        columns.add(
+          _wheelColumn(
+            headerKey: const ValueKey<String>('quick-create-list-label'),
             icon: Icons.list_alt_outlined,
             iconColor: scheme.primary,
-            label: selectedList?.name ?? 'No list',
+            header: 'List: ${selectedList?.name ?? 'No list'}',
             semanticsLabel: strings.sectionList,
-            onTap: () => _openListPicker(lists),
+            wheel: WheelPicker<String?>(
+              key: const ValueKey<String>('quick-create-list-wheel'),
+              items: <WheelItem<String?>>[
+                const WheelItem<String?>(
+                  value: null,
+                  label: 'No list',
+                  key: ValueKey<String>('quick-create-list-none'),
+                ),
+                for (final list in lists)
+                  WheelItem<String?>(
+                    value: list.id,
+                    label: list.name,
+                    key: ValueKey<String>('quick-create-list-${list.id}'),
+                  ),
+              ],
+              value: lists.any((l) => l.id == _selectedListId)
+                  ? _selectedListId
+                  : null,
+              onChanged: (id) => setState(() => _selectedListId = id),
+              itemExtent: 44,
+              semanticsLabel: strings.sectionList,
+            ),
           ),
         );
       }
@@ -713,10 +790,11 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            for (var i = 0; i < fields.length; i++) ...<Widget>[
-              if (i > 0) const SizedBox(width: DsSpace.x8),
-              fields[i],
+            for (var i = 0; i < columns.length; i++) ...<Widget>[
+              if (i > 0) const SizedBox(width: DsSpace.x12),
+              columns[i],
             ],
           ],
         ),
@@ -724,53 +802,141 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
     );
   }
 
-  Widget _fieldButton({
-    required Key key,
+  Widget _wheelColumn({
+    Key? headerKey,
     Key? iconKey,
     required IconData icon,
     required Color iconColor,
-    required String label,
+    required String header,
     required String semanticsLabel,
-    required VoidCallback onTap,
+    required Widget wheel,
   }) {
     final scheme = Theme.of(context).colorScheme;
-    return Semantics(
-      button: true,
-      label: '$semanticsLabel: $label',
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
-        child: OutlinedButton(
-          key: key,
-          onPressed: onTap,
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(
-              horizontal: DsSpace.x12,
-              vertical: DsSpace.x8,
-            ),
-            side: BorderSide(color: scheme.outlineVariant),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(DsRadius.pill),
-            ),
-            foregroundColor: scheme.onSurface,
+    return SizedBox(
+      width: 112,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, key: iconKey, size: DsIcon.sm, color: iconColor),
+          const SizedBox(height: DsSpace.x4),
+          Text(
+            header,
+            key: headerKey,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: (Theme.of(context).textTheme.labelSmall ?? const TextStyle())
+                .copyWith(color: scheme.onSurfaceVariant),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(icon, key: iconKey, size: DsIcon.sm, color: iconColor),
-              const SizedBox(width: DsSpace.x8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 120),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
+          const SizedBox(height: DsSpace.x4),
+          Semantics(label: semanticsLabel, child: wheel),
+        ],
       ),
     );
+  }
+
+  Widget _timeColumn(QuickAddStrings strings, ColorScheme scheme) {
+    final display = _displayTime;
+    final hhmm =
+        '${display.hour.toString().padLeft(2, '0')}:${display.minute.toString().padLeft(2, '0')}';
+    return SizedBox(
+      width: 160,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.schedule, size: DsIcon.sm, color: scheme.primary),
+          const SizedBox(height: DsSpace.x4),
+          Text(
+            'Time: $hhmm',
+            key: const ValueKey<String>('quick-create-time-label'),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: (Theme.of(context).textTheme.labelSmall ?? const TextStyle())
+                .copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: DsSpace.x4),
+          SizedBox(
+            height: 44 * 3,
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: WheelPicker<int>(
+                    key: const ValueKey<String>('quick-create-time-hour-wheel'),
+                    items: <WheelItem<int>>[
+                      for (var h = 0; h < 24; h++)
+                        WheelItem<int>(
+                          value: h,
+                          label: h.toString().padLeft(2, '0'),
+                          key: ValueKey<String>('quick-create-hour-$h'),
+                        ),
+                    ],
+                    value: display.hour,
+                    onChanged: (h) => _setTime(hour: h),
+                    itemExtent: 44,
+                    semanticsLabel: 'Hour',
+                  ),
+                ),
+                Expanded(
+                  child: WheelPicker<int>(
+                    key: const ValueKey<String>(
+                      'quick-create-time-minute-wheel',
+                    ),
+                    items: <WheelItem<int>>[
+                      for (var m = 0; m < 60; m++)
+                        WheelItem<int>(
+                          value: m,
+                          label: m.toString().padLeft(2, '0'),
+                          key: ValueKey<String>('quick-create-minute-$m'),
+                        ),
+                    ],
+                    value: display.minute,
+                    onChanged: (m) => _setTime(minute: m),
+                    itemExtent: 44,
+                    semanticsLabel: 'Minute',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  TimeOfDay get _displayTime =>
+      _pickedTime ?? TimeOfDay.fromDateTime(_effectiveDue ?? DateTime.now());
+
+  void _setTime({int? hour, int? minute}) {
+    final current = _displayTime;
+    setState(() {
+      _pickedTime = TimeOfDay(
+        hour: hour ?? current.hour,
+        minute: minute ?? current.minute,
+      );
+    });
+  }
+
+  Future<void> _onDateWheelChanged(_PillDate choice) async {
+    if (choice == _PillDate.pickDate) {
+      if (_pickingDate) return;
+      _pickingDate = true;
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: _effectiveDue ?? DateTime.now(),
+        firstDate: DateTime(DateTime.now().year - 5),
+        lastDate: DateTime(DateTime.now().year + 10, 12, 31),
+      );
+      if (!mounted) return;
+      if (picked == null) {
+        setState(() => _dateWheelNonce++);
+      } else {
+        _setPickedDate(picked);
+      }
+      _pickingDate = false;
+      return;
+    }
+    _selectDate(choice);
   }
 
   String _dateLabel(QuickAddStrings strings) {
@@ -786,190 +952,6 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
   String _formatPickedDate(DateTime date) {
     final localizations = MaterialLocalizations.of(context);
     return localizations.formatShortMonthDay(date);
-  }
-
-  void _unfocusInput() {
-    _focusNode.unfocus();
-  }
-
-  Future<void> _openKindPicker() async {
-    _unfocusInput();
-    final strings = QuickAddStrings.of(context);
-    final result = await showWheelPickerSheet<QuickCreateKind>(
-      context,
-      title: strings.sectionType,
-      semanticsLabel: strings.sectionType,
-      items: <WheelItem<QuickCreateKind>>[
-        for (final kind in QuickCreateKind.values)
-          WheelItem<QuickCreateKind>(
-            value: kind,
-            label: _kindLabel(strings, kind),
-            icon: kind.icon,
-            key: ValueKey<String>('quick-create-kind-${kind.name}'),
-          ),
-      ],
-      value: _kind,
-    );
-    if (result == null || !mounted) return;
-    _selectKind(result);
-  }
-
-  Future<void> _openDatePicker() async {
-    _unfocusInput();
-    final strings = QuickAddStrings.of(context);
-    final result = await showWheelPickerSheet<_PillDate>(
-      context,
-      title: strings.sectionDate,
-      semanticsLabel: strings.sectionDate,
-      items: <WheelItem<_PillDate>>[
-        WheelItem<_PillDate>(
-          value: _PillDate.today,
-          label: strings.today,
-          icon: Icons.today_outlined,
-          key: const ValueKey<String>('quick-create-date-today'),
-        ),
-        WheelItem<_PillDate>(
-          value: _PillDate.tomorrow,
-          label: strings.tomorrow,
-          icon: Icons.event_available_outlined,
-          key: const ValueKey<String>('quick-create-date-tomorrow'),
-        ),
-        WheelItem<_PillDate>(
-          value: _PillDate.pickDate,
-          label: strings.pickDate,
-          icon: Icons.calendar_month_outlined,
-          key: const ValueKey<String>('quick-create-date-pick'),
-        ),
-      ],
-      value: _selectedDateChoice ?? _PillDate.today,
-    );
-    if (result == null || !mounted) return;
-    if (result == _PillDate.pickDate) {
-      await _pickDate();
-      return;
-    }
-    _selectDate(result);
-  }
-
-  Future<void> _openTimePicker() async {
-    _unfocusInput();
-    final initial =
-        _pickedTime ?? TimeOfDay.fromDateTime(_effectiveDue ?? DateTime.now());
-    var pendingHour = initial.hour;
-    var pendingMinute = initial.minute;
-    final result = await showAppSheet<TimeOfDay>(
-      context,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => WheelPickerSheetFrame(
-          title: 'Time',
-          wheels: <Widget>[
-            SizedBox(
-              height: 56 * 3,
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: WheelPicker<int>(
-                      semanticsLabel: 'Hour',
-                      items: <WheelItem<int>>[
-                        for (var h = 0; h < 24; h++)
-                          WheelItem<int>(
-                            value: h,
-                            label: h.toString().padLeft(2, '0'),
-                            key: ValueKey<String>('quick-create-hour-$h'),
-                          ),
-                      ],
-                      value: pendingHour,
-                      onChanged: (h) => setSheetState(() => pendingHour = h),
-                    ),
-                  ),
-                  Expanded(
-                    child: WheelPicker<int>(
-                      semanticsLabel: 'Minute',
-                      items: <WheelItem<int>>[
-                        for (var m = 0; m < 60; m++)
-                          WheelItem<int>(
-                            value: m,
-                            label: m.toString().padLeft(2, '0'),
-                            key: ValueKey<String>('quick-create-minute-$m'),
-                          ),
-                      ],
-                      value: pendingMinute,
-                      onChanged: (m) => setSheetState(() => pendingMinute = m),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          result: TimeOfDay(hour: pendingHour, minute: pendingMinute),
-        ),
-      ),
-    );
-    if (result == null || !mounted) return;
-    setState(() => _pickedTime = result);
-  }
-
-  Future<void> _openPriorityPicker() async {
-    _unfocusInput();
-    final strings = QuickAddStrings.of(context);
-    final result = await showWheelPickerSheet<int>(
-      context,
-      title: strings.sectionPriority,
-      semanticsLabel: strings.sectionPriority,
-      items: <WheelItem<int>>[
-        for (var visual = 0; visual <= 4; visual++)
-          WheelItem<int>(
-            value: visual,
-            label: visual == 0
-                ? strings.priorityNone
-                : strings.priorityLabel(visual),
-            icon: styleForVisualPriority(visual).icon,
-            color: visual == 0 ? null : styleForVisualPriority(visual).color,
-            showLabel: false,
-            key: ValueKey<String>('quick-create-prio-$visual'),
-          ),
-      ],
-      value: _visualPriority,
-    );
-    if (result == null || !mounted) return;
-    _setPriority(result);
-  }
-
-  Future<void> _openListPicker(List<TaskList> lists) async {
-    _unfocusInput();
-    final strings = QuickAddStrings.of(context);
-    String? pending = _selectedListId;
-    final result = await showAppSheet<({String? id})>(
-      context,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => WheelPickerSheetFrame(
-          title: strings.sectionList,
-          wheels: <Widget>[
-            WheelPicker<String?>(
-              items: <WheelItem<String?>>[
-                const WheelItem<String?>(
-                  value: null,
-                  label: 'No list',
-                  key: ValueKey<String>('quick-create-list-none'),
-                ),
-                for (final list in lists)
-                  WheelItem<String?>(
-                    value: list.id,
-                    label: list.name,
-                    key: ValueKey<String>('quick-create-list-${list.id}'),
-                  ),
-              ],
-              value: pending,
-              onChanged: (id) => setSheetState(() => pending = id),
-              semanticsLabel: strings.sectionList,
-            ),
-          ],
-          result: (id: pending),
-        ),
-      ),
-    );
-    if (result == null || !mounted) return;
-    setState(() => _selectedListId = result.id);
   }
 
   String _kindLabel(QuickAddStrings strings, QuickCreateKind kind) =>

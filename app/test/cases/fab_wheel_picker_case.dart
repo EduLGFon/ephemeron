@@ -61,42 +61,34 @@ Future<void> _openPill(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Finder _kindButton() =>
-    find.byKey(const ValueKey<String>('quick-create-kind-button'));
-Finder _prioButton() =>
-    find.byKey(const ValueKey<String>('quick-create-prio-button'));
-Finder _listButton() =>
-    find.byKey(const ValueKey<String>('quick-create-list-button'));
-Finder _timeButton() =>
-    find.byKey(const ValueKey<String>('quick-create-time-button'));
+Future<void> _jumpWheel(WidgetTester tester, String wheelKey, int index) async {
+  final wheel = tester.widget<ListWheelScrollView>(
+    find.descendant(
+      of: find.byKey(ValueKey<String>(wheelKey)),
+      matching: find.byType(ListWheelScrollView),
+    ),
+  );
+  (wheel.controller! as FixedExtentScrollController).jumpToItem(index);
+  await tester.pumpAndSettle();
+}
 
 void main() {
-  testWidgets('entity picker applies Habit on Done and updates button/hint', (
+  testWidgets('entity wheel scroll changes kind and hint without modal', (
     tester,
   ) async {
     await _pumpPill(tester);
     await _openPill(tester);
 
-    expect(_kindButton(), findsOneWidget);
-    await tester.tap(_kindButton());
-    await tester.pumpAndSettle();
-
-    expect(find.text('Type'), findsWidgets);
-    final kindWheel = tester.widget<ListWheelScrollView>(
-      find.byType(ListWheelScrollView),
-    );
-    (kindWheel.controller! as FixedExtentScrollController).jumpToItem(2);
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('quick-create-kind-habit')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Done'));
-    await tester.pumpAndSettle();
+    await _jumpWheel(tester, 'quick-create-kind-wheel', 2);
+    expect(find.byType(BottomSheet), findsNothing);
 
     expect(
-      find.descendant(of: _kindButton(), matching: find.text('Habit')),
-      findsOneWidget,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('quick-create-kind-label')),
+          )
+          .data,
+      'Type: Habit',
     );
     expect(
       tester
@@ -110,31 +102,24 @@ void main() {
   });
 
   testWidgets(
-    'priority picker applies P1 on Done and text token stays source',
+    'priority wheel scroll updates label/icon and typing -p2 stays source',
     (tester) async {
       await _pumpPill(tester);
       await _openPill(tester);
 
-      await tester.tap(_prioButton());
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey<String>('quick-create-prio-1')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Done'));
-      await tester.pumpAndSettle();
+      await _jumpWheel(tester, 'quick-create-prio-wheel', 1);
+      expect(find.byType(BottomSheet), findsNothing);
 
       expect(
-        find.descendant(of: _prioButton(), matching: find.text('P1')),
-        findsOneWidget,
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey<String>('quick-create-prio-label')),
+            )
+            .data,
+        'Priority: P1',
       );
       final p1Icon = tester.widget<Icon>(
-        find.descendant(
-          of: _prioButton(),
-          matching: find.byKey(
-            const ValueKey<String>('quick-create-prio-icon'),
-          ),
-        ),
+        find.byKey(const ValueKey<String>('quick-create-prio-icon')),
       );
       expect(
         p1Icon.color,
@@ -148,16 +133,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.descendant(of: _prioButton(), matching: find.text('P2')),
-        findsOneWidget,
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey<String>('quick-create-prio-label')),
+            )
+            .data,
+        'Priority: P2',
       );
       final p2Icon = tester.widget<Icon>(
-        find.descendant(
-          of: _prioButton(),
-          matching: find.byKey(
-            const ValueKey<String>('quick-create-prio-icon'),
-          ),
-        ),
+        find.byKey(const ValueKey<String>('quick-create-prio-icon')),
       );
       expect(
         p2Icon.color,
@@ -166,53 +150,62 @@ void main() {
     },
   );
 
-  testWidgets('list picker shows No list option', (tester) async {
+  testWidgets('list wheel scroll selects list values inline', (tester) async {
     await _pumpPill(tester, lists: <TaskList>[_list('l1', 'Work')]);
     await _openPill(tester);
 
-    await tester.ensureVisible(_listButton());
-    await tester.pumpAndSettle();
-    await tester.tap(_listButton());
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey<String>('quick-create-list-none')),
-      findsOneWidget,
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('quick-create-list-wheel')),
     );
-    expect(find.text('No list'), findsWidgets);
+    await tester.pumpAndSettle();
+    await _jumpWheel(tester, 'quick-create-list-wheel', 1);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('quick-create-list-label')),
+          )
+          .data,
+      'List: Work',
+    );
+
+    await _jumpWheel(tester, 'quick-create-list-wheel', 0);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('quick-create-list-label')),
+          )
+          .data,
+      'List: No list',
+    );
   });
 
-  testWidgets('time picker applies selected value on Done', (tester) async {
+  testWidgets('time wheels scroll updates time label without modal', (
+    tester,
+  ) async {
     await _pumpPill(tester);
     await _openPill(tester);
 
     expect(
-      find.descendant(of: _timeButton(), matching: find.text('Time')),
-      findsOneWidget,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('quick-create-time-label')),
+          )
+          .data,
+      contains('Time:'),
     );
 
-    await tester.tap(_timeButton());
-    await tester.pumpAndSettle();
-
-    final wheels = tester
-        .widgetList<ListWheelScrollView>(find.byType(ListWheelScrollView))
-        .toList();
-    expect(wheels, hasLength(2));
-    (wheels[0].controller! as FixedExtentScrollController).jumpToItem(9);
-    (wheels[1].controller! as FixedExtentScrollController).jumpToItem(30);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Done'));
-    await tester.pumpAndSettle();
+    await _jumpWheel(tester, 'quick-create-time-hour-wheel', 9);
+    await _jumpWheel(tester, 'quick-create-time-minute-wheel', 30);
+    expect(find.byType(BottomSheet), findsNothing);
 
     expect(
-      find.descendant(of: _timeButton(), matching: find.text('Time')),
-      findsNothing,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('quick-create-time-label')),
+          )
+          .data,
+      'Time: 09:30',
     );
-    final timeLabel = tester.widget<Text>(
-      find.descendant(of: _timeButton(), matching: find.byType(Text)).first,
-    );
-    expect(timeLabel.data, contains('30'));
-    expect(timeLabel.data, contains('9'));
   });
 }
