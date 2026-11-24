@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/test_fixtures.dart';
+
 void main() {
   testWidgets('search screen localizes titles', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -28,7 +30,7 @@ void main() {
       expect(find.text(entry.value), findsOneWidget);
     }
     await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
+    await settle(tester);
   });
 
   test('locale code defaults to system and persists', () async {

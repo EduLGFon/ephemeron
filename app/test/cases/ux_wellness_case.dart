@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/components/rows.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -14,6 +13,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/test_fixtures.dart';
 
 void _mockPlatformChannels() {
   final messenger =
@@ -33,7 +34,16 @@ void _mockPlatformChannels() {
   );
 }
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
+  });
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
   test('habit day strip covers 14 days ending today', () {
@@ -83,7 +93,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = CountdownRepository(db);
     final nextYear = DateTime.now().year + 1;
     const title = 'A long countdown title that must ellipsize cleanly';
@@ -103,7 +112,6 @@ void main() {
     expect(find.byType(AppCountdownCard), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
@@ -117,7 +125,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.focusSessions)
@@ -154,7 +161,6 @@ void main() {
     expect(find.text('Finish'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
@@ -167,7 +173,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Read a long book',
@@ -193,7 +198,6 @@ void main() {
     expect(row.done, isTrue);
     expect(tester.takeException(), isNull);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
@@ -206,7 +210,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     await repo.createHabit(
       name: 'Read a long book',
@@ -253,7 +256,6 @@ void main() {
     );
     FlutterError.onError = previousOnError;
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
@@ -265,8 +267,6 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
 
     await tester.pumpWidget(
       ProviderScope(
@@ -293,7 +293,6 @@ void main() {
     expect(todayChip, findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });

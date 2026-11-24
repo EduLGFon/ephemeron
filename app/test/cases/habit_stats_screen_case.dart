@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
@@ -10,6 +9,8 @@ import 'package:ephemeron/features/habits/presentation/habits_stats_screen.dart'
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
 
 class _GatedHabitRepository extends HabitRepository {
   _GatedHabitRepository(super.db, this.gate);
@@ -34,11 +35,19 @@ class _ThrowingHabitRepository extends HabitRepository {
   }
 }
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
+  });
   testWidgets('habit stats screen shows 60% and catch-up action', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final yesterday = habitDateKey(
       DateTime.now().subtract(const Duration(days: 1)),
@@ -70,7 +79,6 @@ void main() {
     expect((await repo.logFor(id, yesterday))?.amount, 5);
     expect((await repo.logFor(id, yesterday))?.done, isTrue);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
@@ -83,7 +91,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final yesterday = habitDateKey(
       DateTime.now().subtract(const Duration(days: 1)),
@@ -115,13 +122,11 @@ void main() {
     expect(find.text('60%'), findsOneWidget);
     expect(find.text('Add 2 min'), findsOneWidget);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
 
   testWidgets('catch-up ignores rapid double tap', (WidgetTester tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final yesterday = habitDateKey(
       DateTime.now().subtract(const Duration(days: 1)),
     );
@@ -164,7 +169,6 @@ void main() {
 
     expect((await setupRepo.logFor(id, yesterday))?.amount, 5);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
@@ -172,7 +176,6 @@ void main() {
   testWidgets('catch-up shows generic error on failure', (
     WidgetTester tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final yesterday = habitDateKey(
       DateTime.now().subtract(const Duration(days: 1)),
     );
@@ -208,7 +211,6 @@ void main() {
     expect(find.text('Could not update this day. Try again.'), findsOneWidget);
     expect(find.textContaining('Could not update:'), findsNothing);
 
-    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });

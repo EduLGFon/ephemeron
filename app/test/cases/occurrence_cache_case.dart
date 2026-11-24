@@ -1,10 +1,9 @@
 import 'package:drift/drift.dart' hide isNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<void> _cal(
   AppDatabase db, {
@@ -90,10 +89,17 @@ Future<void> _event(
       );
 }
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
+  });
   test('rebuild expands a daily master into the window only', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final start = DateTime.utc(2026, 3, 2, 9);
     await _event(
@@ -116,8 +122,6 @@ void main() {
   });
 
   test('cancelled exception removes that occurrence', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final start = DateTime.utc(2026, 3, 2, 9);
     await _event(
@@ -145,8 +149,6 @@ void main() {
   });
 
   test('all-day exclusive end spans only the covered days', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _event(
       db,
@@ -165,8 +167,6 @@ void main() {
   });
 
   test('all-day multi-day exclusive end excludes the end date', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _event(
       db,
@@ -187,8 +187,6 @@ void main() {
   });
 
   test('legacy all-day row with end==start stays one day', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _event(
       db,
@@ -207,8 +205,6 @@ void main() {
   });
 
   test('task occurrences use planned date as all-day when set', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.tasks)
@@ -240,8 +236,6 @@ void main() {
   });
 
   test('task occurrences fall back to timed due date when unplanned', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.tasks)
@@ -274,8 +268,6 @@ void main() {
   });
 
   test('invalidateEvent clears rows for master and exceptions', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final start = DateTime.utc(2026, 3, 2, 9);
     await _event(
@@ -298,8 +290,6 @@ void main() {
   test(
     'non-recurring plannedStart/plannedEnd becomes timed task block',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await db
           .into(db.tasks)
@@ -335,8 +325,6 @@ void main() {
   test(
     'recurring open task projects future and skips completed sibling',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await db
           .into(db.tasks)
@@ -384,8 +372,6 @@ void main() {
   );
 
   test('event cache rows sourceType event, task rows task', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final start = DateTime.utc(2026, 3, 2, 9);
     await _event(
@@ -420,8 +406,6 @@ void main() {
   });
 
   test('rebuild labels Google, Microsoft and local sources', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(
       db,
       id: 'gcal',
@@ -501,8 +485,6 @@ void main() {
   });
 
   test('rebuild leaves unresolved source labels null', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.tasks)
@@ -528,8 +510,6 @@ void main() {
   test(
     'projected recurring occurrence suppressed by per-occurrence state',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await db
           .into(db.tasks)
@@ -576,8 +556,6 @@ void main() {
   );
 
   test('daily all-day recurring series has no duplicate (eventId,startUtc,dayKey) after shifted rebuilds', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _event(
       db,
@@ -605,8 +583,6 @@ void main() {
   test(
     'multi-day all-day single rebuilt twice keeps one row per covered day',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       await _cal(db);
       await _event(
         db,
@@ -632,8 +608,6 @@ void main() {
   );
 
   test('all-day exception moves and suppresses original slot', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     await _event(
       db,
@@ -663,8 +637,6 @@ void main() {
   });
 
   test('timed moved exception shows once at new time not original', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final start = DateTime.utc(2026, 3, 2, 9);
     await _event(
@@ -702,8 +674,6 @@ void main() {
   });
 
   test('timed moved exception outside window not accumulated', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final start = DateTime.utc(2026, 3, 2, 9);
     await _event(

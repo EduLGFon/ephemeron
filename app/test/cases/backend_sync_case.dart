@@ -1,7 +1,6 @@
 // Backend changeset sync suite: push clears dirty/drains outbox,
 // pull merges with LWW, dirty rows win, cursors advance, offline is safe.
 // Google data never enters this engine (habits/focus tables only).
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/remote/backend_sync_api.dart';
 import 'package:ephemeron/data/repositories/focus_repository.dart';
@@ -13,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'backend_auth_case.dart' show FakeBackend, MemoryTokenStore;
 import 'sync_engine_case.dart' show FakeGoogle;
+import '../support/test_fixtures.dart';
 
 class FakeSyncServer implements BackendSyncApi {
   List<Map<String, dynamic>> pushedHabits = [];
@@ -51,8 +51,6 @@ class FakeSyncServer implements BackendSyncApi {
   }
 }
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
-
 BackendSyncEngine _engine(
   AppDatabase db,
   FakeSyncServer server, {
@@ -74,10 +72,17 @@ Map<String, dynamic> _remoteHabit(String id, int updatedAt) => {
   'updatedAt': updatedAt,
 };
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
+  });
   test('push clears dirty and drains habit outbox rows', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final server = FakeSyncServer();
     final engine = _engine(db, server);
@@ -94,8 +99,6 @@ void main() {
   });
 
   test('google engine leaves habit outbox rows alone', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     await repo.createHabit(name: 'Read');
     final engine = SyncEngine(db, clientFactory: () => FakeGoogle());
@@ -105,8 +108,6 @@ void main() {
   });
 
   test('pull inserts remote rows and advances the cursor', () async {
-    final db = _db();
-    addTearDown(db.close);
     final server = FakeSyncServer()
       ..remoteHabits = [_remoteHabit('h1', 1000)]
       ..remoteLogs = [
@@ -146,8 +147,6 @@ void main() {
   });
 
   test('pull never overwrites a locally dirty habit', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = HabitRepository(db);
     final server = FakeSyncServer();
     final id = await repo.createHabit(name: 'Local');
@@ -166,8 +165,6 @@ void main() {
   });
 
   test('offline without a token pushes nothing', () async {
-    final db = _db();
-    addTearDown(db.close);
     final auth = BackendAuth(
       client: FakeBackend(),
       tokenStore: MemoryTokenStore(),
@@ -180,8 +177,6 @@ void main() {
   });
 
   test('focus sessions push via cursor', () async {
-    final db = _db();
-    addTearDown(db.close);
     final focus = FocusRepository(db);
     final server = FakeSyncServer();
     final id = await focus.startSession(durationMin: 25);

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/test_fixtures.dart';
+
 const _labels = SlippedActionLabels(
   done: 'Done',
   tomorrow: 'Tomorrow',
@@ -87,7 +89,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byIcon(Icons.check).first);
     await tester.pump();
     await tester.tap(find.byIcon(Icons.schedule).first);
@@ -135,11 +137,11 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await settle(tester);
       await tester.drag(find.text('Y'), const Offset(300, 0));
-      await tester.pumpAndSettle();
+      await settle(tester);
       await tester.drag(find.text('Y'), const Offset(-300, 0));
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(done, ['y']);
       expect(tomorrow, ['y']);
     },
@@ -175,20 +177,20 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     final y = tester.getCenter(find.text('E')).dy;
     await tester.dragFrom(
       const Offset(2, 0) + Offset(0, y),
       const Offset(300, 0),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(done, isEmpty);
     // 30 dp from edge fires
     await tester.dragFrom(
       const Offset(30, 0) + Offset(0, y),
       const Offset(300, 0),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(done, ['e']);
 
     final tomorrow = <String>[];
@@ -219,13 +221,13 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     final yr = tester.getCenter(find.text('R')).dy;
     await tester.dragFrom(Offset(398, yr), const Offset(-300, 0));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tomorrow, isEmpty);
     await tester.dragFrom(Offset(370, yr), const Offset(-300, 0));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tomorrow, ['r']);
   });
 
@@ -265,12 +267,12 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     for (var i = 0; i < 29; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
     }
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.textContaining('significantly 29'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

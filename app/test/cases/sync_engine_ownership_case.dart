@@ -1,13 +1,11 @@
 // Fake-server suite (ownership/account scoping): discovery stamps, event/task moves, remote-delete gating.
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'sync_engine_case.dart' show FakeGoogle;
-
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<String> _cal(AppDatabase db, {String source = 'google'}) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -26,10 +24,17 @@ Future<String> _cal(AppDatabase db, {String source = 'google'}) async {
   return 'c1';
 }
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
+  });
   test('discovery stamps accounts and disables only own calendars', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     for (final entry in [('ca', 'ra'), ('cb', 'rb')]) {
       await db
@@ -86,8 +91,6 @@ void main() {
   });
 
   test('event move uses move endpoint and clears dirty', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -147,8 +150,6 @@ void main() {
   });
 
   test('task move uses move endpoint and clears dirty', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     for (final (id, remote) in [('l1', 'rl1'), ('l2', 'rl2')]) {
       await db
@@ -208,8 +209,6 @@ void main() {
   });
 
   test('remote delete op runs only under its source account', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.outbox)
