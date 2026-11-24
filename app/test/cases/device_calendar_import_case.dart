@@ -2,7 +2,6 @@
 // reconciliation, dirty-row preservation, and mapping persistence.
 import 'package:device_calendar_plus/device_calendar_plus.dart' as device;
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
@@ -10,7 +9,7 @@ import 'package:ephemeron/data/services/device_calendar_import_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<void> _seedCalendar(AppDatabase db) async {
   const now = 1700000000000;
@@ -58,14 +57,19 @@ device.Event _event({
   );
 }
 
+late AppDatabase db;
+
 void main() {
-  setUp(() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
     SharedPreferences.setMockInitialValues({});
   });
 
   test('importing the same device event twice updates one row', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedCalendar(db);
     final service = await _service(db);
     final start = DateTime.utc(2026, 11, 12, 9);
@@ -126,8 +130,6 @@ void main() {
   });
 
   test('recurring instances group into one master with one rrule', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedCalendar(db);
     final service = await _service(db);
     const rule = device.DailyRecurrence(end: device.CountEnd(5));
@@ -196,8 +198,6 @@ void main() {
   });
 
   test('grouping keeps an rrule from a later occurrence', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedCalendar(db);
     final service = await _service(db);
     const rule = device.DailyRecurrence(end: device.CountEnd(5));
@@ -232,8 +232,6 @@ void main() {
   test(
     'reconciliation only soft-deletes missing non-dirty device rows',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       await _seedCalendar(db);
       final service = await _service(db);
       await service.importEvents(
@@ -304,8 +302,6 @@ void main() {
   );
 
   test('a dirty imported row is not overwritten by a refresh', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedCalendar(db);
     final service = await _service(db);
     const rule = device.DailyRecurrence(end: device.CountEnd(3));
@@ -350,8 +346,6 @@ void main() {
   });
 
   test('deselected visible calendars are pruned only for the chosen target', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedCalendar(db);
     final service = await _service(db);
     await service.saveMappings({
@@ -385,8 +379,6 @@ void main() {
   });
 
   test('mapping persistence round-trips ids only', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedCalendar(db);
     final prefs = await SharedPreferences.getInstance();
     final service = await _service(db);

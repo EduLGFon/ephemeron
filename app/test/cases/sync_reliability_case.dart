@@ -3,7 +3,6 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/remote/google_api_client.dart';
@@ -18,7 +17,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 class _FakeGoogleAuth extends GoogleAuth {
   _FakeGoogleAuth({required List<String> accounts, required this.tokenFor})
@@ -106,15 +105,21 @@ class _FakeMicrosoftAuth extends MicrosoftAuth {
   Future<String?> accessTokenFor(String account) async => null;
 }
 
+late AppDatabase db;
+
 void main() {
-  setUp(() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
   test(
     'sync uses accessTokenFor per account, not global accessToken',
     () async {
-      final db = _db();
       final auth = _FakeGoogleAuth(
         accounts: const ['a@example.com', 'b@example.com'],
         tokenFor: const {
@@ -130,7 +135,6 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      addTearDown(db.close);
       await http.runWithClient(
         () => container.read(syncStatusProvider.notifier).syncNow(),
         () => MockClient((request) async {
@@ -148,8 +152,6 @@ void main() {
   );
 
   test('sync restores stored accounts before reporting offline', () async {
-    final db = _db();
-    addTearDown(db.close);
     final auth = _FakeGoogleAuth(accounts: const [], tokenFor: const {});
     final container = ProviderContainer(
       overrides: [
@@ -180,8 +182,6 @@ void main() {
   });
 
   test('account with no token is skipped as offline, not auth', () async {
-    final db = _db();
-    addTearDown(db.close);
     final auth = _RecoveringGoogleAuth(
       accounts: const ['a@example.com'],
       initialTokens: const {'a@example.com': null},
@@ -213,8 +213,6 @@ void main() {
   test(
     'definitive platform denial requests reconnect without a token',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final auth = _RecoveringGoogleAuth(
         accounts: const ['a@example.com'],
         initialTokens: const {'a@example.com': null},
@@ -246,8 +244,6 @@ void main() {
   );
 
   test('403 auth response requests reconnect without a silent retry', () async {
-    final db = _db();
-    addTearDown(db.close);
     final auth = _RecoveringGoogleAuth(
       accounts: const ['a@example.com'],
       initialTokens: const {'a@example.com': 'token-a'},
@@ -279,8 +275,6 @@ void main() {
   });
 
   test('401 clears the token, retries once silently, then succeeds', () async {
-    final db = _db();
-    addTearDown(db.close);
     final auth = _RecoveringGoogleAuth(
       accounts: const ['a@example.com'],
       initialTokens: const {'a@example.com': 'stale-a'},
@@ -317,8 +311,6 @@ void main() {
   });
 
   test('a second 401 sets auth failure and requests reconnect', () async {
-    final db = _db();
-    addTearDown(db.close);
     final auth = _RecoveringGoogleAuth(
       accounts: const ['a@example.com'],
       initialTokens: const {'a@example.com': 'stale-a'},
@@ -347,8 +339,6 @@ void main() {
   });
 
   test('one account without a token does not block another account', () async {
-    final db = _db();
-    addTearDown(db.close);
     final auth = _RecoveringGoogleAuth(
       accounts: const ['skip@example.com', 'ok@example.com'],
       initialTokens: const {
@@ -382,8 +372,6 @@ void main() {
   });
 
   test('duplicate task remote ids do not throw during pull', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.taskLists)

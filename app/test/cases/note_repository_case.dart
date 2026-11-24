@@ -2,14 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNotNull, isNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
 import 'package:ephemeron/data/repositories/note_repository.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<String> _eventRow(
   AppDatabase db, {
@@ -48,10 +47,17 @@ Future<Event> _event(AppDatabase db, String id) {
   return (db.select(db.events)..where((e) => e.id.equals(id))).getSingle();
 }
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
+  });
   test('nested folders, move, delete reparents to parent', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     final root = await repo.createFolder('Root');
     final child = await repo.createFolder('Child', parentId: root);
@@ -72,8 +78,6 @@ void main() {
   });
 
   test('pin, duplicate, trash and restore', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     final id = await repo.createNote(title: 'A', body: 'hello');
     await repo.setPinned(id, true);
@@ -87,8 +91,6 @@ void main() {
   });
 
   test('fts search finds snippet', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     await repo.createNote(title: 'Shopping', body: 'buy oat milk and honey');
     await repo.createNote(title: 'Other', body: 'unrelated text here');
@@ -101,8 +103,6 @@ void main() {
   test(
     'ensureDescriptionNote creates, updates, and clears the same note',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = NoteRepository(db, attachmentDir: null);
       await _eventRow(db);
       final noteId = await repo.ensureDescriptionNote('ev1', 'hello');
@@ -141,8 +141,6 @@ void main() {
   test(
     'canonical description note updates event notes and enqueues sync',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = NoteRepository(db, attachmentDir: null);
       await _eventRow(db, notes: 'old');
       final noteId = (await repo.ensureDescriptionNote('ev1', 'short'))!;
@@ -167,8 +165,6 @@ void main() {
   );
 
   test('reverse sync updates every event sharing a description note', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     await _eventRow(db, id: 'ev1');
     await _eventRow(db, id: 'ev2');
@@ -204,8 +200,6 @@ void main() {
   test(
     'trashing a note keeps the event; deleting an event keeps the note',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = NoteRepository(db, attachmentDir: null);
       await _eventRow(db, notes: 'description');
       final noteId = (await repo.ensureDescriptionNote('ev1', 'description'))!;
@@ -230,8 +224,6 @@ void main() {
   );
 
   test('eventForNote resolves canonical and direct event links', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     await _eventRow(db);
     final canonical = (await repo.ensureDescriptionNote('ev1', 'desc'))!;
@@ -244,8 +236,6 @@ void main() {
   });
 
   test('event-linked notes listed', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     await repo.createNote(title: 'Prep', linkedEventId: 'ev1');
     await repo.createNote(title: 'Plain');
@@ -254,8 +244,6 @@ void main() {
   });
 
   test('watchNotesForEvent emits a newly linked note', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     final iterator = StreamIterator(repo.watchNotesForEvent('ev1'));
     addTearDown(iterator.cancel);
@@ -268,8 +256,6 @@ void main() {
   });
 
   test('backlinks resolve [[Title]] and list incoming links', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     final a = await repo.createNote(title: 'Alpha');
     final b = await repo.createNote(
@@ -287,8 +273,6 @@ void main() {
   });
 
   test('md import uses file name as title', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     final dir = await Directory.systemTemp.createTemp('ephemeron-test');
     addTearDown(() => dir.delete(recursive: true));
@@ -301,8 +285,6 @@ void main() {
   });
 
   test('notes ordered pinned first then updatedAt desc', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.notes)

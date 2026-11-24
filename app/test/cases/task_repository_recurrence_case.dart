@@ -1,17 +1,23 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
+  });
   test(
     'recurring completion shifts planned interval and keeps series',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = TaskRepository(db);
       final id = await repo.createTask(
         title: 'Plan block',
@@ -39,8 +45,6 @@ void main() {
   test(
     'planned-only recurring completion advances series and keeps null due',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = TaskRepository(db);
       final id = await repo.createTask(
         title: 'Plan only',
@@ -65,8 +69,6 @@ void main() {
   );
 
   test('markWontDo sets wontDo and completedAt and advances series', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final id = await repo.createTask(
       title: 'Skip me',
@@ -90,8 +92,6 @@ void main() {
   });
 
   test('skipOccurrence advances planned interval', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = TaskRepository(db);
     final id = await repo.createTask(
       title: 'Gym',
@@ -111,8 +111,6 @@ void main() {
   test(
     'projected occurrence state is local-only and does not advance series',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = TaskRepository(db);
       final id = await repo.createTask(
         title: 'Recur',

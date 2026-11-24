@@ -1,18 +1,23 @@
 // Fake-server suite (task lists): create/rename/delete, local-only, account scoping, discovery.
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'sync_engine_case.dart' show FakeGoogle;
+import '../support/test_fixtures.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+late AppDatabase db;
 
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
+  });
   test('task list create stores remote id and clears dirty', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.taskLists)
@@ -54,8 +59,6 @@ void main() {
   });
 
   test('task list rename patches the remote list', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.taskLists)
@@ -97,8 +100,6 @@ void main() {
   });
 
   test('task list delete removes remote then purges local row', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.taskLists)
@@ -150,8 +151,6 @@ void main() {
   });
 
   test('local-only task list delete just removes the row', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.taskLists)
@@ -187,8 +186,6 @@ void main() {
   });
 
   test('task list ops are scoped to the active account', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.taskLists)
@@ -233,8 +230,6 @@ void main() {
   test(
     'discovery does not resurrect a deleted list or duplicate one',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await db
           .into(db.taskLists)

@@ -1,11 +1,22 @@
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ephemeron/data/drift/app_database.dart';
 
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {
+    await db.close();
+  });
+  setUp(() async {
+    await resetTestDb(db);
+  });
   test('in-memory db creates schema and inserts calendar', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final now = DateTime.now().millisecondsSinceEpoch;
     await db
         .into(db.calendars)
@@ -20,28 +31,22 @@ void main() {
     final rows = await db.select(db.calendars).get();
     expect(rows.length, 1);
     expect(rows.first.name, 'Main');
-    await db.close();
   });
 
   test('fts tables exist', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final res = await db
         .customSelect(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='notes_fts'",
         )
         .get();
     expect(res, isNotEmpty);
-    await db.close();
   });
 
   test('schema version is 15', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     expect(db.schemaVersion, 15);
-    await db.close();
   });
 
   test('events and tasks carry google_account', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     for (final table in ['events', 'tasks']) {
       final cols = await db.customSelect('PRAGMA table_info($table)').get();
       expect(
@@ -49,20 +54,16 @@ void main() {
         contains('google_account'),
       );
     }
-    await db.close();
   });
 
   test('tasks carry nullable planned_date added in v10', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final cols = await db.customSelect('PRAGMA table_info(tasks)').get();
     final planned = cols.where((r) => r.read<String>('name') == 'planned_date');
     expect(planned, hasLength(1));
     expect(planned.single.read<int>('notnull'), 0);
-    await db.close();
   });
 
   test('tasks carry v11 columns', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final cols = await db.customSelect('PRAGMA table_info(tasks)').get();
     final names = cols.map((r) => r.read<String>('name')).toSet();
     for (final c in [
@@ -78,31 +79,25 @@ void main() {
         .get();
     final occNames = occ.map((r) => r.read<String>('name')).toSet();
     expect(occNames, contains('source_type'));
-    await db.close();
   });
 
   test('v12 adds microsoft_account columns', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     for (final table in ['calendars', 'events', 'task_lists', 'tasks']) {
       final cols = await db.customSelect('PRAGMA table_info($table)').get();
       final names = cols.map((r) => r.read<String>('name')).toSet();
       expect(names, contains('microsoft_account'));
     }
-    await db.close();
   });
 
   test('v14 adds occurrence source metadata columns', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final cols = await db
         .customSelect('PRAGMA table_info(occurrence_cache)')
         .get();
     final names = cols.map((r) => r.read<String>('name')).toSet();
     expect(names, containsAll(['source_label', 'source_account']));
-    await db.close();
   });
 
   test('v15 adds nullable countdown link columns and index', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final cols = await db.customSelect('PRAGMA table_info(countdowns)').get();
     final byName = {for (final row in cols) row.read<String>('name'): row};
     for (final name in const ['linked_type', 'linked_id']) {
@@ -115,22 +110,18 @@ void main() {
         )
         .get();
     expect(idx, isNotEmpty);
-    await db.close();
   });
 
   test('occurrence cache day index exists', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final res = await db
         .customSelect(
           "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_occurrence_cache_day'",
         )
         .get();
     expect(res, isNotEmpty);
-    await db.close();
   });
 
   test('task occurrence states table and index exist', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final table = await db
         .customSelect(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='task_occurrence_states'",
@@ -143,6 +134,5 @@ void main() {
         )
         .get();
     expect(idx, isNotEmpty);
-    await db.close();
   });
 }

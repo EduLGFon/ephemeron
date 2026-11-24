@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
@@ -9,7 +8,7 @@ import 'package:ephemeron/features/alarms/data/alarm_repository.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 String _tomorrowKey() {
   final t = DateTime.now().toUtc().add(const Duration(days: 1));
@@ -25,12 +24,19 @@ String _localTimeAhead(Duration ahead) {
       '${t.minute.toString().padLeft(2, '0')}';
 }
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
   // Tests run with TargetPlatform.android, so AlarmScheduler reaches the
   // MethodChannel: stub it instead of touching the OS.
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('ephemeron/alarms');
-  setUp(() {
+  setUp(() async {
+    await resetTestDb(db);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async => null);
   });
@@ -39,8 +45,6 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
   test('task custom offsets schedule one reminder each', () async {
-    final db = _db();
-    addTearDown(db.close);
     final tasks = TaskRepository(db);
     final id = await tasks.createTask(
       title: 'Dentist',
@@ -68,8 +72,6 @@ void main() {
   });
 
   test('task without reminders keeps at-time-only default', () async {
-    final db = _db();
-    addTearDown(db.close);
     final tasks = TaskRepository(db);
     final id = await tasks.createTask(
       title: 'Call',
@@ -85,8 +87,6 @@ void main() {
   });
 
   test('due-tomorrow candidates clamp to 09-17', () async {
-    final db = _db();
-    addTearDown(db.close);
     final tasks = TaskRepository(db);
     final dayAfter = () {
       final t = DateTime.now().toUtc().add(const Duration(days: 2));
@@ -117,8 +117,6 @@ void main() {
   test(
     'rebuildWindow dueTomorrowEnabled false adds no task_due_tomorrow',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final tasks = TaskRepository(db);
       await tasks.createTask(
         title: 'Tomorrow',
@@ -134,8 +132,6 @@ void main() {
   );
 
   test('habit with alarm preset schedules one alarm row', () async {
-    final db = _db();
-    addTearDown(db.close);
     final id = await HabitRepository(db).createHabit(
       name: 'Stretch',
       reminderTime: _localTimeAhead(const Duration(hours: 2)),
@@ -153,8 +149,6 @@ void main() {
 
   for (final preset in <String?>['notification', null]) {
     test('habit with ${preset ?? 'no'} preset uses one reminder row', () async {
-      final db = _db();
-      addTearDown(db.close);
       final id = await HabitRepository(db).createHabit(
         name: 'Read',
         reminderTime: _localTimeAhead(const Duration(hours: 2)),
@@ -172,8 +166,6 @@ void main() {
   }
 
   test('firing habit row blocks the next occurrence until dismissed', () async {
-    final db = _db();
-    addTearDown(db.close);
     final id = await HabitRepository(db).createHabit(
       name: 'Walk',
       reminderTime: _localTimeAhead(const Duration(hours: 2)),
@@ -218,8 +210,6 @@ void main() {
   });
 
   test('preserves a ringing request code and plans around it', () async {
-    final db = _db();
-    addTearDown(db.close);
     const firedId = 'ringing';
     await db
         .into(db.alarmsIndex)
@@ -257,8 +247,6 @@ void main() {
   test(
     'snoozed rows survive rebuildWindow and keep their request code',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       const snoozedId = 'snoozed-ring';
       await db
           .into(db.alarmsIndex)
@@ -298,8 +286,6 @@ void main() {
   );
 
   test('cancelForHabitDay removes a snoozed habit row', () async {
-    final db = _db();
-    addTearDown(db.close);
     await db
         .into(db.alarmsIndex)
         .insert(
@@ -321,8 +307,6 @@ void main() {
   });
 
   test('stale fired rows are removed and release their request code', () async {
-    final db = _db();
-    addTearDown(db.close);
     const firedId = 'stale-ring';
     await db
         .into(db.alarmsIndex)
@@ -357,8 +341,6 @@ void main() {
   });
 
   test('byRequestCode returns the matching alarm row', () async {
-    final db = _db();
-    addTearDown(db.close);
     await db
         .into(db.alarmsIndex)
         .insert(
@@ -379,8 +361,6 @@ void main() {
   });
 
   test('task occurrence-cache rows do not produce event candidates', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
         .into(db.occurrenceCache)
@@ -435,8 +415,6 @@ void main() {
   }
 
   test('event exception uses its own reminders and alarm preset', () async {
-    final db = _db();
-    addTearDown(db.close);
     final start = DateTime.now().toUtc().add(const Duration(hours: 2));
     final master = await seedEventSeries(db, start: start);
     final repo = EventRepository(db, OccurrenceRepository(db));
@@ -467,8 +445,6 @@ void main() {
   test(
     'event exception without alerts inherits master reminders and alarm',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final start = DateTime.now().toUtc().add(const Duration(hours: 2));
       final master = await seedEventSeries(db, start: start);
       final repo = EventRepository(db, OccurrenceRepository(db));

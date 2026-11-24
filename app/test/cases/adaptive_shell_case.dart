@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/app/shell/adaptive_shell.dart';
 import 'package:ephemeron/app/shell/quick_create_pill.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
@@ -12,6 +11,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/test_fixtures.dart';
 
 Widget _harness({
   required List<int> primary,
@@ -129,7 +130,18 @@ FadeTransition _labelFade(WidgetTester tester, String label) {
   );
 }
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {
+    await db.close();
+  });
+  setUp(() async {
+    await resetTestDb(db);
+  });
   testWidgets('compact width uses bottom navigation and a quick-create pill', (
     tester,
   ) async {
@@ -411,10 +423,8 @@ void main() {
 
   testWidgets('quick-create pill creates a habit', (tester) async {
     _setSize(tester, const Size(500, 800));
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    addTearDown(() async => db.close());
 
     await tester.pumpWidget(
       ProviderScope(
@@ -460,10 +470,8 @@ void main() {
 
   testWidgets('quick-create pill creates a countdown', (tester) async {
     _setSize(tester, const Size(500, 800));
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    addTearDown(() async => db.close());
 
     await tester.pumpWidget(
       ProviderScope(
@@ -511,10 +519,8 @@ void main() {
     'quick-create pill falls back to event editor when no writable calendar exists',
     (tester) async {
       _setSize(tester, const Size(500, 800));
-      final db = AppDatabase.forTesting(NativeDatabase.memory());
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final prefs = await SharedPreferences.getInstance();
-      addTearDown(() async => db.close());
 
       await tester.pumpWidget(
         ProviderScope(
@@ -853,10 +859,8 @@ void main() {
     tester,
   ) async {
     _setSize(tester, const Size(500, 800));
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    addTearDown(() async => db.close());
 
     await tester.pumpWidget(
       ProviderScope(

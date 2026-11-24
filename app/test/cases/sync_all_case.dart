@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/auth/application/auth_providers.dart';
@@ -8,6 +7,8 @@ import 'package:ephemeron/features/sync/data/microsoft_graph_client.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
 
 class _FakeSyncStatusNotifier extends SyncStatusNotifier {
   _FakeSyncStatusNotifier(this._status);
@@ -38,7 +39,16 @@ class _RestoringBackendAuth extends BackendAuth {
   }
 }
 
+late AppDatabase db;
+
 void main() {
+  setUpAll(() async {
+    db = newTestDb();
+  });
+  tearDownAll(() async {});
+  setUp(() async {
+    await resetTestDb(db);
+  });
   test('combinedSyncStatusProvider precedence', () {
     SyncStatus check(SyncStatus g, SyncStatus b) {
       final container = ProviderContainer(
@@ -63,8 +73,6 @@ void main() {
   });
 
   test('BackendSyncStatusNotifier.syncNow restores before syncing', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final auth = _RestoringBackendAuth();
 
     final container = ProviderContainer(
