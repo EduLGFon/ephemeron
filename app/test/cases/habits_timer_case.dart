@@ -1,3 +1,4 @@
+import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
@@ -11,18 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../support/test_fixtures.dart';
-
-late AppDatabase db;
-
 void main() {
-  setUpAll(() async {
-    db = newTestDb();
-  });
-  tearDownAll(() async {});
-  setUp(() async {
-    await resetTestDb(db);
-  });
   test('pure elapsed helpers', () {
     expect(isMinuteUnit('Min'), isTrue);
     expect(isMinuteUnit('MINUTES'), isTrue);
@@ -50,6 +40,8 @@ void main() {
   });
 
   test('plus button increment via addAmount', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Read',
@@ -73,6 +65,7 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Read',
@@ -101,12 +94,14 @@ void main() {
     await tester.pumpAndSettle();
     final today = habitDateKey(DateTime.now());
     expect((await repo.logFor(id, today))?.amount, 2);
+    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
 
   testWidgets('minute habit timer start stop', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     await repo.createHabit(
       name: 'Run',
@@ -145,11 +140,13 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
+    await db.close();
     await tester.pump();
   });
 
   testWidgets('second timer start shows message', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     await repo.createHabit(
       name: 'Run',
@@ -189,6 +186,7 @@ void main() {
       find.text('Another habit timer is already running.'),
       findsOneWidget,
     );
+    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
@@ -197,6 +195,7 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     await repo.createHabit(
       name: 'Run',
@@ -230,6 +229,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('Timer can only start for today.'), findsOneWidget);
+    await db.close();
     await tester.pumpWidget(Container());
     await tester.pump();
   });
@@ -238,6 +238,7 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = HabitRepository(db);
     await repo.createHabit(
       name: 'Run',
@@ -278,6 +279,7 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
+    await db.close();
     await tester.pump();
   });
 }

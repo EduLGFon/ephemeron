@@ -136,7 +136,9 @@ void main() {
   setUpAll(() async {
     db = newTestDb();
   });
-  tearDownAll(() async {});
+  tearDownAll(() async {
+    await db.close();
+  });
   setUp(() async {
     await resetTestDb(db);
   });
@@ -423,7 +425,6 @@ void main() {
     _setSize(tester, const Size(500, 800));
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    addTearDown(() async => db.close());
 
     await tester.pumpWidget(
       ProviderScope(
@@ -471,7 +472,6 @@ void main() {
     _setSize(tester, const Size(500, 800));
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    addTearDown(() async => db.close());
 
     await tester.pumpWidget(
       ProviderScope(
@@ -521,7 +521,6 @@ void main() {
       _setSize(tester, const Size(500, 800));
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final prefs = await SharedPreferences.getInstance();
-      addTearDown(() async => db.close());
 
       await tester.pumpWidget(
         ProviderScope(
@@ -862,7 +861,6 @@ void main() {
     _setSize(tester, const Size(500, 800));
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    addTearDown(() async => db.close());
 
     await tester.pumpWidget(
       ProviderScope(

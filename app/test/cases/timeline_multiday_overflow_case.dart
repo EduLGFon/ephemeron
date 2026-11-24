@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/habit_repository.dart';
@@ -10,7 +11,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../support/test_fixtures.dart';
+AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
 
 Future<void> _seed(AppDatabase db) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -79,6 +80,7 @@ Future<void> _pump(
 }
 
 Future<void> _tearDown(WidgetTester tester, AppDatabase db) async {
+  await db.close();
   await tester.pumpWidget(Container());
   await tester.pump();
 }
@@ -90,16 +92,7 @@ class _FixedWindow extends CalendarState {
   CalendarWindow build() => window;
 }
 
-late AppDatabase db;
-
 void main() {
-  setUpAll(() async {
-    db = newTestDb();
-  });
-  tearDownAll(() async {});
-  setUp(() async {
-    await resetTestDb(db);
-  });
   testWidgets('7-day 320dp multi-day timeline does not overflow', (
     WidgetTester tester,
   ) async {
@@ -107,6 +100,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _db();
     final repo = HabitRepository(db);
     await repo.createHabit(
       name: 'A very long habit name that should not overflow',
