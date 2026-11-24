@@ -29,7 +29,10 @@ class FakeGoogle implements GoogleApiClient {
   String? lastInstanceTimeMax;
   bool? lastInstanceShowDeleted;
   int singleEventsCalls = 0;
+  int eventsListCalls = 0;
   bool fail410Once = false;
+  int fail410OnIncremental = 0;
+  int fullFetchCount = 0;
   bool fail429Once = false;
   bool fail412Once = false;
   int inserts = 0;
@@ -62,6 +65,13 @@ class FakeGoogle implements GoogleApiClient {
       lastInstanceTimeMax = timeMax;
       lastInstanceShowDeleted = showDeleted;
       return CalendarPage(items: List.of(instances));
+    }
+    eventsListCalls++;
+    if (syncToken == null) {
+      fullFetchCount++;
+    } else if (fail410OnIncremental > 0) {
+      fail410OnIncremental--;
+      throw GoogleApiException(410, 'gone');
     }
     if (fail410Once) {
       fail410Once = false;
@@ -362,6 +372,174 @@ void main() {
     expect(rows.map((e) => e.id), contains('dirty'));
     expect(rows.map((e) => e.id), isNot(contains('synced')));
   });
+
+  test(
+    '410 cooldown persists across engine instances with zero API calls',
+    () async {
+      await _cal(db);
+      await _seedToken(db);
+      final fake = FakeGoogle()
+        ..fail410OnIncremental = 1
+        ..events = [
+          {
+            'id': 'g1',
+            'etag': 'a',
+            'summary': 'Meet',
+            'status': 'confirmed',
+            'start': {'dateTime': '2026-03-03T09:00:00Z'},
+            'end': {'dateTime': '2026-03-03T10:00:00Z'},
+          },
+        ];
+      final engineA = SyncEngine(db, clientFactory: () => fake);
+
+      await engineA.syncNow();
+      expect(fake.fullFetchCount, 1);
+      final afterFirst = await db.select(db.events).get();
+      expect(afterFirst.where((e) => e.remoteId == 'g1'), hasLength(1));
+
+      final callsAfterFirst = fake.eventsListCalls;
+      final engineB = SyncEngine(db, clientFactory: () => fake);
+      await engineB.syncNow();
+      expect(fake.fullFetchCount, 1);
+      expect(fake.eventsListCalls, callsAfterFirst);
+      final meta = await (db.select(
+        db.syncState,
+      )..where((s) => s.key.equals('cal:c1:meta'))).getSingle();
+      expect(meta.lastError, 'Google 410');
+      final afterSecond = await db.select(db.events).get();
+      expect(afterSecond.where((e) => e.remoteId == 'g1'), hasLength(1));
+    },
+  );
+
+  test(
+    '410 cooldown respects 59m/60m boundary from persisted goneAt',
+    () async {
+      await _cal(db);
+      await _seedToken(db);
+      final fake = FakeGoogle()
+        ..fail410OnIncremental = 10
+        ..events = [
+          {
+            'id': 'g1',
+            'etag': 'a',
+            'summary': 'Meet',
+            'status': 'confirmed',
+            'start': {'dateTime': '2026-03-03T09:00:00Z'},
+            'end': {'dateTime': '2026-03-03T10:00:00Z'},
+          },
+        ];
+      final engine = SyncEngine(db, clientFactory: () => fake);
+      await engine.syncNow();
+      expect(fake.fullFetchCount, 1);
+
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      await db
+          .into(db.syncState)
+          .insertOnConflictUpdate(
+            SyncStateCompanion.insert(
+              key: 'cal:v2:c1:goneAt',
+              value: Value(
+                (now - const Duration(minutes: 59).inMilliseconds).toString(),
+              ),
+            ),
+          );
+      final callsBefore59 = fake.eventsListCalls;
+      await engine.syncNow();
+      expect(fake.eventsListCalls, callsBefore59);
+      expect(fake.fullFetchCount, 1);
+
+      await db
+          .into(db.syncState)
+          .insertOnConflictUpdate(
+            SyncStateCompanion.insert(
+              key: 'cal:v2:c1:goneAt',
+              value: Value(
+                (now - const Duration(minutes: 60).inMilliseconds).toString(),
+              ),
+            ),
+          );
+      fake.fail410OnIncremental = 1;
+      await engine.syncNow();
+      expect(fake.fullFetchCount, 2);
+    },
+  );
+
+  test('expired goneAt is cleared on successful incremental pull', () async {
+    await _cal(db);
+    await _seedToken(db);
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await db
+        .into(db.syncState)
+        .insertOnConflictUpdate(
+          SyncStateCompanion.insert(
+            key: 'cal:v2:c1:goneAt',
+            value: Value(
+              (now - const Duration(hours: 2).inMilliseconds).toString(),
+            ),
+          ),
+        );
+    final fake = FakeGoogle()
+      ..events = [
+        {
+          'id': 'g1',
+          'etag': 'a',
+          'summary': 'Meet',
+          'status': 'confirmed',
+          'start': {'dateTime': '2026-03-03T09:00:00Z'},
+          'end': {'dateTime': '2026-03-03T10:00:00Z'},
+        },
+      ];
+    final engine = SyncEngine(db, clientFactory: () => fake);
+
+    await engine.syncNow();
+
+    final goneAt = await (db.select(
+      db.syncState,
+    )..where((s) => s.key.equals('cal:v2:c1:goneAt'))).getSingleOrNull();
+    expect(goneAt, isNull);
+    expect(fake.fullFetchCount, 0);
+    final rows = await db.select(db.events).get();
+    expect(rows.where((e) => e.remoteId == 'g1'), hasLength(1));
+  });
+
+  test(
+    '410 recovery full fetch failure clears goneAt and allows retry',
+    () async {
+      await _cal(db);
+      await _seedToken(db);
+      final fake = _FailingFullFetchGoogle()
+        ..fail410OnIncremental = 1
+        ..events = [
+          {
+            'id': 'g1',
+            'etag': 'a',
+            'summary': 'Meet',
+            'status': 'confirmed',
+            'start': {'dateTime': '2026-03-03T09:00:00Z'},
+            'end': {'dateTime': '2026-03-03T10:00:00Z'},
+          },
+        ];
+
+      // First incremental returns 410, recovery full fetch fails.
+      final engine = SyncEngine(db, clientFactory: () => fake);
+      await engine.syncNow();
+
+      final goneAt = await (db.select(
+        db.syncState,
+      )..where((s) => s.key.equals('cal:v2:c1:goneAt'))).getSingleOrNull();
+      expect(goneAt, isNull);
+      final meta = await (db.select(
+        db.syncState,
+      )..where((s) => s.key.equals('cal:c1:meta'))).getSingle();
+      expect(meta.lastError, 'sync failed');
+      expect(fake.fullFetchCount, 1);
+
+      // Next cycle has no goneAt and no token; it can retry full fetch.
+      fake.failFullFetch = false;
+      await engine.syncNow();
+      expect(fake.fullFetchCount, 2);
+    },
+  );
 
   test('push insert assigns remote id; patch sends etag', () async {
     await _cal(db);
@@ -1210,4 +1388,43 @@ Future<String?> _cursorOf(AppDatabase db, String listId) async {
     db.syncState,
   )..where((s) => s.key.equals('tasks:$listId:updatedMin'))).getSingleOrNull();
   return row?.value;
+}
+
+class _FailingFullFetchGoogle extends FakeGoogle {
+  bool failFullFetch = true;
+
+  @override
+  Future<CalendarPage> eventsList(
+    String calendarId, {
+    String? syncToken,
+    String? timeMin,
+    String? timeMax,
+    bool singleEvents = false,
+    bool showDeleted = true,
+  }) async {
+    if (singleEvents) {
+      singleEventsCalls++;
+      lastInstanceTimeMin = timeMin;
+      lastInstanceTimeMax = timeMax;
+      lastInstanceShowDeleted = showDeleted;
+      return CalendarPage(items: List.of(instances));
+    }
+    eventsListCalls++;
+    if (syncToken == null) {
+      fullFetchCount++;
+      if (failFullFetch) {
+        throw GoogleApiException(500, 'boom');
+      }
+    } else if (fail410OnIncremental > 0) {
+      fail410OnIncremental--;
+      throw GoogleApiException(410, 'gone');
+    }
+    if (fail410Once) {
+      fail410Once = false;
+      throw GoogleApiException(410, 'gone');
+    }
+    pulledCalendars.add(calendarId);
+    lastSyncTokenSeen = syncToken;
+    return CalendarPage(items: List.of(events), nextSyncToken: 'tok123');
+  }
 }
