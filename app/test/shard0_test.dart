@@ -44,6 +44,7 @@ import 'cases/event_editor_time_case.dart' as event_editor_time;
 import 'cases/event_rsvp_case.dart' as event_rsvp;
 import 'cases/event_scope_case.dart' as event_scope;
 import 'cases/event_source_case.dart' as event_source;
+import 'cases/fab_wheel_picker_case.dart' as fab_wheel_picker;
 import 'cases/focus_breaks_metrics_case.dart' as focus_breaks_metrics;
 import 'cases/focus_overtime_case.dart' as focus_overtime;
 import 'cases/focus_screen_case.dart' as focus_screen;
@@ -109,6 +110,7 @@ const _allCases = <String>{
   'event_rsvp_case.dart',
   'event_scope_case.dart',
   'event_source_case.dart',
+  'fab_wheel_picker_case.dart',
   'focus_breaks_metrics_case.dart',
   'focus_overtime_case.dart',
   'focus_screen_case.dart',
@@ -283,6 +285,7 @@ const _allCases = <String>{
   'week_calendar_case.dart',
   'week_widget_options_case.dart',
   'wellness_ui_case.dart',
+  'wheel_picker_case.dart',
   'widget_case.dart',
   'widget_config_case.dart',
   'widget_image_case.dart',
@@ -336,6 +339,7 @@ void main() {
   group('event_rsvp', event_rsvp.main);
   group('event_scope', event_scope.main);
   group('event_source', event_source.main);
+  group('fab_wheel_picker', fab_wheel_picker.main);
   group('focus_breaks_metrics', focus_breaks_metrics.main);
   group('focus_overtime', focus_overtime.main);
   group('focus_screen', focus_screen.main);

@@ -45,6 +45,7 @@ import 'cases/stream_slipped_keyboard_case.dart' as stream_slipped_keyboard;
 import 'cases/stream_slipped_school_case.dart' as stream_slipped_school;
 import 'cases/stream_slipped_sheet_case.dart' as stream_slipped_sheet;
 import 'cases/stream_slipped_trail_case.dart' as stream_slipped_trail;
+import 'cases/stream_slipped_trail_host_case.dart' as stream_slipped_trail_host;
 
 const _allCases = <String>{
   'account_email_case.dart',
@@ -82,6 +83,7 @@ const _allCases = <String>{
   'event_rsvp_case.dart',
   'event_scope_case.dart',
   'event_source_case.dart',
+  'fab_wheel_picker_case.dart',
   'focus_breaks_metrics_case.dart',
   'focus_overtime_case.dart',
   'focus_screen_case.dart',
@@ -256,6 +258,7 @@ const _allCases = <String>{
   'week_calendar_case.dart',
   'week_widget_options_case.dart',
   'wellness_ui_case.dart',
+  'wheel_picker_case.dart',
   'widget_case.dart',
   'widget_config_case.dart',
   'widget_image_case.dart',
@@ -311,6 +314,7 @@ void main() {
   group('stream_slipped_school', stream_slipped_school.main);
   group('stream_slipped_sheet', stream_slipped_sheet.main);
   group('stream_slipped_trail', stream_slipped_trail.main);
+  group('stream_slipped_trail_host', stream_slipped_trail_host.main);
 }
 
 Set<String> _caseFilesOnDisk() {

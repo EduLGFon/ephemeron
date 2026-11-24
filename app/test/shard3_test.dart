@@ -7,7 +7,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'cases/stream_slipped_trail_host_case.dart' as stream_slipped_trail_host;
 import 'cases/stream_slipped_triage_case.dart' as stream_slipped_triage;
 import 'cases/stream_states_case.dart' as stream_states;
 import 'cases/stream_surface_dock_case.dart' as stream_surface_dock;
@@ -72,6 +71,7 @@ import 'cases/ux_wellness_case.dart' as ux_wellness;
 import 'cases/week_calendar_case.dart' as week_calendar;
 import 'cases/week_widget_options_case.dart' as week_widget_options;
 import 'cases/wellness_ui_case.dart' as wellness_ui;
+import 'cases/wheel_picker_case.dart' as wheel_picker;
 import 'cases/widget_case.dart' as widget;
 import 'cases/widget_config_case.dart' as widget_config;
 import 'cases/widget_image_case.dart' as widget_image;
@@ -114,6 +114,7 @@ const _allCases = <String>{
   'event_rsvp_case.dart',
   'event_scope_case.dart',
   'event_source_case.dart',
+  'fab_wheel_picker_case.dart',
   'focus_breaks_metrics_case.dart',
   'focus_overtime_case.dart',
   'focus_screen_case.dart',
@@ -288,6 +289,7 @@ const _allCases = <String>{
   'week_calendar_case.dart',
   'week_widget_options_case.dart',
   'wellness_ui_case.dart',
+  'wheel_picker_case.dart',
   'widget_case.dart',
   'widget_config_case.dart',
   'widget_image_case.dart',
@@ -306,7 +308,6 @@ void main() {
     );
   });
 
-  group('stream_slipped_trail_host', stream_slipped_trail_host.main);
   group('stream_slipped_triage', stream_slipped_triage.main);
   group('stream_states', stream_states.main);
   group('stream_surface_dock', stream_surface_dock.main);
@@ -366,6 +367,7 @@ void main() {
   group('week_calendar', week_calendar.main);
   group('week_widget_options', week_widget_options.main);
   group('wellness_ui', wellness_ui.main);
+  group('wheel_picker', wheel_picker.main);
   group('widget', widget.main);
   group('widget_config', widget_config.main);
   group('widget_image', widget_image.main);
