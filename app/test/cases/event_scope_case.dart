@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
@@ -15,7 +14,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 Future<String> _setup(
   AppDatabase db, {
@@ -134,13 +135,12 @@ Future<void> _openEventEditor(
     ),
   );
   await tester.tap(find.text('Open event'));
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 Future<void> _disposeTree(WidgetTester tester) async {
   await tester.pumpWidget(Container());
-  await tester.pump();
-  await tester.pump(const Duration(seconds: 1));
+  await settle(tester);
 }
 
 Future<void> _pumpUntil(WidgetTester tester, Finder finder) async {
@@ -163,13 +163,15 @@ Future<void> _saveEvent(WidgetTester tester) async {
           (w.data == 'Which events?' || w.data == 'Scheduling conflict'),
     ),
   );
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
+
   test('delete single creates cancelled exception', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.deleteOccurrence(
@@ -188,8 +190,6 @@ void main() {
   });
 
   test('delete following truncates with UNTIL', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.deleteOccurrence(
@@ -205,8 +205,6 @@ void main() {
   });
 
   test('delete following on first occurrence deletes all', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.deleteOccurrence(
@@ -219,8 +217,6 @@ void main() {
   });
 
   test('delete all soft-deletes master and exceptions', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.deleteOccurrence(
@@ -235,8 +231,6 @@ void main() {
   });
 
   test('edit single creates exception with changed fields', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.editOccurrence(
@@ -253,8 +247,6 @@ void main() {
   });
 
   test('edit following splits series', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.editOccurrence(
@@ -280,8 +272,6 @@ void main() {
   });
 
   test('edit all patches master', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.editOccurrence(
@@ -298,8 +288,6 @@ void main() {
   });
 
   test('edit follows split series keeps notes on the new master', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.editOccurrence(
@@ -316,8 +304,6 @@ void main() {
   });
 
   test('edit single saves notes on the exception and can clear them', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.editOccurrence(
@@ -341,8 +327,6 @@ void main() {
   });
 
   test('edit all saves and clears master notes', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.editOccurrence(
@@ -370,8 +354,6 @@ void main() {
   test(
     'all-day create stores exclusive end date and edit updates range',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await db
           .into(db.calendars)
@@ -424,8 +406,6 @@ void main() {
   );
 
   test('rsvp updates attendee and queues sync', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final cal = await repo.createCalendar('C');
     final e = await repo.createEvent(calendarId: cal, title: 'M');
@@ -439,8 +419,6 @@ void main() {
     expect(outbox, isNotEmpty);
   });
   test('edit single persists notes on the exception', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.editOccurrence(
@@ -457,8 +435,6 @@ void main() {
   });
 
   test('edit all persists notes on the master', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.editOccurrence(
@@ -474,8 +450,6 @@ void main() {
   });
 
   test('edit following persists notes on the split master', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.editOccurrence(
@@ -498,8 +472,6 @@ void main() {
   test(
     'split keeps a valid description link and gives the split none',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final master = await _setup(db);
       final repo = EventRepository(db, OccurrenceRepository(db));
       final notesRepo = NoteRepository(db, attachmentDir: null);
@@ -531,8 +503,6 @@ void main() {
   );
 
   test('split clears a stale description link on the old master', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await (db.update(db.events)..where((e) => e.id.equals(master))).write(
@@ -558,8 +528,6 @@ void main() {
   test(
     'resolveEventForOccurrence finds exception by original start or start',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final master = await _setup(db);
       final repo = EventRepository(db, OccurrenceRepository(db));
       await repo.editOccurrence(
@@ -607,8 +575,6 @@ void main() {
   );
 
   test('description note syncs for a single-occurrence exception id', () async {
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final notesRepo = NoteRepository(db, attachmentDir: null);
@@ -633,8 +599,6 @@ void main() {
   testWidgets('exception edit does not conflict with itself', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final exId = await repo.editOccurrence(
@@ -656,8 +620,6 @@ void main() {
   testWidgets('exception edit still detects a genuine overlap', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final exId = await repo.editOccurrence(
@@ -680,7 +642,7 @@ void main() {
 
     expect(find.text('Scheduling conflict'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await _disposeTree(tester);
   });
 
@@ -689,8 +651,6 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final master = await _setup(db);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await repo.setAttendees(master, ['master@example.com']);
@@ -714,7 +674,7 @@ void main() {
     await _saveEvent(tester);
     expect(find.text('Which events?'), findsOneWidget);
     await tester.tap(find.text('This event'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect((await repo.attendeesOf(master)).map((a) => a.email), [
       'master@example.com',
@@ -726,8 +686,6 @@ void main() {
   testWidgets('description save enqueues one event update', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final notesRepo = NoteRepository(db, attachmentDir: null);
     final calendarId = await repo.createCalendar('C');
@@ -773,8 +731,6 @@ void main() {
   test(
     'moved single occurrence inherits master location, Meet and alerts',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = EventRepository(db, OccurrenceRepository(db));
       final cal = await repo.createCalendar('Work');
       final master = await repo.createEvent(
@@ -836,8 +792,6 @@ void main() {
   );
 
   test('following split carries master fields', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final cal = await repo.createCalendar('Work');
     final master = await repo.createEvent(
@@ -886,8 +840,6 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
     final id = await _makeEvent(db, id: 'e1', calendarId: 'ro');
@@ -897,7 +849,7 @@ void main() {
     final save = find.widgetWithText(FilledButton, 'Save');
     await tester.ensureVisible(save);
     await tester.tap(save);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('This calendar is read-only.'), findsOneWidget);
     expect((await repo.getEvent(id))!.title, 'Event');
@@ -909,8 +861,6 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = _db();
-    addTearDown(db.close);
     await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
     const systemChannel = MethodChannel('ephemeron/system');
     final messenger =
@@ -951,12 +901,12 @@ void main() {
       ),
     );
     await tester.tap(find.text('Open event'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final create = find.widgetWithText(FilledButton, 'Create');
     await tester.ensureVisible(create);
     await tester.tap(create);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('That calendar is read-only.'), findsOneWidget);
     expect(await db.select(db.events).get(), isEmpty);
@@ -964,8 +914,6 @@ void main() {
   });
 
   test('createEvent rejects read-only Google and local calendars', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     for (final (id, source) in [
       ('ro-google', 'google'),
@@ -980,8 +928,6 @@ void main() {
   });
 
   test('moveEventToCalendar rejects read-only source and target', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
     await _makeCalendar(db, id: 'writable');
@@ -1001,8 +947,6 @@ void main() {
   test(
     'edit/delete occurrence and delete event reject read-only source',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = EventRepository(db, OccurrenceRepository(db));
       await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
       final master = await _makeEvent(
@@ -1033,8 +977,6 @@ void main() {
   test(
     'exception under a read-only master rejects edits and deletes',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final repo = EventRepository(db, OccurrenceRepository(db));
       await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
       await _makeCalendar(db, id: 'writable');
@@ -1070,8 +1012,6 @@ void main() {
   );
 
   test('read-only events reject attendee and RSVP updates', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     await _makeCalendar(db, id: 'ro', readOnly: true, source: 'google');
     final event = await _makeEvent(db, id: 'master', calendarId: 'ro');
@@ -1104,8 +1044,6 @@ void main() {
   });
 
   test('writable local calendars still create, edit, and delete', () async {
-    final db = _db();
-    addTearDown(db.close);
     final repo = EventRepository(db, OccurrenceRepository(db));
     final cal = await repo.createCalendar('Local');
     final id = await repo.createEvent(

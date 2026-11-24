@@ -1,10 +1,11 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/data/remote/google_api_client.dart';
 import 'package:ephemeron/features/sync/data/sync_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_fixtures.dart';
 
 class _FakeGoogle implements GoogleApiClient {
   List<Map<String, dynamic>> calendars = [];
@@ -94,7 +95,7 @@ class _FakeGoogle implements GoogleApiClient {
   Future<void> taskDelete(String l, String t) async {}
 }
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+late AppDatabase db;
 
 Future<void> _cal(AppDatabase db, String id, {String? remoteId}) async {
   remoteId ??= 'remote-$id';
@@ -168,9 +169,10 @@ Future<List<String>> _attendeeEmailsForRemote(
 }
 
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('full resync uses unbounded eventsList and v2 token key', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'c1');
     final fake = _FakeGoogle()..eventsByCal['remote-c1'] = [];
     final engine = SyncEngine(db, clientFactory: () => fake);
@@ -186,8 +188,6 @@ void main() {
   test(
     'timed exception mapping, cancelled suppression, malformed item',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       await _cal(db, 'c1');
       final movedStart = DateTime.utc(2026, 3, 4, 11);
       final fake = _FakeGoogle()
@@ -281,8 +281,6 @@ void main() {
   );
 
   test('all-day exception mapping suppresses original', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'c1');
     final fake = _FakeGoogle()
       ..eventsByCal['remote-c1'] = [
@@ -329,8 +327,6 @@ void main() {
   });
 
   test('remote exception omitting location/Meet keeps master values', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'c1');
     final master = {
       'id': 'm1',
@@ -387,8 +383,6 @@ void main() {
   });
 
   test('cancelled remote exception keeps local inherited fields', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'c1');
     final master = {
       'id': 'm1',
@@ -450,8 +444,6 @@ void main() {
   });
 
   test('dirty local exception row is preserved', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'c1');
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -498,8 +490,6 @@ void main() {
   });
 
   test('per-calendar isolation', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'c1');
     await _cal(db, 'c2', remoteId: 'remote-c2');
     final fake = _FakeGoogle()
@@ -523,8 +513,6 @@ void main() {
   });
 
   test('v2 token sent on next pull', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'c1');
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await db
@@ -543,8 +531,6 @@ void main() {
   });
 
   test('full resync clears attendees before deleting parent events', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'c1');
     // Two synced events with attendee rows and no v2 token: the full resync
     // hard-deletes both parents, which violates the attendee FK without a
@@ -618,8 +604,6 @@ void main() {
   test(
     'full resync keeps dirty rows and clears attendees for deleted events',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       await _cal(db, 'c1');
       await _seedEvent(
         db,
@@ -680,8 +664,6 @@ void main() {
   );
 
   test('full resync deletes attendee rows across multiple chunks', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'c1');
     const bulkEvents = 520; // More than one 500-id delete chunk.
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;

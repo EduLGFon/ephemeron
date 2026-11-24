@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/design/theme.dart';
 import 'package:ephemeron/core/ui/app_feedback.dart';
@@ -25,6 +24,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 class _RebuildHost extends StatefulWidget {
   const _RebuildHost({required this.child});
@@ -139,6 +142,10 @@ Widget _ringApp(ProviderContainer container) {
 }
 
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
+
   group('alarmSourceRoute', () {
     test('maps each source type to its section', () {
       expect(alarmSourceRoute('event'), '/tab0');
@@ -247,8 +254,6 @@ void main() {
       );
     });
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final settings = SettingsRepository(await SharedPreferences.getInstance());
     final container = ProviderContainer(
       overrides: [
@@ -265,13 +270,13 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(exactCalls, 1);
     expect(fullScreenCalls, 1);
 
     await tester.tap(find.byKey(const ValueKey('host-rebuild')));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(exactCalls, 1);
     expect(fullScreenCalls, 1);
@@ -325,8 +330,6 @@ void main() {
       );
     });
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final settings = SettingsRepository(await SharedPreferences.getInstance());
     final container = ProviderContainer(
       overrides: [
@@ -343,20 +346,20 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(exactCalls, 1);
     expect(find.text('Not granted'), findsNWidgets(2));
 
     await tester.tap(find.widgetWithText(FilledButton, 'Open settings').first);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(
       find.descendant(
         of: find.byType(AlertDialog),
         matching: find.text('Open settings'),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(exactCalls, greaterThan(1));
     expect(find.text('Granted'), findsOneWidget);
@@ -365,7 +368,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(fullScreenCalls, greaterThan(1));
     expect(find.text('Granted'), findsNWidgets(2));
@@ -433,13 +436,13 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Notifications are off'), findsOneWidget);
     expect(find.text('Allow notifications'), findsOneWidget);
 
     await tester.tap(find.text('App settings'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(openAppSettingsCalls, 1);
     debugDefaultTargetPlatformOverride = null;
@@ -465,8 +468,6 @@ void main() {
     AppFeedback.hapticsEnabled = true;
     addTearDown(() => AppFeedback.hapticsEnabled = previousHaptics);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final row = AlarmsIndexData(
       id: 'alarm-1',
       sourceType: 'task',
@@ -499,7 +500,7 @@ void main() {
     expect(haptics, isEmpty);
 
     repo.doneGate.complete();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(haptics, isNotEmpty);
     expect(haptics.single, contains('mediumImpact'));
@@ -525,8 +526,6 @@ void main() {
     AppFeedback.hapticsEnabled = true;
     addTearDown(() => AppFeedback.hapticsEnabled = previousHaptics);
 
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final habitId = await HabitRepository(db)
         .createHabit(name: 'Stretch', startDate: '2026-01-01', goalAmount: 10);
     final row = AlarmsIndexData(
@@ -561,7 +560,7 @@ void main() {
     expect(haptics, isEmpty);
 
     repo.plusGate.complete();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(haptics, isNotEmpty);
     expect(haptics.single, contains('mediumImpact'));
@@ -571,8 +570,6 @@ void main() {
     tester,
   ) async {
     _mockPlatformChannels();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final row = AlarmsIndexData(
       id: 'alarm-leave',
       sourceType: 'task',
@@ -609,7 +606,7 @@ void main() {
 
     // Snack bars paint once the app can draw again.
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Alarm snoozed for 10 min'), findsOneWidget);
     expect(find.text('calendar'), findsOneWidget);
@@ -619,8 +616,6 @@ void main() {
     tester,
   ) async {
     _mockPlatformChannels();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final row = AlarmsIndexData(
       id: 'alarm-timeout',
       sourceType: 'task',

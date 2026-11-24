@@ -2,6 +2,8 @@ import 'package:ephemeron/features/stream/presentation/countdowns/countdown_land
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/test_fixtures.dart';
+
 void main() {
   testWidgets('label from formatter is shown', (tester) async {
     await tester.pumpWidget(
@@ -85,7 +87,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(tester.takeException(), isNull);
   });
 

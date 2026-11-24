@@ -17,11 +17,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
+
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
+
   testWidgets('quick add opens as a centered dialog on desktop widths', (
     tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpHost(tester, db);
     await _open(tester);
 
@@ -29,11 +36,10 @@ void main() {
     expect(find.text('Quick add'), findsOneWidget);
     expect(find.text('Task'), findsOneWidget);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('task chips set date, list and priority', (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     await repo.createList('Home');
     await repo.createList('Inbox');
@@ -48,17 +54,17 @@ void main() {
     await tester.ensureVisible(
       find.byKey(ValueKey('quick-add-list-${home.id}')),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(ValueKey('quick-add-list-${home.id}')));
     await tester.ensureVisible(
       find.byKey(const ValueKey('quick-add-priority-1')),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('quick-add-priority-1')));
     await tester.ensureVisible(
       find.byKey(const ValueKey('quick-add-date-today')),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('quick-add-date-today')));
     await tester.pump();
 
@@ -78,9 +84,9 @@ void main() {
       find.byType(SingleChildScrollView).first,
       const Offset(0, -200),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addTaskButton);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final rows = await db.select(db.tasks).get();
     expect(rows, hasLength(1));
@@ -95,11 +101,10 @@ void main() {
     expect(rows.single.dueTime, 9 * 60);
     expect(await db.select(db.taskTags).get(), hasLength(1));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('parsed list name creates or reuses the list', (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     final inbox = await repo.createList('Inbox');
     await _pumpHost(tester, db);
@@ -113,20 +118,19 @@ void main() {
       find.byType(SingleChildScrollView).first,
       const Offset(0, -200),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addTaskButton);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final task = (await db.select(db.tasks).get()).single;
     expect(task.listId, inbox);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('event chip creates a one-hour event in the default calendar', (
     tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = EventRepository(db, OccurrenceRepository(db));
     final calendarId = await repo.createCalendar('Calendar');
     await _pumpHost(tester, db);
@@ -138,15 +142,15 @@ void main() {
     await tester.ensureVisible(
       find.byKey(const ValueKey('quick-add-kind-event')),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('quick-add-kind-event')));
     await tester.enterText(find.byType(TextField), 'Standup tomorrow 9h');
     await tester.pump();
     final addEventBtn = find.widgetWithText(FilledButton, 'Add event');
     await tester.ensureVisible(addEventBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addEventBtn);
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -163,20 +167,19 @@ void main() {
     );
     expect(container.read(occurrenceDirtyProvider), isTrue);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('habit chip creates a daily habit starting today', (
     tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpHost(tester, db);
     await _open(tester);
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('quick-add-kind-habit')),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('quick-add-kind-habit')));
     await tester.pump();
     expect(find.byKey(const ValueKey('quick-add-date-today')), findsNothing);
@@ -189,37 +192,36 @@ void main() {
       find.byType(SingleChildScrollView).first,
       const Offset(0, -200),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addHabitButton);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final habit = (await db.select(db.habits).get()).single;
     expect(habit.name, 'Meditate');
     expect(habit.frequency, 'daily');
     expect(habit.startDate, habitDateKey(DateTime.now()));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('countdown chip defaults to thirty days out', (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpHost(tester, db);
     await _open(tester);
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('quick-add-kind-countdown')),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('quick-add-kind-countdown')));
     await tester.enterText(find.byType(TextField), 'Trip');
     await tester.pump();
     final addCountdownBtn = find.widgetWithText(FilledButton, 'Add countdown');
     await tester.ensureVisible(addCountdownBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addCountdownBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final countdown = (await db.select(db.countdowns).get()).single;
     expect(countdown.title, 'Trip');
@@ -235,13 +237,12 @@ void main() {
         .inDays;
     expect(days, inInclusiveRange(29, 31));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('add another keeps the sheet open and clears the field', (
     tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpHost(tester, db);
     await _open(tester);
 
@@ -249,11 +250,11 @@ void main() {
     await tester.pump();
     final addAnotherBtn = find.widgetWithText(OutlinedButton, 'Add another');
     await tester.ensureVisible(addAnotherBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addAnotherBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Quick add'), findsOneWidget);
     expect(_field(tester).controller!.text, isEmpty);
@@ -266,36 +267,34 @@ void main() {
       'Add task',
     );
     await tester.ensureVisible(addTaskAfterAnotherBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addTaskAfterAnotherBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Quick add'), findsNothing);
     expect(await db.select(db.tasks).get(), hasLength(2));
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('Enter submits the task and closes', (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpHost(tester, db);
     await _open(tester);
 
     await tester.enterText(find.byType(TextField), 'Enter task');
     await tester.pump();
     await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Quick add'), findsNothing);
     expect((await db.select(db.tasks).get()).single.title, 'Enter task');
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('restored draft prefills text and kind', (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpHost(
       tester,
       db,
@@ -311,31 +310,29 @@ void main() {
     expect(_field(tester).controller!.text, 'Meditate every day');
     expect(find.widgetWithText(FilledButton, 'Add habit'), findsOneWidget);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('draft autosaves on close and restores on reopen', (
     tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpHost(tester, db);
     await _open(tester);
 
     await tester.enterText(find.byType(TextField), 'Draft me');
     await tester.pump(const Duration(milliseconds: 600));
     await tester.tap(find.byIcon(Icons.close_rounded));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await _open(tester);
     expect(_field(tester).controller!.text, 'Draft me');
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('preview keeps its size and actions do not move while typing', (
     tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpHost(tester, db);
     await _open(tester);
 
@@ -355,11 +352,10 @@ void main() {
     expect(find.text('Buy milk'), findsOneWidget);
     expect(find.text('Daily'), findsOneWidget);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('quick add fits 320dp at 200% text scale', (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     final repo = TaskRepository(db);
     await repo.createList('List 0');
     await _pumpHost(tester, db, width: 320, height: 640, textScale: 2);
@@ -381,19 +377,19 @@ void main() {
     expect(find.text('Daily'), findsWidgets);
     expect(find.widgetWithText(FilledButton, 'Add task'), findsOneWidget);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 
   testWidgets('failed creates keep the sheet open with an error', (
     tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    await _pumpHost(tester, db);
+    final failDb = AppDatabase.forTesting(NativeDatabase.memory());
+    await _pumpHost(tester, failDb);
     await _open(tester);
 
     await tester.enterText(find.byType(TextField), 'Will fail');
     await tester.pump();
-    await db.close();
+    await failDb.close();
 
     final addTaskButton = find.widgetWithText(FilledButton, 'Add task');
     await tester.dragUntilVisible(
@@ -401,7 +397,7 @@ void main() {
       find.byType(SingleChildScrollView).first,
       const Offset(0, -200),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addTaskButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -409,28 +405,27 @@ void main() {
     expect(find.text('Could not add. Try again.'), findsOneWidget);
     expect(find.text('Quick add'), findsOneWidget);
 
-    await _dispose(tester, db, closeDatabase: false);
+    await _dispose(tester);
   });
 
   testWidgets('missing writable calendar falls back to the event editor', (
     tester,
   ) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
     await _pumpHost(tester, db);
     await _open(tester);
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('quick-add-kind-event')),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('quick-add-kind-event')));
     await tester.enterText(find.byType(TextField), 'No calendar event');
     await tester.pump();
     final addEventFallbackBtn = find.widgetWithText(FilledButton, 'Add event');
     await tester.ensureVisible(addEventFallbackBtn);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(addEventFallbackBtn);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -439,7 +434,7 @@ void main() {
     expect(find.text('No calendar event'), findsOneWidget);
     expect(await db.select(db.events).get(), isEmpty);
 
-    await _dispose(tester, db);
+    await _dispose(tester);
   });
 }
 
@@ -516,14 +511,7 @@ TextField _field(WidgetTester tester) =>
 ProviderContainer _container(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(Scaffold)));
 
-Future<void> _dispose(
-  WidgetTester tester,
-  AppDatabase db, {
-  bool closeDatabase = true,
-}) async {
+Future<void> _dispose(WidgetTester tester) async {
   await tester.pumpWidget(Container());
-  await tester.pump();
-  await tester.pump(const Duration(seconds: 1));
-  if (closeDatabase) await db.close();
-  await tester.pump();
+  await settle(tester);
 }

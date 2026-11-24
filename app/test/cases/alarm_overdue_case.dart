@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/task_repository.dart';
@@ -8,7 +7,9 @@ import 'package:ephemeron/features/alarms/data/alarm_scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 String _tomorrowKey() {
   final t = DateTime.now().toUtc().add(const Duration(days: 1));
@@ -44,6 +45,9 @@ Future<void> _insertRow(
 }
 
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('ephemeron/alarms');
   final calls = <MethodCall>[];
@@ -75,8 +79,6 @@ void main() {
   }
 
   test('scheduled past becomes missed and cancels its native code', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _insertRow(
       db,
@@ -93,8 +95,6 @@ void main() {
   });
 
   test('snoozed past becomes missed and cancels its native code', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _insertRow(
       db,
@@ -112,8 +112,6 @@ void main() {
   });
 
   test('future rows and a fresh fired row are untouched', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _insertRow(
       db,
@@ -145,8 +143,6 @@ void main() {
   });
 
   test('stale fired row becomes missed and is cancelled', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _insertRow(
       db,
@@ -162,8 +158,6 @@ void main() {
   });
 
   test('only the newest fresh fired row survives', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _insertRow(
       db,
@@ -188,8 +182,6 @@ void main() {
   });
 
   test('the verified active ring wins over a newer fired row', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _insertRow(
       db,
@@ -215,8 +207,6 @@ void main() {
   test(
     'an explicit active ring survives past the fired grace window',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await _insertRow(
         db,
@@ -243,8 +233,6 @@ void main() {
   );
 
   test('scheduler active ring code protects a fired row by default', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _insertRow(
       db,
@@ -267,8 +255,6 @@ void main() {
   test(
     'rebuildWindow preserves an old active fired row and its code',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await _insertRow(
         db,
@@ -303,8 +289,6 @@ void main() {
   test(
     'rebuildWindow keeps recently missed rows for the missed list',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await _insertRow(
         db,
@@ -341,8 +325,6 @@ void main() {
   });
 
   test('rebuildWindow never schedules past candidates', () async {
-    final db = _db();
-    addTearDown(db.close);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _insertRow(
       db,

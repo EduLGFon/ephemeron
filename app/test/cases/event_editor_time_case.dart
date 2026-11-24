@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +12,9 @@ import 'package:ephemeron/features/calendar/presentation/event_editor_sheet.dart
 import 'package:ephemeron/features/settings/application/settings_providers.dart';
 import 'package:ephemeron/features/settings/data/settings_repository.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
+
+late AppDatabase db;
 
 const _staleTitle = 'Stale draft title';
 final _staleStart = DateTime(2025, 1, 6, 7);
@@ -75,25 +76,25 @@ Future<void> _pumpHost(
     ),
   );
   await tester.tap(find.text('Open event'));
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 Future<void> _disposeTree(WidgetTester tester) async {
   await tester.pumpWidget(Container());
-  await tester.pump();
-  await tester.pump(const Duration(seconds: 1));
+  await settle(tester);
 }
 
 void main() {
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
+  tearDownAll(() => db.close());
 
   testWidgets('explicit grid slot timing wins over a stale new-event draft', (
     WidgetTester tester,
   ) async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedStaleDraft(db);
     await _pumpHost(
       tester,
@@ -122,8 +123,6 @@ void main() {
   testWidgets('explicit all-day create wins over a stale timed draft', (
     WidgetTester tester,
   ) async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedStaleDraft(db);
     final day = DateTime(2026, 5, 14);
     await _pumpHost(
@@ -151,8 +150,6 @@ void main() {
   testWidgets('no explicit time still restores the new-event draft', (
     WidgetTester tester,
   ) async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedStaleDraft(db);
     await _pumpHost(tester, db, await SharedPreferences.getInstance());
 
