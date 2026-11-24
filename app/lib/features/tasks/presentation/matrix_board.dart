@@ -10,6 +10,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/components/app_surface.dart';
+import '../../../core/design/components/app_wheel.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../data/drift/app_database.dart';
@@ -34,11 +35,15 @@ class MatrixBoardField {
     required this.id,
     required this.title,
     required this.tasks,
+    this.priority,
   });
 
   final String id;
   final String title;
   final List<Task> tasks;
+
+  /// Stored priority (1-4) for priority-mode bucket headers.
+  final int? priority;
 }
 
 /// Priority value stored for a field id: p1 maps to 4 and p4 to 1.
@@ -176,28 +181,43 @@ class _MatrixSurface extends StatelessWidget {
 }
 
 class _FieldHeader extends StatelessWidget {
-  const _FieldHeader({required this.title, required this.count, this.countKey});
+  const _FieldHeader({
+    required this.title,
+    required this.count,
+    this.countKey,
+    this.priority,
+  });
 
   final String title;
   final int count;
   final Key? countKey;
+  final int? priority;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final p = priority;
     return Row(
       children: [
         Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: scheme.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: p != null && p > 0
+              ? Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Semantics(
+                    label: title,
+                    child: AppPriorityFlag(flag: priorityFlag(p), label: title),
+                  ),
+                )
+              : Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
         ),
         const SizedBox(width: DsSpace.x8),
         Text(

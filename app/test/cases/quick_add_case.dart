@@ -71,7 +71,7 @@ void main() {
     expect(selected, 1);
   });
 
-  testWidgets('AppPriorityFlag renders coloured flag label and hides none', (
+  testWidgets('AppPriorityFlag renders flag icon only and hides none', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -87,8 +87,14 @@ void main() {
       ),
     );
 
-    expect(find.text('P1'), findsOneWidget);
     expect(find.byIcon(Icons.flag), findsOneWidget);
+    expect(find.text('P1'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Text && RegExp(r'^P[1-4]$').hasMatch(w.data ?? ''),
+      ),
+      findsNothing,
+    );
     // PriorityFlag.none renders nothing.
     expect(find.text('None'), findsNothing);
   });

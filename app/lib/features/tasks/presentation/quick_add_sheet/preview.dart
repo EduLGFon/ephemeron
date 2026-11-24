@@ -28,6 +28,7 @@ class _QuickAddPreview extends StatelessWidget {
       String label, {
       bool muted = false,
       Color? iconColor,
+      String? semanticLabel,
     }) {
       chips.add(
         Padding(
@@ -37,6 +38,7 @@ class _QuickAddPreview extends StatelessWidget {
             label: label,
             muted: muted,
             iconColor: iconColor,
+            semanticLabel: semanticLabel,
           ),
         ),
       );
@@ -62,8 +64,9 @@ class _QuickAddPreview extends StatelessWidget {
           final style = styleForStoredPriority(p.priority);
           add(
             style.icon,
-            strings.priorityLabel(5 - p.priority),
+            '',
             iconColor: style.foreground(Theme.of(context).brightness),
+            semanticLabel: 'Priority ${style.label}',
           );
         }
         if (p != null && p.tags.isNotEmpty) {
@@ -139,19 +142,22 @@ class _PreviewChip extends StatelessWidget {
     required this.label,
     this.muted = false,
     this.iconColor,
+    this.semanticLabel,
   });
 
   final IconData icon;
   final String label;
   final bool muted;
   final Color? iconColor;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final color = muted ? scheme.onSurfaceVariant : scheme.onSurface;
-    return Container(
+    final showLabel = label.isNotEmpty;
+    final chip = Container(
       constraints: const BoxConstraints(minHeight: 32),
       padding: const EdgeInsets.symmetric(
         horizontal: DsSpace.x8,
@@ -170,18 +176,26 @@ class _PreviewChip extends StatelessWidget {
             size: DsIcon.sm,
             color: iconColor ?? scheme.onSurfaceVariant,
           ),
-          const SizedBox(width: DsSpace.x4),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(color: color),
+          if (showLabel) ...<Widget>[
+            const SizedBox(width: DsSpace.x4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 220),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(color: color),
+              ),
             ),
-          ),
+          ],
         ],
       ),
+    );
+    final semantics = semanticLabel ?? (showLabel ? label : null);
+    if (semantics == null) return chip;
+    return Semantics(
+      label: semantics,
+      child: ExcludeSemantics(child: chip),
     );
   }
 }

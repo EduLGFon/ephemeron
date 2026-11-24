@@ -22,6 +22,7 @@ class WheelItem<T> {
     this.color,
     this.key,
     this.tooltip,
+    this.showLabel = true,
   });
 
   final T value;
@@ -32,6 +33,9 @@ class WheelItem<T> {
   /// Optional stable key for tests. Defaults to [ValueKey] of [value].
   final Key? key;
   final String? tooltip;
+
+  /// When false, renders icon/color only; [label] remains the semantics name.
+  final bool showLabel;
 }
 
 /// A compact, scrollable vertical selector of discrete options.
@@ -145,19 +149,22 @@ class _WheelSelectorState<T> extends State<WheelSelector<T>> {
         ],
         if (item.icon != null) ...<Widget>[
           Icon(item.icon, size: DsIcon.sm, color: iconColor),
-          const SizedBox(width: DsSpace.x8),
+          if (item.showLabel) const SizedBox(width: DsSpace.x8),
         ],
-        Expanded(
-          child: Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: DsType.numeric(
-              (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
-                  .copyWith(color: foreground),
+        if (item.showLabel)
+          Expanded(
+            child: Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: DsType.numeric(
+                (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
+                    .copyWith(color: foreground),
+              ),
             ),
-          ),
-        ),
+          )
+        else
+          const Spacer(),
         if (selected) Icon(Icons.check, size: DsIcon.sm, color: foreground),
       ],
     );
@@ -280,7 +287,7 @@ class AppPriorityFlag extends StatelessWidget {
     required this.flag,
     this.label,
     this.dense = false,
-    this.showLabel = true,
+    this.showLabel = false,
   });
 
   final PriorityFlag flag;

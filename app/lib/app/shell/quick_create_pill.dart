@@ -730,6 +730,7 @@ class _QuickCreatePillState extends ConsumerState<QuickCreatePill> {
                   color: visual == 0
                       ? null
                       : styleForVisualPriority(visual).color,
+                  showLabel: false,
                   key: ValueKey<String>('quick-create-prio-$visual'),
                 ),
             ],
