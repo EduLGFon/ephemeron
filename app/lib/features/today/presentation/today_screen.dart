@@ -286,7 +286,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         TodayHabits(
           entries: habitEntries,
           expanded: expanded,
-          onToggle: _toggleHabit,
+          onAdvance: _advanceHabit,
+          onDone: _toggleHabitDone,
         ),
         if (habitEntries.isNotEmpty && countdowns.isNotEmpty)
           const SizedBox(height: DsSpace.x16),
@@ -384,13 +385,30 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     }
   }
 
-  Future<void> _toggleHabit(HabitCalendarEntry entry) async {
+  /// Chip body tap: one step toward the goal, or a done flip for a goal-less
+  /// habit. The repository also clears skip once a step reaches the goal.
+  Future<void> _advanceHabit(HabitCalendarEntry entry) async {
+    final strings = TodayStrings.of(context);
+    try {
+      AppFeedback.tap();
+      await ref
+          .read(habitRepositoryProvider)
+          .advanceHabit(entry.habitId, habitTodayKey(), entry.increment ?? 1.0);
+      ref.invalidate(habitStreakProvider(entry.habitId));
+    } catch (_) {
+      if (mounted) showErrorSnackBar(context, strings.couldNotUpdateHabit);
+    }
+  }
+
+  /// Leading circle tap: mark the day fully done, mirroring the habits screen.
+  Future<void> _toggleHabitDone(HabitCalendarEntry entry) async {
     final strings = TodayStrings.of(context);
     try {
       AppFeedback.success();
       await ref
           .read(habitRepositoryProvider)
           .toggleHabitDone(entry.habitId, habitTodayKey());
+      ref.invalidate(habitStreakProvider(entry.habitId));
     } catch (_) {
       if (mounted) showErrorSnackBar(context, strings.couldNotUpdateHabit);
     }
