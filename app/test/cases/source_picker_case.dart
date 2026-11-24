@@ -4,6 +4,8 @@ import 'package:ephemeron/core/ui/source_picker_sheet.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/test_fixtures.dart';
+
 void main() {
   testWidgets('picks an account then a source', (tester) async {
     String? picked;
@@ -39,7 +41,7 @@ void main() {
       ),
     );
     await tester.tap(find.text('Pick'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     // selectedId present: opens directly on that account's sources.
     expect(find.text('Work'), findsOneWidget);
@@ -47,7 +49,7 @@ void main() {
     expect(find.text('other@example.com'), findsNothing);
 
     await tester.tap(find.text('Work'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(picked, 'c1');
   });
 
@@ -76,7 +78,7 @@ void main() {
       ),
     );
     await tester.tap(find.text('Pick'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('me@example.com'), findsOneWidget);
   });
 
@@ -110,11 +112,11 @@ void main() {
       ),
     );
     await tester.tap(find.text('Pick'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Work'), findsOneWidget);
     expect(find.byTooltip('Back to accounts'), findsOneWidget);
     await tester.tap(find.byTooltip('Back to accounts'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('me@example.com'), findsOneWidget);
     expect(find.text('other@example.com'), findsOneWidget);
   });
@@ -144,13 +146,13 @@ void main() {
       ),
     );
     await tester.tap(find.text('Pick'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('No list'), findsOneWidget);
     await tester.tap(find.text('me@example.com'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Work list'), findsOneWidget);
     await tester.tap(find.byTooltip('Back to accounts'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('me@example.com'), findsOneWidget);
   });
 }

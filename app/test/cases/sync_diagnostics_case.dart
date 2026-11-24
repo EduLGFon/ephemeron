@@ -1,6 +1,5 @@
 // Sync diagnostics: non-personal labels, provider filtering, retry/discard.
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/features/sync/application/sync_providers.dart';
@@ -11,7 +10,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<void> _seedOutbox(
   AppDatabase db, {
@@ -117,6 +116,10 @@ Iterable<String?> _stateFields(SyncStateIssue issue) => [
 ];
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('error labels use a closed allowlist', () {
     expect(syncErrorLabel('auth 401: reconnect Google'), 'Needs permission');
     expect(syncErrorLabel('Google auth'), 'Needs permission');
@@ -135,8 +138,6 @@ void main() {
   });
 
   test('outbox diagnostics expose labels but never payloads', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedOutbox(
       db,
       id: 'op-failed',
@@ -174,8 +175,6 @@ void main() {
   test(
     'syncState diagnostics provider excludes tokens, readers and clean rows',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       await _seedSyncState(db, key: 'cal:c1:meta', lastError: 'Google 403');
       await _seedSyncState(db, key: 'tasks:l1:meta', lastError: 'rate limited');
       await _seedSyncState(db, key: 'tasks:meta', lastError: 'sync failed');
@@ -235,8 +234,6 @@ void main() {
   test(
     'discardFailed distinguishes retries, missing rows and success',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       await _seedOutbox(db, id: 'op1', attempts: 1, lastError: 'rate limited');
       await _seedOutbox(db, id: 'op2', attempts: 5, lastError: 'failed: 409');
       final engine = SyncEngine(db, clientFactory: () => null);
@@ -263,8 +260,6 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final db = _db();
-    addTearDown(db.close);
     await _seedOutbox(
       db,
       id: 'op1',
@@ -313,7 +308,7 @@ void main() {
         syncAll: () async => synced = true,
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Update event'), findsOneWidget);
     expect(find.textContaining('Change was rejected'), findsOneWidget);
@@ -328,7 +323,7 @@ void main() {
     expect(find.textContaining('a@example.com'), findsNothing);
 
     await tester.tap(find.byKey(SyncIssuesScreen.outboxRetryKey('op1')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.pump(const Duration(seconds: 5));
 
     expect(synced, isTrue);
@@ -339,7 +334,7 @@ void main() {
     expect(retried.lastError, isNull);
 
     await tester.tap(find.byKey(SyncIssuesScreen.stateRetryKey('cal:c1:meta')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.pump(const Duration(seconds: 5));
 
     final cleared = await (db.select(
@@ -349,8 +344,6 @@ void main() {
   });
 
   testWidgets('one stream error shows the load error state', (tester) async {
-    final db = _db();
-    addTearDown(db.close);
     final engine = SyncEngine(db, clientFactory: () => null);
 
     await tester.pumpWidget(
@@ -368,7 +361,7 @@ void main() {
         child: const MaterialApp(home: SyncIssuesScreen()),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Could not load sync issues.'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
@@ -377,8 +370,6 @@ void main() {
   testWidgets('discard requires confirmation and removes a failed row', (
     tester,
   ) async {
-    final db = _db();
-    addTearDown(db.close);
     await _seedOutbox(db, id: 'op2', attempts: 5, lastError: 'failed: 409');
     final engine = SyncEngine(db, clientFactory: () => null);
 
@@ -390,14 +381,14 @@ void main() {
         syncAll: () async {},
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byKey(SyncIssuesScreen.outboxDiscardKey('op2')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Discard change?'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.pump(const Duration(seconds: 5));
 
     expect(await db.select(db.outbox).get(), isEmpty);
@@ -406,8 +397,6 @@ void main() {
   testWidgets('discard of an already handled row stays neutral', (
     tester,
   ) async {
-    final db = _db();
-    addTearDown(db.close);
     final engine = SyncEngine(db, clientFactory: () => null);
 
     await tester.pumpWidget(
@@ -418,14 +407,14 @@ void main() {
         syncAll: () async {},
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(
       find.byKey(SyncIssuesScreen.outboxDiscardKey('op-missing')),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Change already handled'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));

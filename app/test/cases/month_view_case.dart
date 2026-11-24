@@ -2,7 +2,6 @@
 // updating the agenda below, vertical scroll revealing it, and the empty
 // state. Tapping a day selects it without leaving the month view.
 import 'package:drift/drift.dart' hide isNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/core/time/device_date_format.dart';
 import 'package:ephemeron/core/time/time.dart';
@@ -20,7 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<void> _seed(
   AppDatabase db,
@@ -126,16 +125,19 @@ Future<void> _revealAgenda(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 500));
 }
 
-Future<void> _tearDown(WidgetTester tester, AppDatabase db) async {
+Future<void> _tearDown(WidgetTester tester) async {
   // Unmount and flush Drift's stream-cache timers before closing: closing
   // while a watched stream is still cached deadlocks on fake async.
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
@@ -143,7 +145,6 @@ void main() {
   testWidgets('month cells show event titles for their day', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
     await _seed(db, [(id: 'e1', title: 'Standup', day: day, hour: 10)]);
@@ -151,13 +152,12 @@ void main() {
 
     // Once in the grid cell, once in the selected-day agenda below.
     expect(find.text('Standup'), findsWidgets);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('crowded days collapse into an overflow count', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
     await _seed(db, [
@@ -167,13 +167,12 @@ void main() {
     await _pumpMonth(tester, db, today);
 
     expect(find.textContaining(RegExp(r'\+\d+ more')), findsOneWidget);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('tapping a day selects it and updates the agenda', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
     final other = day.add(const Duration(days: 2));
@@ -190,13 +189,12 @@ void main() {
 
     expect(find.byKey(const ValueKey('month-agenda-e2')), findsOneWidget);
     expect(find.byKey(const ValueKey('month-agenda-e1')), findsNothing);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('scrolling reveals the selected-day agenda below the grid', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
     await _seed(db, [(id: 'e1', title: 'Standup', day: day, hour: 10)]);
@@ -206,13 +204,12 @@ void main() {
 
     expect(find.byKey(const Key('month-agenda-title')), findsOneWidget);
     expect(find.byKey(const ValueKey('month-agenda-e1')), findsOneWidget);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('selected-day agenda labels event and task sources', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
     await _seed(
@@ -227,13 +224,12 @@ void main() {
 
     expect(find.text('Work - g@example.com'), findsOneWidget);
     expect(find.text('Errands - gt@example.com'), findsOneWidget);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('agenda rows without a source render no blank label', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -254,13 +250,12 @@ void main() {
     expect(find.text('No source task'), findsWidgets);
     expect(find.byIcon(Icons.swap_horiz), findsNothing);
     expect(tester.takeException(), isNull);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('days without events show the empty agenda state', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     await _seed(db, []);
     await _pumpMonth(tester, db, DateTime.now());
 
@@ -269,7 +264,7 @@ void main() {
     expect(find.byKey(const Key('month-agenda-empty')), findsOneWidget);
     expect(find.text('Nothing on this day'), findsOneWidget);
     expect(find.text('Add event'), findsOneWidget);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('habit markers fit a 320dp month grid', (
@@ -279,7 +274,6 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final db = _db();
     final repo = HabitRepository(db);
     final today = DateTime.now();
     await repo.createHabit(
@@ -300,7 +294,7 @@ void main() {
 
     expect(find.text('A long habit name'), findsWidgets);
     expect(tester.takeException(), null);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('long-pressing a day cell creates an event at 320dp', (
@@ -310,7 +304,6 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final db = _db();
     final today = DateTime.now();
     final target = DateTime(
       today.year,
@@ -332,13 +325,12 @@ void main() {
     final ctx = tester.element(find.text('All day'));
     expect(find.text(DeviceDateFormat.date(ctx, target)), findsNWidgets(2));
     expect(tester.takeException(), isNull);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('habit marker opens the action sheet and logs done', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final repo = HabitRepository(db);
     final id = await repo.createHabit(
       name: 'Read',
@@ -361,13 +353,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect((await repo.logFor(id, today))?.done, isTrue);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('tapping an agenda event opens its details', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
     await _seed(db, [(id: 'e1', title: 'Standup', day: day, hour: 10)]);
@@ -378,13 +369,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Edit'), findsOneWidget);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   testWidgets('agenda renders events and habits on first open', (
     WidgetTester tester,
   ) async {
-    final db = _db();
     final repo = HabitRepository(db);
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
@@ -428,7 +418,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(tester.takeException(), null);
     expect(find.text('Standup'), findsOneWidget);
-    await _tearDown(tester, db);
+    await _tearDown(tester);
   });
 
   test('switching to the month view resets the anchor to today', () {

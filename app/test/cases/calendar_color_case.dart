@@ -2,14 +2,13 @@
 // (hex or palette id) is inherited, distinct calendars and task lists
 // get distinct stable fallbacks instead of one shared primary.
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
 import 'package:ephemeron/features/calendar/presentation/google_calendar_colors.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<void> _cal(AppDatabase db, String id, {String? color}) async {
   final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -88,6 +87,10 @@ Future<void> _task(
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('hex and palette ids resolve to distinct colors', () {
     expect(googleCalendarColor('1'), googleCalendarColors['1']);
     expect(tryParseCssHex('#039be5'), const Color(0xFF039BE5));
@@ -106,8 +109,6 @@ void main() {
   });
 
   test('event inherits calendar hex; per-event override wins', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'work', color: '#039be5');
     await _cal(db, 'home');
     final s = DateTime.utc(2026, 3, 3, 9).millisecondsSinceEpoch;
@@ -129,8 +130,6 @@ void main() {
   });
 
   test('tasks in different lists get different colors', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _cal(db, 'cal1');
     await _taskList(db, 'list-a');
     await _taskList(db, 'list-b');

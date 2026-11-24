@@ -1,6 +1,5 @@
 // Calendar navigation: month double-tap opens the 7-day timeline centered on
 // the tapped day; 7-day header day numbers open the single-day view.
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/occurrence_repository.dart';
@@ -14,7 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 class _FixedWindow extends CalendarState {
   _FixedWindow(this.window);
@@ -45,14 +44,17 @@ Future<void> _pumpMonth(
   await tester.pump(const Duration(milliseconds: 100));
 }
 
-Future<void> _tearDown(WidgetTester tester, AppDatabase db) async {
+Future<void> _tearDown(WidgetTester tester) async {
   await tester.pumpWidget(Container());
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
-  await db.close();
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
@@ -60,7 +62,6 @@ void main() {
   testWidgets(
     'double-tapping a month day opens the 7-day timeline centered on it',
     (WidgetTester tester) async {
-      final db = _db();
       final today = DateTime.now();
       final day = DateTime(today.year, today.month, today.day);
       final target = day.add(const Duration(days: 2));
@@ -83,7 +84,7 @@ void main() {
       expect(window.dayCount, 7);
       expect(window.anchor, target.subtract(const Duration(days: 3)));
 
-      await _tearDown(tester, db);
+      await _tearDown(tester);
     },
   );
 

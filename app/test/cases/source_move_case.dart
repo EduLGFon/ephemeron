@@ -2,7 +2,6 @@
 // cross-account or local moves copy locally and queue deletes for the old
 // remote row. Recurring cross-account moves are rejected.
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/time/time.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
@@ -11,7 +10,7 @@ import 'package:ephemeron/data/repositories/task_repository.dart';
 import 'package:ephemeron/domain/sources/source_move.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 Future<void> _calendar(
   AppDatabase db, {
@@ -116,9 +115,11 @@ Future<void> _task(
 Future<List<OutboxData>> _outbox(AppDatabase db) => db.select(db.outbox).get();
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   test('same-account event move keeps remote id and queues move', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _calendar(
       db,
       id: 'c1',
@@ -159,8 +160,6 @@ void main() {
   test(
     'chained same-account event moves keep the first remote source',
     () async {
-      final db = _db();
-      addTearDown(db.close);
       await _calendar(
         db,
         id: 'c1',
@@ -202,8 +201,6 @@ void main() {
   );
 
   test('cross-account event move clears remote id and queues delete', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _calendar(
       db,
       id: 'c1',
@@ -244,8 +241,6 @@ void main() {
   });
 
   test('local event target clears dirty and deletes remote only', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _calendar(
       db,
       id: 'c1',
@@ -277,8 +272,6 @@ void main() {
   });
 
   test('recurring cross-account event move is rejected', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _calendar(
       db,
       id: 'c1',
@@ -310,8 +303,6 @@ void main() {
   });
 
   test('moving an exception moves its master and preserves the link', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _calendar(db, id: 'c1', name: 'One', source: 'device');
     await _calendar(db, id: 'c2', name: 'Two', source: 'device');
     await _event(
@@ -344,8 +335,6 @@ void main() {
   });
 
   test('same-account task move keeps remote id and queues move', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _list(db, id: 'l1', name: 'Work', remoteId: 'list1', account: 'a@x');
     await _list(db, id: 'l2', name: 'Home', remoteId: 'list2', account: 'a@x');
     await _task(db, id: 't1', listId: 'l1', account: 'a@x', remoteId: 'task1');
@@ -365,8 +354,6 @@ void main() {
   });
 
   test('cross-account task move clears remote id and queues delete', () async {
-    final db = _db();
-    addTearDown(db.close);
     await _list(db, id: 'l1', name: 'Work', remoteId: 'list1', account: 'a@x');
     await _list(db, id: 'l2', name: 'Home', remoteId: 'list2', account: 'b@x');
     await _task(db, id: 't1', listId: 'l1', account: 'a@x', remoteId: 'task1');

@@ -5,6 +5,8 @@ import 'package:ephemeron/features/stream/presentation/peek/peek_editor.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_editor_state.dart';
 import 'package:ephemeron/features/stream/presentation/peek/peek_list_selector.dart';
 
+import '../support/test_fixtures.dart';
+
 Widget _app(Widget home) => MaterialApp(home: Scaffold(body: home));
 
 class _BuildCounter extends StatelessWidget {
@@ -190,7 +192,7 @@ void main() {
     );
 
     await tester.tap(find.byType(InkWell));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(changedId, 'unchanged');
   });
@@ -208,7 +210,7 @@ void main() {
     );
 
     await tester.tap(find.byType(DropdownButtonFormField<String?>));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     final items = tester.widgetList<DropdownMenuItem<String?>>(
       find.byType(DropdownMenuItem<String?>),

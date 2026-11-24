@@ -1,6 +1,5 @@
 // Calendar UX polish: humanized agenda headers, checked view choices, the
 // month empty state action, and safe unmounting while a cache rebuild runs.
-import 'package:drift/native.dart';
 import 'package:ephemeron/app/session/session_restore.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
@@ -16,7 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AppDatabase _db() => AppDatabase.forTesting(NativeDatabase.memory());
+import '../support/test_fixtures.dart';
 
 class _FixedWindow extends CalendarState {
   _FixedWindow(this.window);
@@ -26,6 +25,10 @@ class _FixedWindow extends CalendarState {
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
@@ -104,7 +107,6 @@ void main() {
   testWidgets('month empty state offers Add event for the selected day', (
     tester,
   ) async {
-    final db = _db();
     final anchor = DateTime.now();
     final window = CalendarWindow(anchor: anchor, view: CalendarViewKind.month);
     await tester.pumpWidget(
@@ -138,13 +140,11 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    await db.close();
   });
 
   testWidgets('calendar screen survives unmount during a cache rebuild', (
     tester,
   ) async {
-    final db = _db();
     final window = CalendarWindow(
       anchor: DateTime.now(),
       view: CalendarViewKind.month,
@@ -172,13 +172,11 @@ void main() {
     expect(tester.takeException(), isNull);
 
     await tester.pump();
-    await db.close();
   });
 
   testWidgets('late restore coalesces the fallback into one cache build', (
     tester,
   ) async {
-    final db = _db();
     final repo = _RecordingOccurrenceRepository(db);
     await tester.pumpWidget(
       ProviderScope(
@@ -214,7 +212,6 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
-    await db.close();
   });
 }
 

@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:ephemeron/core/db/db_provider.dart';
 import 'package:ephemeron/data/drift/app_database.dart';
 import 'package:ephemeron/data/repositories/event_repository.dart';
@@ -13,6 +12,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/test_fixtures.dart';
 
 List<TextSpan> _flatten(TextSpan span) {
   final out = <TextSpan>[];
@@ -30,13 +31,15 @@ List<TextSpan> _flatten(TextSpan span) {
 }
 
 void main() {
+  late AppDatabase db;
+  setUpAll(() => db = newTestDb());
+  setUp(() => resetTestDb(db));
+  tearDownAll(() => db.close());
   testWidgets('opens in Read mode and edits one inline-styled body field', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     final id = await repo.createNote(
       title: 'Read me',
@@ -54,7 +57,7 @@ void main() {
         child: MaterialApp(home: NoteEditorScreen(noteId: id)),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     // Read mode renders the body and shows the title as a heading.
     expect(find.text('Read me'), findsOneWidget);
@@ -114,8 +117,6 @@ void main() {
   testWidgets('typing then back saves and closes exactly once', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     final id = await repo.createNote(title: 'Back test');
 
@@ -147,7 +148,7 @@ void main() {
     );
 
     await tester.tap(find.text('Open note'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.byTooltip('Edit'));
     await tester.pump();
 
@@ -158,7 +159,7 @@ void main() {
     await tester.pump();
 
     await tester.pageBack();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Open note'), findsOneWidget);
     expect(find.byType(NoteEditorScreen), findsNothing);
@@ -175,8 +176,6 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     final events = EventRepository(db, OccurrenceRepository(db));
     final calendar = await events.createCalendar('C');
@@ -202,7 +201,7 @@ void main() {
         child: MaterialApp(home: NoteEditorScreen(noteId: id)),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Linked event not found'), findsOneWidget);
     expect(find.byKey(const Key('linked-event-missing')), findsOneWidget);
@@ -263,8 +262,6 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
     final repo = NoteRepository(db, attachmentDir: null);
     final id = await repo.createNote(title: 'Breaks');
 
@@ -279,7 +276,7 @@ void main() {
         child: MaterialApp(home: NoteEditorScreen(noteId: id)),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     await tester.tap(find.byTooltip('Edit'));
     await tester.pump();
