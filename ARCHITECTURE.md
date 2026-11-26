@@ -9,7 +9,7 @@ Design contract for Ephemeron. Feature specs live in `docs/`. Setup and version 
 
 ## 2. Stack
 
-- Flutter 3.50.0 stable, Dart 3.14.0, AOT release, Impeller on.
+- Flutter 3.50.1 stable, Dart 3.14.0, AOT release, Impeller on.
 - UI via standalone material_ui and cupertino_ui design packages (Flutter 3.50 deprecates package:flutter/material.dart and package:flutter/cupertino.dart).
 - Android toolchain: AGP 9.5.1, Gradle 9.9.1, Kotlin 2.4.21.
 - State: flutter_riverpod, plain providers, no codegen. Use `select`/`family`.

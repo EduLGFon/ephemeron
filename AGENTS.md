@@ -2,7 +2,7 @@ Global defaults: ~/.config/opencode/AGENTS.md
 
 ## Identity
 - Ephemeron: offline-first Flutter productivity app (calendar, tasks, habits, countdowns, focus, notes, lists); optional Google sync and optional Deno/Hono/Postgres backend.
-- Stack: Flutter 3.50.0 stable / Dart 3.14.0; Android max, Linux+Web medium, Windows low, iOS/macOS supported. No backend in the app; backend auth via HttpBackendAuthRepository.
+- Stack: Flutter 3.50.1 stable / Dart 3.14.0; Android max, Linux+Web medium, Windows low, iOS/macOS supported. No backend in the app; backend auth via HttpBackendAuthRepository.
 - Package manager: flutter pub (`flutter pub get`); pubspec.lock gitignored. Codegen: build_runner for Drift; test runner via `dart run tools/gen_test_runner.dart`.
 - Canonical docs: `ARCHITECTURE.md` (design contract), `README.md` (setup/version pins), `docs/PRINCIPLES.md`, `docs/PRIVACY.md`, `DECISIONS.md`.
 

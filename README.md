@@ -4,7 +4,7 @@ Offline-first productivity app: calendar, tasks, habits, countdowns, focus, note
 
 ## Setup
 
-Verified toolchain: Flutter 3.50.0 stable, Dart 3.14.0. Pubspec minimums: Flutter >=3.47.0, Dart >=3.13.0.
+Verified toolchain: Flutter 3.50.1 stable, Dart 3.14.0. Pubspec minimums: Flutter >=3.47.0, Dart >=3.13.0.
 
 ```
 cd app
